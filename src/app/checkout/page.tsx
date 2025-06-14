@@ -524,8 +524,18 @@ export default function CheckoutPage() {
               body: JSON.stringify({
                 paymentMethodId: paymentMethod.id,
                 amount: Math.round((subtotal + (shipping || 0)) * 100),
-                billingInfo,
-                shippingInfo: formData.shipToDifferentAddress ? shippingInfo : billingInfo,
+                customerInfo: {  // Usa direttamente le informazioni dal formData
+                  first_name: formData.firstName,
+                  last_name: formData.lastName,
+                  address_1: formData.address1,
+                  address_2: formData.address2 || '',
+                  city: formData.city,
+                  state: formData.state,
+                  postcode: formData.postcode,
+                  country: formData.country,
+                  email: formData.email,
+                  phone: formData.phone
+                },
                 line_items,
                 shipping: shipping || 0,
                 notes: formData.notes
