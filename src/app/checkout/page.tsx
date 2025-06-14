@@ -138,7 +138,17 @@ export default function CheckoutPage() {
     paymentMethod: 'bacs', // Default to direct bank transfer (other options: 'stripe', 'cod')
     notes: '',
     createAccount: false,
-    password: ''
+    password: '',
+    shipToDifferentAddress: false,
+    shippingFirstName: '',
+    shippingLastName: '',
+    shippingAddress1: '',
+    shippingAddress2: '',
+    shippingCity: '',
+    shippingState: '',
+    shippingPostcode: '',
+    shippingCountry: 'IT',
+    shippingPhone: ''
   });
   
   // Stato per il pagamento Stripe
@@ -286,7 +296,7 @@ export default function CheckoutPage() {
         });
         
         // Prepara i dati cliente
-        const customerInfo = {
+        const billingInfo = {
           first_name: formData.firstName,
           last_name: formData.lastName,
           address_1: formData.address1,
@@ -299,14 +309,27 @@ export default function CheckoutPage() {
           phone: formData.phone
         };
         
+        // Prepare shipping info (use billing info or shipping info based on checkbox)
+        const shippingInfo = formData.shipToDifferentAddress ? {
+          first_name: formData.shippingFirstName,
+          last_name: formData.shippingLastName,
+          address_1: formData.shippingAddress1,
+          address_2: formData.shippingAddress2 || '',
+          city: formData.shippingCity,
+          state: formData.shippingState,
+          postcode: formData.shippingPostcode,
+          country: formData.shippingCountry,
+          phone: formData.shippingPhone
+        } : billingInfo;
+        
         // Prepara i dati dell'ordine
         const orderData = {
           payment_method: 'paypal',
           payment_method_title: 'PayPal',
           set_paid: false,
           customer_note: formData.notes,
-          billing: customerInfo,
-          shipping: customerInfo,
+          billing: billingInfo,
+          shipping: shippingInfo,
           line_items,
           shipping_lines: [
             {
@@ -378,8 +401,8 @@ export default function CheckoutPage() {
         return lineItem;
       });
       
-      // Prepare billing and shipping info
-      const customerInfo = {
+      // Prepare billing info
+      const billingInfo = {
         first_name: formData.firstName,
         last_name: formData.lastName,
         address_1: formData.address1,
@@ -391,6 +414,19 @@ export default function CheckoutPage() {
         email: formData.email,
         phone: formData.phone
       };
+      
+      // Prepare shipping info (use billing info or shipping info based on checkbox)
+      const shippingInfo = formData.shipToDifferentAddress ? {
+        first_name: formData.shippingFirstName,
+        last_name: formData.shippingLastName,
+        address_1: formData.shippingAddress1,
+        address_2: formData.shippingAddress2 || '',
+        city: formData.shippingCity,
+        state: formData.shippingState,
+        postcode: formData.shippingPostcode,
+        country: formData.shippingCountry,
+        phone: formData.shippingPhone
+      } : billingInfo;
       
       // Se il metodo di pagamento è Stripe, gestisci il pagamento con Stripe Elements
       if (formData.paymentMethod === 'stripe') {
@@ -487,7 +523,8 @@ export default function CheckoutPage() {
               body: JSON.stringify({
                 paymentMethodId: paymentMethod.id,
                 amount: Math.round((subtotal + (shipping || 0)) * 100),
-                customerInfo,
+                billingInfo,
+                shippingInfo: formData.shipToDifferentAddress ? shippingInfo : billingInfo,
                 line_items,
                 shipping: shipping || 0,
                 notes: formData.notes
@@ -573,8 +610,8 @@ export default function CheckoutPage() {
           payment_method_title: 'Carta di Credito (Stripe)',
           set_paid: false,
           customer_note: formData.notes,
-          billing: customerInfo,
-          shipping: customerInfo,
+          billing: billingInfo,
+          shipping: shippingInfo,
           line_items,
           shipping_lines: [
             {
@@ -747,8 +784,8 @@ export default function CheckoutPage() {
                              (formData.paymentMethod as string) === 'bacs' ? 'Bonifico Bancario' : 
                              (formData.paymentMethod as string) === 'cod' ? 'Contrassegno' : 'Carta di Credito',
         set_paid: false, // Will be set to true after Stripe payment
-        billing: customerInfo,
-        shipping: customerInfo,
+        billing: billingInfo,
+        shipping: shippingInfo,
         line_items: line_items,
         customer_note: formData.notes,
         // Se l'utente è autenticato, associa l'ordine al suo account
@@ -940,8 +977,8 @@ export default function CheckoutPage() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                   <div>
                     <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">
                       Città *
@@ -1001,12 +1038,199 @@ export default function CheckoutPage() {
                     required
                   >
                     <option value="IT">Italia</option>
+                    <option value="US">Stati Uniti</option>
+                    <option value="GB">Regno Unito</option>
                     <option value="FR">Francia</option>
                     <option value="DE">Germania</option>
                     <option value="ES">Spagna</option>
-                    <option value="GB">Regno Unito</option>
                   </select>
                 </div>
+                
+                <div className="mb-6">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="shipToDifferentAddress"
+                      name="shipToDifferentAddress"
+                      checked={formData.shipToDifferentAddress}
+                      onChange={(e) => {
+                        const isChecked = e.target.checked;
+                        setFormData(prev => ({
+                          ...prev,
+                          shipToDifferentAddress: isChecked,
+                          // Se l'opzione è selezionata, inizializza i campi di spedizione con i dati di fatturazione
+                          ...(isChecked && {
+                            shippingFirstName: prev.firstName,
+                            shippingLastName: prev.lastName,
+                            shippingAddress1: prev.address1,
+                            shippingAddress2: prev.address2,
+                            shippingCity: prev.city,
+                            shippingState: prev.state,
+                            shippingPostcode: prev.postcode,
+                            shippingCountry: prev.country,
+                            shippingPhone: prev.phone
+                          })
+                        }));
+                      }}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="shipToDifferentAddress" className="ml-2 block text-sm font-medium text-gray-700">
+                      Spedire ad un indirizzo differente?
+                    </label>
+                  </div>
+                </div>
+                
+                
+                {/* Campi per l'indirizzo di spedizione (mostrati solo se shipToDifferentAddress è true) */}
+                {formData.shipToDifferentAddress && (
+                  <div className="mt-8 mb-6 border-t pt-6">
+                    <h3 className="text-lg font-semibold mb-4 text-gray-900">Indirizzo di Spedizione</h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                      <div>
+                        <label htmlFor="shippingFirstName" className="block text-sm font-medium text-gray-700 mb-1">
+                          Nome *
+                        </label>
+                        <input
+                          type="text"
+                          id="shippingFirstName"
+                          name="shippingFirstName"
+                          value={formData.shippingFirstName}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          required={formData.shipToDifferentAddress}
+                        />
+                      </div>
+                      
+                      <div>
+                        <label htmlFor="shippingLastName" className="block text-sm font-medium text-gray-700 mb-1">
+                          Cognome *
+                        </label>
+                        <input
+                          type="text"
+                          id="shippingLastName"
+                          name="shippingLastName"
+                          value={formData.shippingLastName}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          required={formData.shipToDifferentAddress}
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="mb-6">
+                      <label htmlFor="shippingAddress1" className="block text-sm font-medium text-gray-700 mb-1">
+                        Indirizzo *
+                      </label>
+                      <input
+                        type="text"
+                        id="shippingAddress1"
+                        name="shippingAddress1"
+                        value={formData.shippingAddress1}
+                        onChange={handleInputChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required={formData.shipToDifferentAddress}
+                      />
+                    </div>
+                    
+                    <div className="mb-6">
+                      <label htmlFor="shippingAddress2" className="block text-sm font-medium text-gray-700 mb-1">
+                        Indirizzo 2 (opzionale)
+                      </label>
+                      <input
+                        type="text"
+                        id="shippingAddress2"
+                        name="shippingAddress2"
+                        value={formData.shippingAddress2}
+                        onChange={handleInputChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                      <div>
+                        <label htmlFor="shippingCity" className="block text-sm font-medium text-gray-700 mb-1">
+                          Città *
+                        </label>
+                        <input
+                          type="text"
+                          id="shippingCity"
+                          name="shippingCity"
+                          value={formData.shippingCity}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          required={formData.shipToDifferentAddress}
+                        />
+                      </div>
+                      
+                      <div>
+                        <label htmlFor="shippingState" className="block text-sm font-medium text-gray-700 mb-1">
+                          Provincia *
+                        </label>
+                        <input
+                          type="text"
+                          id="shippingState"
+                          name="shippingState"
+                          value={formData.shippingState}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          required={formData.shipToDifferentAddress}
+                        />
+                      </div>
+                      
+                      <div>
+                        <label htmlFor="shippingPostcode" className="block text-sm font-medium text-gray-700 mb-1">
+                          CAP *
+                        </label>
+                        <input
+                          type="text"
+                          id="shippingPostcode"
+                          name="shippingPostcode"
+                          value={formData.shippingPostcode}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          required={formData.shipToDifferentAddress}
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="mb-6">
+                      <label htmlFor="shippingCountry" className="block text-sm font-medium text-gray-700 mb-1">
+                        Paese *
+                      </label>
+                      <select
+                        id="shippingCountry"
+                        name="shippingCountry"
+                        value={formData.shippingCountry}
+                        onChange={handleInputChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required={formData.shipToDifferentAddress}
+                      >
+                        <option value="IT">Italia</option>
+                        <option value="US">Stati Uniti</option>
+                        <option value="GB">Regno Unito</option>
+                        <option value="FR">Francia</option>
+                        <option value="DE">Germania</option>
+                        <option value="ES">Spagna</option>
+                      </select>
+                    </div>
+                    
+                    <div className="mb-6">
+                      <label htmlFor="shippingPhone" className="block text-sm font-medium text-gray-700 mb-1">
+                        Telefono *
+                      </label>
+                      <input
+                        type="tel"
+                        id="shippingPhone"
+                        name="shippingPhone"
+                        value={formData.shippingPhone}
+                        onChange={handleInputChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required={formData.shipToDifferentAddress}
+                      />
+                    </div>
+                  </div>
+                )}
                 
                 <div className="mb-6">
                   <h3 className="text-lg font-semibold mb-2 text-gray-700">Metodo di Pagamento</h3>
