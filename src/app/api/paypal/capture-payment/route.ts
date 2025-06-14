@@ -3,7 +3,7 @@ import api from '../../../../lib/woocommerce';
 import fetch from 'node-fetch';
 
 // Configurazione PayPal
-const PAYPAL_CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || 'AQp06Lsyjs71OUx7Ji3F2TrMPqqGR9jVMRo61sd3Z5s8OZhyG6HDIBdf9tsj_o5fJeQDXCGU52FDeM33';
+const PAYPAL_CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || '';
 const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET || '';
 const PAYPAL_API_URL = process.env.NODE_ENV === 'production' 
   ? 'https://api-m.paypal.com' 
