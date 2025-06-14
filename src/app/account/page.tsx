@@ -17,21 +17,6 @@ interface Order {
   currency_symbol: string;
 }
 
-// Interfaccia per i punti
-interface PointsData {
-  points: number;
-  pointsLabel: string;
-  history: PointHistory[];
-}
-
-interface PointHistory {
-  id: number;
-  date: string;
-  points: number;
-  description: string;
-  type: string;
-}
-
 // Client component that uses useSearchParams
 function AccountContent() {
   const router = useRouter();
@@ -43,8 +28,6 @@ function AccountContent() {
   const [activeTab, setActiveTab] = useState(tabParam || 'dashboard');
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
-  const [pointsData, setPointsData] = useState<PointsData | null>(null);
-  const [isLoadingPoints, setIsLoadingPoints] = useState(false);
   
   // Reindirizza l'utente se non è autenticato
   useEffect(() => {
@@ -55,62 +38,11 @@ function AccountContent() {
   
   // Aggiorna la tab attiva quando cambia il parametro nell'URL
   useEffect(() => {
-    if (tabParam && ['dashboard', 'orders', 'addresses', 'account-details', 'points'].includes(tabParam)) {
+    if (tabParam && ['dashboard', 'orders', 'addresses', 'account-details'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [tabParam]);
   
-  // Carica i punti dell'utente
-  useEffect(() => {
-    const fetchPoints = async () => {
-      if (!user) {
-        console.log('Utente non disponibile, impossibile caricare i punti');
-        return;
-      }
-      
-      setIsLoadingPoints(true);
-      
-      try {
-        // Recupera il token dal localStorage
-        const token = localStorage.getItem('woocommerce_token');
-        
-        if (!token) {
-          console.error('Token non trovato nel localStorage');
-          throw new Error('Token non trovato');
-        }
-        
-        console.log('Recupero punti per utente:', user.id);
-        
-        // Aggiungiamo un timestamp per evitare problemi di cache
-        const timestamp = new Date().getTime();
-        const response = await fetch(`/api/points/user?_=${timestamp}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Cache-Control': 'no-cache, no-store'
-          }
-        });
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('Risposta API punti non valida:', response.status, errorText);
-          throw new Error(`Errore nel caricamento dei punti: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        console.log('Punti caricati:', data);
-        setPointsData(data);
-      } catch (error) {
-        console.error('Errore durante il caricamento dei punti:', error);
-      } finally {
-        setIsLoadingPoints(false);
-      }
-    };
-    
-    if (activeTab === 'points' && user) {
-      fetchPoints();
-    }
-  }, [activeTab, user]);
-
   // Carica gli ordini dell'utente
   useEffect(() => {
     const fetchOrders = async () => {
@@ -284,75 +216,33 @@ function AccountContent() {
         return (
           <div>
             <h2 className="text-xl font-semibold mb-4">Dettagli account</h2>
-            <div className="bg-gray-50 p-4 rounded-md">
+            <Link href="/account/edit-account" className="text-blue-600 hover:text-blue-800 mb-4 inline-block">
+              Modifica i dettagli del tuo account
+            </Link>
+            
+            <div className="bg-white rounded-lg shadow-sm p-4 border">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-gray-500">Nome</p>
+                  <p className="text-sm text-gray-600">Nome</p>
                   <p className="font-medium">{user?.firstName || '-'}</p>
                 </div>
+                
                 <div>
-                  <p className="text-sm text-gray-500">Cognome</p>
+                  <p className="text-sm text-gray-600">Cognome</p>
                   <p className="font-medium">{user?.lastName || '-'}</p>
                 </div>
+                
                 <div>
-                  <p className="text-sm text-gray-500">Email</p>
+                  <p className="text-sm text-gray-600">Username</p>
+                  <p className="font-medium">{user?.username || '-'}</p>
+                </div>
+                
+                <div>
+                  <p className="text-sm text-gray-600">Email</p>
                   <p className="font-medium">{user?.email || '-'}</p>
                 </div>
               </div>
             </div>
-          </div>
-        );
-        
-      case 'points':
-        return (
-          <div>
-            <h2 className="text-xl font-semibold mb-4">I miei punti</h2>
-            
-            {isLoadingPoints ? (
-              <div className="text-center py-8">
-                <p>Caricamento punti in corso...</p>
-              </div>
-            ) : pointsData ? (
-              <div>
-                <div className="bg-blue-50 p-6 rounded-lg mb-6 text-center">
-                  <h3 className="text-lg text-gray-700 mb-2">Saldo punti attuale</h3>
-                  <p className="text-3xl font-bold text-blue-600">{pointsData.pointsLabel}</p>
-                </div>
-                
-                <h3 className="text-lg font-semibold mb-3">Cronologia punti</h3>
-                
-                {pointsData.history && pointsData.history.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full bg-white">
-                      <thead>
-                        <tr className="bg-gray-100">
-                          <th className="py-2 px-4 text-left">Data</th>
-                          <th className="py-2 px-4 text-left">Punti</th>
-                          <th className="py-2 px-4 text-left">Descrizione</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {pointsData.history.map((item) => (
-                          <tr key={item.id} className="border-t">
-                            <td className="py-2 px-4">{formatDate(item.date)}</td>
-                            <td className="py-2 px-4">
-                              <span className={item.points > 0 ? 'text-green-600' : 'text-red-600'}>
-                                {item.points > 0 ? '+' : ''}{item.points}
-                              </span>
-                            </td>
-                            <td className="py-2 px-4">{item.description}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <p className="text-gray-500 italic">Nessuna attività punti registrata.</p>
-                )}
-              </div>
-            ) : (
-              <p className="text-gray-500 italic">Impossibile caricare i dati dei punti. Riprova più tardi.</p>
-            )}
           </div>
         );
         
@@ -422,14 +312,6 @@ function AccountContent() {
                         className={`text-gray-600 w-full text-left px-4 py-2 rounded-md ${activeTab === 'account-details' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
                       >
                         Dettagli account
-                      </button>
-                    </li>
-                    <li>
-                      <button
-                        onClick={() => setActiveTab('points')}
-                        className={`text-gray-600 w-full text-left px-4 py-2 rounded-md ${activeTab === 'points' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
-                      >
-                        I miei punti
                       </button>
                     </li>
                     <li>
