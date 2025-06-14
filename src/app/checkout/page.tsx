@@ -11,6 +11,7 @@ import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 
 import { createOrder, getShippingMethods, ShippingMethod } from '../../lib/api';
+import { addOrderPoints } from '../../lib/points';
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -624,6 +625,7 @@ export default function CheckoutPage() {
           billing: billingInfo,
           shipping: shippingInfo,
           line_items,
+          customer_id: isAuthenticated && user ? user.id : 0,
           shipping_lines: [
             {
               method_id: selectedShippingMethod?.id || 'flat_rate',
@@ -774,10 +776,28 @@ export default function CheckoutPage() {
           // Svuota il carrello
           clearCart();
           
-          // Invece di reindirizzare, mostriamo un messaggio di successo nella pagina
+          // Mostra il messaggio di successo
           setOrderSuccess(true);
-          // Assicuriamoci che order.id sia una stringa
           setSuccessOrderId(typeof order.id === 'number' ? order.id.toString() : String(order.id));
+          
+          // Aggiungi punti all'utente se autenticato
+          if (isAuthenticated && user) {
+            try {
+              const token = localStorage.getItem('woocommerce_token');
+              if (token) {
+                // Calcola il totale dell'ordine (senza spese di spedizione per i punti)
+                const orderTotal = getCartTotal();
+                const orderId = typeof order.id === 'number' ? order.id : parseInt(String(order.id), 10);
+                if (!isNaN(orderId)) {
+                  await addOrderPoints(user.id, orderId, orderTotal, token);
+                }
+              }
+            } catch (error) {
+              console.error('Errore durante l\'aggiunta dei punti:', error);
+              // Non blocchiamo il flusso se l'aggiunta dei punti fallisce
+            }
+          }
+          
           setIsSubmitting(false);
           setIsStripeLoading(false);
           return;
@@ -858,6 +878,28 @@ export default function CheckoutPage() {
       if (order && typeof order === 'object' && 'id' in order) {
         // Clear the cart after successful order
         clearCart();
+        
+        // Mostra il messaggio di successo
+        setOrderSuccess(true);
+        setSuccessOrderId(typeof order.id === 'number' ? order.id.toString() : String(order.id));
+        
+        // Aggiungi punti all'utente se autenticato
+        if (isAuthenticated && user) {
+          try {
+            const token = localStorage.getItem('woocommerce_token');
+            if (token) {
+              // Calcola il totale dell'ordine (senza spese di spedizione per i punti)
+              const orderTotal = getCartTotal();
+              const orderId = typeof order.id === 'number' ? order.id : parseInt(String(order.id), 10);
+              if (!isNaN(orderId)) {
+                await addOrderPoints(user.id, orderId, orderTotal, token);
+              }
+            }
+          } catch (error) {
+            console.error('Errore durante l\'aggiunta dei punti:', error);
+            // Non blocchiamo il flusso se l'aggiunta dei punti fallisce
+          }
+        }
         
         // Redirect to success page with order ID
         router.push(`/checkout/success?order_id=${order.id}`);
@@ -1362,6 +1404,25 @@ export default function CheckoutPage() {
                                         
                                         // Mostra il messaggio di successo
                                         setOrderSuccess(true);
+                                        
+                                        // Aggiungi punti all'utente se autenticato
+                                        if (isAuthenticated && user) {
+                                          try {
+                                            const token = localStorage.getItem('woocommerce_token');
+                                            if (token && successOrderId) {
+                                              // Calcola il totale dell'ordine (senza spese di spedizione per i punti)
+                                              const orderTotal = getCartTotal();
+                                              const orderId = parseInt(successOrderId, 10);
+                                              if (!isNaN(orderId)) {
+                                                await addOrderPoints(user.id, orderId, orderTotal, token);
+                                              }
+                                            }
+                                          } catch (error) {
+                                            console.error('Errore durante l\'aggiunta dei punti:', error);
+                                            // Non blocchiamo il flusso se l'aggiunta dei punti fallisce
+                                          }
+                                        }
+                                        
                                         setIsSubmitting(false);
                                       } catch (captureError) {
                                         console.error('Errore durante la cattura del pagamento:', captureError);
