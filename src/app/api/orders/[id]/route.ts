@@ -51,7 +51,7 @@ interface WooCommerceOrder {
 }
 
 // Chiave segreta per verificare i token JWT (in produzione, usare una variabile d'ambiente)
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+const JWT_SECRET = process.env.JWT_SECRET || 'dwi37ljio_5tk_3jt3';
 
 // Define the handler function for GET requests
 export async function GET(
