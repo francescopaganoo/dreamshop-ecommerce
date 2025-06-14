@@ -34,10 +34,11 @@ export async function GET(request: NextRequest) {
         const pointsData = response.data;
         
         return NextResponse.json(pointsData);
-      } catch (error: any) {
-        console.error('API Points: Errore durante il recupero dei punti:', error.message);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Errore sconosciuto';
+        console.error('API Points: Errore durante il recupero dei punti:', errorMessage);
         return NextResponse.json(
-          { error: 'Errore durante il recupero dei punti', details: error.message },
+          { error: 'Errore durante il recupero dei punti', details: errorMessage },
           { status: 500 }
         );
       }

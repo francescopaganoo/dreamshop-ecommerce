@@ -3,6 +3,18 @@
  */
 
 /**
+ * Interfaccia per la risposta dell'API dei punti
+ */
+interface PointsApiResponse {
+  success: boolean;
+  message: string;
+  data?: {
+    points?: number;
+    user_id?: number;
+  };
+}
+
+/**
  * Aggiunge punti a un utente dopo un ordine completato
  * @param userId ID dell'utente
  * @param orderId ID dell'ordine
@@ -15,9 +27,9 @@ export const addOrderPoints = async (
   orderId: number,
   orderTotal: number,
   token: string
-): Promise<any> => {
+): Promise<PointsApiResponse | null> => {
   try {
-    // Calcola i punti da assegnare (1 punto ogni 10€ di spesa)
+    // Calcola i punti da assegnare (1 punto ogni 1€ di spesa)
     const points = Math.floor(orderTotal / 1);
     
     if (points <= 0) {

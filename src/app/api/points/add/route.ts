@@ -47,10 +47,11 @@ export async function POST(request: NextRequest) {
         const pointsData = response.data;
         
         return NextResponse.json(pointsData);
-      } catch (error: any) {
-        console.error('API Points Add: Errore durante l\'aggiunta dei punti:', error.message);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Errore sconosciuto';
+        console.error('API Points Add: Errore durante l\'aggiunta dei punti:', errorMessage);
         return NextResponse.json(
-          { error: 'Errore durante l\'aggiunta dei punti', details: error.message },
+          { error: 'Errore durante l\'aggiunta dei punti', details: errorMessage },
           { status: 500 }
         );
       }
