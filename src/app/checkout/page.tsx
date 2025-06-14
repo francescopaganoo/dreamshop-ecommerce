@@ -406,7 +406,7 @@ export default function CheckoutPage() {
         first_name: formData.firstName,
         last_name: formData.lastName,
         address_1: formData.address1,
-        address_2: formData.address2,
+        address_2: formData.address2|| '',
         city: formData.city,
         state: formData.state,
         postcode: formData.postcode,
@@ -414,6 +414,7 @@ export default function CheckoutPage() {
         email: formData.email,
         phone: formData.phone
       };
+
       
       // Prepare shipping info (use billing info or shipping info based on checkbox)
       const shippingInfo = formData.shipToDifferentAddress ? {
