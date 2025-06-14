@@ -1,5 +1,5 @@
 // Configurazione PayPal
-export const PAYPAL_CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || 'ARJfl24GmWSY5ULLgbtlZXXOH9JDmaAB1Fo1v0ZGTphdUiVc36cu4n0DztGEWU-WKVljgnczVqWamVFv'; // 'sb' è l'ID client sandbox di default
+export const PAYPAL_CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || 'AQp06Lsyjs71OUx7Ji3F2TrMPqqGR9jVMRo61sd3Z5s8OZhyG6HDIBdf9tsj_o5fJeQDXCGU52FDeM33'; // 'sb' è l'ID client sandbox di default
 
 // Opzioni di configurazione per PayPal
 export const paypalOptions = {
