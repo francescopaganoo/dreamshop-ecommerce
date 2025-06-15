@@ -317,10 +317,10 @@ export interface WooCommerceOrderResponse {
     first_name: string;
     last_name: string;
     email: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   shipping: {
-    [key: string]: any;
+    [key: string]: unknown;
   };
   line_items: Array<{
     id: number;
@@ -328,9 +328,9 @@ export interface WooCommerceOrderResponse {
     product_id: number;
     quantity: number;
     price: string;
-    [key: string]: any;
+    [key: string]: unknown;
   }>;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface OrderData {

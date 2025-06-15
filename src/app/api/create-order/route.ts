@@ -53,15 +53,10 @@ export async function POST(request: NextRequest) {
       line_items: line_items.length > 0 ? line_items : []
     };
     
-    // Define interface for order response
-    interface OrderResponse {
-      id: number;
-      number: string;
-      status: string;
-    }
+    // L'ordine viene restituito direttamente dalla funzione createOrder
     
     // Crea l'ordine in WooCommerce
-    const order = await createOrder(wooOrderData) as OrderResponse;
+    const order = await createOrder(wooOrderData);
     
     if (order && order.id) {
       // Reindirizza alla pagina di conferma dell'ordine
