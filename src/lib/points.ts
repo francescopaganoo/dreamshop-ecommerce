@@ -61,6 +61,19 @@ export async function getUserPoints(userId: number, token: string): Promise<Poin
 }
 
 /**
+ * Interfaccia per la risposta dell'API di aggiunta punti
+ */
+export interface PointsAddResponse {
+  success: boolean;
+  user_id: number;
+  points_added: number;
+  new_balance: number;
+  previous_balance?: number;
+  description: string;
+  order_id: number;
+}
+
+/**
  * Aggiunge punti all'utente dopo un ordine
  * @param userId ID dell'utente (non utilizzato, viene estratto dal token)
  * @param orderId ID dell'ordine
@@ -68,7 +81,7 @@ export async function getUserPoints(userId: number, token: string): Promise<Poin
  * @param token Token di autenticazione
  * @returns Risultato dell'operazione
  */
-export async function addOrderPoints(userId: number, orderId: number, orderTotal: number, token: string): Promise<any> {
+export async function addOrderPoints(userId: number, orderId: number, orderTotal: number, token: string): Promise<PointsAddResponse> {
   try {
     console.log(`Aggiungo punti per ordine #${orderId}, utente ${userId}, totale ${orderTotal}€`);
     

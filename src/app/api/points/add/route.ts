@@ -54,11 +54,13 @@ export async function POST(request: NextRequest) {
       console.log('API: Punti aggiunti con successo');
       
       return NextResponse.json(responseData);
-    } catch (wcError: any) {
-      console.error('API: Errore nella risposta WooCommerce:', wcError.response?.data || wcError.message);
+    } catch (wcError: unknown) {
+      // Tipizzazione dell'errore per accedere alle proprietà in modo sicuro
+      const error = wcError as { response?: { data?: unknown; status?: number }; message?: string };
+      console.error('API: Errore nella risposta WooCommerce:', error.response?.data || error.message);
       return NextResponse.json(
-        { error: `Errore nell'aggiunta dei punti: ${wcError.response?.status || 500}` }, 
-        { status: wcError.response?.status || 500 }
+        { error: `Errore nell'aggiunta dei punti: ${error.response?.status || 500}` }, 
+        { status: error.response?.status || 500 }
       );
     }
     
