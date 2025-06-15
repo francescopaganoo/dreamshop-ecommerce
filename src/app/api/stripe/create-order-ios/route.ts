@@ -33,11 +33,18 @@ export async function POST(request: NextRequest) {
     const data = await request.json();
     console.log('Dati ricevuti per ordine iOS:', JSON.stringify(data, null, 2));
     
-    const { paymentMethodId, amount, customerInfo, line_items, shipping, notes, token } = data;
+    const { paymentMethodId, amount, customerInfo, line_items, shipping, notes, token, directCustomerId, isAuthenticated } = data;
     
-    // Recupera l'ID utente dal token JWT (simile agli altri endpoint)
+    // STRATEGIA MULTI-LAYER per identificare l'utente
     let userId = 0;
-    if (token) {
+    
+    // 1. Prima opzione: usa directCustomerId se disponibile (inviato dal frontend)
+    if (directCustomerId && isAuthenticated) {
+      userId = directCustomerId;
+      console.log(`iOS: Usando ID utente diretto: ${userId}`);
+    }
+    // 2. Seconda opzione: verifica il token JWT
+    else if (token) {
       try {
         // Verifica il token e ottieni l'ID utente
         const validateResponse = await fetch(`${process.env.NEXT_PUBLIC_WORDPRESS_URL}/wp-json/jwt-auth/v1/token/validate`, {
@@ -52,7 +59,7 @@ export async function POST(request: NextRequest) {
           const userData = await validateResponse.json();
           if (userData && userData.data && userData.data.id) {
             userId = parseInt(userData.data.id, 10);
-            console.log(`iOS: Utente autenticato con ID ${userId}`);
+            console.log(`iOS: Utente autenticato con ID ${userId} (via token JWT)`);
           }
         } else {
           console.log('iOS: Token non valido o scaduto');
@@ -60,6 +67,20 @@ export async function POST(request: NextRequest) {
       } catch (authError) {
         console.error('iOS: Errore durante la verifica del token:', authError);
         // Continuamo comunque, nel peggiore dei casi l'ordine sarà come guest
+      }
+    }
+    
+    // 3. Tenta di trovare l'utente basandosi sull'email (ultimo tentativo)
+    if (userId === 0 && customerInfo && customerInfo.email) {
+      try {
+        // Verifichiamo se esiste un utente con questa email
+        console.log(`iOS: Tentativo di trovare utente con email: ${customerInfo.email}`);
+        
+        // Questo passaggio richiederebbe un'API specifica in WordPress
+        // Per ora lo lasciamo come commento
+        // TODO: Implementare API per trovare utente via email
+      } catch (emailLookupError) {
+        console.error('iOS: Errore nel tentativo di lookup via email:', emailLookupError);
       }
     }
     

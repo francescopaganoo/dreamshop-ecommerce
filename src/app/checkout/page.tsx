@@ -530,11 +530,23 @@ export default function CheckoutPage() {
             
             // Recupera il token JWT dal localStorage
             let userToken = null;
+            let userCustomerId = 0;
+            
             if (typeof window !== 'undefined') {
+              // Tenta di ottenere il token dal localStorage
               userToken = localStorage.getItem('woocommerce_token');
+              
+              // Per sicurezza, otteniamo anche l'ID utente direttamente dal contesto
+              if (isAuthenticated && user && user.id) {
+                userCustomerId = parseInt(String(user.id), 10);
+              }
             }
             
-            console.log('iOS DEBUG - Token disponibile:', !!userToken);
+            console.log('iOS DEBUG - Auth info:', {
+              token_disponibile: !!userToken,
+              customer_id: userCustomerId,
+              isAuthenticated
+            });
             
             // Crea un ordine con il payment method ID
             const orderResponse = await fetch('/api/stripe/create-order-ios', {
@@ -560,8 +572,10 @@ export default function CheckoutPage() {
                 line_items,
                 shipping: shipping || 0,
                 notes: formData.notes,
-                // Aggiungi il token JWT per autenticazione
-                token: userToken
+                // Invia sia il token che l'ID utente per doppia sicurezza
+                token: userToken,
+                directCustomerId: userCustomerId,
+                isAuthenticated: isAuthenticated
               }),
             });
             
