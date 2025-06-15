@@ -58,7 +58,6 @@ export default function LoginPage() {
   
   return (
     <div className="min-h-screen flex flex-col">
-      <Header />
       
       <main className="flex-grow py-8">
         <div className="container mx-auto px-4 max-w-md">
@@ -129,7 +128,6 @@ export default function LoginPage() {
         </div>
       </main>
       
-      <Footer />
     </div>
   );
 }

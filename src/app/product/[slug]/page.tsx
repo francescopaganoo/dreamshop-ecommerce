@@ -156,7 +156,7 @@ async function ProductDetails({ slug }: { slug: string }) {
           </div>
           
           {/* Short Description */}
-          <div className="mb-6 prose prose-sm" dangerouslySetInnerHTML={{ __html: product.short_description }} />
+          <div className="mb-6 prose text-gray-600 prose-sm" dangerouslySetInnerHTML={{ __html: product.short_description }} />
           
           {/* Add to Cart Section */}
           <div className="mb-8">
@@ -207,7 +207,6 @@ export default async function ProductPage({ params }: any) {
   
   return (
     <div className="min-h-screen flex flex-col bg-white">
-      <Header />
       
       <main className="flex-grow container mx-auto px-4 py-8">
         <Suspense fallback={<ProductSkeleton />}>
@@ -215,7 +214,6 @@ export default async function ProductPage({ params }: any) {
         </Suspense>
       </main>
       
-      <Footer />
     </div>
   );
 }

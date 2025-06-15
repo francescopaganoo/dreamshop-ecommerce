@@ -74,7 +74,6 @@ export default function RegisterPage() {
   
   return (
     <div className="min-h-screen flex flex-col">
-      <Header />
       
       <main className="flex-grow py-8">
         <div className="container mx-auto px-4 max-w-md">
@@ -203,7 +202,6 @@ export default function RegisterPage() {
         </div>
       </main>
       
-      <Footer />
     </div>
   );
 }

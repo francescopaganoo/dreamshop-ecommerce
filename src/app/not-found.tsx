@@ -5,7 +5,6 @@ import Footer from '../components/Footer';
 export default function NotFound() {
   return (
     <div className="min-h-screen flex flex-col">
-      <Header />
       
       <main className="flex-grow flex items-center justify-center py-12">
         <div className="text-center px-4">
@@ -23,7 +22,6 @@ export default function NotFound() {
         </div>
       </main>
       
-      <Footer />
     </div>
   );
 }

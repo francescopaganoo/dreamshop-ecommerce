@@ -111,8 +111,8 @@ export default function EditAccountPage() {
   // Mostra un messaggio di caricamento se l'autenticazione è in corso
   if (isLoading) {
     return (
-      <div className="min-h-screen flex flex-col">
-        <Header />
+      <div className="min-h-screen flex flex-col bg-white">
+
         
         <main className="flex-grow py-8">
           <div className="container mx-auto px-4">
@@ -120,24 +120,22 @@ export default function EditAccountPage() {
           </div>
         </main>
         
-        <Footer />
       </div>
     );
   }
   
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header />
+    <div className="min-h-screen flex flex-col bg-white">
       
       <main className="flex-grow py-8">
         <div className="container mx-auto px-4 max-w-md">
           <div className="mb-6">
-            <Link href="/account" className="text-blue-600 hover:text-blue-800">
+            <Link href="/account" className="text-bred-500 hover:text-bred-700">
               ← Torna al tuo account
             </Link>
           </div>
           
-          <h1 className="text-3xl font-bold mb-8">Modifica account</h1>
+          <h1 className="text-3xl font-bold mb-8 text-gray-600">Modifica account</h1>
           
           {error && (
             <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-md">
@@ -154,7 +152,7 @@ export default function EditAccountPage() {
           <div className="bg-white rounded-lg shadow-md p-6">
             <form onSubmit={handleSubmit}>
               <div className="mb-6">
-                <h2 className="text-xl font-semibold mb-4">Dettagli account</h2>
+                <h2 className="text-xl font-semibold mb-4 text-gray-600">Dettagli account</h2>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                   <div>
@@ -167,7 +165,7 @@ export default function EditAccountPage() {
                       name="firstName"
                       value={formData.firstName}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bred-500 text-gray-700"
                       required
                     />
                   </div>
@@ -182,7 +180,7 @@ export default function EditAccountPage() {
                       name="lastName"
                       value={formData.lastName}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bred-500 text-gray-700"
                       required
                     />
                   </div>
@@ -198,14 +196,14 @@ export default function EditAccountPage() {
                     name="email"
                     value={formData.email}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bred-500 text-gray-700"
                     required
                   />
                 </div>
               </div>
               
               <div className="mb-6">
-                <h2 className="text-xl font-semibold mb-4">Cambio password</h2>
+                <h2 className="text-xl font-semibold mb-4 text-gray-600">Cambio password</h2>
                 <p className="text-sm text-gray-600 mb-4">Lascia vuoti questi campi se non vuoi cambiare la password.</p>
                 
                 <div className="mb-6">
@@ -218,7 +216,7 @@ export default function EditAccountPage() {
                     name="currentPassword"
                     value={formData.currentPassword}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bred-500 text-gray-700"
                   />
                 </div>
                 
@@ -232,7 +230,7 @@ export default function EditAccountPage() {
                     name="newPassword"
                     value={formData.newPassword}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bred-500"
                     minLength={6}
                   />
                 </div>
@@ -247,7 +245,7 @@ export default function EditAccountPage() {
                     name="confirmPassword"
                     value={formData.confirmPassword}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bred-500"
                     minLength={6}
                   />
                 </div>
@@ -256,7 +254,7 @@ export default function EditAccountPage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className={`w-full py-3 px-4 rounded-md text-white font-medium ${isSubmitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+                className={`w-full py-3 px-4 rounded-md text-white font-medium ${isSubmitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-bred-500 hover:bg-bred-700'}`}
               >
                 {isSubmitting ? 'Salvataggio in corso...' : 'Salva modifiche'}
               </button>
@@ -264,8 +262,7 @@ export default function EditAccountPage() {
           </div>
         </div>
       </main>
-      
-      <Footer />
+
     </div>
   );
 }

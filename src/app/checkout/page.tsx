@@ -944,7 +944,6 @@ export default function CheckoutPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Header />
       
       <main className="flex-grow py-8 bg-white">
         <div className="container mx-auto px-4">
@@ -1815,7 +1814,6 @@ export default function CheckoutPage() {
         </div>
       </main>
       
-      <Footer />
     </div>
   );
 }

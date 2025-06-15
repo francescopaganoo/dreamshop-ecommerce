@@ -1,6 +1,7 @@
 "use client";
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { useState, useEffect, useRef } from 'react';
@@ -41,12 +42,12 @@ export default function Header() {
   };
 
   return (
-    <header className="bg-white shadow-md">
+    <header className="bg-bred-500 shadow-md">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           {/* Logo */}
           <Link href="/" className="text-2xl font-bold text-gray-800">
-            WooStore
+            <Image src="/images/logo.webp" alt="WooStore Logo" width={200} height={50} priority />
           </Link>
 
           {/* Search Bar */}
@@ -70,13 +71,16 @@ export default function Header() {
 
           {/* Navigation */}
           <nav className="flex items-center space-x-6">
-            <Link href="/categories" className="text-gray-600 hover:text-gray-900">
+            <Link href="/categories" className="text-white hover:text-white">
               Categories
+            </Link>
+            <Link href="/chi-siamo" className="text-white hover:text-white">
+              Chi Siamo
             </Link>
             {isAuthenticated ? (
               <div className="relative" ref={dropdownRef}>
                 <button 
-                  className="text-gray-600 hover:text-gray-900 flex items-center"
+                  className="text-white hover:text-white flex items-center"
                   onClick={() => setIsMenuOpen(!isMenuOpen)}
                 >
                   {user?.firstName || user?.username || 'Account'}
@@ -119,14 +123,14 @@ export default function Header() {
                 )}
               </div>
             ) : (
-              <Link href="/login" className="text-gray-600 hover:text-gray-900">
+              <Link href="/login" className="text-white hover:text-white">
                 Accedi
               </Link>
             )}
-            <Link href="/cart" className="relative text-gray-600 hover:text-gray-900">
+            <Link href="/cart" className="relative text-white hover:text-white">
               Cart
               {getCartCount() > 0 && (
-                <span className="absolute -top-2 -right-2 bg-blue-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                <span className="absolute -top-2 -right-2 bg-white text-bred-500 text-xs rounded-full w-5 h-5 flex items-center justify-center">
                   {getCartCount()}
                 </span>
               )}

@@ -31,7 +31,6 @@ export default async function SearchPage({ searchParams }: any) {
   
   return (
     <div className="min-h-screen flex flex-col">
-      <Header />
       
       <main className="flex-grow py-8">
         <div className="container mx-auto px-4">
@@ -121,8 +120,7 @@ export default async function SearchPage({ searchParams }: any) {
           )}
         </div>
       </main>
-      
-      <Footer />
+
     </div>
   );
 }

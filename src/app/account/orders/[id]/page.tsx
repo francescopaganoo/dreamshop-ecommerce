@@ -129,33 +129,30 @@ export default function OrderDetailPage() {
   // Mostra un messaggio di caricamento se l'autenticazione è in corso
   if (isLoading) {
     return (
-      <div className="min-h-screen flex flex-col">
-        <Header />
+      <div className="min-h-screen flex flex-col bg-white">
         
         <main className="flex-grow py-8">
           <div className="container mx-auto px-4">
-            <p className="text-center">Caricamento in corso...</p>
+            <p className="text-center text-gray-600">Caricamento in corso...</p>
           </div>
         </main>
         
-        <Footer />
       </div>
     );
   }
   
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header />
+    <div className="min-h-screen flex flex-col bg-white">
       
       <main className="flex-grow py-8">
         <div className="container mx-auto px-4">
           <div className="mb-6">
-            <Link href="/account" className="text-blue-600 hover:text-blue-800">
+            <Link href="/account" className="text-bred-500 hover:text-bred-700">
               ← Torna al tuo account
             </Link>
           </div>
           
-          <h1 className="text-3xl font-bold mb-8">
+          <h1 className="text-3xl font-bold mb-8 text-gray-600">
             Ordine #{order?.number}
           </h1>
           
@@ -166,23 +163,23 @@ export default function OrderDetailPage() {
           )}
           
           {isLoadingOrder ? (
-            <p className="text-center">Caricamento dettagli ordine...</p>
+            <p className="text-center text-gray-600">Caricamento dettagli ordine...</p>
           ) : order ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {/* Dettagli ordine */}
               <div className="md:col-span-2">
                 <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-                  <h2 className="text-xl font-semibold mb-4">Dettagli ordine</h2>
+                  <h2 className="text-xl font-semibold mb-4 text-gray-600">Dettagli ordine</h2>
                   
                   <div className="grid grid-cols-2 gap-4 mb-6">
                     <div>
                       <p className="text-sm text-gray-600">Numero ordine</p>
-                      <p className="font-medium">#{order.number}</p>
+                      <p className="font-medium text-gray-600">#{order.number}</p>
                     </div>
                     
                     <div>
                       <p className="text-sm text-gray-600">Data</p>
-                      <p className="font-medium">{formatDate(order.date_created)}</p>
+                      <p className="font-medium text-gray-600">{formatDate(order.date_created)}</p>
                     </div>
                     
                     <div>
@@ -204,41 +201,41 @@ export default function OrderDetailPage() {
                     
                     <div>
                       <p className="text-sm text-gray-600">Metodo di pagamento</p>
-                      <p className="font-medium">{order.payment_method_title}</p>
+                      <p className="font-medium text-gray-600">{order.payment_method_title}</p>
                     </div>
                   </div>
                   
-                  <h3 className="text-lg font-semibold mb-2">Prodotti</h3>
+                  <h3 className="text-lg font-semibold mb-2 text-gray-600">Prodotti</h3>
                   <div className="overflow-x-auto">
                     <table className="min-w-full bg-white">
                       <thead>
                         <tr className="bg-gray-100">
-                          <th className="py-2 px-4 text-left">Prodotto</th>
-                          <th className="py-2 px-4 text-left">Quantità</th>
-                          <th className="py-2 px-4 text-right">Prezzo</th>
+                          <th className="py-2 px-4 text-left text-gray-600">Prodotto</th>
+                          <th className="py-2 px-4 text-left text-gray-600">Quantità</th>
+                          <th className="py-2 px-4 text-right text-gray-600">Prezzo</th>
                         </tr>
                       </thead>
                       <tbody>
                         {order.line_items.map(item => (
                           <tr key={item.id} className="border-t">
-                            <td className="py-2 px-4">{item.name}</td>
-                            <td className="py-2 px-4">{item.quantity}</td>
-                            <td className="py-2 px-4 text-right">{order.currency_symbol}{item.total}</td>
+                            <td className="py-2 px-4 text-gray-600">{item.name}</td>
+                            <td className="py-2 px-4 text-gray-600">{item.quantity}</td>
+                            <td className="py-2 px-4 text-right text-gray-600">{order.currency_symbol}{item.total}</td>
                           </tr>
                         ))}
                       </tbody>
                       <tfoot className="border-t">
                         <tr>
-                          <td colSpan={2} className="py-2 px-4 text-right font-medium">Subtotale</td>
-                          <td className="py-2 px-4 text-right">{order.currency_symbol}{(parseFloat(order.total) - parseFloat(order.shipping_total)).toFixed(2)}</td>
+                          <td colSpan={2} className="py-2 px-4 text-right font-medium text-gray-600">Subtotale</td>
+                          <td className="py-2 px-4 text-right text-gray-600">{order.currency_symbol}{(parseFloat(order.total) - parseFloat(order.shipping_total)).toFixed(2)}</td>
                         </tr>
                         <tr>
-                          <td colSpan={2} className="py-2 px-4 text-right font-medium">Spedizione</td>
-                          <td className="py-2 px-4 text-right">{order.currency_symbol}{order.shipping_total}</td>
+                          <td colSpan={2} className="py-2 px-4 text-right font-medium text-gray-600">Spedizione</td>
+                          <td className="py-2 px-4 text-right text-gray-600">{order.currency_symbol}{order.shipping_total}</td>
                         </tr>
                         <tr className="border-t">
-                          <td colSpan={2} className="py-2 px-4 text-right font-bold">Totale</td>
-                          <td className="py-2 px-4 text-right font-bold">{order.currency_symbol}{order.total}</td>
+                          <td colSpan={2} className="py-2 px-4 text-right font-bold text-gray-600">Totale</td>
+                          <td className="py-2 px-4 text-right font-bold text-gray-600">{order.currency_symbol}{order.total}</td>
                         </tr>
                       </tfoot>
                     </table>
@@ -249,11 +246,11 @@ export default function OrderDetailPage() {
               {/* Indirizzi */}
               <div className="md:col-span-1">
                 <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-                  <h2 className="text-xl font-semibold mb-4">Indirizzi</h2>
+                  <h2 className="text-xl font-semibold mb-4 text-gray-600">Indirizzi</h2>
                   
                   <div className="mb-4">
-                    <h3 className="text-lg font-semibold mb-2">Indirizzo di fatturazione</h3>
-                    <address className="not-italic">
+                    <h3 className="text-lg font-semibold mb-2 text-gray-600">Indirizzo di fatturazione</h3>
+                    <address className="not-italic text-gray-600">
                       {order.billing.first_name} {order.billing.last_name}<br />
                       {order.billing.address_1}<br />
                       {order.billing.address_2 && <>{order.billing.address_2}<br /></>}
@@ -265,8 +262,8 @@ export default function OrderDetailPage() {
                   </div>
                   
                   <div>
-                    <h3 className="text-lg font-semibold mb-2">Indirizzo di spedizione</h3>
-                    <address className="not-italic">
+                    <h3 className="text-lg font-semibold mb-2 text-gray-600">Indirizzo di spedizione</h3>
+                    <address className="not-italic text-gray-600">
                       {order.shipping.first_name} {order.shipping.last_name}<br />
                       {order.shipping.address_1}<br />
                       {order.shipping.address_2 && <>{order.shipping.address_2}<br /></>}
@@ -283,7 +280,6 @@ export default function OrderDetailPage() {
         </div>
       </main>
       
-      <Footer />
     </div>
   );
 }

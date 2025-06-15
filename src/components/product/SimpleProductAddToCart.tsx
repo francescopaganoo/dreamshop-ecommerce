@@ -190,8 +190,8 @@ export default function SimpleProductAddToCart({ product }: SimpleProductAddToCa
           !isInStock
             ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
             : isAddingToCart
-              ? 'bg-blue-400 text-white cursor-not-allowed'
-              : 'bg-blue-600 text-white hover:bg-blue-700 transition-colors'
+              ? 'bg-bred-700 text-white cursor-not-allowed'
+              : 'bg-bred-500 text-white hover:bg-bred-700 transition-colors'
         }`}
       >
         {!isInStock ? (

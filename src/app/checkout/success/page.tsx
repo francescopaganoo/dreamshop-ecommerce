@@ -93,7 +93,6 @@ function OrderSuccessContent() {
   
   return (
     <div className="min-h-screen flex flex-col">
-      <Header />
       
       <main className="flex-grow py-8 bg-white">
         <div className="container mx-auto px-4">
@@ -207,7 +206,6 @@ function OrderSuccessContent() {
         </div>
       </main>
       
-      <Footer />
     </div>
   );
 }
@@ -217,7 +215,6 @@ export default function OrderSuccessPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen flex flex-col">
-        <Header />
         <main className="flex-grow py-8 bg-white">
           <div className="container mx-auto px-4">
             <div className="text-center py-12">
@@ -226,7 +223,6 @@ export default function OrderSuccessPage() {
             </div>
           </div>
         </main>
-        <Footer />
       </div>
     }>
       <OrderSuccessContent />

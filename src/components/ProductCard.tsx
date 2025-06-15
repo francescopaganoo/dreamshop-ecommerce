@@ -143,7 +143,7 @@ export default function ProductCard({ product }: ProductCardProps) {
         </div>
       )}
       <Link href={`/product/${product.slug}`}>
-        <div className="relative h-52 w-full p-4 bg-gray-50">
+        <div className="relative h-52 w-full p-4 bg-white">
           <div className="absolute inset-0 flex items-center justify-center p-4">
             <Image
               src={imageUrl}
@@ -196,10 +196,10 @@ export default function ProductCard({ product }: ProductCardProps) {
           disabled={isAddingToCart}
           className={`w-full py-3 rounded-lg font-medium flex items-center justify-center mt-auto ${
             isVariable 
-              ? 'bg-green-600 hover:bg-green-700 text-white' 
+              ? 'bg-bred-500 hover:bg-bred-700 text-white' 
               : isAddingToCart
-                ? 'bg-blue-400 text-white cursor-not-allowed'
-                : 'bg-blue-600 hover:bg-blue-700 text-white'
+                ? 'bg-bred-500 text-white cursor-not-allowed'
+                : 'bg-bred-500 hover:bg-bred-700 text-white'
           }`}
         >
           {isVariable ? (
