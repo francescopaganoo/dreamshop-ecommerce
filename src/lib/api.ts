@@ -305,10 +305,39 @@ export async function searchProducts(searchTerm: string, page = 1, per_page = 10
 }
 
 // Order data interface
+// Interfaccia per la risposta dell'API WooCommerce per la creazione di un ordine
+export interface WooCommerceOrderResponse {
+  id: number;
+  customer_id: number;
+  status: string;
+  total: string;
+  payment_method: string;
+  payment_method_title: string;
+  billing: {
+    first_name: string;
+    last_name: string;
+    email: string;
+    [key: string]: any;
+  };
+  shipping: {
+    [key: string]: any;
+  };
+  line_items: Array<{
+    id: number;
+    name: string;
+    product_id: number;
+    quantity: number;
+    price: string;
+    [key: string]: any;
+  }>;
+  [key: string]: any;
+}
+
 export interface OrderData {
   payment_method: string;
   payment_method_title: string;
   set_paid: boolean;
+  customer_id?: number;  // Aggiungiamo il customer_id come campo opzionale per compatibilità
   billing: {
     first_name: string;
     last_name: string;
@@ -346,12 +375,78 @@ export interface OrderData {
   }>;
 }
 
-// Create an order
-export async function createOrder(orderData: OrderData) {
+// Create an order con customer_id impostato direttamente
+export async function createOrder(orderData: OrderData): Promise<WooCommerceOrderResponse> {
   try {
-    // Cast orderData to WooCommerceData to satisfy the TypeScript requirement
-    const response = await api.post('orders', orderData as unknown as Record<string, unknown>);
-    return response.data;
+    // Recuperiamo l'ID utente direttamente dal token JWT
+    let userId = 0;
+    
+    // Per sicurezza, aggiungiamo un blocco che esegue una chiamata API per recuperare l'ID utente
+    if (typeof window !== 'undefined') {
+      try {
+        const token = localStorage.getItem('woocommerce_token');
+        if (token) {
+          // Recupera i dati utente dall'API validate
+          const response = await fetch('/api/auth/validate', {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          if (response.ok) {
+            const userData = await response.json();
+            if (userData && userData.id) {
+              userId = parseInt(String(userData.id), 10);
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Errore nel recupero dati utente:', e);
+      }
+    }
+    
+    console.log('API DEBUG - UserId recuperato direttamente dall\'API:', userId);
+    
+    // Prepariamo i dati dell'ordine con il customer_id esplicito
+    const rawDataToSend = {
+      ...orderData,
+      // Impostiamo customer_id direttamente
+      customer_id: userId
+    };
+
+    // Convertiamo in un oggetto semplice per evitare problemi di serializzazione
+    const orderDataToSend = JSON.parse(JSON.stringify(rawDataToSend));
+
+    // Log dell'ID utente recuperato direttamente dal localStorage
+    console.log('API DEBUG - OrderData originale:', orderData);
+    console.log('API DEBUG - OrderData preparato per invio:', orderDataToSend);
+
+    // Log molto dettagliato per debug
+    console.log('API DEBUG - Creazione ordine con dati:', {
+      customer_id: orderDataToSend.customer_id,
+      payment_method: orderDataToSend.payment_method,
+      billing: orderDataToSend.billing ? {
+        email: orderDataToSend.billing.email,
+        first_name: orderDataToSend.billing.first_name,
+      } : 'non disponibile',
+      orderData_full: JSON.stringify(orderDataToSend)
+    });
+
+    // Invio dei dati a WooCommerce API
+    const response = await api.post('orders', orderDataToSend);
+    
+    // Cast sicuro della risposta al tipo corretto
+    const orderResponse = response.data as WooCommerceOrderResponse;
+    
+    // Log della risposta
+    console.log('API DEBUG - Risposta creazione ordine:', {
+      id: orderResponse.id,
+      customer_id: orderResponse.customer_id,
+      status: orderResponse.status,
+      response_keys: Object.keys(orderResponse)
+    });
+    
+    return orderResponse;
   } catch (error) {
     console.error('Error creating order:', error);
     throw error;

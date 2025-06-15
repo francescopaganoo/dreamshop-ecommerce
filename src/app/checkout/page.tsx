@@ -256,6 +256,19 @@ export default function CheckoutPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Debug visibile nel browser
+    console.log('CHECKOUT DEBUG - Form inviato');
+    if (isAuthenticated && user) {
+      console.log('CHECKOUT DEBUG - Dati utente:', {
+        id: user.id,
+        tipo_id: typeof user.id,
+        email: user.email,
+        username: user.username
+      });
+    } else {
+      console.log('CHECKOUT DEBUG - Utente non autenticato');
+    }
+    
     if (cart.length === 0) {
       setFormError('Il tuo carrello è vuoto. Aggiungi prodotti prima di procedere al checkout.');
       return;
@@ -788,8 +801,25 @@ export default function CheckoutPage() {
       
       // Per altri metodi di pagamento, crea l'ordine direttamente
       
-      // Create the order
+      // Debug: Verifichiamo i dati dell'utente prima di creare l'ordine
+      console.log('Dati utente pre-ordine:', isAuthenticated ? {
+        id: user?.id,
+        email: user?.email,
+        username: user?.username,
+        // Altri dati per il debug
+        userObject: user
+      } : 'Non autenticato');
+      
+      // Prepara l'ID utente esplicitamente
+      const customerIdForOrder = isAuthenticated && user && user.id ? parseInt(String(user.id), 10) : 0;
+      
+      // Log esplicito dell'ID utente prima di creazione ordine
+      console.log('CHECKOUT DEBUG - ID UTENTE IMPOSTATO ESPLICITAMENTE:', customerIdForOrder);
+      
+      // Create the order con customer_id come prima proprietà 
       const orderData = {
+        // Metti customer_id come prima proprietà per assicurarti che sia incluso
+        customer_id: customerIdForOrder,
         payment_method: formData.paymentMethod,
         payment_method_title: (formData.paymentMethod as string) === 'stripe' ? 'Carta di credito' : 
                              (formData.paymentMethod as string) === 'bacs' ? 'Bonifico Bancario' : 
@@ -799,8 +829,6 @@ export default function CheckoutPage() {
         shipping: shippingInfo,
         line_items: line_items,
         customer_note: formData.notes,
-        // Se l'utente è autenticato, associa l'ordine al suo account
-        customer_id: isAuthenticated && user ? user.id : 0,
         shipping_lines: [
           {
             method_id: selectedShippingMethod?.id || 'flat_rate',
@@ -851,8 +879,25 @@ export default function CheckoutPage() {
         }
       }
       
-      // Send the order to WooCommerce
+      // Prepariamo l'ID utente da passare separatamente
+      const userIdForWooCommerce = isAuthenticated && user && user.id ? parseInt(String(user.id), 10) : 0;
+      
+      // Log dettagliato dell'orderData prima di inviare a WooCommerce
+      console.log('CHECKOUT DEBUG - Dati ordine inviati a WooCommerce:', {
+        customer_id_separato: userIdForWooCommerce, // ID che passeremo separatamente
+        payment_method: orderData.payment_method,
+        email: orderData.billing?.email
+      });
+      
+      // Send the order to WooCommerce (l'ID utente viene recuperato direttamente nella funzione)
       const order = await createOrder(orderData);
+      
+      // Log della risposta (con type safety)
+      console.log('CHECKOUT DEBUG - Risposta da WooCommerce:', {
+        order_id: order && typeof order === 'object' && 'id' in order ? order.id : 'non disponibile',
+        order_type: order ? typeof order : 'undefined',
+        order_keys: order && typeof order === 'object' ? Object.keys(order) : []  // Questo ci mostrerà quali chiavi sono disponibili
+      });
       
       // Check if order is valid and has an id property
       if (order && typeof order === 'object' && 'id' in order) {
