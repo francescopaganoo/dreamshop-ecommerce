@@ -528,6 +528,14 @@ export default function CheckoutPage() {
               return lineItem;
             });
             
+            // Recupera il token JWT dal localStorage
+            let userToken = null;
+            if (typeof window !== 'undefined') {
+              userToken = localStorage.getItem('woocommerce_token');
+            }
+            
+            console.log('iOS DEBUG - Token disponibile:', !!userToken);
+            
             // Crea un ordine con il payment method ID
             const orderResponse = await fetch('/api/stripe/create-order-ios', {
               method: 'POST',
@@ -551,7 +559,9 @@ export default function CheckoutPage() {
                 },
                 line_items,
                 shipping: shipping || 0,
-                notes: formData.notes
+                notes: formData.notes,
+                // Aggiungi il token JWT per autenticazione
+                token: userToken
               }),
             });
             

@@ -33,7 +33,35 @@ export async function POST(request: NextRequest) {
     const data = await request.json();
     console.log('Dati ricevuti per ordine iOS:', JSON.stringify(data, null, 2));
     
-    const { paymentMethodId, amount, customerInfo, line_items, shipping, notes } = data;
+    const { paymentMethodId, amount, customerInfo, line_items, shipping, notes, token } = data;
+    
+    // Recupera l'ID utente dal token JWT (simile agli altri endpoint)
+    let userId = 0;
+    if (token) {
+      try {
+        // Verifica il token e ottieni l'ID utente
+        const validateResponse = await fetch(`${process.env.NEXT_PUBLIC_WORDPRESS_URL}/wp-json/jwt-auth/v1/token/validate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (validateResponse.ok) {
+          const userData = await validateResponse.json();
+          if (userData && userData.data && userData.data.id) {
+            userId = parseInt(userData.data.id, 10);
+            console.log(`iOS: Utente autenticato con ID ${userId}`);
+          }
+        } else {
+          console.log('iOS: Token non valido o scaduto');
+        }
+      } catch (authError) {
+        console.error('iOS: Errore durante la verifica del token:', authError);
+        // Continuamo comunque, nel peggiore dei casi l'ordine sarà come guest
+      }
+    }
     
     if (!paymentMethodId || !amount || !customerInfo || !line_items) {
       console.error('Dati mancanti per l\'ordine iOS');
@@ -45,6 +73,7 @@ export async function POST(request: NextRequest) {
       payment_method: 'stripe',
       payment_method_title: 'Carta di Credito (Stripe)',
       set_paid: false,
+      customer_id: userId, // Aggiungi l'ID utente recuperato
       customer_note: notes || '',
       billing: customerInfo,
       shipping: customerInfo,
@@ -57,6 +86,13 @@ export async function POST(request: NextRequest) {
         }
       ]
     };
+    
+    // Log dei dettagli importanti
+    console.log('iOS - Dettagli ordine:', {
+      customer_id: userId,
+      email: customerInfo.email,
+      payment_method: 'stripe'
+    });
     
     console.log('Creazione ordine in WooCommerce per iOS...');
     const order = await createOrder(orderData);
@@ -104,7 +140,9 @@ export async function POST(request: NextRequest) {
         
         await updateOrder(orderId, orderUpdateData);
         
-        console.log('Ordine aggiornato come pagato');
+        console.log('Ordine aggiornato come pagato per l\'utente ID:', userId);
+          // L'ordine è ora completato e i punti verranno assegnati automaticamente
+          // perché abbiamo correttamente impostato customer_id
       } catch (updateError) {
         console.error('Errore durante l\'aggiornamento dell\'ordine:', updateError);
         // Continuiamo comunque, l'ordine è stato creato e il pagamento è andato a buon fine
