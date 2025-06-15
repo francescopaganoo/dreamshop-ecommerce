@@ -1,6 +1,7 @@
 import { getProducts, getCategories, Product, Category } from "../lib/api";
 import ProductList from "../components/ProductList";
 import CategoryList from "../components/CategoryList";
+import CategoryCarousel from "../components/CategoryCarousel";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import Link from "next/link";
@@ -48,10 +49,15 @@ export default async function Home() {
         </div>
       </section>
 
-            {/* New Arrivals Divider */}
+            <section className="relative h-[400px] bg-gray-50 flex items-center justify-center p-4">
+              <div className="w-full">
+                <CategoryCarousel categories={categories} />
+              </div>
+            </section>
 
+            {/* New Arrivals Divider */}
             <section className="relative h-[300px] bg-gray-50 inset-0 bg-contain bg-center bg-no-repeat" style={{ backgroundImage: "url('/images/nuovi-arrivi.webp')" }}>
-        </section>
+            </section>
 
       {/* Featured Products */}
       <section className="py-12 bg-gray-50">
@@ -70,7 +76,7 @@ export default async function Home() {
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold mb-8 text-center text-gray-900">Sfoglia per Categoria</h2>
           
-          <CategoryList categories={featuredCategories} />
+          <CategoryCarousel categories={categories} />
           
           <div className="text-center mt-8">
             <Link 

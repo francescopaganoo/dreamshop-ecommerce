@@ -164,7 +164,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       <div className="p-5 flex flex-col flex-grow">
         <div className="flex-grow">
           <Link href={`/product/${product.slug}`} className="block">
-            <h3 className="text-lg font-semibold text-gray-800 mb-2 line-clamp-2 hover:text-blue-600">{product.name}</h3>
+            <h3 className="text-lg font-semibold text-gray-800 mb-2 line-clamp-2 hover:text-bred-500">{product.name}</h3>
           </Link>
           
           <div className="flex items-center mb-4">
