@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '../../context/AuthContext';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
+import { getUserPoints, PointsResponse, PointsHistoryItem } from '../../lib/points';
 
 // Interfaccia per gli ordini
 interface Order {
@@ -29,6 +30,11 @@ function AccountContent() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
   
+  // Stato per i punti
+  const [pointsData, setPointsData] = useState<PointsResponse | null>(null);
+  const [isLoadingPoints, setIsLoadingPoints] = useState(false);
+  const [pointsError, setPointsError] = useState<string | null>(null);
+  
   // Reindirizza l'utente se non è autenticato
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -38,7 +44,7 @@ function AccountContent() {
   
   // Aggiorna la tab attiva quando cambia il parametro nell'URL
   useEffect(() => {
-    if (tabParam && ['dashboard', 'orders', 'addresses', 'account-details'].includes(tabParam)) {
+    if (tabParam && ['dashboard', 'orders', 'addresses', 'account-details', 'points'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [tabParam]);
@@ -92,6 +98,40 @@ function AccountContent() {
     if (activeTab === 'orders' && user) {
       fetchOrders();
     }
+    
+    if (activeTab === 'points' && user) {
+      const fetchPoints = async () => {
+        if (!user) {
+          console.log('Utente non disponibile, impossibile caricare i punti');
+          return;
+        }
+        
+        setIsLoadingPoints(true);
+        setPointsError(null);
+        
+        try {
+          // Recupera il token dal localStorage
+          const token = localStorage.getItem('woocommerce_token');
+          
+          if (!token) {
+            console.error('Token non trovato nel localStorage');
+            throw new Error('Token non trovato');
+          }
+          
+          console.log('Recupero punti per utente:', user.id);
+          
+          // Chiamata all'API per recuperare i punti
+          const data = await getUserPoints(user.id, token);
+          setPointsData(data);
+        } catch (error) {
+          console.error('Errore durante il caricamento dei punti:', error);
+          setPointsError('Impossibile caricare i punti. Riprova più tardi.');
+        } finally {
+          setIsLoadingPoints(false);
+        }
+      };
+      fetchPoints();
+    }
   }, [activeTab, user]);
   
   // Gestisce il logout
@@ -121,7 +161,7 @@ function AccountContent() {
               Ciao <span className="font-semibold">{user?.displayName || user?.username}</span>, benvenuto nel tuo account.
             </p>
             <p className="mb-4">
-              Da qui puoi visualizzare i tuoi <Link href="#" onClick={() => setActiveTab('orders')} className="text-blue-600 hover:text-blue-800">ordini recenti</Link>, gestire i tuoi <Link href="#" onClick={() => setActiveTab('addresses')} className="text-blue-600 hover:text-blue-800">indirizzi di spedizione</Link> e <Link href="#" onClick={() => setActiveTab('account-details')} className="text-blue-600 hover:text-blue-800">modificare i dettagli del tuo account</Link>.
+              Da qui puoi visualizzare i tuoi <Link href="#" onClick={() => setActiveTab('orders')} className="text-blue-600 hover:text-blue-800">ordini recenti</Link>, controllare i tuoi <Link href="#" onClick={() => setActiveTab('points')} className="text-blue-600 hover:text-blue-800">punti fedeltà</Link>, gestire i tuoi <Link href="#" onClick={() => setActiveTab('addresses')} className="text-blue-600 hover:text-blue-800">indirizzi di spedizione</Link> e <Link href="#" onClick={() => setActiveTab('account-details')} className="text-blue-600 hover:text-blue-800">modificare i dettagli del tuo account</Link>.
             </p>
           </div>
         );
@@ -176,6 +216,60 @@ function AccountContent() {
               </div>
             ) : (
               <p>Non hai ancora effettuato ordini.</p>
+            )}
+          </div>
+        );
+        
+      case 'points':
+        return (
+          <div>
+            <h2 className="text-xl font-semibold mb-4">I tuoi punti</h2>
+            
+            {isLoadingPoints ? (
+              <p>Caricamento punti in corso...</p>
+            ) : pointsError ? (
+              <div className="text-red-500 mb-4">{pointsError}</div>
+            ) : pointsData ? (
+              <div>
+                <div className="bg-blue-50 p-4 rounded-lg mb-6">
+                  <h3 className="text-lg font-semibold mb-2">Il tuo saldo punti</h3>
+                  <p className="text-2xl font-bold text-blue-600">{pointsData.pointsLabel}</p>
+                </div>
+                
+                {pointsData.history && pointsData.history.length > 0 ? (
+                  <div>
+                    <h3 className="text-lg font-semibold mb-2">Cronologia punti</h3>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full bg-white">
+                        <thead>
+                          <tr className="bg-gray-100">
+                            <th className="py-2 px-4 text-left">Data</th>
+                            <th className="py-2 px-4 text-left">Punti</th>
+                            <th className="py-2 px-4 text-left">Descrizione</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {pointsData.history.map((item: PointsHistoryItem) => (
+                            <tr key={item.id} className="border-t">
+                              <td className="py-2 px-4">{formatDate(item.date)}</td>
+                              <td className="py-2 px-4">
+                                <span className={item.points > 0 ? 'text-green-600' : 'text-red-600'}>
+                                  {item.points > 0 ? '+' : ''}{item.points}
+                                </span>
+                              </td>
+                              <td className="py-2 px-4">{item.description}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : (
+                  <p>Nessuna attività punti registrata.</p>
+                )}
+              </div>
+            ) : (
+              <p>Nessun dato punti disponibile.</p>
             )}
           </div>
         );
@@ -296,6 +390,14 @@ function AccountContent() {
                         className={`text-gray-600 w-full text-left px-4 py-2 rounded-md ${activeTab === 'orders' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
                       >
                         Ordini
+                      </button>
+                    </li>
+                    <li>
+                      <button
+                        onClick={() => setActiveTab('points')}
+                        className={`text-gray-600 w-full text-left px-4 py-2 rounded-md ${activeTab === 'points' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
+                      >
+                        I miei punti
                       </button>
                     </li>
                     <li>

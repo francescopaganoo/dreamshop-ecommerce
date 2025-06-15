@@ -1,0 +1,70 @@
+import { NextRequest, NextResponse } from 'next/server';
+import jwt from 'jsonwebtoken';
+import api from '@/lib/woocommerce';
+
+/**
+ * API per aggiungere punti all'utente
+ * POST /api/points/add
+ */
+export async function POST(request: NextRequest) {
+  console.log('API: Richiesta aggiunta punti ricevuta');
+  
+  // Verifica l'autenticazione
+  const authHeader = request.headers.get('authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    console.error('API: Token non fornito');
+    return NextResponse.json({ error: 'Token non fornito' }, { status: 401 });
+  }
+  
+  const token = authHeader.substring(7); // Rimuovi 'Bearer ' dal token
+  
+  try {
+    // Decodifica il token per ottenere l'ID utente
+    const decoded = jwt.decode(token) as jwt.JwtPayload;
+    
+    if (!decoded || !decoded.id) {
+      console.error('API: Token decodificato non valido o mancante ID utente');
+      return NextResponse.json({ error: 'Token non valido o ID utente mancante' }, { status: 401 });
+    }
+    
+    const userId = decoded.id;
+    
+    // Ottieni i dati dalla richiesta
+    const requestData = await request.json();
+    
+    // Verifica che i dati necessari siano presenti
+    if (!requestData.points || !requestData.order_id) {
+      console.error('API: Dati mancanti nella richiesta');
+      return NextResponse.json({ error: 'Dati mancanti: points e order_id sono obbligatori' }, { status: 400 });
+    }
+    
+    console.log(`API: Aggiungo punti per utente ${userId}, ordine ${requestData.order_id}, punti ${requestData.points}`);
+    
+    try {
+      // Usa l'API WooCommerce con autenticazione consumer key/secret
+      const response = await api.post('points/add', {
+        user_id: userId,
+        points: requestData.points,
+        description: requestData.description || `Punti guadagnati per l'ordine #${requestData.order_id}`,
+        order_id: requestData.order_id
+      });
+      
+      // Estrai i dati dalla risposta
+      const responseData = response.data;
+      console.log('API: Punti aggiunti con successo');
+      
+      return NextResponse.json(responseData);
+    } catch (wcError: any) {
+      console.error('API: Errore nella risposta WooCommerce:', wcError.response?.data || wcError.message);
+      return NextResponse.json(
+        { error: `Errore nell'aggiunta dei punti: ${wcError.response?.status || 500}` }, 
+        { status: wcError.response?.status || 500 }
+      );
+    }
+    
+  } catch (error: unknown) {
+    // Log dettagliato dell'errore
+    console.error('API: Errore durante l\'aggiunta dei punti:', error);
+    return NextResponse.json({ error: 'Errore interno del server' }, { status: 500 });
+  }
+}
