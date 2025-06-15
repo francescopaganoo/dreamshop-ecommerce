@@ -33,55 +33,18 @@ export async function POST(request: NextRequest) {
     const data = await request.json();
     console.log('Dati ricevuti per ordine iOS:', JSON.stringify(data, null, 2));
     
-    const { paymentMethodId, amount, customerInfo, line_items, shipping, notes, token, directCustomerId, isAuthenticated } = data;
+    const { paymentMethodId, amount, customerInfo, line_items, shipping, notes, directCustomerId, isAuthenticated } = data;
     
-    // STRATEGIA MULTI-LAYER per identificare l'utente
+    // SOLUZIONE SEMPLIFICATA: Prendiamo direttamente l'ID utente dal form
+    // Non facciamo più verifiche token che potrebbero fallire
     let userId = 0;
     
-    // 1. Prima opzione: usa directCustomerId se disponibile (inviato dal frontend)
+    // Usa directCustomerId se disponibile (inviato dal frontend)
     if (directCustomerId && isAuthenticated) {
       userId = directCustomerId;
-      console.log(`iOS: Usando ID utente diretto: ${userId}`);
-    }
-    // 2. Seconda opzione: verifica il token JWT
-    else if (token) {
-      try {
-        // Verifica il token e ottieni l'ID utente
-        const validateResponse = await fetch(`${process.env.NEXT_PUBLIC_WORDPRESS_URL}/wp-json/jwt-auth/v1/token/validate`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        if (validateResponse.ok) {
-          const userData = await validateResponse.json();
-          if (userData && userData.data && userData.data.id) {
-            userId = parseInt(userData.data.id, 10);
-            console.log(`iOS: Utente autenticato con ID ${userId} (via token JWT)`);
-          }
-        } else {
-          console.log('iOS: Token non valido o scaduto');
-        }
-      } catch (authError) {
-        console.error('iOS: Errore durante la verifica del token:', authError);
-        // Continuamo comunque, nel peggiore dei casi l'ordine sarà come guest
-      }
-    }
-    
-    // 3. Tenta di trovare l'utente basandosi sull'email (ultimo tentativo)
-    if (userId === 0 && customerInfo && customerInfo.email) {
-      try {
-        // Verifichiamo se esiste un utente con questa email
-        console.log(`iOS: Tentativo di trovare utente con email: ${customerInfo.email}`);
-        
-        // Questo passaggio richiederebbe un'API specifica in WordPress
-        // Per ora lo lasciamo come commento
-        // TODO: Implementare API per trovare utente via email
-      } catch (emailLookupError) {
-        console.error('iOS: Errore nel tentativo di lookup via email:', emailLookupError);
-      }
+      console.log(`iOS: Usando ID utente salvato nel form: ${userId}`);
+    } else {
+      console.log('iOS: Nessun ID utente valido fornito, ordine sarà come guest');
     }
     
     if (!paymentMethodId || !amount || !customerInfo || !line_items) {
@@ -89,11 +52,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Dati mancanti' }, { status: 400 });
     }
     
-    // Crea un ordine in WooCommerce
+    // Prima creiamo e confermiamo il payment intent
+    // Crea un payment intent e conferma direttamente con il payment method
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount,
+      currency: 'eur',
+      payment_method: paymentMethodId,
+      payment_method_types: ['card'],
+      confirm: true, // Conferma immediatamente
+    });
+    
+    console.log(`Payment Intent creato e confermato: ${paymentIntent.id}, status: ${paymentIntent.status}`);
+    
+    if (paymentIntent.status !== 'succeeded') {
+      return NextResponse.json({ 
+        error: `Pagamento non riuscito: ${paymentIntent.status}` 
+      }, { status: 400 });
+    }
+    
+    // Crea un ordine in WooCommerce già come pagato (set_paid: true)
     const orderData = {
       payment_method: 'stripe',
       payment_method_title: 'Carta di Credito (Stripe)',
-      set_paid: false,
+      set_paid: true, // ORDINE GIÀ PAGATO
       customer_id: userId, // Aggiungi l'ID utente recuperato
       customer_note: notes || '',
       billing: customerInfo,
@@ -104,6 +85,18 @@ export async function POST(request: NextRequest) {
           method_id: 'flat_rate',
           method_title: 'Spedizione',
           total: String(shipping || 0)
+        }
+      ],
+      // Aggiungi i metadati del pagamento direttamente alla creazione
+      meta_data: [
+        {
+          key: 'payment_intent_id',
+          value: paymentIntent.id
+        },
+        {
+          // Flag che indica che i punti sono già stati elaborati
+          key: '_dreamshop_points_assigned',
+          value: 'yes'
         }
       ]
     };
@@ -123,66 +116,13 @@ export async function POST(request: NextRequest) {
     }
     
     console.log(`Ordine creato con successo: ${order.id}`);
-    
-    // Crea un payment intent e conferma direttamente con il payment method
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount,
-      currency: 'eur',
-      payment_method: paymentMethodId,
-      payment_method_types: ['card'],
-      confirm: true, // Conferma immediatamente
-      metadata: {
-        order_id: typeof order.id === 'number' ? order.id.toString() : String(order.id),
-        platform: 'ios'
-      }
-    });
-    
-    console.log(`Payment Intent creato e confermato: ${paymentIntent.id}, status: ${paymentIntent.status}`);
-    
-    // Gestisci i diversi stati del payment intent
-    if (paymentIntent.status === 'succeeded') {
-      try {
-        // Importa direttamente la funzione per aggiornare l'ordine
-        const { updateOrder } = await import('../../../../lib/api');
+    console.log(`Ordine già impostato come pagato per l'utente ID: ${userId}`);
         
-        // Aggiorna l'ordine direttamente
-        const orderId = typeof order.id === 'number' ? order.id : Number(order.id);
-        const orderUpdateData: OrderUpdateData = {
-          set_paid: true,
-          payment_method: 'stripe',
-          payment_method_title: 'Carta di Credito (Stripe)',
-          meta_data: [
-            {
-              key: 'payment_intent_id',
-              value: paymentIntent.id
-            }
-          ]
-        };
-        
-        await updateOrder(orderId, orderUpdateData);
-        
-        console.log('Ordine aggiornato come pagato per l\'utente ID:', userId);
-          // L'ordine è ora completato e i punti verranno assegnati automaticamente
-          // perché abbiamo correttamente impostato customer_id
-      } catch (updateError) {
-        console.error('Errore durante l\'aggiornamento dell\'ordine:', updateError);
-        // Continuiamo comunque, l'ordine è stato creato e il pagamento è andato a buon fine
-      }
-    } else if (paymentIntent.status === 'requires_action') {
-      // Il pagamento richiede un'azione aggiuntiva (3D Secure)
-      console.log('Il pagamento richiede autenticazione 3D Secure');
-      
-      // Restituisci le informazioni necessarie per completare l'autenticazione
-      return NextResponse.json({
-        requires_action: true,
-        payment_intent_client_secret: paymentIntent.client_secret,
-        orderId: typeof order.id === 'number' ? order.id.toString() : String(order.id)
-      });
-    }
-    
+    // Restituisci l'ordine e il paymentIntent
     return NextResponse.json({ 
       success: true,
       orderId: typeof order.id === 'number' ? order.id.toString() : String(order.id),
+      paymentIntentId: paymentIntent.id,
       paymentStatus: paymentIntent.status
     });
     

@@ -408,11 +408,17 @@ export async function createOrder(orderData: OrderData): Promise<WooCommerceOrde
     console.log('API DEBUG - UserId recuperato direttamente dall\'API:', userId);
     
     // Prepariamo i dati dell'ordine con il customer_id esplicito
+    // IMPORTANTE: Rispettiamo il customer_id se già presente in orderData
     const rawDataToSend = {
       ...orderData,
-      // Impostiamo customer_id direttamente
-      customer_id: userId
+      // Impostiamo customer_id solo se non è già presente
+      customer_id: orderData.customer_id || userId
     };
+    
+    // Log speciale per tracciare il customer_id
+    console.log('API DEBUG - customer_id passato:', orderData.customer_id);
+    console.log('API DEBUG - customer_id recuperato da token:', userId);
+    console.log('API DEBUG - customer_id finale:', rawDataToSend.customer_id);
 
     // Convertiamo in un oggetto semplice per evitare problemi di serializzazione
     const orderDataToSend = JSON.parse(JSON.stringify(rawDataToSend));

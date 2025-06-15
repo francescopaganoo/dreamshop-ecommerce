@@ -142,6 +142,7 @@ export default function CheckoutPage() {
     shipToDifferentAddress: false,
     shippingFirstName: '',
     shippingLastName: '',
+    userId: 0, // Campo nascosto per memorizzare l'ID utente
     shippingAddress1: '',
     shippingAddress2: '',
     shippingCity: '',
@@ -154,14 +155,20 @@ export default function CheckoutPage() {
   // Stato per il pagamento Stripe
   const [isStripeLoading, setIsStripeLoading] = useState(false);
   
-  // Precompila i dati dell'utente se autenticato
+  // Precompila il form se l'utente è autenticato
   useEffect(() => {
     if (isAuthenticated && user) {
+      // Ottieni l'ID numerico dell'utente
+      const numericUserId = user.id ? parseInt(String(user.id), 10) : 0;
+      console.log('CHECKOUT: Impostato ID utente nel form:', numericUserId);
+      
       setFormData(prev => ({
         ...prev,
         firstName: user.firstName || '',
         lastName: user.lastName || '',
-        email: user.email || ''
+        email: user.email || '',
+        // Rimuovo il campo phone che causa errori
+        userId: numericUserId // Salva l'ID utente nel form data
       }));
     }
   }, [isAuthenticated, user]);
@@ -528,25 +535,12 @@ export default function CheckoutPage() {
               return lineItem;
             });
             
-            // Recupera il token JWT dal localStorage
-            let userToken = null;
-            let userCustomerId = 0;
+            // Ottieni l'ID utente direttamente dal form
+            // Questo valore è stato impostato nell'useEffect quando l'utente è stato autenticato
+            const userIdFromForm = formData.userId || 0;
             
-            if (typeof window !== 'undefined') {
-              // Tenta di ottenere il token dal localStorage
-              userToken = localStorage.getItem('woocommerce_token');
-              
-              // Per sicurezza, otteniamo anche l'ID utente direttamente dal contesto
-              if (isAuthenticated && user && user.id) {
-                userCustomerId = parseInt(String(user.id), 10);
-              }
-            }
-            
-            console.log('iOS DEBUG - Auth info:', {
-              token_disponibile: !!userToken,
-              customer_id: userCustomerId,
-              isAuthenticated
-            });
+            // Per debug
+            console.log('iOS DEBUG - ID utente dal form:', userIdFromForm);
             
             // Crea un ordine con il payment method ID
             const orderResponse = await fetch('/api/stripe/create-order-ios', {
@@ -572,9 +566,9 @@ export default function CheckoutPage() {
                 line_items,
                 shipping: shipping || 0,
                 notes: formData.notes,
-                // Invia sia il token che l'ID utente per doppia sicurezza
-                token: userToken,
-                directCustomerId: userCustomerId,
+                // Passa l'ID utente salvato nel form
+                // Non c'è bisogno del token in quanto l'ID è già noto
+                directCustomerId: userIdFromForm,
                 isAuthenticated: isAuthenticated
               }),
             });
