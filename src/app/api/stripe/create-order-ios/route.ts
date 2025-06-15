@@ -2,17 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createOrder } from '../../../../lib/api';
 
-// Interfaccia per l'aggiornamento dell'ordine
-interface OrderUpdateData {
-  set_paid: boolean;
-  payment_method: string;
-  payment_method_title: string;
-  meta_data: Array<{
-    key: string;
-    value: string;
-  }>;
-}
-
 // Inizializza Stripe con la chiave segreta
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 console.log('Stripe Secret Key disponibile per iOS:', !!stripeSecretKey);
