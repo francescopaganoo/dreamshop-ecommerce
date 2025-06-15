@@ -342,11 +342,18 @@ export default function CheckoutPage() {
           phone: formData.shippingPhone
         } : billingInfo;
         
+        // Recupera l'ID utente dalla form state per associarlo all'ordine
+        const userIdFromForm = formData.userId || 0;
+        
+        console.log(`PayPal: Utente autenticato? ${isAuthenticated}, ID utente: ${userIdFromForm}`);
+        
         // Prepara i dati dell'ordine
         const orderData = {
           payment_method: 'paypal',
           payment_method_title: 'PayPal',
           set_paid: false,
+          // Assegna esplicitamente l'ID utente se autenticato
+          customer_id: isAuthenticated ? userIdFromForm : 0,
           customer_note: formData.notes,
           billing: billingInfo,
           shipping: shippingInfo,
@@ -366,6 +373,8 @@ export default function CheckoutPage() {
             }
           ] : []
         };
+        
+        console.log(`PayPal DEBUG: Dati ordine completi:`, JSON.stringify(orderData, null, 2));
         
         // Salva i dati dell'ordine per PayPal
         setPaypalOrderData(orderData);

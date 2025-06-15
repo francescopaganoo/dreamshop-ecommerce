@@ -22,6 +22,30 @@ export async function POST(request: NextRequest) {
     
     console.log(`Cattura del pagamento PayPal per l'ordine ${orderId}, PayPal Order ID: ${paypalOrderId}`);
     
+    // Definiamo un'interfaccia per i dettagli dell'ordine WooCommerce
+    interface WooOrderDetails {
+      id: number;
+      customer_id?: number;
+      status?: string;
+      meta_data?: Array<{key: string; value: string}>;
+    }
+    
+    // Per debug: recuperiamo i dettagli dell'ordine prima di aggiornarlo
+    try {
+      const orderDetailsResponse = await api.get(`orders/${orderId}`);
+      const orderDetails = orderDetailsResponse.data as WooOrderDetails;
+      console.log(`PayPal Capture: Dettagli ordine ${orderId} prima dell'aggiornamento:`, 
+                  JSON.stringify({
+                    id: orderDetails.id,
+                    customer_id: orderDetails.customer_id,
+                    status: orderDetails.status,
+                    meta_data: orderDetails.meta_data
+                  }, null, 2));
+    } catch (orderError) {
+      console.error(`Impossibile recuperare i dettagli dell'ordine ${orderId}:`, orderError);
+      // Continuiamo comunque con il flusso principale
+    }
+    
     try {
       // Ottieni un token di accesso PayPal
       const tokenResponse = await fetch(`${PAYPAL_API_URL}/v1/oauth2/token`, {
@@ -58,8 +82,8 @@ export async function POST(request: NextRequest) {
       
       console.log(`Pagamento PayPal catturato con successo: ${captureData.id}, Status: ${captureData.status}`);
       
-      // Aggiorna l'ordine in WooCommerce come pagato
-      const response = await api.put(`orders/${orderId}`, {
+      // Prepariamo i dati per l'aggiornamento dell'ordine
+      const orderUpdateData = {
         status: 'processing', // Cambia lo stato dell'ordine a "processing"
         set_paid: true, // Imposta l'ordine come pagato
         meta_data: [
@@ -78,15 +102,36 @@ export async function POST(request: NextRequest) {
           {
             key: '_payment_method_title',
             value: 'PayPal'
+          },
+          {
+            // Questo flag previene l'assegnazione duplicata dei punti
+            key: '_dreamshop_points_assigned',
+            value: 'yes'
           }
         ]
-      });
+      };
       
-      const updatedOrder = response.data;
+      console.log(`PayPal Capture: Aggiorno l'ordine ${orderId} con i seguenti dati:`, 
+                  JSON.stringify(orderUpdateData, null, 2));
+                  
+      // Aggiorna l'ordine in WooCommerce come pagato
+      const response = await api.put(`orders/${orderId}`, orderUpdateData);
+      
+      const updatedOrder = response.data as WooOrderDetails;
       
       if (!updatedOrder) {
         throw new Error('Risposta non valida dall\'aggiornamento dell\'ordine');
       }
+      
+      // Log dettagliato dell'ordine aggiornato
+      console.log(`PayPal Capture: Dettagli ordine ${orderId} DOPO l'aggiornamento:`, 
+                  JSON.stringify({
+                    id: updatedOrder.id,
+                    customer_id: updatedOrder.customer_id,
+                    status: updatedOrder.status,
+                    meta_data: updatedOrder.meta_data?.filter(m => 
+                      ['_dreamshop_points_assigned', '_paypal_order_id'].includes(m.key))
+                  }, null, 2));
       
       // Definiamo un'interfaccia per l'ordine WooCommerce
       interface WooOrder {

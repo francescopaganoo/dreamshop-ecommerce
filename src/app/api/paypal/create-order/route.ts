@@ -10,18 +10,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Dati dell\'ordine mancanti' }, { status: 400 });
     }
     
-    console.log('Creazione ordine WooCommerce con PayPal:', orderData);
+    // Log dettagliato per debug dell'ID utente
+    const userId = orderData.customer_id || 0;
+    console.log(`PayPal: Creazione ordine per utente ID: ${userId}`);
+    console.log(`PayPal DEBUG: Contenuto completo ordine:`, JSON.stringify(orderData, null, 2));
+    
+    // Assicurati che customer_id non sia perso o sovrascritto
+    const orderDataToSend = {
+      ...orderData,
+      // Preserviamo esplicitamente il customer_id
+      customer_id: userId,
+      // Impostiamo il metodo di pagamento a PayPal
+      payment_method: 'paypal',
+      payment_method_title: 'PayPal',
+      set_paid: false, // Verrà impostato a true dopo la conferma del pagamento
+      status: 'pending' // Lo stato iniziale è pending
+    };
+    
+    console.log(`PayPal: Dati ordine pronti per invio:`, JSON.stringify(orderDataToSend, null, 2));
     
     // Crea l'ordine in WooCommerce
     try {
-      const response = await api.post('orders', {
-        ...orderData,
-        // Impostiamo il metodo di pagamento a PayPal
-        payment_method: 'paypal',
-        payment_method_title: 'PayPal',
-        set_paid: false, // Verrà impostato a true dopo la conferma del pagamento
-        status: 'pending' // Lo stato iniziale è pending
-      });
+      const response = await api.post('orders', orderDataToSend);
       
       const order = response.data;
       
