@@ -4,8 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../context/AuthContext';
-import Header from '../../components/Header';
-import Footer from '../../components/Footer';
+
 import { getUserPoints, PointsResponse, PointsHistoryItem } from '../../lib/points';
 
 // Interfaccia per gli ordini

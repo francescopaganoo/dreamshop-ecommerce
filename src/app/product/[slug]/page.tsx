@@ -1,6 +1,4 @@
 import { getProductBySlug } from '../../../lib/api';
-import Header from '../../../components/Header';
-import Footer from '../../../components/Footer';
 import Image from 'next/image';
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';

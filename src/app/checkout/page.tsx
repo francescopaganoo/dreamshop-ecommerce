@@ -7,8 +7,6 @@ import { useAuth } from '../../context/AuthContext';
 import { CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { PayPalButtons, usePayPalScriptReducer } from '@paypal/react-paypal-js';
 import Link from 'next/link';
-import Header from '../../components/Header';
-import Footer from '../../components/Footer';
 
 import { createOrder, getShippingMethods, ShippingMethod } from '../../lib/api';
 

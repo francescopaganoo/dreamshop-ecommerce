@@ -1,11 +1,7 @@
 import { getProducts, getCategories, Product, Category } from "../lib/api";
 import ProductList from "../components/ProductList";
-import CategoryList from "../components/CategoryList";
 import CategoryCarousel from "../components/CategoryCarousel";
-import Header from "../components/Header";
-import Footer from "../components/Footer";
 import Link from "next/link";
-import Image from 'next/image';
 
 // Configurazione per il rendering dinamico della pagina
 //export const dynamic = 'force-dynamic';
@@ -26,7 +22,6 @@ export default async function Home() {
   const categories: Category[] = await getProductCategories();
   
   // Take only the first 6 categories for the homepage
-  const featuredCategories: Category[] = categories.slice(0, 6);
 
   return (
     <div className="min-h-screen flex flex-col">

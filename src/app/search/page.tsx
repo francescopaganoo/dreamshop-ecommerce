@@ -1,6 +1,4 @@
 import { searchProducts, Product } from '../../lib/api';
-import Header from '../../components/Header';
-import Footer from '../../components/Footer';
 import ProductCard from '../../components/ProductCard';
 import { Metadata } from 'next';
 import Link from 'next/link';

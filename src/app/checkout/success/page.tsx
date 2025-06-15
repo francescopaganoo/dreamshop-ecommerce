@@ -3,8 +3,6 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import Header from '../../../components/Header';
-import Footer from '../../../components/Footer';
 import { getOrder } from '../../../lib/api';
 
 // Client component that uses useSearchParams

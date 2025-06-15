@@ -4,8 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../context/AuthContext';
-import Header from '../../components/Header';
-import Footer from '../../components/Footer';
 
 export default function RegisterPage() {
   const router = useRouter();

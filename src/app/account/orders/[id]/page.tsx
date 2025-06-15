@@ -4,8 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../../../context/AuthContext';
-import Header from '../../../../components/Header';
-import Footer from '../../../../components/Footer';
+
 
 // Interfaccia per l'ordine
 interface Order {

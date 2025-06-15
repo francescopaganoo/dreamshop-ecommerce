@@ -1,6 +1,4 @@
 import { getProductsByCategory, getCategories, Product, Category } from '../../../lib/api';
-import Header from '../../../components/Header';
-import Footer from '../../../components/Footer';
 import ProductCard from '../../../components/ProductCard';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';

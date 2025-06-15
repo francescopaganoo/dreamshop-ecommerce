@@ -1,6 +1,4 @@
 import { getCategories, Category } from '../../lib/api';
-import Header from '../../components/Header';
-import Footer from '../../components/Footer';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Metadata } from 'next';
