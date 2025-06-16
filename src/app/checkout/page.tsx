@@ -950,7 +950,7 @@ export default function CheckoutPage() {
           {/* Il messaggio di conferma dell'ordine è stato spostato all'interno del form */}
           
           {!isAuthenticated && (
-            <div className="mb-6 p-4 bg-blue-100 text-blue-700 rounded-md">
+            <div className="mb-6 p-4 bg-bred-100 text-bred-500 rounded-md">
               <p>Hai già un account? <Link href="/login?redirect=/checkout" className="font-bold underline">Accedi</Link> per velocizzare il checkout.</p>
             </div>
           )}
@@ -978,7 +978,7 @@ export default function CheckoutPage() {
                       name="firstName"
                       value={formData.firstName}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bred-500"
                       required
                     />
                   </div>
@@ -993,7 +993,7 @@ export default function CheckoutPage() {
                       name="lastName"
                       value={formData.lastName}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bred-500"
                       required
                     />
                   </div>
@@ -1009,7 +1009,7 @@ export default function CheckoutPage() {
                     name="email"
                     value={formData.email}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bred-500"
                     required
                   />
                 </div>
@@ -1024,7 +1024,7 @@ export default function CheckoutPage() {
                     name="phone"
                     value={formData.phone}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bred-500"
                     required
                   />
                 </div>
@@ -1039,7 +1039,7 @@ export default function CheckoutPage() {
                     name="address1"
                     value={formData.address1}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bred-500"
                     required
                   />
                 </div>
@@ -1054,7 +1054,7 @@ export default function CheckoutPage() {
                     name="address2"
                     value={formData.address2}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bred-500"
                   />
                 </div>
 
@@ -1069,7 +1069,7 @@ export default function CheckoutPage() {
                       name="city"
                       value={formData.city}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bred-500"
                       required
                     />
                   </div>
@@ -1084,7 +1084,7 @@ export default function CheckoutPage() {
                       name="state"
                       value={formData.state}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bred-500"
                       required
                     />
                   </div>
@@ -1099,7 +1099,7 @@ export default function CheckoutPage() {
                       name="postcode"
                       value={formData.postcode}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bred-500"
                       required
                     />
                   </div>
@@ -1114,7 +1114,7 @@ export default function CheckoutPage() {
                     name="country"
                     value={formData.country}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bred-500"
                     required
                   >
                     <option value="IT">Italia</option>
@@ -1152,7 +1152,7 @@ export default function CheckoutPage() {
                           })
                         }));
                       }}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      className="h-4 w-4 text-bred-500 focus:ring-bred-500 border-gray-300 rounded"
                     />
                     <label htmlFor="shipToDifferentAddress" className="ml-2 block text-sm font-medium text-gray-700">
                       Spedire ad un indirizzo differente?
@@ -1177,7 +1177,7 @@ export default function CheckoutPage() {
                           name="shippingFirstName"
                           value={formData.shippingFirstName}
                           onChange={handleInputChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bred-500"
                           required={formData.shipToDifferentAddress}
                         />
                       </div>
@@ -1192,7 +1192,7 @@ export default function CheckoutPage() {
                           name="shippingLastName"
                           value={formData.shippingLastName}
                           onChange={handleInputChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bred-500"
                           required={formData.shipToDifferentAddress}
                         />
                       </div>
@@ -1208,7 +1208,7 @@ export default function CheckoutPage() {
                         name="shippingAddress1"
                         value={formData.shippingAddress1}
                         onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bred-500"
                         required={formData.shipToDifferentAddress}
                       />
                     </div>
@@ -1223,7 +1223,7 @@ export default function CheckoutPage() {
                         name="shippingAddress2"
                         value={formData.shippingAddress2}
                         onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bred-500"
                       />
                     </div>
                     
@@ -1238,7 +1238,7 @@ export default function CheckoutPage() {
                           name="shippingCity"
                           value={formData.shippingCity}
                           onChange={handleInputChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bred-500"
                           required={formData.shipToDifferentAddress}
                         />
                       </div>
@@ -1253,7 +1253,7 @@ export default function CheckoutPage() {
                           name="shippingState"
                           value={formData.shippingState}
                           onChange={handleInputChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bred-500"
                           required={formData.shipToDifferentAddress}
                         />
                       </div>
@@ -1268,7 +1268,7 @@ export default function CheckoutPage() {
                           name="shippingPostcode"
                           value={formData.shippingPostcode}
                           onChange={handleInputChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bred-500"
                           required={formData.shipToDifferentAddress}
                         />
                       </div>
@@ -1283,7 +1283,7 @@ export default function CheckoutPage() {
                         name="shippingCountry"
                         value={formData.shippingCountry}
                         onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bred-500"
                         required={formData.shipToDifferentAddress}
                       >
                         <option value="IT">Italia</option>
@@ -1305,7 +1305,7 @@ export default function CheckoutPage() {
                         name="shippingPhone"
                         value={formData.shippingPhone}
                         onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bred-500"
                         required={formData.shipToDifferentAddress}
                       />
                     </div>
@@ -1654,7 +1654,7 @@ export default function CheckoutPage() {
                     value={formData.notes}
                     onChange={handleInputChange}
                     rows={4}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-bred-500 focus:border-bred-500 sm:text-sm"
                     placeholder="Note speciali per la consegna o altre informazioni"
                   />
                 </div>
@@ -1669,7 +1669,7 @@ export default function CheckoutPage() {
                         type="checkbox"
                         checked={formData.createAccount}
                         onChange={(e) => setFormData({...formData, createAccount: e.target.checked})}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        className="h-4 w-4 text-bred-500 focus:ring-bred-500 border-gray-300 rounded"
                       />
                       <label htmlFor="createAccount" className="ml-2 block text-sm text-gray-900">
                         Crea un account per tracciare i tuoi ordini
@@ -1687,7 +1687,7 @@ export default function CheckoutPage() {
                           name="password"
                           value={formData.password}
                           onChange={handleInputChange}
-                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-bred-500 focus:border-bred-500 sm:text-sm"
                           required={formData.createAccount}
                           minLength={6}
                         />
@@ -1700,7 +1700,7 @@ export default function CheckoutPage() {
                 <button
                   type="submit"
                   disabled={isSubmitting || isStripeLoading || isProcessingPayment || cart.length === 0}
-                  className={`w-full py-3 px-4 rounded-md text-white font-medium ${(isSubmitting || isStripeLoading || isProcessingPayment) ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+                  className={`w-full py-3 px-4 rounded-md text-white font-medium ${(isSubmitting || isStripeLoading || isProcessingPayment) ? 'bg-gray-400 cursor-not-allowed' : 'bg-bred-500 hover:bg-bred-700'}`}
                 >
                   {isSubmitting ? 'Elaborazione...' : 
                    isStripeLoading ? 'Reindirizzamento a Stripe...' : 
@@ -1802,7 +1802,7 @@ export default function CheckoutPage() {
                 )}
                 
                 <div className="mt-4">
-                  <Link href="/cart" className="text-blue-600 hover:text-blue-800 text-sm">
+                  <Link href="/cart" className="text-bred-500 hover:text-bred-700 text-sm">
                     ← Torna al carrello
                   </Link>
                 </div>

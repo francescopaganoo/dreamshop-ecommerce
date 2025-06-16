@@ -268,13 +268,13 @@ export default function CartPage() {
           
           {cart.length === 0 ? (
             <div className="text-center py-12 bg-gray-50 rounded-lg">
-              <h2 className="text-2xl font-semibold mb-4">Your cart is empty</h2>
-              <p className="text-gray-600 mb-6">Looks like you haven&apos;t added any products to your cart yet.</p>
+              <h2 className="text-2xl font-semibold mb-4 text-gray-600">Il carrello è vuoto</h2>
+              <p className="text-gray-600 mb-6">Sembra che non hai ancora aggiunto alcun prodotto al carrello</p>
               <Link 
                 href="/"
-                className="bg-blue-600 text-white px-6 py-3 rounded-md font-medium hover:bg-blue-700 transition-colors"
+                className="bg-bred-500 text-white px-6 py-3 rounded-md font-medium hover:bg-bred-700 transition-colors"
               >
-                Continue Shopping
+                Vai allo shop
               </Link>
             </div>
           ) : (
@@ -368,7 +368,7 @@ export default function CartPage() {
                 <div className="mt-4 flex justify-between">
                   <Link 
                     href="/"
-                    className="text-blue-600 hover:text-blue-800 font-medium"
+                    className="text-bred-500 hover:text-bred-700 font-medium"
                   >
                     ← Continue Shopping
                   </Link>
@@ -377,7 +377,7 @@ export default function CartPage() {
                     onClick={clearCart}
                     className="text-red-600 hover:text-red-800 font-medium"
                   >
-                    Clear Cart
+                    Svuota il carrello
                   </button>
                 </div>
               </div>
@@ -385,11 +385,11 @@ export default function CartPage() {
               {/* Order Summary */}
               <div className="lg:col-span-1">
                 <div className="bg-white rounded-lg shadow-md p-6">
-                  <h2 className="text-lg font-semibold mb-4 text-gray-700">Order Summary</h2>
+                  <h2 className="text-lg font-semibold mb-4 text-gray-700">Riepilogo</h2>
                   
                   <div className="space-y-4">
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Subtotal</span>
+                      <span className="text-gray-600">Subtotale</span>
                       <span className="font-medium text-gray-600">{formatPrice(cartTotal + discount)}</span>
                     </div>
                     
@@ -401,7 +401,7 @@ export default function CartPage() {
                     )}
                     
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Shipping</span>
+                      <span className="text-gray-600">Spedizione</span>
                       <span className="font-medium text-gray-600">Calcolata al checkout</span>
                     </div>
                     
@@ -434,7 +434,7 @@ export default function CartPage() {
                           <input
                             type="text"
                             placeholder="Codice coupon"
-                            className="flex-grow px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="flex-grow px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none text-gray-600 focus:ring-2 focus:ring-bred-500"
                             value={couponCode}
                             onChange={(e) => setCouponCode(e.target.value)}
                             disabled={isApplyingCoupon}
@@ -469,7 +469,7 @@ export default function CartPage() {
                     
                     <div className="border-t pt-4 mt-4">
                       <div className="flex justify-between font-bold text-lg">
-                        <span className="text-gray-600">Total</span>
+                        <span className="text-gray-600">Totale</span>
                         <span className="text-gray-600">{formatPrice(orderTotal)}</span>
                       </div>
                     </div>
@@ -477,7 +477,7 @@ export default function CartPage() {
                     <button
                       onClick={handleCheckout}
                       disabled={isCheckingOut || cart.length === 0}
-                      className="w-full bg-blue-600 text-white py-3 rounded-md font-medium hover:bg-blue-700 transition-colors disabled:bg-blue-400 flex items-center justify-center"
+                      className="w-full bg-bred-500 text-white py-3 rounded-md font-medium hover:bg-bred-700 transition-colors disabled:bg-bred-400 flex items-center justify-center"
                     >
                       {isCheckingOut ? (
                         <>

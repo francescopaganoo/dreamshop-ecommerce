@@ -46,7 +46,7 @@ export default function PasswordResetPage() {
       
       <main className="flex-grow py-8">
         <div className="container mx-auto px-4 max-w-md">
-          <h1 className="text-3xl font-bold mb-8 text-center">Recupera la tua password</h1>
+          <h1 className="text-3xl font-bold mb-8 text-center text-gray-600">Recupera la tua password</h1>
           
           {error && (
             <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-md">
@@ -75,7 +75,7 @@ export default function PasswordResetPage() {
                   id="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bred-500"
                   required
                 />
               </div>
@@ -83,7 +83,7 @@ export default function PasswordResetPage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className={`w-full py-3 px-4 rounded-md text-white font-medium ${isSubmitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+                className={`w-full py-3 px-4 rounded-md text-white font-medium ${isSubmitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-bred-500 hover:bg-bred-700'}`}
               >
                 {isSubmitting ? 'Invio in corso...' : 'Invia link di reset'}
               </button>
@@ -92,7 +92,7 @@ export default function PasswordResetPage() {
             <div className="mt-6 text-center">
               <p className="text-gray-600">
                 Ricordi la tua password?{' '}
-                <Link href="/login" className="text-blue-600 hover:text-blue-800">
+                <Link href="/login" className="text-bred-500 hover:text-bred-700">
                   Torna al login
                 </Link>
               </p>

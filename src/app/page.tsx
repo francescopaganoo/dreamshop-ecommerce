@@ -44,14 +44,15 @@ export default async function Home() {
         </div>
       </section>
 
-            <section className="relative h-[400px] bg-gray-50 flex items-center justify-center p-4">
-              <div className="w-full">
+            <section className="relative h-[400px]  flex items-center justify-center p-4">
+              <div className="container">
                 <CategoryCarousel categories={categories} />
               </div>
             </section>
 
             {/* New Arrivals Divider */}
-            <section className="relative h-[300px] bg-gray-50 inset-0 bg-contain bg-center bg-no-repeat" style={{ backgroundImage: "url('/images/nuovi-arrivi.webp')" }}>
+            <section className="container mx-auto relative h-[300px] inset-0 bg-contain bg-center bg-no-repeat" 
+              style={{ backgroundImage: "url('/images/nuovi-arrivi.webp')" }}>
             </section>
 
       {/* Featured Products */}
@@ -63,8 +64,9 @@ export default async function Home() {
 
       {/* New Arrivals Divider */}
 
-        <section className="relative h-[300px] bg-gray-50 inset-0 bg-contain bg-center bg-no-repeat" style={{ backgroundImage: "url('/images/nuovi-arrivi.webp')" }}>
-        </section>
+      <section className="container mx-auto relative h-[300px] inset-0 bg-contain bg-center bg-no-repeat" 
+         style={{ backgroundImage: "url('/images/nuovi-arrivi.webp')" }}>
+      </section>
 
       {/* Categories Section */}
       <section className="py-12 bg-gray-50">

@@ -55,8 +55,8 @@ export default function Header() {
             <div className="relative w-full max-w-xl">
               <input
                 type="text"
-                placeholder="Search products..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Cerca..."
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bred-700"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -72,7 +72,7 @@ export default function Header() {
           {/* Navigation */}
           <nav className="flex items-center space-x-6">
             <Link href="/categories" className="text-white hover:text-white">
-              Categories
+              Categorie
             </Link>
             <Link href="/chi-siamo" className="text-white hover:text-white">
               Chi Siamo

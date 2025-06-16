@@ -63,7 +63,7 @@ async function ProductDetails({ slug }: { slug: string }) {
       <nav className="mb-6 text-sm">
         <ol className="flex items-center space-x-2">
           <li>
-            <Link href="/" className="text-gray-500 hover:text-blue-600">Home</Link>
+            <Link href="/" className="text-gray-500 hover:text-bred-500">Home</Link>
           </li>
           <li className="text-gray-500">/</li>
           {product.categories && product.categories.length > 0 && (
@@ -71,7 +71,7 @@ async function ProductDetails({ slug }: { slug: string }) {
               <li>
                 <Link 
                   href={`/category/${product.categories[0].id}`} 
-                  className="text-gray-500 hover:text-blue-600"
+                  className="text-gray-500 hover:text-bred-500"
                 >
                   {product.categories[0].name}
                 </Link>

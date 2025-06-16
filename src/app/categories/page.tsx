@@ -18,9 +18,9 @@ export default async function CategoriesPage() {
         <div className="container mx-auto px-4">
           {/* Page Header */}
           <div className="mb-12 text-center">
-            <h1 className="text-4xl font-bold mb-4 text-gray-700">Shop by Category</h1>
+            <h1 className="text-4xl font-bold mb-4 text-gray-700">Categorie</h1>
             <p className="text-gray-600 max-w-2xl mx-auto">
-              Browse our wide selection of products by category to find exactly what you&apos;re looking for.
+              Sfoglia la nostra ampia selezione di prodotti per categoria per trovare esattamente ciò che stai cercando.
             </p>
           </div>
           
