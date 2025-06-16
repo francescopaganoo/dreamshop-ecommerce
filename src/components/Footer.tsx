@@ -120,7 +120,7 @@ export default function Footer() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
                 </div>
-                <span className="text-sm">info@dreamshop.com</span>
+                <span className="text-sm">info@dreamshop18.com</span>
               </li>
               <li className="flex items-center">
                 <div className="w-8 h-8 bg-bred-500/20 rounded-full flex items-center justify-center mr-3">
@@ -137,7 +137,7 @@ export default function Footer() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                 </div>
-                <span className="text-sm">Via Anime 123<br />Milano, Italia</span>
+                <span className="text-sm">Via Lorem 123<br />Misterbianco, Italia</span>
               </li>
             </ul>
           </div>
