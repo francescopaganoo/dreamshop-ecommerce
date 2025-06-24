@@ -29,36 +29,12 @@ interface CartProduct {
   images?: Array<{src: string}>;
 }
 
-// Funzione per generare uno slug valido da un prodotto
-const generateProductSlug = (product: CartProduct): string => {
+// Funzione per ottenere lo slug valido di un prodotto
+const getProductSlug = (product: CartProduct): string => {
   // Se il prodotto ha già uno slug, usalo
   if (product.slug) return product.slug;
   
-  // Altrimenti, genera uno slug dal nome del prodotto
-  if (product.name) {
-    // Estrai solo il nome base del prodotto (prima di eventuali variazioni)
-    // Le variazioni spesso seguono un formato come "Nome prodotto - Variazione"
-    // o "Nome prodotto, Variazione"
-    let baseName = product.name;
-    
-    // Rimuovi la parte dopo il trattino o la virgola (se presente)
-    const dashIndex = baseName.indexOf(' - ');
-    if (dashIndex > 0) {
-      baseName = baseName.substring(0, dashIndex);
-    }
-    
-    const commaIndex = baseName.indexOf(', ');
-    if (commaIndex > 0) {
-      baseName = baseName.substring(0, commaIndex);
-    }
-    
-    return baseName
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '');
-  }
-  
-  // Se non c'è né slug né nome, usa l'ID come fallback
+  // Se non c'è uno slug, usa l'ID come fallback
   return product.id.toString();
 };
 
@@ -375,7 +351,7 @@ export default function CartPage() {
                         
                         return (
                           <tr key={item.product.id}>
-                            <td className="px-6 py-4 whitespace-nowrap">
+                            <td className="px-6 py-4 ">
                               <div className="flex items-center">
                                 <div className="relative h-16 w-16 flex-shrink-0 mr-4">
                                   <Image
@@ -391,7 +367,7 @@ export default function CartPage() {
                                 </div>
                                 <div>
                                   <Link 
-                                    href={`/product/${generateProductSlug(item.product)}`}
+                                    href={`/product/${getProductSlug(item.product)}`}
                                     className="text-sm font-medium text-gray-900 hover:text-blue-600"
                                   >
                                     {item.product.name}
@@ -401,10 +377,10 @@ export default function CartPage() {
                                 </div>
                               </div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <td className="px-6 py-4  text-sm text-gray-500">
                               {formatPrice(itemPrice)}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
+                            <td className="px-6 py-4 ">
                               <div className="flex items-center border border-gray-300 rounded-md w-24">
                                 <button
                                   type="button"
@@ -423,10 +399,10 @@ export default function CartPage() {
                                 </button>
                               </div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            <td className="px-6 py-4 text-sm font-medium text-gray-900">
                               {formatPrice(itemTotal)}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <td className="px-6 py-4 text-right text-sm font-medium">
                               <button
                                 onClick={() => handleRemoveItem(item.product.id)}
                                 className="text-red-600 hover:text-red-800"
