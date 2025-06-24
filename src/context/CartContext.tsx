@@ -316,10 +316,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
     );
   };
 
-  // Clear the entire cart and remove any coupon
+  // Clear the entire cart and remove any coupon and points
   const clearCart = () => {
     setCart([]);
     removeCoupon();
+    removePointsDiscount();
+    // Rimuovi anche i punti dal localStorage
+    localStorage.removeItem('pointsToRedeem');
+    localStorage.removeItem('pointsDiscount');
+    localStorage.removeItem('checkout_points_to_redeem');
+    localStorage.removeItem('checkout_points_discount');
   };
   
   // Apply a coupon code to the cart
@@ -454,16 +460,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
   
   /**
    * Applica lo sconto dei punti
-   * Ogni punto vale 1€ di sconto
+   * Ogni punto vale 0.01€ di sconto (100 punti = 1€)
    */
   const applyPointsDiscount = () => {
     if (pointsToRedeem <= 0 || pointsToRedeem > userPoints) {
       return;
     }
     
-    // Calcola lo sconto (1 punto = 1€)
-    const calculatedDiscount = Math.min(pointsToRedeem, getCartTotal());
-    setPointsDiscount(calculatedDiscount);
+    // Calcola lo sconto (100 punti = 1€)
+    const pointValue = 0.01; // Valore di un punto in euro
+    const rawDiscount = pointsToRedeem * pointValue;
+    const calculatedDiscount = Math.min(rawDiscount, getCartTotal());
+    setPointsDiscount(parseFloat(calculatedDiscount.toFixed(2))); // Arrotonda a 2 decimali
   };
   
   /**

@@ -93,7 +93,7 @@ export default function CartPage() {
   const [stockErrors, setStockErrors] = useState<StockIssue[]>([]);
   const [showStockAlert, setShowStockAlert] = useState(false);
   const [quantityUpdated, setQuantityUpdated] = useState(false);
-  const [pointsInputValue, setPointsInputValue] = useState<string>(pointsToRedeem > 0 ? pointsToRedeem.toString() : '');
+  const [pointsInputValue, setPointsInputValue] = useState<string>('');
   
   // Format price with currency symbol
   const formatPrice = (price: number) => {
@@ -110,10 +110,14 @@ export default function CartPage() {
     }
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
   
+  // Stato per il messaggio di errore dei punti
+  const [pointsErrorMessage, setPointsErrorMessage] = useState<string | null>(null);
+
   // Gestisce il cambio del valore dei punti da riscattare
   const handlePointsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setPointsInputValue(value);
+    setPointsErrorMessage(null); // Resetta il messaggio di errore
     
     // Se il valore è vuoto, imposta i punti da riscattare a 0
     if (!value) {
@@ -126,12 +130,27 @@ export default function CartPage() {
     
     // Verifica che sia un numero valido
     if (isNaN(points)) {
+      setPointsErrorMessage('Inserisci un numero valido');
       return;
     }
     
-    // Limita i punti al massimo disponibile e al minimo di 0
-    const validPoints = Math.min(Math.max(0, points), userPoints);
-    setPointsToRedeem(validPoints);
+    // Verifica che non sia negativo
+    if (points < 0) {
+      setPointsErrorMessage('Il numero di punti non può essere negativo');
+      setPointsToRedeem(0);
+      return;
+    }
+    
+    // Verifica che non superi i punti disponibili
+    if (points > userPoints) {
+      setPointsErrorMessage(`Hai solo ${userPoints} punti disponibili`);
+      // Imposta comunque il valore massimo disponibile
+      setPointsToRedeem(userPoints);
+      return;
+    }
+    
+    // Imposta i punti da riscattare
+    setPointsToRedeem(points);
   };
   
   const handleQuantityChange = (productId: number, newQuantity: number) => {
@@ -529,7 +548,7 @@ export default function CartPage() {
                       <div className="border-t pt-4 mt-4">
                         <h3 className="text-lg font-semibold mb-2">I tuoi punti</h3>
                         <p className="text-sm text-gray-600 mb-2">
-                          Hai {pointsLabel} disponibili. Ogni punto vale 1€ di sconto.
+                          Hai {pointsLabel} disponibili. Ogni 100 punti valgono 1€ di sconto.
                         </p>
                         <div className="flex items-center">
                           <input
@@ -537,12 +556,15 @@ export default function CartPage() {
                             min="0"
                             max={userPoints}
                             placeholder="Punti da utilizzare"
-                            className="flex-grow px-3 py-2 border border-gray-300 rounded-md focus:outline-none text-gray-600 focus:ring-2 focus:ring-bred-500"
+                            className={`flex-grow px-3 py-2 border ${pointsErrorMessage ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none text-gray-600 focus:ring-2 focus:ring-bred-500`}
                             value={pointsInputValue}
                             onChange={handlePointsChange}
                             disabled={isLoadingPoints}
                           />
                         </div>
+                        {pointsErrorMessage && (
+                          <p className="text-red-500 text-sm mt-1">{pointsErrorMessage}</p>
+                        )}
                         {pointsToRedeem > 0 && (
                           <div className="mt-2 flex justify-between text-sm">
                             <span>Sconto punti:</span>
