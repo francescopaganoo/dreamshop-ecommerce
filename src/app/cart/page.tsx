@@ -3,7 +3,8 @@
 import { useCart } from '../../context/CartContext';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useAuth } from '../../context/AuthContext';
 
 // Interfaccia per gli errori di stock
 interface StockIssue {
@@ -76,16 +77,61 @@ export default function CartPage() {
     discount,
     couponError,
     isApplyingCoupon,
-    stockMessage
+    stockMessage,
+    // Nuove proprietà per i punti
+    userPoints,
+    pointsLabel,
+    pointsToRedeem,
+    setPointsToRedeem,
+    pointsDiscount,
+    loadUserPoints,
+    isLoadingPoints,
+    pointsError
   } = useCart();
+  const { user, token } = useAuth();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [stockErrors, setStockErrors] = useState<StockIssue[]>([]);
   const [showStockAlert, setShowStockAlert] = useState(false);
   const [quantityUpdated, setQuantityUpdated] = useState(false);
+  const [pointsInputValue, setPointsInputValue] = useState<string>(pointsToRedeem > 0 ? pointsToRedeem.toString() : '');
   
   // Format price with currency symbol
   const formatPrice = (price: number) => {
     return `€${price.toFixed(2)}`;
+  };
+  
+  // Carica i punti dell'utente quando la pagina viene caricata
+  useEffect(() => {
+    if (user) {
+      const token = localStorage.getItem('woocommerce_token');
+      if (token) {
+        loadUserPoints(user.id, token);
+      }
+    }
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+  
+  // Gestisce il cambio del valore dei punti da riscattare
+  const handlePointsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setPointsInputValue(value);
+    
+    // Se il valore è vuoto, imposta i punti da riscattare a 0
+    if (!value) {
+      setPointsToRedeem(0);
+      return;
+    }
+    
+    // Converti il valore in numero
+    const points = parseInt(value, 10);
+    
+    // Verifica che sia un numero valido
+    if (isNaN(points)) {
+      return;
+    }
+    
+    // Limita i punti al massimo disponibile e al minimo di 0
+    const validPoints = Math.min(Math.max(0, points), userPoints);
+    setPointsToRedeem(validPoints);
   };
   
   const handleQuantityChange = (productId: number, newQuantity: number) => {
@@ -129,6 +175,17 @@ export default function CartPage() {
       const data = await response.json();
       
       if (data.success) {
+        // Se ci sono punti da riscattare, salva le informazioni nel localStorage
+        if (pointsToRedeem > 0) {
+          // Salva i dati dei punti per il checkout
+          localStorage.setItem('checkout_points_to_redeem', pointsToRedeem.toString());
+          localStorage.setItem('checkout_points_discount', pointsDiscount.toString());
+        } else {
+          // Rimuovi eventuali dati di punti precedenti
+          localStorage.removeItem('checkout_points_to_redeem');
+          localStorage.removeItem('checkout_points_discount');
+        }
+        
         // Tutti i prodotti sono disponibili, procedi al checkout
         window.location.href = '/checkout';
       } else {
@@ -465,6 +522,37 @@ export default function CartPage() {
                           <p className="text-red-600 text-sm mt-1">{couponError}</p>
                         )}
                       </form>
+                    )}
+                    
+                    {/* Sezione per i punti */}
+                    {user && userPoints > 0 && (
+                      <div className="border-t pt-4 mt-4">
+                        <h3 className="text-lg font-semibold mb-2">I tuoi punti</h3>
+                        <p className="text-sm text-gray-600 mb-2">
+                          Hai {pointsLabel} disponibili. Ogni punto vale 1€ di sconto.
+                        </p>
+                        <div className="flex items-center">
+                          <input
+                            type="number"
+                            min="0"
+                            max={userPoints}
+                            placeholder="Punti da utilizzare"
+                            className="flex-grow px-3 py-2 border border-gray-300 rounded-md focus:outline-none text-gray-600 focus:ring-2 focus:ring-bred-500"
+                            value={pointsInputValue}
+                            onChange={handlePointsChange}
+                            disabled={isLoadingPoints}
+                          />
+                        </div>
+                        {pointsToRedeem > 0 && (
+                          <div className="mt-2 flex justify-between text-sm">
+                            <span>Sconto punti:</span>
+                            <span className="text-green-600">-{formatPrice(pointsDiscount)}</span>
+                          </div>
+                        )}
+                        {pointsError && (
+                          <p className="text-red-600 text-sm mt-1">{pointsError}</p>
+                        )}
+                      </div>
                     )}
                     
                     <div className="border-t pt-4 mt-4">

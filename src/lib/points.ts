@@ -53,24 +53,29 @@ export async function getUserPoints(userId: number, token: string): Promise<Poin
     console.error('Errore durante il recupero dei punti:', error);
     // Restituisci un oggetto vuoto in caso di errore
     return {
+      success: false,
+      user_id: userId,
       points: 0,
       pointsLabel: '0 punti',
-      history: []
+      history: [],
+      new_balance: 0,
+      description: 'Errore nel recupero dei punti'
     };
   }
 }
 
 /**
- * Interfaccia per la risposta dell'API di aggiunta punti
+ * Interfaccia per la risposta dell'API di aggiunta o rimozione punti
  */
-export interface PointsAddResponse {
+export interface PointsResponse {
   success: boolean;
   user_id: number;
-  points_added: number;
+  points_added?: number;
+  points_redeemed?: number;
   new_balance: number;
   previous_balance?: number;
   description: string;
-  order_id: number;
+  order_id?: number;
 }
 
 /**
@@ -81,7 +86,7 @@ export interface PointsAddResponse {
  * @param token Token di autenticazione
  * @returns Risultato dell'operazione
  */
-export async function addOrderPoints(userId: number, orderId: number, orderTotal: number, token: string): Promise<PointsAddResponse> {
+export async function addOrderPoints(userId: number, orderId: number, orderTotal: number, token: string): Promise<PointsResponse> {
   try {
     console.log(`Aggiungo punti per ordine #${orderId}, utente ${userId}, totale ${orderTotal}€`);
     
@@ -113,6 +118,63 @@ export async function addOrderPoints(userId: number, orderId: number, orderTotal
     return data;
   } catch (error) {
     console.error('Errore durante l\'aggiunta dei punti:', error);
+    throw error;
+  }
+}
+
+/**
+ * Riscatta punti dell'utente per ottenere uno sconto
+ * @param userId ID dell'utente (non utilizzato, viene estratto dal token)
+ * @param points Punti da riscattare
+ * @param orderId ID dell'ordine (opzionale)
+ * @param token Token di autenticazione
+ * @returns Risultato dell'operazione
+ */
+export async function redeemPoints(userId: number, points: number, orderId: number | null, token: string): Promise<PointsResponse> {
+  try {
+    console.log(`[POINTS DEBUG] Inizio riscatto ${points} punti per utente ${userId}${orderId ? `, ordine #${orderId}` : ''}`);
+    console.log(`[POINTS DEBUG] Token presente: ${!!token}`);
+    console.log(`[POINTS DEBUG] Parametri: userId=${userId}, points=${points}, orderId=${orderId || 'null'}`);
+    
+    // Validazione parametri
+    if (!points || points <= 0) {
+      console.error(`[POINTS DEBUG] Errore: punti non validi (${points})`);
+      throw new Error('Punti non validi');
+    }
+    
+    if (!token) {
+      console.error('[POINTS DEBUG] Errore: token mancante');
+      throw new Error('Token mancante');
+    }
+    
+    // Usa l'API Next.js invece di chiamare direttamente WordPress
+    console.log('[POINTS DEBUG] Chiamata API /api/points/redeem');
+    const response = await fetch(`/api/points/redeem`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        points: points,
+        description: orderId ? `Punti utilizzati per uno sconto sull'ordine #${orderId}` : 'Punti utilizzati per uno sconto',
+        order_id: orderId || 0
+      })
+    });
+    
+    console.log(`[POINTS DEBUG] Risposta API: status ${response.status}`);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[POINTS DEBUG] Errore nel riscatto dei punti: ${response.status}`, errorText);
+      throw new Error(`Errore nel riscatto dei punti: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log('[POINTS DEBUG] Punti riscattati con successo:', data);
+    return data;
+  } catch (error) {
+    console.error('[POINTS DEBUG] Errore durante il riscatto dei punti:', error);
     throw error;
   }
 }

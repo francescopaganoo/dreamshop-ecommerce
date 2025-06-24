@@ -17,6 +17,7 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  token: string | null;
   login: (email: string, password: string) => Promise<boolean>;
   register: (userData: RegisterData) => Promise<boolean>;
   logout: () => void;
@@ -39,29 +40,32 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [token, setToken] = useState<string | null>(null);
 
   // Verifica se l'utente è già autenticato al caricamento della pagina
   useEffect(() => {
     const checkAuth = async () => {
       try {
         // Controlla se esiste un token nel localStorage
-        const token = localStorage.getItem('woocommerce_token');
+        const storedToken = localStorage.getItem('woocommerce_token');
         
-        if (token) {
+        if (storedToken) {
           // Verifica la validità del token
           const response = await fetch('/api/auth/validate', {
             headers: {
-              'Authorization': `Bearer ${token}`
+              'Authorization': `Bearer ${storedToken}`
             }
           });
           
           if (response.ok) {
             const userData = await response.json();
             setUser(userData);
+            setToken(storedToken);
           } else {
             // Token non valido, rimuovilo
             localStorage.removeItem('woocommerce_token');
             setUser(null);
+            setToken(null);
           }
         }
       } catch (error) {
@@ -148,8 +152,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Rimuovi il token dal localStorage
     localStorage.removeItem('woocommerce_token');
     
-    // Reimposta lo stato dell'utente
+    // Reimposta lo stato dell'utente e del token
     setUser(null);
+    setToken(null);
   };
 
   // Funzione per aggiornare i dati dell'utente
@@ -195,6 +200,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       isLoading,
       isAuthenticated: !!user,
+      token,
       login,
       register,
       logout,

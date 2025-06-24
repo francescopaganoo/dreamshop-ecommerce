@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Product, Coupon, verifyCoupon, applyCoupon } from '../lib/api';
+import { getUserPoints, redeemPoints, PointsResponse } from '../lib/points';
 
 export interface CartItem {
   product: Product;
@@ -32,6 +33,17 @@ interface CartContextType {
   isApplyingCoupon: boolean;
   stockMessage: string | null;
   setStockMessage: (message: string | null) => void;
+  // Nuove proprietà per i punti
+  userPoints: number;
+  pointsLabel: string;
+  pointsToRedeem: number;
+  setPointsToRedeem: (points: number) => void;
+  pointsDiscount: number;
+  loadUserPoints: (userId: number, token: string) => Promise<void>;
+  applyPointsDiscount: () => void;
+  removePointsDiscount: () => void;
+  isLoadingPoints: boolean;
+  pointsError: string | null;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -44,6 +56,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [couponError, setCouponError] = useState<string | null>(null);
   const [isApplyingCoupon, setIsApplyingCoupon] = useState<boolean>(false);
   const [stockMessage, setStockMessage] = useState<string | null>(null);
+  
+  // Stati per la gestione dei punti
+  const [userPoints, setUserPoints] = useState<number>(0);
+  const [pointsLabel, setPointsLabel] = useState<string>('0 punti');
+  const [pointsToRedeem, setPointsToRedeem] = useState<number>(0);
+  const [pointsDiscount, setPointsDiscount] = useState<number>(0);
+  const [isLoadingPoints, setIsLoadingPoints] = useState<boolean>(false);
+  const [pointsError, setPointsError] = useState<string | null>(null);
 
   // Funzione per generare uno slug dal nome del prodotto
   const generateSlug = (name: string): string => {
@@ -67,6 +87,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const savedCart = localStorage.getItem('cart');
       const savedCoupon = localStorage.getItem('coupon');
       const savedDiscount = localStorage.getItem('discount');
+      const savedPointsToRedeem = localStorage.getItem('pointsToRedeem');
+      const savedPointsDiscount = localStorage.getItem('pointsDiscount');
       
       if (savedCart) {
         // Assicurati che tutti i prodotti nel carrello caricato abbiano uno slug
@@ -86,6 +108,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (savedDiscount) {
         setDiscount(parseFloat(savedDiscount));
       }
+      
+      if (savedPointsToRedeem) {
+        setPointsToRedeem(parseInt(savedPointsToRedeem, 10));
+      }
+      
+      if (savedPointsDiscount) {
+        setPointsDiscount(parseFloat(savedPointsDiscount));
+      }
     } catch (error) {
       console.error('Error loading data from localStorage:', error);
     }
@@ -101,7 +131,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [cart, coupon]); // eslint-disable-line react-hooks/exhaustive-deps
   // Non includiamo recalculateCouponDiscount nelle dipendenze per evitare un riferimento circolare
 
-  // Save cart and coupon to localStorage whenever they change
+  // Save cart, coupon and points to localStorage whenever they change
   useEffect(() => {
     try {
       localStorage.setItem('cart', JSON.stringify(cart));
@@ -113,10 +143,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem('coupon');
         localStorage.removeItem('discount');
       }
+      
+      if (pointsToRedeem > 0) {
+        localStorage.setItem('pointsToRedeem', pointsToRedeem.toString());
+        localStorage.setItem('pointsDiscount', pointsDiscount.toString());
+      } else {
+        localStorage.removeItem('pointsToRedeem');
+        localStorage.removeItem('pointsDiscount');
+      }
     } catch (error) {
       console.error('Error saving data to localStorage:', error);
     }
-  }, [cart, coupon, discount]);
+  }, [cart, coupon, discount, pointsToRedeem, pointsDiscount]);
 
   /**
    * Aggiunge un prodotto al carrello o aggiorna la quantità se già presente
@@ -377,8 +415,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return total + (price * item.quantity);
     }, 0);
     
-    // Applica lo sconto se c'è un coupon valido
-    return Math.max(0, subtotal - discount);
+    // Applica lo sconto del coupon e dei punti
+    return Math.max(0, subtotal - discount - pointsDiscount);
   };
   
   // Calculate subtotal is now handled directly in getCartTotal
@@ -387,6 +425,59 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const getCartCount = () => {
     return cart.reduce((count, item) => count + item.quantity, 0);
   };
+
+  /**
+   * Carica i punti dell'utente
+   */
+  const loadUserPoints = async (userId: number, token: string) => {
+    setIsLoadingPoints(true);
+    setPointsError(null);
+    
+    try {
+      const pointsData = await getUserPoints(userId, token);
+      setUserPoints(pointsData.points);
+      setPointsLabel(pointsData.pointsLabel);
+      
+      // Se i punti da riscattare sono maggiori dei punti disponibili, resetta
+      if (pointsToRedeem > pointsData.points) {
+        setPointsToRedeem(0);
+        setPointsDiscount(0);
+      }
+      
+      setIsLoadingPoints(false);
+    } catch (error) {
+      console.error('Errore nel caricamento dei punti:', error);
+      setPointsError('Impossibile caricare i punti');
+      setIsLoadingPoints(false);
+    }
+  };
+  
+  /**
+   * Applica lo sconto dei punti
+   * Ogni punto vale 1€ di sconto
+   */
+  const applyPointsDiscount = () => {
+    if (pointsToRedeem <= 0 || pointsToRedeem > userPoints) {
+      return;
+    }
+    
+    // Calcola lo sconto (1 punto = 1€)
+    const calculatedDiscount = Math.min(pointsToRedeem, getCartTotal());
+    setPointsDiscount(calculatedDiscount);
+  };
+  
+  /**
+   * Rimuove lo sconto dei punti
+   */
+  const removePointsDiscount = () => {
+    setPointsToRedeem(0);
+    setPointsDiscount(0);
+  };
+  
+  // Quando cambiano i punti da riscattare, aggiorna lo sconto
+  useEffect(() => {
+    applyPointsDiscount();
+  }, [pointsToRedeem, cart]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <CartContext.Provider value={{
@@ -406,7 +497,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
       couponError,
       isApplyingCoupon,
       stockMessage,
-      setStockMessage
+      setStockMessage,
+      // Proprietà per i punti
+      userPoints,
+      pointsLabel,
+      pointsToRedeem,
+      setPointsToRedeem,
+      pointsDiscount,
+      loadUserPoints,
+      applyPointsDiscount,
+      removePointsDiscount,
+      isLoadingPoints,
+      pointsError
     }}>
       {children}
     </CartContext.Provider>
