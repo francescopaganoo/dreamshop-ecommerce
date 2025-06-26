@@ -1,4 +1,4 @@
-import { Product } from './api';
+
 
 export interface WishlistItem {
   id: number;

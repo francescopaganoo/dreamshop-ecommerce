@@ -67,13 +67,19 @@ export async function POST(request: NextRequest) {
       const responseData = response.data;
       console.log('[POINTS API] Punti decurtati con successo:', JSON.stringify(responseData));
       
+      // Definisci un'interfaccia per la risposta dell'API
+      interface PointsApiResponse {
+        message?: string;
+        points?: number;
+      }
+
       // Assicurati che la risposta includa il flag success
       // Crea un nuovo oggetto con i dati della risposta e il flag success
       const responseWithSuccess = {
         success: true,
         // Aggiungi altri campi dalla risposta se disponibili
-        message: typeof responseData === 'object' ? (responseData as any).message || 'Punti decurtati con successo' : 'Punti decurtati con successo',
-        points: typeof responseData === 'object' ? (responseData as any).points : undefined,
+        message: typeof responseData === 'object' ? (responseData as PointsApiResponse).message || 'Punti decurtati con successo' : 'Punti decurtati con successo',
+        points: typeof responseData === 'object' ? (responseData as PointsApiResponse).points : undefined,
         user_id: userId,
         order_id: orderId,
         points_redeemed: requestData.points

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+
 import WishlistButton from '../WishlistButton';
 import { Product } from '../../lib/api';
 

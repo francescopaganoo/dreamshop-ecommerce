@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
-import { getWishlist, addToWishlist, removeFromWishlist, isInWishlist, WishlistItem } from '../lib/wishlist';
+import { getWishlist, addToWishlist, removeFromWishlist, WishlistItem } from '../lib/wishlist';
 import { useAuth } from './AuthContext';
 
 // Definizione dell'interfaccia del contesto wishlist

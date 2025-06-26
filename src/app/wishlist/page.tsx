@@ -34,7 +34,7 @@ const extractSlug = (permalink: string): string => {
 };
 
 export default function WishlistPage() {
-  const { wishlistItems, isLoading, removeItem, refreshWishlist } = useWishlist();
+  const { wishlistItems, isLoading, removeItem } = useWishlist();
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const router = useRouter();
 

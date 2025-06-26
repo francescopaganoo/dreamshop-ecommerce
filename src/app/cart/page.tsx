@@ -64,7 +64,7 @@ export default function CartPage() {
     isLoadingPoints,
     pointsError
   } = useCart();
-  const { user, token } = useAuth();
+  const { user } = useAuth();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [stockErrors, setStockErrors] = useState<StockIssue[]>([]);
   const [showStockAlert, setShowStockAlert] = useState(false);

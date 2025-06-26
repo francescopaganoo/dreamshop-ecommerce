@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Product, Coupon, verifyCoupon, applyCoupon } from '../lib/api';
-import { getUserPoints, redeemPoints, PointsResponse } from '../lib/points';
+import { getUserPoints } from '../lib/points';
 
 export interface CartItem {
   product: Product;
