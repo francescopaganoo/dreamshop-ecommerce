@@ -3,6 +3,7 @@
 import { ReactNode } from 'react';
 import { CartProvider } from '../context/CartContext';
 import { AuthProvider } from '../context/AuthContext';
+import { WishlistProvider } from '../context/WishlistContext';
 import { Elements } from '@stripe/react-stripe-js';
 import { getStripe } from '../lib/stripe';
 import { PayPalScriptProvider } from '@paypal/react-paypal-js';
@@ -18,7 +19,9 @@ export default function ClientProviders({ children }: ClientProvidersProps) {
       <Elements stripe={getStripe()}>
         <AuthProvider>
           <CartProvider>
-            {children}
+            <WishlistProvider>
+              {children}
+            </WishlistProvider>
           </CartProvider>
         </AuthProvider>
       </Elements>

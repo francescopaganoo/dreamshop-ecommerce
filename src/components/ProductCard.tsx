@@ -6,6 +6,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { Product } from '../lib/api';
 import { useCart } from '../context/CartContext';
 import { useState, useEffect } from 'react';
+import WishlistButton from './WishlistButton';
 
 interface ProductCardProps {
   product: Product;
@@ -158,6 +159,9 @@ export default function ProductCard({ product }: ProductCardProps) {
               Offerta
             </div>
           )}
+          <div className="absolute top-2 left-2">
+            <WishlistButton productId={product.id} />
+          </div>
         </div>
       </Link>
       

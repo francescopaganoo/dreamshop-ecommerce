@@ -6,6 +6,7 @@ import Link from 'next/link';
 import ProductVariations from '../../../components/product/ProductVariations';
 import SimpleProductAddToCart from '../../../components/product/SimpleProductAddToCart';
 import ProductSkeleton from '../../../components/product/ProductSkeleton';
+import ProductActions from '../../../components/product/ProductActions';
 import { Suspense } from 'react';
 
 // Configurazione per il rendering dinamico della pagina
@@ -155,6 +156,9 @@ async function ProductDetails({ slug }: { slug: string }) {
           
           {/* Short Description */}
           <div className="mb-6 prose text-gray-600 prose-sm" dangerouslySetInnerHTML={{ __html: product.short_description }} />
+          
+          {/* Wishlist Button */}
+          <ProductActions product={product} />
           
           {/* Add to Cart Section */}
           <div className="mb-8">
