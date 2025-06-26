@@ -18,6 +18,21 @@ const formatPrice = (price: string | number): string => {
   }).format(numericPrice);
 };
 
+// Funzione per estrarre lo slug del prodotto dall'URL completo
+const extractSlug = (permalink: string): string => {
+  // Se il permalink è vuoto, restituisci una stringa vuota
+  if (!permalink) return '';
+  
+  // Estrai solo l'ultima parte dell'URL (lo slug del prodotto)
+  const urlParts = permalink.split('/');
+  
+  // Rimuovi eventuali parametri di query o frammenti
+  const lastPart = urlParts[urlParts.length - 1].split('?')[0].split('#')[0];
+  
+  // Se l'ultima parte è vuota (URL termina con /), prendi la penultima
+  return lastPart || urlParts[urlParts.length - 2] || '';
+};
+
 export default function WishlistPage() {
   const { wishlistItems, isLoading, removeItem, refreshWishlist } = useWishlist();
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
@@ -56,7 +71,7 @@ export default function WishlistPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6">La mia Wishlist</h1>
+      <h1 className="text-2xl font-bold mb-6 text-gray-800">La mia Wishlist</h1>
 
       {isLoading ? (
         <div className="flex justify-center items-center h-64">
@@ -91,7 +106,7 @@ export default function WishlistPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {wishlistItems.map((item) => (
                 <tr key={item.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-4 ">
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-16 w-16 relative">
                         {item.image && Array.isArray(item.image) && item.image.length > 0 ? (
@@ -117,13 +132,13 @@ export default function WishlistPage() {
                         )}
                       </div>
                       <div className="ml-4">
-                        <Link href={`/product/${item.permalink.split('/').pop()}`} className="text-sm font-medium text-gray-900 hover:text-bred-500">
+                        <Link href={`/product/${extractSlug(item.permalink)}`} className="text-sm font-medium text-gray-900 hover:text-bred-500">
                           {item.name}
                         </Link>
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-4 ">
                     <div className="text-sm text-gray-900">
                       {item.sale_price ? (
                         <>
@@ -135,15 +150,15 @@ export default function WishlistPage() {
                       )}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-4 ">
                     <div className="text-sm text-gray-900">
                       {new Date(item.date_added).toLocaleDateString()}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <td className="px-6 py-4 text-right text-sm font-medium">
                     <div className="flex justify-end space-x-2">
                       <Link
-                        href={`/product/${item.permalink.split('/').pop()}`}
+                        href={`/product/${extractSlug(item.permalink)}`}
                         className="text-bred-500 hover:text-bred-700"
                       >
                         Visualizza

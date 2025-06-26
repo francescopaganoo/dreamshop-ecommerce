@@ -143,6 +143,11 @@ export default function ProductCard({ product }: ProductCardProps) {
           </div>
         </div>
       )}
+      {/* Pulsante wishlist posizionato fuori dal Link per evitare la propagazione del click */}
+      <div className="absolute top-2 left-2 z-10">
+        <WishlistButton productId={product.id} />
+      </div>
+      
       <Link href={`/product/${product.slug}`}>
         <div className="relative h-52 w-full p-4 bg-white">
           <div className="absolute inset-0 flex items-center justify-center p-4">
@@ -159,9 +164,6 @@ export default function ProductCard({ product }: ProductCardProps) {
               Offerta
             </div>
           )}
-          <div className="absolute top-2 left-2">
-            <WishlistButton productId={product.id} />
-          </div>
         </div>
       </Link>
       
