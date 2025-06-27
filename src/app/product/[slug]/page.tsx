@@ -7,6 +7,8 @@ import ProductVariations from '../../../components/product/ProductVariations';
 import SimpleProductAddToCart from '../../../components/product/SimpleProductAddToCart';
 import ProductSkeleton from '../../../components/product/ProductSkeleton';
 import ProductActions from '../../../components/product/ProductActions';
+import BundleProducts from '../../../components/product/BundleProducts';
+import { isBundle, BundleProduct } from '../../../types/bundle';
 import { Suspense } from 'react';
 
 // Configurazione per il rendering dinamico della pagina
@@ -177,6 +179,13 @@ async function ProductDetails({ slug }: { slug: string }) {
             
             <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: product.description }} />
           </div>
+          
+          {/* Bundle Products - Mostrato solo se il prodotto è un bundle */}
+          {isBundle(product) && (
+            <div className="border-t border-gray-200 pt-6 mt-6">
+              <BundleProducts product={product as BundleProduct} />
+            </div>
+          )}
         </div>
       </div>
     </>
