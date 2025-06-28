@@ -175,7 +175,7 @@ async function ProductDetails({ slug }: { slug: string }) {
           
           {/* Additional Info */}
           <div className="border-t border-gray-200 pt-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Dettagli prodotto</h3>
+            {/*<h3 className="text-lg font-medium text-gray-900 mb-4">Dettagli prodotto</h3>*/}
             
             <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: product.description }} />
           </div>

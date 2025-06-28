@@ -34,15 +34,15 @@ export default async function SearchPage({ searchParams }: any) {
         <div className="container mx-auto px-4">
           {/* Search Header */}
           <div className="mb-8">
-            <h1 className="text-3xl font-bold mb-2">
+            <h1 className="text-3xl font-bold mb-2 text-gray-600">
               {searchQuery 
-                ? `Search results for "${searchQuery}"`
+                ? `Risultati di ricerca per "${searchQuery}"`
                 : 'Search Products'
               }
             </h1>
             {searchQuery && (
               <p className="text-gray-600">
-                Found {products.length} {products.length === 1 ? 'product' : 'products'}
+                {products.length} {products.length === 1 ? 'prodotto' : 'prodotti'}
               </p>
             )}
           </div>

@@ -407,7 +407,7 @@ export default function CartPage() {
                                 onClick={() => handleRemoveItem(item.product.id)}
                                 className="text-red-600 hover:text-red-800"
                               >
-                                Remove
+                                Rimuovi
                               </button>
                             </td>
                           </tr>
@@ -522,7 +522,7 @@ export default function CartPage() {
                     {/* Sezione per i punti */}
                     {user && userPoints > 0 && (
                       <div className="border-t pt-4 mt-4">
-                        <h3 className="text-lg font-semibold mb-2">I tuoi punti</h3>
+                        <h3 className="text-lg font-semibold mb-2 text-gray-700">I tuoi punti</h3>
                         <p className="text-sm text-gray-600 mb-2">
                           Hai {pointsLabel} disponibili. Ogni 100 punti valgono 1€ di sconto.
                         </p>
