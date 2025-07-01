@@ -158,7 +158,15 @@ export async function redeemPoints(userId: number, points: number, orderId: numb
       body: JSON.stringify({
         points: points,
         description: orderId ? `Punti utilizzati per uno sconto sull'ordine #${orderId}` : 'Punti utilizzati per uno sconto',
-        order_id: orderId || 0
+        order_id: orderId || 0,
+        // Aggiunta di campi ridondanti per gestire diverse interpretazioni su iOS
+        orderId: orderId || 0,
+        id: orderId || 0,
+        // Includi informazioni sul dispositivo
+        _client: {
+          isIOS: typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent),
+          userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown'
+        }
       })
     });
     

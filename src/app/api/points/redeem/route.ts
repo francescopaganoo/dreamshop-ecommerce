@@ -21,8 +21,12 @@ interface WooOrder {
  * API per decurtare punti dall'utente
  * POST /api/points/redeem
  */
-export async function POST(request: NextRequest) {
-  console.log('[POINTS API] Richiesta decurtazione punti ricevuta');
+export async function POST(request: NextRequest): Promise<NextResponse> {
+  // Identificazione device per debugging
+  const userAgent = request.headers.get('user-agent') || 'unknown';
+  const isIOS = userAgent.toLowerCase().includes('iphone') || userAgent.toLowerCase().includes('ipad') || userAgent.toLowerCase().includes('ios');
+  console.log(`[POINTS API] Richiesta decurtazione punti ricevuta - Device: ${isIOS ? 'iOS' : 'Other'}`);
+  console.log(`[POINTS API] User-Agent: ${userAgent}`);
   
   // Verifica l'autenticazione
   const authHeader = request.headers.get('authorization');
@@ -64,9 +68,37 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
     
-    // Verifica order_id
-    const orderId = requestData.order_id || 0;
+    // Verifica order_id e gestisci il caso specifico di iOS (potrebbe inviare l'ID in un formato diverso)
+    let orderId = 0;
+    
+    // Su iOS l'ID dell'ordine potrebbe essere passato in diversi formati, proviamo a gestirli tutti
+    if (requestData.order_id) {
+      // Caso normale: order_id è un numero o una stringa numerica
+      orderId = parseInt(requestData.order_id.toString(), 10) || 0;
+    } else if (requestData.orderId) {
+      // Caso alternativo: potrebbe essere passato come orderId (camelCase)
+      orderId = parseInt(requestData.orderId.toString(), 10) || 0;
+    } else if (requestData.order && requestData.order.id) {
+      // Caso alternativo: potrebbe essere un oggetto order con id
+      orderId = parseInt(requestData.order.id.toString(), 10) || 0;
+    }
+    
+    console.log(`[POINTS API] Dati ordine ricevuti: ${JSON.stringify(requestData)}`);
     console.log(`[POINTS API] Decurto ${requestData.points} punti per utente ${userId}, ordine #${orderId}`);
+    
+    // Verifica che l'ID ordine sia valido
+    if (!orderId || orderId <= 0) {
+      console.error(`[POINTS API] Errore: ID ordine non valido: ${orderId}`);
+      return NextResponse.json({ 
+        error: 'Impossibile riscattare i punti senza un ID ordine valido', 
+        success: false,
+        _debug: {
+          receivedData: requestData,
+          parsedOrderId: orderId,
+          platform: isIOS ? 'iOS' : 'Other'
+        }
+      }, { status: 400 });
+    }
     
     // Configurazioni di base per la richiesta
     const wordpressUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL || 'https://be.dreamshop18.com/';
@@ -143,7 +175,13 @@ export async function POST(request: NextRequest) {
         let couponApplied = false;
         if (orderId && couponCode) {
           try {
-            console.log(`[POINTS API] Tentativo di applicare il coupon ${couponCode} all'ordine ${orderId}`);
+            // Per iOS aggiungiamo un piccolo ritardo per garantire che l'ordine sia completamente creato
+            // Questo può risolvere problemi di timing su iOS durante il pagamento con carta
+            if (isIOS) {
+              console.log('[POINTS API] Device iOS rilevato, aggiungendo ritardo di sicurezza...');
+              await new Promise(resolve => setTimeout(resolve, 1500)); // Attendi 1.5 secondi per iOS
+            }
+            console.log(`[POINTS API] Tentativo di applicare il coupon ${couponCode} all'ordine ${orderId} - Device: ${isIOS ? 'iOS' : 'Other'}`);
             
             // Ottieni le credenziali WooCommerce dalle variabili d'ambiente
             const wcConsumerKey = process.env.WC_CONSUMER_KEY || '';
@@ -169,6 +207,8 @@ export async function POST(request: NextRequest) {
                   
                   // Verifica se il coupon è già applicato all'ordine
                   const currentCoupons = orderData.coupon_lines || [];
+                  console.log(`[POINTS API] Coupon esistenti sull'ordine: ${JSON.stringify(currentCoupons.map((c: CouponLine) => c.code))}`);
+                  
                   const couponAlreadyApplied = currentCoupons.some(
                     (coupon: CouponLine) => coupon.code === couponCode
                   );
@@ -216,29 +256,47 @@ export async function POST(request: NextRequest) {
                           
                           console.log(`[POINTS API] Coupon esistenti sull'ordine: ${JSON.stringify(existingCouponCodes)}`);
                           
-                          // Ora aggiungiamo il nuovo coupon punti alla lista
-                          const updatedCouponCodes = [
-                            ...existingCouponCodes,
-                            { code: couponCode }
-                          ];
-                          
-                          const updateOrderResponse = await fetch(applyUrl, {
-                            method: 'PUT',
-                            headers: {
-                              'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                              coupon_lines: updatedCouponCodes
-                            })
-                          });
-                        
-                          if (updateOrderResponse.ok) {
-                            await updateOrderResponse.json();
-                            console.log(`[POINTS API] Coupon ${couponCode} applicato con successo all'ordine ${orderId}`);
-                            couponApplied = true;
-                          } else {
-                            const errorText = await updateOrderResponse.text();
-                            console.error(`[POINTS API] Errore nell'applicazione del coupon all'ordine:`, errorText);
+                          // Aggiungi il nuovo coupon punti alla lista
+                          console.log(`[POINTS API] Preparazione aggiornamento ordine con coupon - Device: ${isIOS ? 'iOS' : 'Other'}`);
+                          if (!couponAlreadyApplied) {
+                            const updatedCouponCodes = [
+                              ...existingCouponCodes,
+                              { code: couponCode }
+                            ];
+                            
+                            const updateOrderResponse = await fetch(applyUrl, {
+                              method: 'PUT',
+                              headers: {
+                                'Content-Type': 'application/json'
+                              },
+                              body: JSON.stringify({
+                                coupon_lines: updatedCouponCodes
+                              })
+                            });
+                            
+                            // Log dettagliato della risposta per debug
+                            const responseStatus = updateOrderResponse.status;
+                            const responseBody = await updateOrderResponse.text();
+                            console.log(`[POINTS API] Risposta aggiornamento ordine - Status: ${responseStatus}, Device: ${isIOS ? 'iOS' : 'Other'}`);
+                            console.log(`[POINTS API] Corpo risposta: ${responseBody.substring(0, 200)}${responseBody.length > 200 ? '...' : ''}`);
+                            
+                            // Verifichiamo solo se la risposta è un JSON valido
+                            try {
+                              JSON.parse(responseBody); // Parsing per validare, ma non memorizziamo il risultato
+                            } catch (e) {
+                              console.error(`[POINTS API] Errore nel parsing della risposta JSON:`, e);
+                              // Continuiamo comunque con la verifica dello status HTTP
+                            }
+                            
+                            // Verifica la risposta
+                            if (updateOrderResponse.ok) {
+                              await updateOrderResponse.json();
+                              console.log(`[POINTS API] Coupon ${couponCode} applicato con successo all'ordine ${orderId}`);
+                              couponApplied = true;
+                            } else {
+                              const errorText = await updateOrderResponse.text();
+                              console.error(`[POINTS API] Errore nell'applicazione del coupon all'ordine:`, errorText);
+                            }
                           }
                         } catch (fallbackError) {
                           console.error(`[POINTS API] Errore nel metodo fallback:`, fallbackError);
@@ -261,11 +319,18 @@ export async function POST(request: NextRequest) {
           }
         }
         
+        // Aggiungiamo più dettagli sullo stato attuale
+        
         return NextResponse.json({
           success: true,
           message: couponApplied 
             ? `Punti decurtati con successo e coupon ${couponCode} applicato all'ordine` 
             : `Punti decurtati con successo. Usa il coupon ${couponCode} per completare l'ordine`,
+          _debug: {
+            device: isIOS ? 'iOS' : 'Other',
+            timestamp: new Date().toISOString(),
+            couponApplied: couponApplied
+          },
           points: responseData.points || responseData.new_balance,
           user_id: userId,
           order_id: orderId,
