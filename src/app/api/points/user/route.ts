@@ -2,6 +2,25 @@ import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import WooCommerceRestApi from '@woocommerce/woocommerce-rest-api';
 
+// Definiamo interfacce per i tipi
+interface PointHistoryItem {
+  id: number;
+  date: string;
+  points: number;
+  type: string;
+  description: string;
+  order_id: number;
+}
+
+interface WooOrder {
+  id: number;
+  status: string;
+  total: string;
+  date_created: string;
+  // Utilizziamo unknown per i campi dinamici che non sono esplicitamente tipizzati
+  [key: string]: unknown | string | number; 
+}
+
 /**
  * API per recuperare i punti dell'utente
  * GET /api/points/user
@@ -71,9 +90,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       
       console.log('API: Fallback - Recupero dati cliente e ordini da WooCommerce');
       
-      // Ottieni info cliente
-      const customerResponse = await api.get(`customers/${userId}`);
-      console.log('API: Cliente recuperato');
+      // Recuperiamo solo le informazioni necessarie
+      console.log('API: Preparazione recupero dati cliente');
       
       // Ottieni ordini cliente per simulare punti
       const ordersResponse = await api.get('orders', {
@@ -84,10 +102,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       
       // Simula dati dei punti basati sugli ordini
       let totalPoints = 0;
-      const history: Array<any> = [];
+      const history: PointHistoryItem[] = [];
       
       if (ordersResponse.data && Array.isArray(ordersResponse.data)) {
-        ordersResponse.data.forEach((order: any) => {
+        ordersResponse.data.forEach((order: WooOrder) => {
           if (order.status === 'completed') {
             // Simula 1 punto ogni 10€ (come sembra fare il plugin)
             const orderTotal = parseFloat(order.total);

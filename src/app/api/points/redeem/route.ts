@@ -1,6 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 
+// Definiamo le interfacce per i tipi
+interface CouponLine {
+  id?: number;
+  code: string;
+  discount?: string;
+  discount_tax?: string;
+}
+
+// Interfaccia per i dati dell'ordine WooCommerce
+interface WooOrder {
+  id: number;
+  coupon_lines: CouponLine[];
+  // Aggiungiamo solo i campi effettivamente usati
+  [key: string]: unknown; 
+}
+
 /**
  * API per decurtare punti dall'utente
  * POST /api/points/redeem
@@ -111,7 +127,13 @@ export async function POST(request: NextRequest) {
         console.log('[POINTS API] Punti decurtati con successo:', JSON.stringify(responseData));
         
         // Estrai i dati del coupon dalla risposta
-        const couponData = responseData.coupon || {};
+        interface CouponResponse {
+          coupon_code: string;
+          expiry_date?: string;
+          [key: string]: unknown;
+        }
+        
+        const couponData = (responseData.coupon as CouponResponse) || {};
         const couponCode = couponData.coupon_code || '';
         const discountAmount = responseData.discount_amount || (requestData.points / 100);
         
@@ -148,7 +170,7 @@ export async function POST(request: NextRequest) {
                   // Verifica se il coupon è già applicato all'ordine
                   const currentCoupons = orderData.coupon_lines || [];
                   const couponAlreadyApplied = currentCoupons.some(
-                    (coupon: any) => coupon.code === couponCode
+                    (coupon: CouponLine) => coupon.code === couponCode
                   );
                   
                   if (couponAlreadyApplied) {
@@ -186,11 +208,11 @@ export async function POST(request: NextRequest) {
                           const domain = wordpressUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
                           const orderDetailsUrl = `https://${domain}/wp-json/wc/v3/orders/${orderId}?consumer_key=${process.env.WC_CONSUMER_KEY}&consumer_secret=${process.env.WC_CONSUMER_SECRET}`;
                           const orderResponse = await fetch(orderDetailsUrl);
-                          const orderData = await orderResponse.json();
+                          const orderData = await orderResponse.json() as WooOrder;
                           
                           // Estraiamo i codici coupon esistenti
                           const existingCoupons = orderData.coupon_lines || [];
-                          const existingCouponCodes = existingCoupons.map((coupon: any) => ({ code: coupon.code }));
+                          const existingCouponCodes = existingCoupons.map((coupon: CouponLine) => ({ code: coupon.code }));
                           
                           console.log(`[POINTS API] Coupon esistenti sull'ordine: ${JSON.stringify(existingCouponCodes)}`);
                           
@@ -211,7 +233,7 @@ export async function POST(request: NextRequest) {
                           });
                         
                           if (updateOrderResponse.ok) {
-                            const updatedOrder = await updateOrderResponse.json();
+                            await updateOrderResponse.json();
                             console.log(`[POINTS API] Coupon ${couponCode} applicato con successo all'ordine ${orderId}`);
                             couponApplied = true;
                           } else {
@@ -262,7 +284,7 @@ export async function POST(request: NextRequest) {
           const errorResponse = await secureEndpointResponse.json();
           errorMessage = errorResponse.message || JSON.stringify(errorResponse);
           console.error(`[POINTS API] Errore dall'endpoint secure-redeem:`, errorMessage);
-        } catch (e) {
+        } catch {
           // Se non riusciamo a parsificare la risposta come JSON, prova con il testo
           try {
             const errorText = await secureEndpointResponse.text();

@@ -1,5 +1,30 @@
 import { Product } from '@/lib/api';
 
+// Definizione dei tipi personalizzati per sostituzione degli 'any'
+type MetaValue = string | number | boolean | object | null;
+
+interface BundleData {
+  pricing_type?: string;
+  discount?: string;
+  discount_amount?: number;
+  shipping_fee?: string;
+  optional?: boolean;
+  [key: string]: string | number | boolean | undefined;
+}
+
+interface BundledItem {
+  id: string;
+  quantity: number;
+  price?: number;
+  discount?: number;
+  [key: string]: string | number | boolean | undefined;
+}
+
+interface BundledBy {
+  product_id: number;
+  [key: string]: string | number | boolean | object | undefined;
+}
+
 // Interfaccia per un singolo elemento del bundle
 export interface BundleItem {
   id: string;       // ID del prodotto incluso nel bundle
@@ -25,15 +50,15 @@ export interface BundleMetadata {
 export interface BundleProduct extends Product {
   meta_data?: Array<{
     key: string;
-    value: any;
+    value: MetaValue;
   }>;
   // Campi che potrebbero essere direttamente nell'oggetto prodotto
   woosb_ids?: string;
   woosb_products?: BundleItems;
-  bundle_data?: any;
-  bundled_items?: any[];
-  bundle_items?: any[];
-  bundled_by?: any;
+  bundle_data?: BundleData;
+  bundled_items?: BundledItem[];
+  bundle_items?: BundledItem[];
+  bundled_by?: BundledBy;
   bundled_item_ids?: string[];
 }
 
@@ -81,7 +106,11 @@ export function getBundleItems(product: BundleProduct): BundleItems | null {
     );
     
     if (woosb_ids_meta && woosb_ids_meta.value) {
-      return woosb_ids_meta.value;
+      // Verifica che il valore sia effettivamente un oggetto BundleItems
+      const value = woosb_ids_meta.value;
+      if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+        return value as BundleItems;
+      }
     }
     
     // Fallback su altri possibili nomi di campo
@@ -90,7 +119,11 @@ export function getBundleItems(product: BundleProduct): BundleItems | null {
     );
     
     if (woosb_products_meta && woosb_products_meta.value) {
-      return woosb_products_meta.value;
+      // Verifica che il valore sia effettivamente un oggetto BundleItems
+      const value = woosb_products_meta.value;
+      if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+        return value as BundleItems;
+      }
     }
   }
   
