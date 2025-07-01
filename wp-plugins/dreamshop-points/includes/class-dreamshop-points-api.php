@@ -149,8 +149,106 @@ class DreamShop_Points_API {
     }
     
     /**
+     * Genera un coupon WooCommerce per i punti riscattati
+     * 
+     * @param int $user_id ID dell'utente
+     * @param float $discount_amount Importo dello sconto
+     * @param string $description Descrizione del coupon
+     * @return array Dati del coupon o array vuoto in caso di errore
+     */
+    private function generate_points_coupon($user_id, $discount_amount, $description = '') {
+        // Verifica che WooCommerce sia attivo
+        if (!class_exists('WooCommerce')) {
+            error_log('DreamShop Points API: WooCommerce non attivo');
+            return [];
+        }
+        
+        // Verifica che il tipo di post shop_coupon esista
+        $post_type_exists = post_type_exists('shop_coupon');
+        if (!$post_type_exists) {
+            error_log('DreamShop Points API: Tipo di post shop_coupon non disponibile');
+            return [];
+        }
+        
+        // Genera un codice coupon univoco basato su timestamp e ID utente
+        $timestamp = time();
+        $coupon_code = 'POINTS_' . $user_id . '_' . $timestamp;
+        
+        // Crea il coupon come post di tipo shop_coupon
+        $coupon = array(
+            'post_title' => $coupon_code,
+            'post_content' => '',
+            'post_status' => 'publish',
+            'post_author' => $user_id,
+            'post_type' => 'shop_coupon',
+            'post_excerpt' => $description ?: 'Sconto per punti fedeltà riscattati'
+        );
+        
+        // Log per debug
+        error_log('DreamShop Points API: Tentativo di creazione coupon con parametri: ' . json_encode($coupon));
+        
+        // Utilizza try/catch per catturare eventuali errori
+        try {
+            $coupon_id = wp_insert_post($coupon);
+            
+            if (!$coupon_id || is_wp_error($coupon_id)) {
+                error_log('DreamShop Points API: Errore nella creazione del coupon: ' . json_encode($coupon_id));
+                if (is_wp_error($coupon_id)) {
+                    error_log('DreamShop Points API: Dettaglio errore: ' . $coupon_id->get_error_message());
+                }
+                return [];
+            }
+            
+            error_log('DreamShop Points API: Coupon creato con ID: ' . $coupon_id);
+        } catch (Exception $e) {
+            error_log('DreamShop Points API: Eccezione durante la creazione del coupon: ' . $e->getMessage());
+            return [];
+        }
+        
+        // Imposta i metadati del coupon
+        update_post_meta($coupon_id, 'discount_type', 'fixed_cart'); // Sconto fisso sul carrello
+        update_post_meta($coupon_id, 'coupon_amount', $discount_amount); // Importo dello sconto
+        update_post_meta($coupon_id, 'individual_use', 'no'); // Può essere usato insieme ad altri coupon
+        update_post_meta($coupon_id, 'usage_limit', 1); // Può essere usato solo una volta
+        update_post_meta($coupon_id, 'usage_limit_per_user', 1); // Una volta per utente
+        update_post_meta($coupon_id, 'date_expires', strtotime('+1 day')); // Scade dopo 24 ore
+        update_post_meta($coupon_id, 'apply_before_tax', 'yes'); // Applica prima delle tasse
+        update_post_meta($coupon_id, 'free_shipping', 'no'); // Non include spedizione gratuita
+        update_post_meta($coupon_id, '_dreamshop_points_coupon', 'yes'); // Marca come coupon generato da punti
+        update_post_meta($coupon_id, '_dreamshop_points_user_id', $user_id); // Utente associato
+        
+        // Esclude questo coupon dalle restrizioni di individual_use di altri coupon
+        update_post_meta($coupon_id, 'exclude_sale_items', 'no');
+        
+        // Priorità alta per questo coupon per assicurarsi che venga applicato
+        update_post_meta($coupon_id, 'priority', '10'); // Priorità alta
+        
+        // Assicuriamo che possa essere applicato anche se ci sono altri coupon
+        update_post_meta($coupon_id, 'can_be_combined', 'yes');
+        
+        // Aggiunge un meta speciale per identificare questo come coupon punti
+        update_post_meta($coupon_id, '_dreamshop_points_coupon_code', $coupon_code);
+        
+        // Imposta la priorità più alta possibile per questo coupon
+        update_post_meta($coupon_id, 'priority', '999');
+        
+        // Log per debug
+        error_log('DreamShop Points API: Metadati del coupon impostati con successo per ID: ' . $coupon_id);
+        
+        error_log('DreamShop Points API: Coupon generato con successo: ' . $coupon_code . ' per un valore di ' . $discount_amount);
+        
+        return [
+            'coupon_id' => $coupon_id,
+            'coupon_code' => $coupon_code,
+            'discount_amount' => $discount_amount,
+            'expiry_date' => date('Y-m-d H:i:s', strtotime('+1 day'))
+        ];
+    }
+    
+    /**
      * Endpoint sicuro per riscattare punti utilizzando una chiave API
      * Non richiede autenticazione JWT, ma richiede una chiave API
+     * Genera e restituisce un coupon WooCommerce per applicare lo sconto
      *
      * @param WP_REST_Request $request Richiesta REST
      * @return WP_REST_Response|WP_Error Risposta REST
@@ -200,6 +298,9 @@ class DreamShop_Points_API {
         $description = isset($params['description']) ? sanitize_text_field($params['description']) : 'Punti riscattati';
         $order_id = isset($params['order_id']) ? intval($params['order_id']) : 0;
         
+        // Valore monetario dei punti (parametro opzionale o calcolo automatico)
+        $discount_amount = isset($params['discount_amount']) ? floatval($params['discount_amount']) : ($points / 100); // Default: 1 punto = 0.01€
+        
         // Verifica che l'utente esista
         if (!get_user_by('id', $user_id)) {
             error_log('DreamShop Points API: utente non trovato: ' . $user_id);
@@ -221,14 +322,40 @@ class DreamShop_Points_API {
             );
         }
         
-        // Riscatta i punti
-        $result = $this->db->redeem_points($user_id, $points, $description, $order_id);
+        // Genera il coupon per lo sconto
+        $coupon_data = $this->generate_points_coupon($user_id, $discount_amount, $description);
+        
+        if (empty($coupon_data)) {
+            error_log('DreamShop Points API: Errore nella generazione del coupon');
+            return new WP_Error(
+                'coupon_error',
+                'Impossibile generare il coupon per i punti',
+                array('status' => 500)
+            );
+        }
+        
+        // Riscatta i punti solo dopo aver generato il coupon con successo
+        $result = $this->db->redeem_points($user_id, $points, $description . ' (Coupon: ' . $coupon_data['coupon_code'] . ')', $order_id);
         error_log('DreamShop Points API: risultato decurtazione punti: ' . json_encode($result));
         
         // Se l'operazione ha avuto successo
         if ($result['success']) {
-            return rest_ensure_response($result);
+            // Aggiungi i dati del coupon alla risposta
+            $response = array_merge($result, [
+                'coupon' => $coupon_data,
+                'discount_amount' => $discount_amount,
+                'points_redeemed' => $points,
+                'user_id' => $user_id
+            ]);
+            
+            return rest_ensure_response($response);
         } else {
+            // Se la decurtazione punti fallisce, eliminiamo anche il coupon generato
+            if (!empty($coupon_data['coupon_id'])) {
+                wp_delete_post($coupon_data['coupon_id'], true);
+                error_log('DreamShop Points API: Coupon eliminato dopo fallimento decurtazione punti: ' . $coupon_data['coupon_code']);
+            }
+            
             return new WP_Error(
                 'points_error',
                 $result['description'],

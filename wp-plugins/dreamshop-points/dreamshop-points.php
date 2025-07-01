@@ -67,6 +67,9 @@ class DreamShop_Points {
         // API
         require_once DREAMSHOP_POINTS_PLUGIN_DIR . 'includes/class-dreamshop-points-api.php';
         
+        // Filtri avanzati per compatibilità coupon
+        require_once DREAMSHOP_POINTS_PLUGIN_DIR . 'includes/class-dreamshop-points-filters.php';
+        
         // Admin
         require_once DREAMSHOP_POINTS_PLUGIN_DIR . 'admin/class-dreamshop-points-admin.php';
         
@@ -101,6 +104,16 @@ class DreamShop_Points {
         
         // Mostra il saldo punti nella pagina Il Mio Account
         add_action('woocommerce_account_dashboard', array($public, 'show_points_balance'));
+        
+        // IMPORTANTE: Hook per la gestione della compatibilità tra coupon
+        // Permetti ai coupon dei punti di funzionare insieme ai coupon individual_use
+        add_filter('woocommerce_coupon_is_valid', array($this, 'enable_points_coupon_with_individual_use'), 20, 2);
+        
+        // Aggiungi i coupon dei punti all'elenco delle eccezioni per i coupon individual_use
+        add_filter('woocommerce_coupon_get_individual_use_only', array($this, 'modify_individual_use_for_points_coupons'), 20, 2);
+        
+        // Permetti ai coupon dei punti di essere applicati anche se ci sono coupon individual_use
+        add_filter('woocommerce_coupon_is_valid_for_cart', array($this, 'validate_points_coupon_for_cart'), 20, 2);
     }
     
     /**
@@ -144,6 +157,92 @@ class DreamShop_Points {
             delete_option('dreamshop_points_db_version');
             delete_option('dreamshop_points_settings');
         }
+    }
+    
+    /**
+     * Permette ai coupon dei punti di funzionare insieme ai coupon individual_use
+     * 
+     * @param bool $valid Se il coupon è valido o no
+     * @param WC_Coupon $coupon Oggetto coupon WooCommerce
+     * @return bool
+     */
+    public function enable_points_coupon_with_individual_use($valid, $coupon) {
+        // Se il coupon è già invalido, restituisci subito false
+        if (!$valid) {
+            return false;
+        }
+
+        // Controlla se questo è un coupon dei punti
+        $is_points_coupon = get_post_meta($coupon->get_id(), '_dreamshop_points_coupon', true) === 'yes';
+        
+        if ($is_points_coupon) {
+            // Forza la validità di questo coupon anche se ci sono coupon individual_use
+            return true;
+        }
+        
+        return $valid;
+    }
+    
+    /**
+     * Modifica il flag individual_use per i coupon dei punti
+     * 
+     * @param bool $individual_use Se il coupon è individual_use
+     * @param WC_Coupon $coupon Oggetto coupon WooCommerce
+     * @return bool
+     */
+    public function modify_individual_use_for_points_coupons($individual_use, $coupon) {
+        // Se ci sono coupon di punti nel carrello, disabilita il flag individual_use per gli altri coupon
+        if ($individual_use) {
+            // Controlla se ci sono coupon dei punti applicati
+            $applied_coupons = WC()->cart ? WC()->cart->get_applied_coupons() : [];
+            
+            foreach ($applied_coupons as $code) {
+                $other_coupon_id = wc_get_coupon_id_by_code($code);
+                $is_points_coupon = get_post_meta($other_coupon_id, '_dreamshop_points_coupon', true) === 'yes';
+                
+                if ($is_points_coupon) {
+                    // C'è un coupon dei punti applicato, disabilita individual_use
+                    return false;
+                }
+            }
+        }
+        
+        return $individual_use;
+    }
+    
+    /**
+     * Valida i coupon dei punti per il carrello anche se ci sono coupon individual_use
+     * 
+     * @param bool $valid Se il coupon è valido per il carrello
+     * @param WC_Coupon $coupon Oggetto coupon WooCommerce
+     * @return bool
+     */
+    public function validate_points_coupon_for_cart($valid, $coupon) {
+        // Se il coupon è già invalido, restituisci subito false
+        if (!$valid) {
+            return false;
+        }
+        
+        // Controlla se questo è un coupon dei punti
+        $is_points_coupon = get_post_meta($coupon->get_id(), '_dreamshop_points_coupon', true) === 'yes';
+        
+        if ($is_points_coupon) {
+            // Se c'è un coupon individual_use applicato che non sia un coupon punti,
+            // dobbiamo comunque permettere l'applicazione del coupon punti
+            $applied_coupons = WC()->cart ? WC()->cart->get_applied_coupons() : [];
+            
+            foreach ($applied_coupons as $code) {
+                if ($code !== $coupon->get_code()) {
+                    $other_coupon = new WC_Coupon($code);
+                    if ($other_coupon && $other_coupon->get_individual_use()) {
+                        // C'è un coupon individual_use, ma permettiamo comunque l'uso del coupon punti
+                        return true;
+                    }
+                }
+            }
+        }
+        
+        return $valid;
     }
 }
 
