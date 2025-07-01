@@ -252,8 +252,8 @@ function AccountContent() {
                             <tr key={item.id} className="border-t">
                               <td className="py-2 px-4 text-gray-600">{formatDate(item.date)}</td>
                               <td className="py-2 px-4">
-                                <span className={item.points > 0 ? 'text-green-600' : 'text-red-600'}>
-                                  {item.points > 0 ? '+' : ''}{item.points}
+                                <span className={item.type === 'earn' ? 'text-green-600' : 'text-red-600'}>
+                                  {item.type === 'earn' ? '+' : '-'}{item.points}
                                 </span>
                               </td>
                               <td className="py-2 px-4">{item.description}</td>

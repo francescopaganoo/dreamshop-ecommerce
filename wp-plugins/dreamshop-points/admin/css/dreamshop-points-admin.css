@@ -1,0 +1,68 @@
+/**
+ * Admin styles for DreamShop Points Plugin
+ */
+
+.dreamshop-points-dashboard .stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-gap: 20px;
+  margin: 20px 0;
+}
+
+.dreamshop-points-dashboard .stat-box {
+  background: #fff;
+  border: 1px solid #ccd0d4;
+  padding: 20px;
+  text-align: center;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+}
+
+.dreamshop-points-dashboard .stat-box h3 {
+  margin-top: 0;
+  color: #23282d;
+}
+
+.dreamshop-points-dashboard .stat-value {
+  font-size: 24px;
+  font-weight: 600;
+  color: #0073aa;
+}
+
+.points-earn {
+  color: #46b450;
+  font-weight: 600;
+}
+
+.points-redeem {
+  color: #dc3232;
+  font-weight: 600;
+}
+
+.dreamshop-points-meta-box {
+  padding: 10px 0;
+}
+
+#dreamshop-points-add-result {
+  margin-top: 10px;
+  padding: 10px;
+  display: none;
+}
+
+#dreamshop-points-add-result.success {
+  background-color: #f0fff0;
+  border-left: 3px solid #46b450;
+  display: block;
+}
+
+#dreamshop-points-add-result.error {
+  background-color: #fff0f0;
+  border-left: 3px solid #dc3232;
+  display: block;
+}
+
+.order-points-info {
+  margin: 15px 0;
+  padding: 15px;
+  background: #f8f8f8;
+  border: 1px solid #e5e5e5;
+}

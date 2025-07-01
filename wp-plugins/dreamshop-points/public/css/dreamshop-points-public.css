@@ -1,0 +1,98 @@
+/**
+ * Public styles for DreamShop Points Plugin
+ */
+
+.dreamshop-points-balance {
+    margin: 20px 0;
+    padding: 15px;
+    background-color: #f8f8f8;
+    border: 1px solid #e5e5e5;
+    border-left: 3px solid #0073aa;
+}
+
+.dreamshop-points-balance h3 {
+    margin-top: 0;
+    color: #333;
+}
+
+.dreamshop-points-balance .points-amount {
+    font-size: 20px;
+    font-weight: bold;
+    color: #0073aa;
+    margin-bottom: 15px;
+}
+
+/* Punti nel checkout */
+.dreamshop-points-redemption {
+    margin: 1.5em 0;
+    padding: 1em;
+    background: #f8f8f8;
+    border: 1px solid #e5e5e5;
+}
+
+.dreamshop-points-redemption h3 {
+    margin-top: 0;
+    margin-bottom: 0.5em;
+    font-size: 1.1em;
+}
+
+.points-redemption-form .form-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.points-redemption-form input {
+    flex: 1;
+    margin-right: 10px;
+    padding: 8px;
+}
+
+.points-applied {
+    background: #e8f7e8;
+    padding: 10px;
+    margin-top: 10px;
+    border-left: 3px solid #46b450;
+}
+
+.points-available .description {
+    font-size: 0.9em;
+    font-style: italic;
+    margin-top: 5px;
+}
+
+/* Punti nel carrello */
+tr.dreamshop-points-cart {
+    background-color: #f8f8f8;
+}
+
+/* Punti nell'area Il Mio Account */
+.dreamshop-points-history {
+    margin: 20px 0;
+}
+
+.dreamshop-points-history table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.dreamshop-points-history th,
+.dreamshop-points-history td {
+    padding: 10px;
+    text-align: left;
+    border-bottom: 1px solid #e5e5e5;
+}
+
+.dreamshop-points-history th {
+    background-color: #f5f5f5;
+}
+
+.dreamshop-points-history .points-earn {
+    color: #46b450;
+    font-weight: 600;
+}
+
+.dreamshop-points-history .points-redeem {
+    color: #dc3232;
+    font-weight: 600;
+}
