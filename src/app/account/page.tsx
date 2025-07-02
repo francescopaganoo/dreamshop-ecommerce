@@ -3,9 +3,11 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth } from '../../context/AuthContext';
-
-import { getUserPoints, PointsResponse, PointsHistoryItem } from '../../lib/points';
+import Image from 'next/image';
+import { getScheduledOrders, ScheduledOrder } from '@/lib/deposits';
+import { useAuth } from '@/context/AuthContext';
+import ScheduledPaymentModal from '@/components/ScheduledPaymentModal';
+import { PointsResponse, PointsHistoryItem, getUserPoints } from '@/lib/points';
 
 // Interfaccia per gli ordini
 interface Order {
@@ -17,22 +19,36 @@ interface Order {
   currency_symbol: string;
 }
 
+// Nota: L'interfaccia ScheduledOrder è importata da @/lib/deposits
+
 // Client component that uses useSearchParams
 function AccountContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, isAuthenticated, isLoading, logout } = useAuth();
+  const { isAuthenticated, isLoading, user, logout } = useAuth();
   
-  // Ottieni la tab dall'URL o usa 'dashboard' come default
-  const tabParam = searchParams.get('tab');
-  const [activeTab, setActiveTab] = useState(tabParam || 'dashboard');
+  // Ottieni la tab attiva dai parametri dell'URL o usa 'dashboard' come default
+  const defaultTab = searchParams.get('tab') || 'dashboard';
+  
+  // Stato per la tab attiva
+  const [activeTab, setActiveTab] = useState(defaultTab);
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
   
-  // Stato per i punti
+  // Stati per i punti
+  const [isLoadingPoints, setIsLoadingPoints] = useState(true);
   const [pointsData, setPointsData] = useState<PointsResponse | null>(null);
-  const [isLoadingPoints, setIsLoadingPoints] = useState(false);
   const [pointsError, setPointsError] = useState<string | null>(null);
+  
+  // Stati per il modale di pagamento
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [paymentOrderId, setPaymentOrderId] = useState<number | null>(null);
+  const [paymentOrderTotal, setPaymentOrderTotal] = useState('');
+  
+  // Stato per gli ordini pianificati
+  const [scheduledOrders, setScheduledOrders] = useState<ScheduledOrder[]>([]);
+  const [isLoadingScheduledOrders, setIsLoadingScheduledOrders] = useState(false);
+  const [scheduledOrdersError, setScheduledOrdersError] = useState<string | null>(null);
   
   // Reindirizza l'utente se non è autenticato
   useEffect(() => {
@@ -43,10 +59,11 @@ function AccountContent() {
   
   // Aggiorna la tab attiva quando cambia il parametro nell'URL
   useEffect(() => {
-    if (tabParam && ['dashboard', 'orders', 'addresses', 'account-details', 'points'].includes(tabParam)) {
-      setActiveTab(tabParam);
+    const currentTab = searchParams.get('tab');
+    if (currentTab && ['dashboard', 'orders', 'scheduled-orders', 'addresses', 'account-details', 'points'].includes(currentTab)) {
+      setActiveTab(currentTab);
     }
-  }, [tabParam]);
+  }, [searchParams]);
   
   // Carica gli ordini dell'utente
   useEffect(() => {
@@ -98,6 +115,32 @@ function AccountContent() {
       fetchOrders();
     }
     
+    if (activeTab === 'scheduled-orders' && user) {
+      const fetchScheduledOrders = async () => {
+        if (!user) {
+          console.log('Utente non disponibile, impossibile caricare gli ordini pianificati');
+          return;
+        }
+        
+        setIsLoadingScheduledOrders(true);
+        setScheduledOrdersError(null);
+        
+        try {
+          console.log('Recupero ordini pianificati per utente:', user.id);
+          const data = await getScheduledOrders();
+          console.log(`Ordini pianificati caricati: ${data.length}`);
+          setScheduledOrders(data);
+        } catch (error) {
+          console.error('Errore durante il caricamento degli ordini pianificati:', error);
+          setScheduledOrdersError('Impossibile caricare gli ordini pianificati. Riprova più tardi.');
+        } finally {
+          setIsLoadingScheduledOrders(false);
+        }
+      };
+      
+      fetchScheduledOrders();
+    }
+    
     if (activeTab === 'points' && user) {
       const fetchPoints = async () => {
         if (!user) {
@@ -119,7 +162,7 @@ function AccountContent() {
           
           console.log('Recupero punti per utente:', user.id);
           
-          // Chiamata all'API per recuperare i punti
+          // Chiamata alla funzione per recuperare i punti
           const data = await getUserPoints(user.id, token);
           setPointsData(data);
         } catch (error) {
@@ -149,6 +192,59 @@ function AccountContent() {
     });
   };
   
+  // Gestisce il processo di pagamento
+  const handlePayment = (orderId: number) => {
+    // Trova l'ordine selezionato per ottenere il totale
+    const selectedOrder = scheduledOrders.find(order => order.id === orderId);
+    if (selectedOrder) {
+      setPaymentOrderId(orderId);
+      setPaymentOrderTotal(selectedOrder.formatted_total || selectedOrder.total);
+      setIsPaymentModalOpen(true);
+    } else {
+      console.error('Ordine non trovato:', orderId);
+      alert('Impossibile trovare i dettagli dell\'ordine. Riprova più tardi.');
+    }
+  };
+
+  // Gestisce la chiusura del modale di pagamento
+  const handleClosePaymentModal = () => {
+    setIsPaymentModalOpen(false);
+    setPaymentOrderId(null);
+  };
+
+  // Gestisce il completamento del pagamento con successo
+  const handlePaymentSuccess = () => {
+    setIsPaymentModalOpen(false);
+    alert('Pagamento completato con successo!');
+    // Ricarica la lista delle rate per aggiornare lo stato
+    if (user) {
+      const fetchScheduledOrders = async () => {
+        setIsLoadingScheduledOrders(true);
+        setScheduledOrdersError(null);
+        
+        try {
+          console.log('Ricarico ordini pianificati dopo il pagamento');
+          const data = await getScheduledOrders();
+          console.log(`Ordini pianificati ricaricati: ${data.length}`);
+          setScheduledOrders(data);
+        } catch (error) {
+          console.error('Errore durante il ricaricamento degli ordini pianificati:', error);
+          setScheduledOrdersError('Errore durante il caricamento degli ordini pianificati');
+        } finally {
+          setIsLoadingScheduledOrders(false);
+        }
+      };
+      
+      fetchScheduledOrders();
+    }
+  };
+
+  // Gestisce l'errore nel pagamento
+  const handlePaymentError = (errorMessage: string) => {
+    console.error('Errore nel pagamento:', errorMessage);
+    alert(`Errore durante il pagamento: ${errorMessage}`);
+  };
+  
   // Mostra il contenuto in base alla tab attiva
   const renderTabContent = () => {
     switch (activeTab) {
@@ -160,7 +256,7 @@ function AccountContent() {
               Ciao <span className="font-semibold text-gray-600">{user?.displayName || user?.username}</span>, benvenuto nel tuo account.
             </p>
             <p className="mb-4 text-gray-600">
-              Da qui puoi visualizzare i tuoi <Link href="#" onClick={() => setActiveTab('orders')} className="text-bred-500 hover:text-bred-700">ordini recenti</Link>, controllare i tuoi <Link href="#" onClick={() => setActiveTab('points')} className="text-bred-500 hover:text-bred-700">punti fedeltà</Link>, gestire i tuoi <Link href="#" onClick={() => setActiveTab('addresses')} className="text-bred-500 hover:text-bred-700">indirizzi di spedizione</Link> e <Link href="#" onClick={() => setActiveTab('account-details')} className="text-bred-500 hover:text-bred-700">modificare i dettagli del tuo account</Link>.
+              Da qui puoi visualizzare i tuoi <Link href="#" onClick={() => setActiveTab('orders')} className="text-bred-500 hover:text-bred-700">ordini recenti</Link>, gestire le tue <Link href="#" onClick={() => setActiveTab('scheduled-orders')} className="text-bred-500 hover:text-bred-700">rate da pagare</Link>, controllare i tuoi <Link href="#" onClick={() => setActiveTab('points')} className="text-bred-500 hover:text-bred-700">punti fedeltà</Link>, gestire i tuoi <Link href="#" onClick={() => setActiveTab('addresses')} className="text-bred-500 hover:text-bred-700">indirizzi di spedizione</Link> e <Link href="#" onClick={() => setActiveTab('account-details')} className="text-bred-500 hover:text-bred-700">modificare i dettagli del tuo account</Link>.
             </p>
           </div>
         );
@@ -215,6 +311,75 @@ function AccountContent() {
               </div>
             ) : (
               <p>Non hai ancora effettuato ordini.</p>
+            )}
+          </div>
+        );
+        
+      case 'scheduled-orders':
+        return (
+          <div>
+            <h2 className="text-xl font-semibold mb-4 text-gray-600">Le tue rate da pagare</h2>
+            
+            {isLoadingScheduledOrders ? (
+              <p className="text-gray-600">Caricamento rate in corso...</p>
+            ) : scheduledOrdersError ? (
+              <div className="text-red-500 mb-4">{scheduledOrdersError}</div>
+            ) : scheduledOrders.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-full bg-white">
+                  <thead>
+                    <tr className="bg-gray-100">
+                      <th className="py-2 px-4 text-left text-gray-600">Rata #</th>
+                      <th className="py-2 px-4 text-left text-gray-600">Data</th>
+                      <th className="py-2 px-4 text-left text-gray-600">Ordine principale</th>
+                      <th className="py-2 px-4 text-left text-gray-600">Stato</th>
+                      <th className="py-2 px-4 text-left text-gray-600">Totale</th>
+                      <th className="py-2 px-4 text-left text-gray-600">Azioni</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {scheduledOrders.map(order => (
+                      <tr key={order.id} className="border-t">
+                        <td className="py-2 px-4 text-gray-600">#{order.id}</td>
+                        <td className="py-2 px-4 text-gray-600">{formatDate(order.date_created)}</td>
+                        <td className="py-2 px-4 text-gray-600">
+                          {order.parent_id ? (
+                            <Link href={`/account/orders/${order.parent_id}`} className="text-bred-500 hover:text-bred-700">
+                              #{order.parent_order_number}
+                            </Link>
+                          ) : '-'}
+                        </td>
+                        <td className="py-2 px-4 text-gray-600">
+                          <span className={`px-2 py-1 rounded-full text-xs ${
+                            order.status === 'completed' ? 'bg-green-100 text-green-800' :
+                            order.status === 'pending-deposit' ? 'bg-yellow-100 text-yellow-800' :
+                            order.status === 'scheduled-payment' ? 'bg-blue-100 text-blue-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {order.status_name}
+                          </span>
+                        </td>
+                        <td className="py-2 px-4 text-gray-600">{order.formatted_total}</td>
+                        <td className="py-2 px-4 text-gray-600">
+                          {(order.status === 'pending-deposit' || order.status === 'scheduled-payment') && (
+                            <button 
+                              onClick={() => handlePayment(order.id)} 
+                              className="bg-bred-500 text-white px-4 py-1 rounded hover:bg-bred-700 mr-2"
+                            >
+                              Paga ora
+                            </button>
+                          )}
+                          <Link href={`/account/orders/${order.id}`} className="text-bred-500 hover:text-bred-700">
+                            Dettagli
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-gray-600">Non hai rate da pagare.</p>
             )}
           </div>
         );
@@ -391,6 +556,14 @@ function AccountContent() {
                     </li>
                     <li>
                       <button
+                        onClick={() => setActiveTab('scheduled-orders')}
+                        className={`text-gray-600 w-full text-left px-4 py-2 rounded-md ${activeTab === 'scheduled-orders' ? 'bg-bred-100 text-blue-700' : 'hover:bg-gray-100'}`}
+                      >
+                        Rate da pagare
+                      </button>
+                    </li>
+                    <li>
+                      <button
                         onClick={() => setActiveTab('points')}
                         className={`text-gray-600 w-full text-left px-4 py-2 rounded-md ${activeTab === 'points' ? 'bg-bred-100 text-blue-700' : 'hover:bg-gray-100'}`}
                       >
@@ -436,6 +609,17 @@ function AccountContent() {
         </div>
       </main>
       
+      {/* Modale di pagamento con Stripe Elements */}
+      {isPaymentModalOpen && paymentOrderId && (
+        <ScheduledPaymentModal
+          isOpen={isPaymentModalOpen}
+          onClose={handleClosePaymentModal}
+          orderId={paymentOrderId}
+          orderTotal={paymentOrderTotal}
+          onSuccess={handlePaymentSuccess}
+          onError={handlePaymentError}
+        />
+      )}
     </div>
   );
 }
