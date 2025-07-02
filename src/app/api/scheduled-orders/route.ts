@@ -38,27 +38,9 @@ export async function GET(request: NextRequest) {
     console.log(`API: Recupero ordini pianificati per utente ID: ${decoded.id}`);
   
   try {
-    console.log('Proviamo tre approcci diversi per ottenere gli ordini pianificati');
-    
-    // APPROCCIO 1: Utilizza il client WooCommerce API per chiamare l'endpoint con namespace wc-deposits
-    console.log('APPROCCIO 1: Utilizzo WooCommerce API client con namespace wc-deposits');
-    try {
-      // Il plugin WooCommerce Deposits potrebbe registrare un endpoint in una namespace specifica
-      const wcResponse = await api.get('wc-deposits/v1/scheduled-orders', {
-        customer: decoded.id
-      });
-      console.log('Risposta WC API wc-deposits ricevuta:', JSON.stringify(wcResponse.data).substring(0, 100) + '...');
-      return NextResponse.json(wcResponse.data);
-    } catch (wcError: any) {
-      console.log('Errore WC API wc-deposits:', wcError.message);
-      console.log('Stato risposta WC API:', wcError.response?.status);
-      console.log('Dettagli errore WC API:', JSON.stringify(wcError.response?.data || {}));
-      // Continua con l'approccio 2 se il primo fallisce
-    }
-
-    // APPROCCIO 2: Utilizziamo l'endpoint di WooCommerce standard per gli ordini e filtriamo
+    // Recuperiamo gli ordini standard tramite WooCommerce API e filtriamo
     // quelli relativi a depositi/acconti nel nostro codice
-    console.log('APPROCCIO 2: Recupero ordini standard e filtro');
+    console.log('Recupero ordini standard e applicazione filtri');
     try {
       console.log(`Recupero ordini standard per utente ID: ${decoded.id}`);
       const ordersResponse = await api.get(`orders?customer=${decoded.id}&per_page=100&orderby=date&order=desc`);

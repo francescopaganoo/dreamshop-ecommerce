@@ -31,14 +31,26 @@ function AccountContent() {
   const defaultTab = searchParams.get('tab') || 'dashboard';
   
   // Stato per la tab attiva
-  const [activeTab, setActiveTab] = useState(defaultTab);
+  const [activeTab, setTab] = useState(defaultTab);
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
+  
+  // Stati per la paginazione degli ordini
+  const [ordersCurrentPage, setOrdersCurrentPage] = useState(1);
+  const ordersPerPage = 10; // Numero di ordini per pagina
+  
+  // Stati per la paginazione delle rate da pagare
+  const [scheduledOrdersCurrentPage, setScheduledOrdersCurrentPage] = useState(1);
+  const scheduledOrdersPerPage = 10; // Numero di rate per pagina
   
   // Stati per i punti
   const [isLoadingPoints, setIsLoadingPoints] = useState(true);
   const [pointsData, setPointsData] = useState<PointsResponse | null>(null);
   const [pointsError, setPointsError] = useState<string | null>(null);
+  
+  // Stati per la paginazione della cronologia punti
+  const [pointsCurrentPage, setPointsCurrentPage] = useState(1);
+  const pointsPerPage = 10; // Numero di voci per pagina nella cronologia punti
   
   // Stati per il modale di pagamento
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -246,6 +258,16 @@ function AccountContent() {
   };
   
   // Mostra il contenuto in base alla tab attiva
+  const setActiveTab = (tab: string) => {
+    if (tab !== activeTab) {
+      // Reset delle pagine correnti quando si cambia tab
+      setOrdersCurrentPage(1);
+      setPointsCurrentPage(1);
+      setScheduledOrdersCurrentPage(1);
+      setTab(tab);
+    }
+  };
+
   const renderTabContent = () => {
     switch (activeTab) {
       case 'dashboard':
@@ -281,33 +303,124 @@ function AccountContent() {
                     </tr>
                   </thead>
                   <tbody>
-                    {orders.map(order => (
-                      <tr key={order.id} className="border-t">
-                        <td className="py-2 px-4 text-gray-600">#{order.number}</td>
-                        <td className="py-2 px-4 text-gray-600">{formatDate(order.date_created)}</td>
-                        <td className="py-2 px-4 text-gray-600">
-                          <span className={`px-2 py-1 rounded-full text-xs ${
-                            order.status === 'completed' ? 'bg-green-100 text-green-800' :
-                            order.status === 'processing' ? 'bg-blue-100 text-blue-800' :
-                            order.status === 'on-hold' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}>
-                            {order.status === 'completed' ? 'Completato' :
-                             order.status === 'processing' ? 'In elaborazione' :
-                             order.status === 'on-hold' ? 'In attesa' :
-                             order.status}
-                          </span>
-                        </td>
-                        <td className="py-2 px-4 text-gray-600">{order.currency_symbol}{order.total}</td>
-                        <td className="py-2 px-4 text-gray-600">
-                          <Link href={`/account/orders/${order.id}`} className="text-bred-500 hover:text-bred-700">
-                            Visualizza
-                          </Link>
-                        </td>
-                      </tr>
-                    ))}
+                    {orders
+                      .slice(
+                        (ordersCurrentPage - 1) * ordersPerPage,
+                        ordersCurrentPage * ordersPerPage
+                      )
+                      .map(order => (
+                        <tr key={order.id} className="border-t">
+                          <td className="py-2 px-4 text-gray-600">#{order.number}</td>
+                          <td className="py-2 px-4 text-gray-600">{formatDate(order.date_created)}</td>
+                          <td className="py-2 px-4 text-gray-600">
+                            <span className={`px-2 py-1 rounded-full text-xs ${
+                              order.status === 'completed' ? 'bg-green-100 text-green-800' :
+                              order.status === 'processing' ? 'bg-blue-100 text-blue-800' :
+                              order.status === 'on-hold' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {order.status === 'completed' ? 'Completato' :
+                               order.status === 'processing' ? 'In elaborazione' :
+                               order.status === 'on-hold' ? 'In attesa' :
+                               order.status}
+                            </span>
+                          </td>
+                          <td className="py-2 px-4 text-gray-600">{order.currency_symbol}{order.total}</td>
+                          <td className="py-2 px-4 text-gray-600">
+                            <Link href={`/account/orders/${order.id}`} className="text-bred-500 hover:text-bred-700">
+                              Visualizza
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
                   </tbody>
                 </table>
+                
+                {/* Paginazione per gli ordini */}
+                {orders.length > ordersPerPage && (
+                  <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6 mt-4">
+                    <div className="flex flex-1 justify-between sm:hidden">
+                      <button
+                        onClick={() => setOrdersCurrentPage(prev => Math.max(prev - 1, 1))}
+                        disabled={ordersCurrentPage === 1}
+                        className={`relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 ${ordersCurrentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                      >
+                        Precedente
+                      </button>
+                      <button
+                        onClick={() => setOrdersCurrentPage(prev => Math.min(prev + 1, Math.ceil(orders.length / ordersPerPage)))}
+                        disabled={ordersCurrentPage === Math.ceil(orders.length / ordersPerPage)}
+                        className={`relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 ${ordersCurrentPage === Math.ceil(orders.length / ordersPerPage) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                      >
+                        Successiva
+                      </button>
+                    </div>
+                    <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm text-gray-700">
+                          Mostra <span className="font-medium">{((ordersCurrentPage - 1) * ordersPerPage) + 1}</span> a <span className="font-medium">{Math.min(ordersCurrentPage * ordersPerPage, orders.length)}</span> di{' '}
+                          <span className="font-medium">{orders.length}</span> ordini
+                        </p>
+                      </div>
+                      <div>
+                        <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                          <button
+                            onClick={() => setOrdersCurrentPage(prev => Math.max(prev - 1, 1))}
+                            disabled={ordersCurrentPage === 1}
+                            className={`relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ${ordersCurrentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                          >
+                            <span className="sr-only">Precedente</span>
+                            {/* Chevron left icon */}
+                            <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                              <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
+                            </svg>
+                          </button>
+                          
+                          {/* Numeri di pagina - mostra solo alcune pagine per semplicità */}
+                          {[...Array(Math.min(3, Math.ceil(orders.length / ordersPerPage)))].map((_, i) => {
+                            const pageNumber = i + 1;
+                            return (
+                              <button
+                                key={i}
+                                onClick={() => setOrdersCurrentPage(pageNumber)}
+                                className={`relative inline-flex items-center px-4 py-2 text-sm font-medium ${pageNumber === ordersCurrentPage ? 'z-10 bg-blue-50 border-blue-500 text-blue-600' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'}`}
+                              >
+                                {pageNumber}
+                              </button>
+                            );
+                          })}
+                          
+                          {Math.ceil(orders.length / ordersPerPage) > 3 && (
+                            <span className="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300">
+                              ...
+                            </span>
+                          )}
+                          
+                          {Math.ceil(orders.length / ordersPerPage) > 3 && (
+                            <button
+                              onClick={() => setOrdersCurrentPage(Math.ceil(orders.length / ordersPerPage))}
+                              className={`relative inline-flex items-center px-4 py-2 text-sm font-medium ${Math.ceil(orders.length / ordersPerPage) === ordersCurrentPage ? 'z-10 bg-blue-50 border-blue-500 text-blue-600' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'}`}
+                            >
+                              {Math.ceil(orders.length / ordersPerPage)}
+                            </button>
+                          )}
+                          
+                          <button
+                            onClick={() => setOrdersCurrentPage(prev => Math.min(prev + 1, Math.ceil(orders.length / ordersPerPage)))}
+                            disabled={ordersCurrentPage === Math.ceil(orders.length / ordersPerPage)}
+                            className={`relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ${ordersCurrentPage === Math.ceil(orders.length / ordersPerPage) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                          >
+                            <span className="sr-only">Successiva</span>
+                            {/* Chevron right icon */}
+                            <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                              <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                            </svg>
+                          </button>
+                        </nav>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <p>Non hai ancora effettuato ordini.</p>
@@ -338,7 +451,12 @@ function AccountContent() {
                     </tr>
                   </thead>
                   <tbody>
-                    {scheduledOrders.map(order => (
+                    {scheduledOrders
+                      .slice(
+                        (scheduledOrdersCurrentPage - 1) * scheduledOrdersPerPage,
+                        scheduledOrdersCurrentPage * scheduledOrdersPerPage
+                      )
+                      .map(order => (
                       <tr key={order.id} className="border-t">
                         <td className="py-2 px-4 text-gray-600">#{order.id}</td>
                         <td className="py-2 px-4 text-gray-600">{formatDate(order.date_created)}</td>
@@ -377,6 +495,92 @@ function AccountContent() {
                     ))}
                   </tbody>
                 </table>
+                
+                {/* Paginazione per le rate da pagare */}
+                {scheduledOrders.length > scheduledOrdersPerPage && (
+                  <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6 mt-4">
+                    <div className="flex flex-1 justify-between sm:hidden">
+                      <button
+                        onClick={() => setScheduledOrdersCurrentPage(prev => Math.max(prev - 1, 1))}
+                        disabled={scheduledOrdersCurrentPage === 1}
+                        className={`relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 ${scheduledOrdersCurrentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                      >
+                        Precedente
+                      </button>
+                      <button
+                        onClick={() => setScheduledOrdersCurrentPage(prev => Math.min(prev + 1, Math.ceil(scheduledOrders.length / scheduledOrdersPerPage)))}
+                        disabled={scheduledOrdersCurrentPage === Math.ceil(scheduledOrders.length / scheduledOrdersPerPage)}
+                        className={`relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 ${scheduledOrdersCurrentPage === Math.ceil(scheduledOrders.length / scheduledOrdersPerPage) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                      >
+                        Successiva
+                      </button>
+                    </div>
+                    <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm text-gray-700">
+                          Mostra <span className="font-medium">{((scheduledOrdersCurrentPage - 1) * scheduledOrdersPerPage) + 1}</span> a <span className="font-medium">{Math.min(scheduledOrdersCurrentPage * scheduledOrdersPerPage, scheduledOrders.length)}</span> di{' '}
+                          <span className="font-medium">{scheduledOrders.length}</span> rate
+                        </p>
+                      </div>
+                      <div>
+                        <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                          <button
+                            onClick={() => setScheduledOrdersCurrentPage(prev => Math.max(prev - 1, 1))}
+                            disabled={scheduledOrdersCurrentPage === 1}
+                            className={`relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ${scheduledOrdersCurrentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                          >
+                            <span className="sr-only">Precedente</span>
+                            {/* Chevron left icon */}
+                            <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                              <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
+                            </svg>
+                          </button>
+                          
+                          {/* Numeri di pagina - mostra solo alcune pagine per semplicità */}
+                          {[...Array(Math.min(3, Math.ceil(scheduledOrders.length / scheduledOrdersPerPage)))].map((_, i) => {
+                            const pageNumber = i + 1;
+                            return (
+                              <button
+                                key={i}
+                                onClick={() => setScheduledOrdersCurrentPage(pageNumber)}
+                                className={`relative inline-flex items-center px-4 py-2 text-sm font-medium ${pageNumber === scheduledOrdersCurrentPage ? 'z-10 bg-blue-50 border-blue-500 text-blue-600' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'}`}
+                              >
+                                {pageNumber}
+                              </button>
+                            );
+                          })}
+                          
+                          {Math.ceil(scheduledOrders.length / scheduledOrdersPerPage) > 3 && (
+                            <span className="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300">
+                              ...
+                            </span>
+                          )}
+                          
+                          {Math.ceil(scheduledOrders.length / scheduledOrdersPerPage) > 3 && (
+                            <button
+                              onClick={() => setScheduledOrdersCurrentPage(Math.ceil(scheduledOrders.length / scheduledOrdersPerPage))}
+                              className={`relative inline-flex items-center px-4 py-2 text-sm font-medium ${Math.ceil(scheduledOrders.length / scheduledOrdersPerPage) === scheduledOrdersCurrentPage ? 'z-10 bg-blue-50 border-blue-500 text-blue-600' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'}`}
+                            >
+                              {Math.ceil(scheduledOrders.length / scheduledOrdersPerPage)}
+                            </button>
+                          )}
+                          
+                          <button
+                            onClick={() => setScheduledOrdersCurrentPage(prev => Math.min(prev + 1, Math.ceil(scheduledOrders.length / scheduledOrdersPerPage)))}
+                            disabled={scheduledOrdersCurrentPage === Math.ceil(scheduledOrders.length / scheduledOrdersPerPage)}
+                            className={`relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ${scheduledOrdersCurrentPage === Math.ceil(scheduledOrders.length / scheduledOrdersPerPage) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                          >
+                            <span className="sr-only">Successiva</span>
+                            {/* Chevron right icon */}
+                            <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                              <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                            </svg>
+                          </button>
+                        </nav>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <p className="text-gray-600">Non hai rate da pagare.</p>
@@ -413,19 +617,110 @@ function AccountContent() {
                           </tr>
                         </thead>
                         <tbody>
-                          {pointsData.history.map((item: PointsHistoryItem) => (
-                            <tr key={item.id} className="border-t">
-                              <td className="py-2 px-4 text-gray-600">{formatDate(item.date)}</td>
-                              <td className="py-2 px-4">
-                                <span className={item.type === 'earn' ? 'text-green-600' : 'text-red-600'}>
-                                  {item.type === 'earn' ? '+' : '-'}{item.points}
-                                </span>
-                              </td>
-                              <td className="py-2 px-4">{item.description}</td>
-                            </tr>
-                          ))}
+                          {pointsData.history
+                            .slice(
+                              (pointsCurrentPage - 1) * pointsPerPage,
+                              pointsCurrentPage * pointsPerPage
+                            )
+                            .map((item: PointsHistoryItem) => (
+                              <tr key={item.id} className="border-t">
+                                <td className="py-2 px-4 text-gray-600">{formatDate(item.date)}</td>
+                                <td className="py-2 px-4">
+                                  <span className={item.type === 'earn' ? 'text-green-600' : 'text-red-600'}>
+                                    {item.type === 'earn' ? '+' : '-'}{item.points}
+                                  </span>
+                                </td>
+                                <td className="py-2 px-4 text-gray-600">{item.description}</td>
+                              </tr>
+                            ))}
                         </tbody>
                       </table>
+                      
+                      {/* Paginazione */}
+                      {pointsData.history.length > pointsPerPage && (
+                        <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6 mt-4">
+                          <div className="flex flex-1 justify-between sm:hidden">
+                            <button
+                              onClick={() => setPointsCurrentPage(prev => Math.max(prev - 1, 1))}
+                              disabled={pointsCurrentPage === 1}
+                              className={`relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 ${pointsCurrentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                            >
+                              Precedente
+                            </button>
+                            <button
+                              onClick={() => setPointsCurrentPage(prev => Math.min(prev + 1, Math.ceil(pointsData.history.length / pointsPerPage)))}
+                              disabled={pointsCurrentPage === Math.ceil(pointsData.history.length / pointsPerPage)}
+                              className={`relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 ${pointsCurrentPage === Math.ceil(pointsData.history.length / pointsPerPage) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                            >
+                              Successiva
+                            </button>
+                          </div>
+                          <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                            <div>
+                              <p className="text-sm text-gray-700">
+                                Mostra <span className="font-medium">{((pointsCurrentPage - 1) * pointsPerPage) + 1}</span> a <span className="font-medium">{Math.min(pointsCurrentPage * pointsPerPage, pointsData.history.length)}</span> di{' '}
+                                <span className="font-medium">{pointsData.history.length}</span> risultati
+                              </p>
+                            </div>
+                            <div>
+                              <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                                <button
+                                  onClick={() => setPointsCurrentPage(prev => Math.max(prev - 1, 1))}
+                                  disabled={pointsCurrentPage === 1}
+                                  className={`relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ${pointsCurrentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                                >
+                                  <span className="sr-only">Precedente</span>
+                                  {/* Chevron left icon */}
+                                  <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                    <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
+                                  </svg>
+                                </button>
+                                
+                                {/* Numeri di pagina - mostra solo alcune pagine per semplicità */}
+                                {[...Array(Math.min(3, Math.ceil(pointsData.history.length / pointsPerPage)))].map((_, i) => {
+                                  const pageNumber = i + 1;
+                                  return (
+                                    <button
+                                      key={i}
+                                      onClick={() => setPointsCurrentPage(pageNumber)}
+                                      className={`relative inline-flex items-center px-4 py-2 text-sm font-medium ${pageNumber === pointsCurrentPage ? 'z-10 bg-blue-50 border-blue-500 text-blue-600' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'}`}
+                                    >
+                                      {pageNumber}
+                                    </button>
+                                  );
+                                })}
+                                
+                                {Math.ceil(pointsData.history.length / pointsPerPage) > 3 && (
+                                  <span className="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300">
+                                    ...
+                                  </span>
+                                )}
+                                
+                                {Math.ceil(pointsData.history.length / pointsPerPage) > 3 && (
+                                  <button
+                                    onClick={() => setPointsCurrentPage(Math.ceil(pointsData.history.length / pointsPerPage))}
+                                    className={`relative inline-flex items-center px-4 py-2 text-sm font-medium ${Math.ceil(pointsData.history.length / pointsPerPage) === pointsCurrentPage ? 'z-10 bg-blue-50 border-blue-500 text-blue-600' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'}`}
+                                  >
+                                    {Math.ceil(pointsData.history.length / pointsPerPage)}
+                                  </button>
+                                )}
+                                
+                                <button
+                                  onClick={() => setPointsCurrentPage(prev => Math.min(prev + 1, Math.ceil(pointsData.history.length / pointsPerPage)))}
+                                  disabled={pointsCurrentPage === Math.ceil(pointsData.history.length / pointsPerPage)}
+                                  className={`relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ${pointsCurrentPage === Math.ceil(pointsData.history.length / pointsPerPage) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                                >
+                                  <span className="sr-only">Successiva</span>
+                                  {/* Chevron right icon */}
+                                  <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                    <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                                  </svg>
+                                </button>
+                              </nav>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : (
