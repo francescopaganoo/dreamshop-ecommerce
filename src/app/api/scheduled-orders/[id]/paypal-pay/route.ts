@@ -2,9 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import fetch from 'node-fetch';
 
-// Import woocommerce client usando l'alias di percorso corretto
-import api from '@/lib/woocommerce';
-
 // Chiave segreta per verificare i token JWT
 const JWT_SECRET = process.env.JWT_SECRET || 'dwi37ljio_5tk_3jt3';
 
@@ -15,8 +12,10 @@ const PAYPAL_API_URL = process.env.NODE_ENV === 'production'
   ? 'https://api-m.paypal.com' 
   : 'https://api-m.sandbox.paypal.com';
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
-  console.log('API scheduled-order PayPal payment - Richiesta di pagamento ricevuta per ID:', params.id);
+export async function POST(request: NextRequest) {
+  // Ottieni l'id dal percorso dell'URL invece di usare params
+  const id = request.nextUrl.pathname.split('/').pop() || '';
+  console.log('API scheduled-order PayPal payment - Richiesta di pagamento ricevuta per ID:', id);
   
   try {
     // Ottieni il token dall'header Authorization
@@ -80,7 +79,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     // Formatta l'importo con due decimali
     const formattedAmount = parsedAmount.toFixed(2);
     
-    console.log(`API PayPal Payment: Creazione ordine PayPal per la rata ${params.id}, importo: ${formattedAmount}`);
+    console.log(`API PayPal Payment: Creazione ordine PayPal per la rata ${id}, importo: ${formattedAmount}`);
     
     // Ottieni il dominio per i redirect URL
     const origin = request.headers.get('origin') || 'http://localhost:3000';
@@ -125,8 +124,8 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
             currency_code: 'EUR',
             value: formattedAmount
           },
-          description: `Pagamento rata pianificata #${params.id}`,
-          custom_id: `scheduled_order_${params.id}_user_${decoded.id}`
+          description: `Pagamento rata pianificata #${id}`,
+          custom_id: `scheduled_order_${id}_user_${decoded.id}`
         }],
         application_context: {
           brand_name: 'Dreamshop',
@@ -160,10 +159,11 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       links: order.links
     });
     
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Errore durante la creazione dell\'ordine PayPal';
     console.error('API PayPal Payment: Errore durante il processo di pagamento:', error);
     return NextResponse.json({
-      error: error.message || 'Errore durante la creazione dell\'ordine PayPal'
+      error: errorMessage
     }, { status: 500 });
   }
 }

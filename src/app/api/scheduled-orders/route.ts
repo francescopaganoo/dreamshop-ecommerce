@@ -2,13 +2,43 @@ import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import api from '@/lib/woocommerce';
 
+// Interfacce per tipizzare i dati
+interface OrderMetaData {
+  key: string;
+  value: string | number | boolean | null;
+  display_key?: string;
+  display_value?: string;
+}
+
+interface WooOrder {
+  id: number;
+  parent_id?: number;
+  number?: string;
+  status: string;
+  status_name?: string;
+  date_created: string;
+  total: string;
+  currency_symbol: string;
+  payment_url?: string;
+  meta_data?: OrderMetaData[];
+  [key: string]: unknown;
+}
+
+interface ScheduledOrder {
+  id: number;
+  parent_id: number;
+  parent_order_number: string;
+  date_created: string;
+  status: string;
+  status_name: string;
+  total: string;
+  formatted_total: string;
+  payment_url: string;
+  view_url: string;
+}
+
 // Chiave segreta per verificare i token JWT (stessa usata negli altri endpoint)
 const JWT_SECRET = process.env.JWT_SECRET || 'dwi37ljio_5tk_3jt3';
-
-// Credenziali WordPress per autenticazione non-JWT
-const WP_USERNAME = process.env.WP_USERNAME || 'admin';
-const WP_PASSWORD = process.env.WP_PASSWORD || '';
-const WP_NONCE = process.env.WP_NONCE || '';
 
 export async function GET(request: NextRequest) {
   console.log('API scheduled-orders - Richiesta ricevuta');
@@ -51,25 +81,25 @@ export async function GET(request: NextRequest) {
       
       // Log completo dei meta_data per diagnostica
       console.log('Meta data dei primi ordini per analisi:');
-      orders.slice(0, 3).forEach((order: any, index: number) => {
+      orders.slice(0, 3).forEach((order: WooOrder, index: number) => {
         if (order.meta_data) {
-          console.log(`Ordine ${index+1} (${order.id}):`, order.meta_data.map((m: any) => ({ key: m.key, value: m.value })));
+          console.log(`Ordine ${index+1} (${order.id}):`, order.meta_data.map((m: OrderMetaData) => ({ key: m.key, value: m.value })));
         }
       });
 
       // Filtriamo TUTTI gli ordini e poi facciamo debug per capire quali sono pianificati
       // Non escludiamo nulla inizialmente per debugging
       const allPotentialScheduledOrders = orders
-        .filter((order: any) => {
+        .filter(() => {
           // Non filtriamo nulla per ora, prendiamo tutti gli ordini per debug
           return true;
         })
-        .map((order: any) => {
+        .map((order: WooOrder) => {
           // Trasformiamo nel formato atteso
           return {
             id: order.id,
             parent_id: order.parent_id || 0,
-            parent_order_number: order.meta_data?.find((m: any) => m.key === '_deposit_parent_order_number')?.value || '',
+            parent_order_number: order.meta_data?.find((m: OrderMetaData) => m.key === '_deposit_parent_order_number')?.value?.toString() || '',
             date_created: order.date_created,
             status: order.status,
             status_name: order.status_name || order.status,
@@ -83,7 +113,7 @@ export async function GET(request: NextRequest) {
       console.log(`Tutti gli ordini potenziali: ${allPotentialScheduledOrders.length}`);
       
       // Filtriamo gli ordini con stato scheduled-payment e wc-pending-deposit (acconti in attesa)
-      const scheduledOrdersByStatus = orders.filter((order: any) => {
+      const scheduledOrdersByStatus = orders.filter((order: WooOrder) => {
         // Include scheduled-payment (rate future) e wc-pending-deposit (acconti da pagare)
         return order.status === 'scheduled-payment' || order.status === 'wc-pending-deposit' || order.status === 'pending-deposit';
       });
@@ -94,11 +124,11 @@ export async function GET(request: NextRequest) {
       console.log(`Ordini con stati rilevanti: ${scheduledOrdersByStatus.length}`);
       
       // Cerchiamo anche ordini con specifici flag
-      const scheduledOrdersByMeta = orders.filter((order: any) => {
+      const scheduledOrdersByMeta = orders.filter((order: WooOrder) => {
         if (!order.meta_data) return false;
         
         // Cerca tutti i possibili meta che potrebbero indicare un ordine pianificato
-        return order.meta_data.some((meta: any) => {
+        return order.meta_data.some((meta: OrderMetaData) => {
           const key = meta.key?.toLowerCase() || '';
           const stringValue = String(meta.value || '').toLowerCase();
           
@@ -119,11 +149,11 @@ export async function GET(request: NextRequest) {
       console.log(`Totale ordini pianificati con stato scheduled-payment: ${scheduledOrdersByStatus.length}`);
       
       // Trasformiamo gli ordini nel formato atteso
-      const finalScheduledOrders = scheduledOrdersByStatus.map((order: any) => {
+      const finalScheduledOrders = scheduledOrdersByStatus.map((order: WooOrder): ScheduledOrder => {
         return {
           id: order.id,
           parent_id: order.parent_id || 0,
-          parent_order_number: order.meta_data?.find((m: any) => m.key === '_deposit_parent_order_number')?.value || '',
+          parent_order_number: order.meta_data?.find((m: OrderMetaData) => m.key === '_deposit_parent_order_number')?.value?.toString() || '',
           date_created: order.date_created,
           status: order.status,
           status_name: order.status_name || order.status,
@@ -136,7 +166,8 @@ export async function GET(request: NextRequest) {
       
       console.log(`Ordini pianificati filtrati e formattati: ${finalScheduledOrders.length}`);
       return NextResponse.json(finalScheduledOrders);
-    } catch (ordersError: any) {
+    } catch (error: unknown) {
+      const ordersError = error instanceof Error ? error : new Error('Errore sconosciuto');
       console.log('Errore recupero ordini standard:', ordersError.message);
       // Continua con l'approccio 3 se il secondo fallisce
     }
@@ -183,7 +214,8 @@ export async function GET(request: NextRequest) {
       } else {
         return NextResponse.json([]);
       }
-    } catch (apiError: any) {
+    } catch (error: unknown) {
+      const apiError = error instanceof Error ? error : new Error('Errore sconosciuto');
       console.error('Errore chiamata API diretta:', apiError.message);
       return NextResponse.json(
         { error: `Errore del server: ${apiError.message}` }, 

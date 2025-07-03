@@ -114,8 +114,10 @@ export const processScheduledOrderPayment = async (orderId: number): Promise<str
     
     console.log('Reindirizzamento al checkout Stripe:', data.redirect);
     return data.redirect;
-  } catch (error: any) {
-    console.error('Errore durante il processo di pagamento:', error.message);
-    throw new Error(`Errore durante il pagamento: ${error.message}`);
+  } catch (error: unknown) {
+    // Gestione sicura dell'errore con controllo di tipo
+    const errorMessage = error instanceof Error ? error.message : 'Errore sconosciuto';
+    console.error('Errore durante il processo di pagamento:', errorMessage);
+    throw new Error(`Errore durante il pagamento: ${errorMessage}`);
   }
 };

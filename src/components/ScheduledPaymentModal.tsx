@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { PayPalButtons, PayPalScriptProvider } from '@paypal/react-paypal-js';
 import { getStripe } from '@/lib/stripe';
-import { paypalOptions, cleanAmount } from '@/lib/paypal';
+import { paypalOptions } from '@/lib/paypal';
 import { useAuth } from '@/context/AuthContext';
 
 // Componente interno che gestisce il form di pagamento
@@ -143,10 +143,11 @@ const CheckoutForm = ({
       } else {
         throw new Error(`Stato pagamento non riconosciuto: ${result.paymentIntent?.status || 'sconosciuto'}`);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Errore durante il pagamento:', error);
-      setPaymentError(error.message || 'Si è verificato un errore durante il pagamento');
-      onError(error.message || 'Si è verificato un errore durante il pagamento');
+      const errorMessage = error instanceof Error ? error.message : 'Si è verificato un errore durante il pagamento';
+      setPaymentError(errorMessage);
+      onError(errorMessage);
     } finally {
       setIsProcessing(false);
     }
@@ -359,11 +360,14 @@ const PayPalButtonsWrapper = ({
   onCancel: () => void;
 }) => {
   const [isLoading, setIsLoading] = useState(false);
-  const [paypalError, setPaypalError] = useState<string | null>(null);
+  // Utilizziamo useState readonly per paypalError perché non lo modifichiamo in questo componente
+  const [paypalError] = useState<string | null>(null);
   const { token } = useAuth();
 
   // Gestisce la creazione dell'ordine PayPal - usa direttamente le API del SDK PayPal
-  const createOrder = async (data: any, actions: any) => {
+  // Usiamo type any per actions poiché i tipi PayPal sono complessi e specifici
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const createOrder = async (data: unknown, actions: any) => {
     try {
       // Puliamo l'importo da eventuali caratteri di formattazione
       const cleanedAmount = orderTotal.replace(/[^0-9.,]/g, '').replace(',', '.');
@@ -388,13 +392,22 @@ const PayPalButtonsWrapper = ({
   };
 
   // Gestisce la cattura del pagamento dopo l'approvazione PayPal
-  const onApprove = async (data: any, actions: any) => {
+  // Usiamo type any per actions poiché i tipi PayPal sono complessi e specifici
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const onApprove = async (data: unknown, actions: any) => {
     setIsLoading(true);
     
     try {
       // Prima catturiamo il pagamento con PayPal
       const details = await actions.order.capture();
       console.log('Pagamento PayPal catturato:', details);
+      
+      // Verifichiamo che data sia un oggetto e abbia la proprietà orderID
+      if (!data || typeof data !== 'object' || !('orderID' in data)) {
+        throw new Error('Dati PayPal non validi');
+      }
+      
+      const paypalData = data as { orderID: string };
       
       // Poi notifichiamo a WooCommerce che il pagamento è stato completato
       const response = await fetch(`/api/scheduled-orders/${orderId}/complete-payment`, {
@@ -404,7 +417,7 @@ const PayPalButtonsWrapper = ({
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          paymentIntentId: data.orderID,  // ID dell'ordine PayPal come transaction ID
+          paymentIntentId: paypalData.orderID,  // ID dell'ordine PayPal come transaction ID
           paymentMethod: 'paypal'
         })
       });
@@ -416,9 +429,10 @@ const PayPalButtonsWrapper = ({
 
       console.log('Pagamento completato con successo');
       onSuccess();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Errore durante il pagamento PayPal:', error);
-      onError(error.message || 'Errore durante il pagamento PayPal');
+      const errorMessage = error instanceof Error ? error.message : 'Errore durante il pagamento PayPal';
+      onError(errorMessage);
     } finally {
       setIsLoading(false);
     }

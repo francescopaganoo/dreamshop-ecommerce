@@ -3,7 +3,6 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
 import { getScheduledOrders, ScheduledOrder } from '@/lib/deposits';
 import { useAuth } from '@/context/AuthContext';
 import ScheduledPaymentModal from '@/components/ScheduledPaymentModal';
@@ -73,9 +72,9 @@ function AccountContent() {
   useEffect(() => {
     const currentTab = searchParams.get('tab');
     if (currentTab && ['dashboard', 'orders', 'scheduled-orders', 'addresses', 'account-details', 'points'].includes(currentTab)) {
-      setActiveTab(currentTab);
+      setTab(currentTab);
     }
-  }, [searchParams]);
+  }, [searchParams, setTab]);
   
   // Carica gli ordini dell'utente
   useEffect(() => {

@@ -1,11 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verify } from 'jsonwebtoken';
 import api from '@/lib/woocommerce'; // Importa l'istanza API WooCommerce configurata
+import { AxiosError } from 'axios';
+
+// Interfaccia per il payload JWT decodificato
+interface JwtPayload {
+  id: number;
+  email?: string;
+  iat?: number;
+  exp?: number;
+}
+
+// Interfaccia per la risposta di errore di WooCommerce
+interface WooCommerceErrorResponse {
+  code?: string;
+  message?: string;
+  data?: {
+    status?: number;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dwi37ljio_5tk_3jt3';
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
-  console.log('API Complete Payment - Notifica completamento pagamento per rata ID:', params.id);
+// Tipizzazione corretta per Next.js 14+ route handler
+export async function POST(request: NextRequest) {
+  // Ottieni l'id dal percorso dell'URL invece di usare params
+  const id = request.nextUrl.pathname.split('/').pop() || '';
+  console.log('API Complete Payment - Notifica completamento pagamento per rata ID:', id);
   
   // Ottieni il token dall'header Authorization
   const authHeader = request.headers.get('Authorization');
@@ -19,7 +42,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   
   try {
     // Verifica il token JWT per ottenere l'ID utente
-    const decoded = verify(token, JWT_SECRET) as any;
+    const decoded = verify(token, JWT_SECRET) as JwtPayload;
     
     if (!decoded || !decoded.id) {
       console.error('API Complete Payment: Token JWT non valido', decoded);
@@ -35,7 +58,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       return NextResponse.json({ error: 'ID transazione mancante' }, { status: 400 });
     }
     
-    console.log(`API Complete Payment: Completamento pagamento per utente ID ${userId}, ordine ${params.id}, metodo: ${paymentMethod}, transaction ID: ${paymentIntentId}`);
+    console.log(`API Complete Payment: Completamento pagamento per utente ID ${userId}, ordine ${id}, metodo: ${paymentMethod}, transaction ID: ${paymentIntentId}`);
     
     try {
       // Prepara i dati da inviare a WooCommerce
@@ -51,7 +74,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       
       // Utilizza direttamente l'API WooCommerce con autenticazione OAuth (consumer key/secret)
       // Questo è lo stesso approccio usato per gli ordini normali che funziona
-      const response = await api.put(`orders/${params.id}`, orderData);
+      const response = await api.put(`orders/${id}`, orderData);
       
       console.log('API Complete Payment: Risposta aggiornamento WooCommerce:', response.data);
       
@@ -61,7 +84,10 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         order: response.data
       });
       
-    } catch (apiError: any) {
+    } catch (error: unknown) {
+      // Cast dell'errore a AxiosError per accedere alle proprietà tipizzate
+      const apiError = error as AxiosError<WooCommerceErrorResponse>;
+      
       // Log dettagliato dell'errore per debug
       console.error('API Complete Payment: Errore durante la notifica a WooCommerce:', {
         message: apiError.message,

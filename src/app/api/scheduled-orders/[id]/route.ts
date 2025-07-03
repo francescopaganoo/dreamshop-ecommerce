@@ -4,11 +4,9 @@ import jwt from 'jsonwebtoken';
 // Chiave segreta per verificare i token JWT (stessa usata negli altri endpoint)
 const JWT_SECRET = process.env.JWT_SECRET || 'dwi37ljio_5tk_3jt3';
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  const orderId = params.id;
+export async function GET(request: NextRequest) {
+  // Ottieni l'id dal percorso dell'URL invece di usare params
+  const orderId = request.nextUrl.pathname.split('/').pop() || '';
   
   if (!orderId) {
     return NextResponse.json({ error: 'ID ordine non fornito' }, { status: 400 });
@@ -64,7 +62,8 @@ export async function GET(
       
       const data = await response.json();
       return NextResponse.json(data);
-    } catch (apiError: any) {
+    } catch (error: unknown) {
+      const apiError = error instanceof Error ? error : new Error('Errore sconosciuto');
       console.error('Errore chiamata API diretta:', apiError.message);
       return NextResponse.json(
         { error: `Errore del server: ${apiError.message}` }, 
