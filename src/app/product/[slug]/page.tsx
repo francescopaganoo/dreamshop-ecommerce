@@ -1,14 +1,14 @@
-import { getProductBySlug } from '../../../lib/api';
+import { getProductBySlug } from '@/lib/api';
 import Image from 'next/image';
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import ProductVariations from '../../../components/product/ProductVariations';
-import SimpleProductAddToCart from '../../../components/product/SimpleProductAddToCart';
-import ProductSkeleton from '../../../components/product/ProductSkeleton';
-import ProductActions from '../../../components/product/ProductActions';
-import BundleProducts from '../../../components/product/BundleProducts';
-import { isBundle, BundleProduct } from '../../../types/bundle';
+import ProductVariations from '@/components/product/ProductVariations';
+import SimpleProductAddToCart from '@/components/product/SimpleProductAddToCart';
+import ProductSkeleton from '@/components/product/ProductSkeleton';
+import ProductActions from '@/components/product/ProductActions';
+import BundleProducts from '@/components/product/BundleProducts';
+import { isBundle, BundleProduct } from '@/types/bundle';
 import { Suspense } from 'react';
 
 // Configurazione per il rendering dinamico della pagina

@@ -1,8 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Product } from '../../lib/api';
-import { useCart } from '../../context/CartContext';
+import { Product } from '@/lib/api';
+import { useCart } from '@/context/CartContext';
+import ProductDepositOptionsComponent from '@/components/product/ProductDepositOptions';
+import { addToCartWithDeposit } from '@/lib/deposits';
 
 interface SimpleProductAddToCartProps {
   product: Product;
@@ -13,6 +15,7 @@ export default function SimpleProductAddToCart({ product }: SimpleProductAddToCa
   const [showMessage, setShowMessage] = useState<boolean>(false);
   const [message, setMessage] = useState<string>('');
   const [isAddingToCart, setIsAddingToCart] = useState<boolean>(false);
+  const [enableDeposit, setEnableDeposit] = useState<'yes' | 'no'>('no');
   const { addToCart } = useCart();
   
   // Nascondi il messaggio dopo 3 secondi
@@ -74,7 +77,7 @@ export default function SimpleProductAddToCart({ product }: SimpleProductAddToCa
   };
   
   // Gestisce l'aggiunta al carrello
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (isAddingToCart) return;
     
     // Controllo preliminare della quantità disponibile
@@ -87,14 +90,24 @@ export default function SimpleProductAddToCart({ product }: SimpleProductAddToCa
     setIsAddingToCart(true);
     
     try {
-      // Utilizziamo il risultato restituito dalla funzione addToCart
-      const result = addToCart(product, quantity);
-      
-      if (result.success) {
-        setMessage(`${quantity} ${quantity > 1 ? 'pezzi' : 'pezzo'} di ${product.name} ${quantity > 1 ? 'aggiunti' : 'aggiunto'} al carrello!`);
+      // Se l'acconto è abilitato, utilizziamo addToCartWithDeposit
+      if (enableDeposit === 'yes') {
+        const result = await addToCartWithDeposit(product.id, 'yes', quantity);
+        
+        if (result.success) {
+          setMessage(`${quantity} ${quantity > 1 ? 'pezzi' : 'pezzo'} di ${product.name} ${quantity > 1 ? 'aggiunti' : 'aggiunto'} al carrello con acconto!`);
+        } else {
+          setMessage(result.message || 'Errore durante l\'aggiunta al carrello con acconto');
+        }
       } else {
-        // Mostriamo il messaggio di errore restituito dalla funzione addToCart
-        setMessage(result.message || 'Errore durante l\'aggiunta al carrello');
+        // Altrimenti utilizziamo la normale funzione addToCart
+        const result = addToCart(product, quantity);
+        
+        if (result.success) {
+          setMessage(`${quantity} ${quantity > 1 ? 'pezzi' : 'pezzo'} di ${product.name} ${quantity > 1 ? 'aggiunti' : 'aggiunto'} al carrello!`);
+        } else {
+          setMessage(result.message || 'Errore durante l\'aggiunta al carrello');
+        }
       }
       
       setShowMessage(true);
@@ -105,6 +118,11 @@ export default function SimpleProductAddToCart({ product }: SimpleProductAddToCa
     }
     
     setTimeout(() => setIsAddingToCart(false), 300);
+  };
+  
+  // Gestisce il cambio dell'opzione di acconto
+  const handleDepositOptionChange = (option: 'yes' | 'no') => {
+    setEnableDeposit(option);
   };
   
   return (
@@ -138,6 +156,14 @@ export default function SimpleProductAddToCart({ product }: SimpleProductAddToCa
             <span>Prezzo non disponibile</span>
           </div>
         </div>
+      )}
+      
+      {/* Opzioni di acconto se disponibili */}
+      {isInStock && hasValidPrice && (
+        <ProductDepositOptionsComponent 
+          product={product} 
+          onDepositOptionChange={handleDepositOptionChange} 
+        />
       )}
       
       {/* Selettore di quantità */}
@@ -201,7 +227,10 @@ export default function SimpleProductAddToCart({ product }: SimpleProductAddToCa
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
               <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
             </svg>
-            {`Aggiungi ${quantity > 1 ? quantity + ' pezzi' : ''} al carrello`}
+            {enableDeposit === 'yes' 
+              ? `Paga acconto per ${quantity > 1 ? quantity + ' pezzi' : ''}`
+              : `Aggiungi ${quantity > 1 ? quantity + ' pezzi' : ''} al carrello`
+            }
           </>
         )}
       </button>
