@@ -94,7 +94,7 @@ export default function ProductDepositOptionsComponent({ product, onDepositOptio
           </div>
         )}
         {!depositOptions && (
-          <p className="text-amber-700">Nessuna opzione di acconto ricevuta dall'API</p>
+          <p className="text-amber-700">Nessuna opzione di acconto ricevuta dall&apos;API</p>
         )}
       </div>
     );
@@ -124,7 +124,7 @@ export default function ProductDepositOptionsComponent({ product, onDepositOptio
             <div>
               <span className="font-medium">Pagamento completo</span>
               <p className="text-sm text-gray-600">
-                Paga l'intero importo: <span dangerouslySetInnerHTML={{ __html: depositOptions.formatted_product_price }} />
+                Paga l&apos;intero importo: <span dangerouslySetInnerHTML={{ __html: depositOptions.formatted_product_price }} />
               </p>
             </div>
           </label>

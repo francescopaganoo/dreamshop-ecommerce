@@ -27,7 +27,8 @@ export async function GET(request: NextRequest) {
     try {
       responseData = JSON.parse(responseText);
       console.log('Response parsed successfully');
-    } catch (e) {
+    } catch {
+      // Rimoviamo il parametro non utilizzato
       console.log('Failed to parse response as JSON');
       responseData = { raw: responseText };
     }
@@ -39,11 +40,12 @@ export async function GET(request: NextRequest) {
       data: responseData,
       endpoint: wpEndpoint
     });
-  } catch (error: any) {
+  } catch (error: Error | unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Error testing endpoint:', error);
     return NextResponse.json({
-      error: error.message || 'Unknown error',
-      stack: error.stack
+      error: errorMessage || 'Unknown error',
+      stack: error instanceof Error ? error.stack : 'No stack trace available'
     }, { status: 500 });
   }
 }

@@ -26,7 +26,8 @@ export async function GET(request: NextRequest) {
     
     try {
       data = JSON.parse(responseText);
-    } catch (e) {
+    } catch {
+      // Se non è possibile parsare come JSON, restituisci il testo grezzo
       data = { raw: responseText };
     }
     
@@ -42,11 +43,12 @@ export async function GET(request: NextRequest) {
       response: data,
     });
     
-  } catch (error: any) {
-    console.error('Error testing endpoint:', error);
+  } catch (error: Error | unknown) {
+    const errorObj = error instanceof Error ? error : new Error(String(error));
+    console.error('Error testing deposit endpoint:', errorObj);
     return NextResponse.json({
-      error: error.message,
-      stack: error.stack
+      error: errorObj.message,
+      stack: errorObj.stack
     }, { status: 500 });
   }
 }

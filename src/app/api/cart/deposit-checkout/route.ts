@@ -2,6 +2,13 @@ import { getAuthToken } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
+  // Parsifica il corpo della richiesta
+  const body = await request.json().catch(() => ({}));
+  const { productId, deposit_option } = body;
+  
+  // Log dei dati ricevuti per debug
+  console.log('Checkout richiesto per prodotto:', productId, 'con opzione acconto:', deposit_option);
+  
   // Ottieni il token di autenticazione
   const token = await getAuthToken();
   

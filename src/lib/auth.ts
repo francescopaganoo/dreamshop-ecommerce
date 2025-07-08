@@ -32,3 +32,28 @@ export const removeWooCommerceToken = (): void => {
     localStorage.removeItem('woocommerce_token');
   }
 };
+
+/**
+ * Recupera il token di autenticazione
+ * Utilizzabile in contesti server-side
+ */
+export const getAuthToken = async (): Promise<string | null> => {
+  try {
+    // In ambiente server-side, non possiamo accedere direttamente a localStorage
+    // Nelle API Routes di Next.js, il token potrebbe essere passato tramite cookies
+    // o recuperato in altri modi
+    
+    // Questa è una implementazione di base che usa la funzione esistente
+    // In un contesto server-side reale, qui si dovrebbero usare i cookies o headers
+    if (typeof window !== 'undefined') {
+      return getWooCommerceToken();
+    }
+    
+    // Se siamo sul server, dovremmo ottenere il token in altro modo
+    // Ad esempio usando i cookies nella request o un'altra fonte
+    return null;
+  } catch (error) {
+    console.error('Errore nel recupero del token di autenticazione:', error);
+    return null;
+  }
+};

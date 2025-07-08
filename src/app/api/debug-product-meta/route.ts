@@ -34,8 +34,14 @@ export async function GET(request: NextRequest) {
     // Estrai i metadati del prodotto
     const metaData = wcData.meta_data || [];
     
+    // Definizione dell'interfaccia per i metadati
+    interface ProductMeta {
+      key: string;
+      value: string | number | boolean | object;
+    }
+    
     // Filtra i metadati relativi agli acconti
-    const depositMeta = metaData.filter(meta => 
+    const depositMeta = metaData.filter((meta: ProductMeta) => 
       meta.key.includes('_wc_deposit') || 
       meta.key.includes('deposit') ||
       meta.key.includes('_wc_pp_')
@@ -59,11 +65,13 @@ export async function GET(request: NextRequest) {
       const depositText = await depositResponse.text();
       try {
         depositData = JSON.parse(depositText);
-      } catch (e) {
+      } catch {
+        // Se non è possibile parsare come JSON, restituisci il testo grezzo
         depositData = { raw: depositText };
       }
-    } catch (error) {
-      depositData = { error: error.message };
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      depositData = { error: errorMessage };
     }
     
     // Dati di risposta completi
@@ -87,11 +95,12 @@ export async function GET(request: NextRequest) {
       }
     });
     
-  } catch (error: any) {
-    console.error('Error testing product meta:', error);
+  } catch (error: Error | unknown) {
+    const errorObj = error instanceof Error ? error : new Error(String(error));
+    console.error('Error testing product meta:', errorObj);
     return NextResponse.json({
-      error: error.message,
-      stack: error.stack
+      error: errorObj.message,
+      stack: errorObj.stack
     }, { status: 500 });
   }
 }

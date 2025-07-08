@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { getProductDepositOptions } from '@/lib/deposits';
+import React, { useState } from 'react';
+import { getProductDepositOptions, ProductDepositOptions } from '@/lib/deposits';
 
 export default function TestDepositAPI() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [depositData, setDepositData] = useState<any>(null);
+  const [depositData, setDepositData] = useState<ProductDepositOptions | null>(null);
   const [productId, setProductId] = useState<string>('1');
 
   const testApiCall = async () => {
@@ -17,9 +17,13 @@ export default function TestDepositAPI() {
       const result = await getProductDepositOptions(parseInt(productId, 10));
       console.log('Risultato API:', result);
       setDepositData(result);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Errore durante il test API:', error);
-      setError(error.message || 'Errore sconosciuto');
+      if (error instanceof Error) {
+        setError(error.message);
+      } else {
+        setError('Errore sconosciuto');
+      }
     } finally {
       setLoading(false);
     }

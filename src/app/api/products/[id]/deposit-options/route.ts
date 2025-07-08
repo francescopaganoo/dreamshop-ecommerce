@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  // In Next.js 14+, i params devono essere attesi prima dell'utilizzo
-  const resolvedParams = await Promise.resolve(params);
-  const productId = resolvedParams.id;
+export async function GET(request: NextRequest) {
+  // Estrai l'ID dal percorso URL come negli altri route handler del progetto
+  const productId = request.nextUrl.pathname.split('/')[3]; // /api/products/[id]/deposit-options
   
   if (!productId) {
     return NextResponse.json(
