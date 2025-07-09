@@ -12,7 +12,6 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Correzione: uso NEXT_PUBLIC_WORDPRESS_URL invece di WORDPRESS_API_URL
     const baseUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL;
     const wpEndpoint = `${baseUrl}wp-json/dreamshop/v1/products/${productId}/deposit-options`;
     

@@ -165,9 +165,11 @@ export default function ProductDepositOptionsComponent({ product, onDepositOptio
                           <span dangerouslySetInnerHTML={{ __html: depositOptions.formatted_deposit_value }} />
                         </span>
                         <span className="text-xs text-green-600 mt-1">
-                          {depositOptions.deposit_type === 'percent' && 
-                            `${depositOptions.deposit_amount}% del prezzo totale (${depositOptions.formatted_product_price})`
-                          }
+                          {depositOptions.deposit_type === 'percent' && (
+                            <>
+                              {depositOptions.deposit_amount}% del prezzo totale (<span dangerouslySetInnerHTML={{ __html: depositOptions.formatted_product_price }} />)
+                            </>
+                          )}
                         </span>
                       </div>
                     </div>
