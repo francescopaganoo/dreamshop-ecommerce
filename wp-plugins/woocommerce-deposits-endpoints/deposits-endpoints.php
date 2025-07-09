@@ -496,8 +496,8 @@ class DreamShop_Deposits_API {
                                 $cleaned_value = preg_replace('/[^0-9.,]/', '', $first_payment->amount); // Rimuove tutti i caratteri non numerici
                                 $initial_value = floatval(str_replace(',', '.', $cleaned_value));
                                 
-                                // Se il valore è 37 o vicino a 37, assumiamo che sia una percentuale
-                                if ($initial_value >= 35 && $initial_value <= 39) {
+                                // Se il valore è tra 35 e 40, assumiamo che sia una percentuale
+                                if ($initial_value >= 35 && $initial_value <= 40) {
                                     $initial_percentage = $initial_value;
                                     error_log("[DEBUG] Valore interpretato come percentuale: {$initial_percentage}%");
                                 } else {
@@ -538,7 +538,7 @@ class DreamShop_Deposits_API {
                                 $cleaned_value = preg_replace('/[^0-9.,]/', '', $payment->amount);
                                 $payment_value = floatval(str_replace(',', '.', $cleaned_value));
                                 
-                                // Se il valore è 9 o vicino a 9, assumiamo che sia una percentuale (come per l'acconto)
+                                // Se il valore è tra 8 e 10, assumiamo che sia una percentuale (come per l'acconto)
                                 if ($payment_value >= 8 && $payment_value <= 10) {
                                     $payment_percentage = $payment_value;
                                     error_log("[DEBUG] Rata interpretata come percentuale: {$payment_percentage}%");

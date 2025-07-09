@@ -153,21 +153,29 @@ export default function ProductDepositOptionsComponent({ product, onDepositOptio
                 <p className="text-gray-600">{depositOptions.payment_plan.description}</p>
                 {depositOptions.payment_plan.schedule && (
                   <div className="mt-2 bg-white rounded-md p-3 border border-gray-100">
-                    <h5 className="font-medium text-sm mb-2 pb-1 border-b border-gray-100">Piano Rateale: Acconto {depositOptions.deposit_type === 'percent' ? `${depositOptions.deposit_amount}%` : ''} + {depositOptions.payment_plan.schedule?.length || 0} Rate</h5>
+                    <h5 className="font-medium text-sm mb-2 pb-1 border-b border-gray-100">Piano Rateale: Acconto {depositOptions.deposit_type === 'percent' ? `${Math.round(depositOptions.deposit_amount)}%` : ''} + {depositOptions.payment_plan.schedule?.length || 0} Rate</h5>
                     
                     {/* Acconto iniziale con stile migliorato */}
                     <div className="mb-2 p-1.5 bg-green-50 rounded-md border border-green-100">
                       <div className="text-sm font-medium text-green-800">
                         <span className="flex items-center justify-between">
                           <span>
-                            <strong>Acconto iniziale ({depositOptions.deposit_type === 'percent' ? `${depositOptions.deposit_amount}%` : ''}):</strong>
+                            <strong>Acconto iniziale {depositOptions.deposit_type === 'percent' && `(${Math.round(depositOptions.deposit_amount)}%)`}:</strong>
                           </span>
-                          <span dangerouslySetInnerHTML={{ __html: depositOptions.formatted_deposit_value }} />
+                          {depositOptions.deposit_type === 'percent' ? (
+                            <span>
+                              <span dangerouslySetInnerHTML={{ __html: depositOptions.formatted_deposit_value }} />
+                            </span>
+                          ) : (
+                            <span dangerouslySetInnerHTML={{ __html: depositOptions.formatted_deposit_value }} />
+                          )}
                         </span>
                         <span className="text-xs text-green-600 mt-1">
-                          {depositOptions.deposit_type === 'percent' && 
-                            `${depositOptions.deposit_amount}% del prezzo totale (${depositOptions.formatted_product_price})`
-                          }
+                          {depositOptions.deposit_type === 'percent' && (
+                            <>
+                              <strong>{Math.round(depositOptions.deposit_amount)}%</strong> del prezzo totale (<span dangerouslySetInnerHTML={{ __html: depositOptions.formatted_product_price }} />)
+                            </>
+                          )}
                         </span>
                       </div>
                     </div>
@@ -200,7 +208,7 @@ export default function ProductDepositOptionsComponent({ product, onDepositOptio
                                       ) : calculatedAmount ? (
                                         <span>{calculatedAmount}€</span>
                                       ) : null}
-                                      {item.percentage && <span> ({item.percentage}%)</span>}
+                                      {item.percentage && <span> ({Math.round(item.percentage)}%)</span>}
                                     </span>
                                   ) : item.formatted_amount ? (
                                     <span className="text-gray-700">
