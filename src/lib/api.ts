@@ -30,6 +30,11 @@ export interface ProductVariation {
   };
 }
 
+export interface MetaData {
+  key: string;
+  value: string;
+}
+
 export interface Product {
   id: number;
   name: string;
@@ -48,6 +53,12 @@ export interface Product {
     name: string;
     slug: string;
   }>;
+  meta_data?: MetaData[];
+  // Proprietà aggiuntive per acconti
+  wc_deposit_option?: string;
+  _wc_convert_to_deposit?: string;
+  _wc_deposit_type?: string;
+  _wc_deposit_amount?: string;
   stock_status: string;
   stock_quantity?: number; // Quantità disponibile in magazzino
   manage_stock?: boolean; // Indica se il prodotto gestisce lo stock

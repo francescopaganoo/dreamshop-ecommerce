@@ -1,8 +1,9 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Product, Coupon, verifyCoupon, applyCoupon } from '../lib/api';
-import { getUserPoints } from '../lib/points';
+import { Product, Coupon, verifyCoupon, applyCoupon } from '@/lib/api';
+import { getUserPoints } from '@/lib/points';
+import { getDepositInfo } from '@/lib/deposits';
 
 export interface CartItem {
   product: Product;
@@ -417,8 +418,26 @@ export function CartProvider({ children }: { children: ReactNode }) {
   // Calculate the total price of all items in the cart
   const getCartTotal = () => {
     const subtotal = cart.reduce((total, item) => {
-      const price = parseFloat(item.product.price || item.product.regular_price || '0');
-      return total + (price * item.quantity);
+      // Controlla se il prodotto ha l'acconto attivato
+      const depositInfo = getDepositInfo(item.product);
+      const isDeposit = depositInfo.hasDeposit;
+      
+      let itemPrice = parseFloat(item.product.price || item.product.regular_price || '0');
+      
+      // Se il prodotto ha l'acconto, usa il prezzo dell'acconto
+      if (isDeposit) {
+        // Usa la percentuale di acconto dal depositInfo
+        let depositPercentage = depositInfo.depositPercentage;
+        
+        // Se la percentuale non è valida, usa 40% come predefinito
+        if (!depositPercentage || depositPercentage <= 0) {
+          depositPercentage = 0.4; // 40%
+        }
+        
+        itemPrice = itemPrice * depositPercentage;
+      }
+      
+      return total + (itemPrice * item.quantity);
     }, 0);
     
     // Applica lo sconto del coupon e dei punti

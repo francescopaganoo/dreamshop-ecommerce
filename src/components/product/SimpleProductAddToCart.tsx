@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Product } from '@/lib/api';
 import { useCart } from '@/context/CartContext';
 import ProductDepositOptionsComponent from '@/components/product/ProductDepositOptions';
-import { addToCartWithDeposit } from '@/lib/deposits';
+import { addToCartWithDeposit, getDepositMetadata } from '@/lib/deposits';
 
 interface SimpleProductAddToCartProps {
   product: Product;
@@ -90,17 +90,68 @@ export default function SimpleProductAddToCart({ product }: SimpleProductAddToCa
     setIsAddingToCart(true);
     
     try {
-      // Se l'acconto è abilitato, utilizziamo addToCartWithDeposit
+      // Se l'acconto è abilitato, arricchiamo il prodotto con i metadati dell'acconto
       if (enableDeposit === 'yes') {
-        const result = await addToCartWithDeposit(product.id, 'yes', quantity);
-        
-        if (result.success) {
-          setMessage(`${quantity} ${quantity > 1 ? 'pezzi' : 'pezzo'} di ${product.name} ${quantity > 1 ? 'aggiunti' : 'aggiunto'} al carrello con acconto!`);
-        } else {
-          setMessage(result.message || 'Errore durante l\'aggiunta al carrello con acconto');
+        try {
+          // Recupera le opzioni di acconto dal backend
+          const depositOptionsResponse = await fetch(`/api/products/${product.id}/deposit-options`);
+          let depositAmount = '40';
+          let depositType = 'percent';
+          
+          if (depositOptionsResponse.ok) {
+            const depositOptions = await depositOptionsResponse.json();
+            console.log('Opzioni acconto dal backend:', depositOptions);
+            
+            // Estrai le informazioni sull'acconto
+            if (depositOptions.deposit_amount) {
+              depositAmount = depositOptions.deposit_amount.toString();
+            }
+            
+            if (depositOptions.deposit_type) {
+              depositType = depositOptions.deposit_type;
+            }
+          } else {
+            console.warn('Impossibile recuperare le opzioni di acconto, utilizzo valori predefiniti');
+          }
+          
+          // Ottieni una copia del prodotto per non modificare l'originale
+          const productWithDeposit = { ...product };
+          
+          // Ottieni i metadati per l'acconto con i valori recuperati dal backend
+          const depositMetadata = getDepositMetadata('yes', depositAmount, depositType);
+          
+          console.log('Metadati acconto generati:', depositMetadata);
+          
+          // Aggiungi i metadati al prodotto
+          productWithDeposit.meta_data = [
+            ...(productWithDeposit.meta_data || []),
+            ...(depositMetadata.meta_data || [])
+          ];
+          
+          // Aggiungi altre proprietà dal depositMetadata
+          Object.assign(productWithDeposit, {
+            wc_deposit_option: depositMetadata.wc_deposit_option,
+            _wc_convert_to_deposit: 'yes',
+            _wc_deposit_type: depositType,
+            _wc_deposit_amount: depositAmount
+          });
+          
+          console.log('Prodotto con metadati acconto:', productWithDeposit);
+          
+          // Aggiungi il prodotto con acconto al carrello
+          const result = addToCart(productWithDeposit, quantity);
+          
+          if (result.success) {
+            setMessage(`${quantity} ${quantity > 1 ? 'pezzi' : 'pezzo'} di ${product.name} ${quantity > 1 ? 'aggiunti' : 'aggiunto'} al carrello con acconto!`);
+          } else {
+            setMessage(result.message || 'Errore durante l\'aggiunta al carrello con acconto');
+          }
+        } catch (error) {
+          console.error('Errore durante l\'aggiunta al carrello con acconto:', error);
+          setMessage('Errore durante l\'aggiunta al carrello con acconto');
         }
       } else {
-        // Altrimenti utilizziamo la normale funzione addToCart
+        // Aggiunta normale al carrello senza acconto
         const result = addToCart(product, quantity);
         
         if (result.success) {

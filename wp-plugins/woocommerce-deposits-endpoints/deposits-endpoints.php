@@ -14,9 +14,13 @@
  * @package dreamshop-deposits-endpoints
  */
 
+// Evita l'accesso diretto
 if (!defined('ABSPATH')) {
-    exit; // Exit if accessed directly.
+    exit;
 }
+
+// Carica il file per l'elaborazione dei meta dati degli acconti
+require_once plugin_dir_path(__FILE__) . 'process-deposit-meta.php';
 
 // Verifica che WooCommerce sia attivo
 if (!in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_option('active_plugins')))) {
@@ -91,6 +95,17 @@ class DreamShop_Deposits_API {
         // Registra gli endpoint REST API
         add_action('rest_api_init', array($this, 'register_endpoints'));
         
+        // Hook per convertire gli articoli del carrello normali in articoli con acconto
+        add_filter('woocommerce_add_cart_item_data', array($this, 'process_deposit_meta'), 10, 3);
+        
+        // Hook per garantire che gli acconti vengano processati dopo la creazione dell'ordine tramite API
+        add_action('woocommerce_checkout_order_processed', array($this, 'ensure_deposits_processing'), 10, 3);
+        add_action('woocommerce_store_api_checkout_order_processed', array($this, 'ensure_deposits_processing'), 10, 1);
+        add_action('woocommerce_rest_insert_shop_order_object', array($this, 'ensure_deposits_processing_api'), 10, 3);
+        
+        // Log per debug
+        add_action('woocommerce_add_to_cart', array($this, 'log_cart_addition'), 10, 6);
+        
         // Aggiungi script e stili nel frontend
         add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'));
         
@@ -135,13 +150,13 @@ class DreamShop_Deposits_API {
         register_rest_route('dreamshop/v1', '/cart/add-with-deposit', array(
             'methods'  => 'POST',
             'callback' => array($this, 'add_to_cart_with_deposit'),
-            'permission_callback' => array($this, 'check_user_permission')
+            'permission_callback' => '__return_true' // Accessibile senza autenticazione
         ));
         
         register_rest_route('dreamshop/v1', '/cart/deposit-checkout', array(
             'methods'  => 'POST',
             'callback' => array($this, 'get_deposit_checkout_url'),
-            'permission_callback' => array($this, 'check_user_permission')
+            'permission_callback' => '__return_true' // Accessibile senza autenticazione
         ));
     }
     
@@ -608,20 +623,30 @@ class DreamShop_Deposits_API {
             ), 404);
         }
         
-        // Verifica che l'utente sia autenticato
-        if (!is_user_logged_in()) {
-            return new WP_REST_Response(array(
-                'success' => false,
-                'message' => 'Utente non autenticato'
-            ), 401);
-        }
+        // Rimosso controllo autenticazione per permettere acquisti guest
+        // L'account verrà creato in fase di checkout se necessario
+        
+        // Debug informazioni ricevute
+        error_log("[DEBUG] add_to_cart_with_deposit - Dati ricevuti: " . 
+            json_encode([
+                'product_id' => $product_id, 
+                'enable_deposit' => $enable_deposit, 
+                'quantity' => $quantity, 
+                'variation_id' => $variation_id
+            ])        
+        );
         
         // Verifica se il prodotto supporta gli acconti
         $has_deposit = get_post_meta($product_id, '_wc_deposit_enabled', true);
-        if ('yes' !== $has_deposit) {
+        
+        // Aggiungiamo debug log per vedere i valori effettivi
+        error_log("[DEBUG] Prodotto ID: {$product_id} - _wc_deposit_enabled: {$has_deposit}");
+        
+        // Accetta sia 'yes' che 'optional' come valori validi
+        if ($has_deposit !== 'yes' && $has_deposit !== 'optional') {
             return new WP_REST_Response(array(
                 'success' => false,
-                'message' => 'Questo prodotto non supporta gli acconti'
+                'message' => "Questo prodotto non supporta gli acconti (valore: {$has_deposit})"
             ), 400);
         }
         
@@ -632,13 +657,50 @@ class DreamShop_Deposits_API {
             $cart_item_data['wc_deposit_option'] = 'yes';
         }
         
-        // Aggiungi al carrello
-        $cart_item_key = WC()->cart->add_to_cart($product_id, $quantity, $variation_id, array(), $cart_item_data);
-        
-        if (!$cart_item_key) {
+        // Assicurati che WooCommerce sia caricato
+        if (!function_exists('WC')) {
+            error_log("[ERROR] WooCommerce non è disponibile nel contesto REST API");
             return new WP_REST_Response(array(
                 'success' => false,
-                'message' => 'Impossibile aggiungere il prodotto al carrello'
+                'message' => 'WooCommerce non inizializzato correttamente'
+            ), 500);
+        }
+        
+        // Controlla se il carrello è disponibile
+        if (!isset(WC()->cart)) {
+            error_log("[ERROR] WC()->cart non disponibile");
+            // Tentiamo di inizializzare il carrello manualmente
+            if (function_exists('wc_load_cart')) {
+                error_log("[INFO] Tentativo di inizializzare manualmente il carrello con wc_load_cart()");
+                wc_load_cart();
+            } else {
+                error_log("[ERROR] Funzione wc_load_cart() non disponibile");
+                return new WP_REST_Response(array(
+                    'success' => false,
+                    'message' => 'Carrello WooCommerce non disponibile'
+                ), 500);
+            }
+        }
+        
+        try {
+            // Aggiungi al carrello
+            error_log("[DEBUG] Tentativo di aggiungere al carrello: product_id={$product_id}, quantity={$quantity}, variation_id={$variation_id}");
+            $cart_item_key = WC()->cart->add_to_cart($product_id, $quantity, $variation_id, array(), $cart_item_data);
+            
+            error_log("[DEBUG] Risultato add_to_cart: " . ($cart_item_key ? $cart_item_key : 'FALLITO'));
+            
+            if (!$cart_item_key) {
+                error_log("[ERROR] Impossibile aggiungere al carrello");
+                return new WP_REST_Response(array(
+                    'success' => false,
+                    'message' => 'Impossibile aggiungere il prodotto al carrello'
+                ), 500);
+            }
+        } catch (Exception $e) {
+            error_log("[ERROR] Eccezione nell'aggiunta al carrello: " . $e->getMessage());
+            return new WP_REST_Response(array(
+                'success' => false,
+                'message' => 'Errore: ' . $e->getMessage()
             ), 500);
         }
         
@@ -663,13 +725,8 @@ class DreamShop_Deposits_API {
      * @return WP_REST_Response
      */
     public function get_deposit_checkout_url($request) {
-        // Verifica che l'utente sia autenticato
-        if (!is_user_logged_in()) {
-            return new WP_REST_Response(array(
-                'success' => false,
-                'message' => 'Utente non autenticato'
-            ), 401);
-        }
+        // Rimosso controllo autenticazione per permettere checkout guest
+        // L'account verrà creato in fase di checkout se necessario
         
         // Verifica che il carrello non sia vuoto
         if (WC()->cart->is_empty()) {
@@ -794,6 +851,80 @@ class DreamShop_Deposits_API {
     public function rate_payments_content() {
         // Includi il template della pagina rate
         include plugin_dir_path(__FILE__) . 'templates/rate-payments.php';
+    }
+    
+    /**
+     * Garantisce che gli acconti vengano processati dopo la creazione dell'ordine via checkout standard o Store API
+     * 
+     * @param int|WC_Order $order L'ordine o l'ID dell'ordine
+     * @param array $data Dati del checkout (opzionale)
+     * @param WP_Error $errors Eventuali errori (opzionale)
+     */
+    public function ensure_deposits_processing($order, $data = array(), $errors = null) {
+        if (!$order instanceof WC_Order) {
+            $order = wc_get_order($order);
+        }
+        
+        if (!$order) {
+            error_log("[ERROR] Impossibile trovare l'ordine nel processamento acconti");
+            return;
+        }
+        
+        error_log("[INFO] Verifica e processamento acconti per l'ordine #{$order->get_id()}");
+        
+        // Controlla se l'ordine contiene articoli con acconto
+        $has_deposit = false;
+        
+        foreach ($order->get_items() as $item) {
+            $wc_deposit_option = $item->get_meta('wc_deposit_option');
+            if ($wc_deposit_option === 'yes') {
+                $has_deposit = true;
+                break;
+            }
+        }
+        
+        if ($has_deposit) {
+            error_log("[INFO] L'ordine #{$order->get_id()} contiene acconti, avvio processamento");
+            
+            // Verifica se la classe del plugin WooCommerce Deposits è disponibile
+            if (class_exists('WC_Deposits_Order_Manager')) {
+                $deposits_manager = WC_Deposits_Order_Manager::get_instance();
+                
+                // Invoca il metodo per processare gli acconti nell'ordine
+                if (method_exists($deposits_manager, 'process_deposits_in_order')) {
+                    error_log("[INFO] Invocazione process_deposits_in_order per ordine #{$order->get_id()}");
+                    $deposits_manager->process_deposits_in_order($order->get_id());
+                    error_log("[INFO] Processamento acconti completato per ordine #{$order->get_id()}");
+                } else {
+                    error_log("[ERROR] Metodo process_deposits_in_order non trovato nel plugin WooCommerce Deposits");
+                }
+            } else {
+                error_log("[ERROR] Classe WC_Deposits_Order_Manager non trovata, verifica che il plugin WooCommerce Deposits sia attivo");
+            }
+        } else {
+            error_log("[INFO] L'ordine #{$order->get_id()} non contiene acconti, nessun processamento richiesto");
+        }
+    }
+    
+    /**
+     * Garantisce che gli acconti vengano processati dopo la creazione dell'ordine via REST API
+     * 
+     * @param WP_REST_Response|WP_Error $response La risposta REST
+     * @param WP_Post $post Il post dell'ordine
+     * @param WP_REST_Request $request La richiesta REST
+     */
+    public function ensure_deposits_processing_api($response, $post, $request) {
+        if (is_wp_error($response)) {
+            return $response;
+        }
+        
+        $order_id = $post->ID;
+        error_log("[INFO] Processamento acconti per ordine API #{$order_id}");
+        
+        // Usa il metodo principale per processare gli acconti
+        $this->ensure_deposits_processing($order_id);
+        
+        return $response;
     }
 }
 

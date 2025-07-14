@@ -3,8 +3,10 @@
 import { useCart } from '../../context/CartContext';
 import Image from 'next/image';
 import Link from 'next/link';
+import { formatPrice } from '../../lib/utils';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { getDepositInfo } from '../../lib/deposits';
 
 // Interfaccia per gli errori di stock
 interface StockIssue {
@@ -74,6 +76,11 @@ export default function CartPage() {
   // Format price with currency symbol
   const formatPrice = (price: number) => {
     return `€${price.toFixed(2)}`;
+  };
+  
+  // Ottiene lo slug del prodotto per i link
+  const getProductSlug = (product: any) => {
+    return product.slug || `product-${product.id}`;
   };
   
   // Carica i punti dell'utente quando la pagina viene caricata
@@ -346,7 +353,46 @@ export default function CartPage() {
                     </thead>
                     <tbody className="divide-y divide-gray-200">
                       {cart.map(item => {
-                        const itemPrice = parseFloat(item.product.price || item.product.regular_price || '0');
+                        console.log('Visualizzazione prodotto nel carrello:', item.product);
+                        
+                        // Otteniamo tutte le informazioni sull'acconto dal prodotto
+                        const depositInfo = getDepositInfo(item.product);
+                        const isDeposit = depositInfo.hasDeposit;
+                        
+                        console.log('Info acconto estratte:', depositInfo);
+                        
+                        // Calcola il prezzo in base ai metadati dell'acconto
+                        let itemPrice = parseFloat(item.product.price || item.product.regular_price || '0');
+                        let priceLabel = '';
+                        let fullPrice = itemPrice; // Memorizziamo il prezzo pieno
+                        
+                        console.log(`Prodotto ${item.product.name} - prezzo originale:`, itemPrice);
+                        
+                        // Se il prodotto ha l'acconto attivo, dobbiamo mostrare il prezzo dell'acconto
+                        if (isDeposit) {
+                          // Forziamo l'uso della percentuale standard del 40% se non riusciamo a recuperarla dai metadati
+                          let depositPercentage = depositInfo.depositPercentage;
+                          
+                          // Se la percentuale è 0 o non valida, usiamo il 40% come predefinito
+                          if (!depositPercentage || depositPercentage <= 0) {
+                            console.log('Percentuale acconto non valida, uso 40% predefinito');
+                            depositPercentage = 0.4; // 40%
+                          }
+                          
+                          console.log(`Percentuale acconto per il calcolo: ${depositPercentage * 100}%`);
+                          
+                          // Calcoliamo il prezzo dell'acconto
+                          const depositPrice = itemPrice * depositPercentage;
+                          console.log(`Prezzo acconto calcolato: ${depositPrice} (${itemPrice} * ${depositPercentage})`);
+                          
+                          // Aggiorniamo il prezzo visualizzato con quello dell'acconto
+                          itemPrice = depositPrice;
+                          
+                          // Creiamo l'etichetta appropriata
+                          const percentageDisplay = Math.round(depositPercentage * 100);
+                          priceLabel = `Acconto (${percentageDisplay}%)`;
+                        }
+                        
                         const itemTotal = itemPrice * item.quantity;
                         
                         return (
@@ -376,8 +422,13 @@ export default function CartPage() {
                                 </div>
                               </div>
                             </td>
-                            <td className="px-6 py-4  text-sm text-gray-500">
-                              {formatPrice(itemPrice)}
+                            <td className="px-6 py-4 text-sm">
+                              <div className="flex flex-col">
+                                <span className="text-gray-700">{formatPrice(itemPrice)}</span>
+                                {isDeposit && (
+                                  <span className="text-xs text-green-600 font-medium">{priceLabel}</span>
+                                )}
+                              </div>
                             </td>
                             <td className="px-6 py-4 ">
                               <div className="flex items-center border border-gray-300 rounded-md w-24">
@@ -398,8 +449,15 @@ export default function CartPage() {
                                 </button>
                               </div>
                             </td>
-                            <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                              {formatPrice(itemTotal)}
+                            <td className="px-6 py-4 text-sm">
+                              <div className="flex flex-col">
+                                <span className="font-medium text-gray-900">{formatPrice(itemTotal)}</span>
+                                {isDeposit && (
+                                  <span className="text-xs text-green-600">
+                                    Totale prodotto: {formatPrice(parseFloat(item.product.price || item.product.regular_price || '0') * item.quantity)}
+                                  </span>
+                                )}
+                              </div>
                             </td>
                             <td className="px-6 py-4 text-right text-sm font-medium">
                               <button

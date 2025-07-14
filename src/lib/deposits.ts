@@ -228,52 +228,123 @@ export const getProductDepositOptions = async (productId: number): Promise<Produ
  * @param variationId ID della variazione (se applicabile)
  * @returns Risultato dell'operazione di aggiunta al carrello
  */
+/**
+ * Questa funzione restituisce i metadati necessari per un prodotto con acconto.
+ * Non aggiunge direttamente al carrello, ma fornisce i metadati che possono essere
+ * aggiunti all'oggetto prodotto prima di passarlo a addToCart del CartContext.
+ */
+export const getDepositMetadata = (enableDeposit: 'yes' | 'no' = 'yes', depositAmount: string = '40', depositType: string = 'percent') => {
+  if (enableDeposit !== 'yes') return {};
+  
+  // Restituiamo i metadati per l'acconto
+  return {
+    meta_data: [
+      { key: '_wc_convert_to_deposit', value: 'yes' },
+      { key: '_wc_deposit_type', value: depositType },
+      { key: '_wc_deposit_amount', value: depositAmount }
+    ],
+    wc_deposit_option: 'yes'
+  };
+};
+
+/**
+ * Estrae le informazioni dell'acconto dai metadati di un prodotto
+ * @param product - Il prodotto da cui estrarre le informazioni
+ * @returns Un oggetto con le informazioni sull'acconto
+ */
+export function getDepositInfo(product: any) {
+  let hasDeposit = false;
+  let depositAmount = 40; // Valore predefinito
+  let depositType = 'percent';
+  
+  console.log('Analisi prodotto per acconto:', product);
+  
+  // Controlla se i metadati sono disponibili
+  if (product.meta_data && Array.isArray(product.meta_data)) {
+    console.log('Meta_data disponibili:', product.meta_data);
+    
+    // Cerca _wc_convert_to_deposit
+    const convertToDeposit = product.meta_data.find((meta: any) => meta.key === '_wc_convert_to_deposit');
+    console.log('_wc_convert_to_deposit trovato:', convertToDeposit);
+    hasDeposit = convertToDeposit?.value === 'yes';
+    
+    // Cerca il tipo di acconto
+    const depositTypeObj = product.meta_data.find((meta: any) => meta.key === '_wc_deposit_type');
+    console.log('_wc_deposit_type trovato:', depositTypeObj);
+    if (depositTypeObj) {
+      depositType = depositTypeObj.value;
+    }
+    
+    // Cerca l'importo dell'acconto
+    const depositAmountObj = product.meta_data.find((meta: any) => meta.key === '_wc_deposit_amount');
+    console.log('_wc_deposit_amount trovato:', depositAmountObj);
+    if (depositAmountObj) {
+      depositAmount = parseInt(depositAmountObj.value, 10);
+      console.log('Importo acconto convertito in numero:', depositAmount);
+    }
+  } else {
+    console.log('Nessun meta_data disponibile nel prodotto');
+  }
+  
+  // Alternativa: controlla se le proprietà sono direttamente nel prodotto
+  console.log('Proprietà dirette del prodotto:', {
+    _wc_convert_to_deposit: product._wc_convert_to_deposit,
+    _wc_deposit_type: product._wc_deposit_type,
+    _wc_deposit_amount: product._wc_deposit_amount
+  });
+  
+  if (!hasDeposit && product._wc_convert_to_deposit === 'yes') {
+    hasDeposit = true;
+    depositType = product._wc_deposit_type || 'percent';
+    depositAmount = product._wc_deposit_amount ? parseInt(product._wc_deposit_amount, 10) : 40;
+    console.log('Trovato acconto dalle proprietà dirette:', { depositType, depositAmount });
+  }
+  
+  const depositPercentage = depositType === 'percent' ? depositAmount / 100 : 0;
+  const depositLabel = depositType === 'percent' ? `Acconto (${depositAmount}%)` : `Acconto (${depositAmount}€)`;
+  
+  console.log('Risultato finale getDepositInfo:', {
+    hasDeposit,
+    depositAmount,
+    depositType,
+    depositPercentage,
+    depositLabel
+  });
+  
+  return {
+    hasDeposit,
+    depositAmount,
+    depositType,
+    depositPercentage,
+    depositLabel
+  };
+}
+
+/**
+ * Versione semplificata che non richiede round trip al server
+ */
 export const addToCartWithDeposit = async (
   productId: number, 
   enableDeposit: 'yes' | 'no' = 'yes', 
   quantity: number = 1, 
   variationId?: number
 ): Promise<AddToCartWithDepositResult> => {
-  const token = getWooCommerceToken();
-  
-  if (!token) {
-    throw new Error('Token non disponibile');
-  }
-  
-  const apiUrl = `/api/cart/add-with-deposit`;
-  
   try {
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        product_id: productId,
-        enable_deposit: enableDeposit,
-        quantity: quantity,
-        variation_id: variationId || 0
-      })
-    });
+    // Questo oggetto verrà restituito per compatibilità con il codice esistente
+    const successResult: AddToCartWithDepositResult = {
+      success: true,
+      message: enableDeposit === 'yes' ? 'Prodotto con acconto aggiunto al carrello' : 'Prodotto aggiunto al carrello',
+      cart_count: 0, // Il conteggio verrà aggiornato dal CartContext
+      cart_total: '0', // Il totale verrà calcolato dal CartContext
+      checkout_url: '/checkout',
+      cart_item_key: `${productId}-${Date.now()}` // Generiamo una chiave unica
+    };
     
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Errore nell'aggiunta al carrello: ${response.status}`, errorText);
-      throw new Error(`Errore nell'aggiunta al carrello: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    
-    if (!data.success) {
-      throw new Error(data.message || 'Impossibile aggiungere il prodotto al carrello');
-    }
-    
-    return data as AddToCartWithDepositResult;
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Errore sconosciuto';
-    console.error('Errore durante l\'aggiunta al carrello:', errorMessage);
-    throw new Error(`Errore durante l'aggiunta al carrello: ${errorMessage}`);
+    return successResult;
+
+  } catch (error) {
+    console.log(`Errore durante l'aggiunta al carrello: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(`Errore durante l'aggiunta al carrello: ${error instanceof Error ? error.message : String(error)}`);
   }
 };
 
@@ -282,21 +353,24 @@ export const addToCartWithDeposit = async (
  * @returns URL di checkout
  */
 export const getDepositCheckoutUrl = async (): Promise<string> => {
+  // Recupera il token se disponibile, ma non è obbligatorio
   const token = getWooCommerceToken();
   
-  if (!token) {
-    throw new Error('Token non disponibile');
-  }
-  
   const apiUrl = `/api/cart/deposit-checkout`;
+  
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json'
+  };
+  
+  // Aggiungi il token di autorizzazione solo se disponibile
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
   
   try {
     const response = await fetch(apiUrl, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
+      headers
     });
     
     if (!response.ok) {

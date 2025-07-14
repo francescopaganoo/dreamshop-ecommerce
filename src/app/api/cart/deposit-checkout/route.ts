@@ -9,26 +9,41 @@ export async function POST(request: NextRequest) {
   // Log dei dati ricevuti per debug
   console.log('Checkout richiesto per prodotto:', productId, 'con opzione acconto:', deposit_option);
   
-  // Ottieni il token di autenticazione
+  // Ottieni il token di autenticazione se disponibile (ora opzionale)
   const token = await getAuthToken();
   
-  if (!token) {
-    return NextResponse.json(
-      { success: false, message: 'Utente non autenticato' },
-      { status: 401 }
-    );
-  }
+  // Rimosso controllo di autenticazione obbligatorio per permettere checkout anche agli utenti guest
 
   try {
-    const wpEndpoint = `${process.env.WORDPRESS_API_URL}/wp-json/dreamshop/v1/cart/deposit-checkout`;
+    // Verifica che l'URL di WordPress sia configurato
+    if (!process.env.NEXT_PUBLIC_WORDPRESS_URL) {
+      console.error('NEXT_PUBLIC_WORDPRESS_URL non configurato nel file .env');
+      return NextResponse.json(
+        { success: false, message: 'Configurazione server incompleta' },
+        { status: 500 }
+      );
+    }
+    
+    const wpEndpoint = `${process.env.NEXT_PUBLIC_WORDPRESS_URL}/wp-json/dreamshop/v1/cart/deposit-checkout`;
+    console.log('Endpoint WordPress:', wpEndpoint);
+    
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    };
+    
+    // Aggiungi il token all'header solo se è disponibile
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
+    console.log('Invio richiesta checkout a WordPress');
     
     const response = await fetch(wpEndpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      }
+      headers
     });
+    
+    console.log('Risposta ricevuta da WordPress - Status:', response.status);
 
     if (!response.ok) {
       const errorText = await response.text();
