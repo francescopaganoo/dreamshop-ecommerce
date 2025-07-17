@@ -3,13 +3,14 @@ import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
   try {
-    const { product_id, enable_deposit, quantity, variation_id } = await request.json();
+    const { product_id, enable_deposit, quantity, variation_id, payment_plan_id } = await request.json();
     
     console.log('Ricevuta richiesta di aggiunta al carrello con acconto:', {
       product_id, 
       enable_deposit, 
       quantity, 
-      variation_id
+      variation_id,
+      payment_plan_id
     });
     
     if (!product_id) {
@@ -47,7 +48,8 @@ export async function POST(request: Request) {
       product_id: product_id,
       enable_deposit: enable_deposit,
       quantity: qty,
-      variation_id: variationId
+      variation_id: variationId,
+      payment_plan_id: payment_plan_id // Aggiunto ID del piano di pagamento
     };
     
     console.log('Invio richiesta all\'endpoint personalizzato:', requestData);

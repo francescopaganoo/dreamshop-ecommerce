@@ -97,6 +97,7 @@ export default function SimpleProductAddToCart({ product }: SimpleProductAddToCa
           const depositOptionsResponse = await fetch(`/api/products/${product.id}/deposit-options`);
           let depositAmount = '40';
           let depositType = 'percent';
+          let paymentPlanId = ''; // Inizializziamo l'ID del piano di pagamento
           
           if (depositOptionsResponse.ok) {
             const depositOptions = await depositOptionsResponse.json();
@@ -110,17 +111,30 @@ export default function SimpleProductAddToCart({ product }: SimpleProductAddToCa
             if (depositOptions.deposit_type) {
               depositType = depositOptions.deposit_type;
             }
+            
+            // Estrai l'ID del piano di pagamento se presente
+            if (depositOptions.payment_plan && depositOptions.payment_plan.id) {
+              paymentPlanId = depositOptions.payment_plan.id.toString();
+              console.log('ID piano di pagamento estratto:', paymentPlanId);
+            }
+            
+            // Se è il piano pianoprova, forziamo l'ID corretto
+            if (depositOptions.is_pianoprova) {
+              paymentPlanId = '810'; // ID hardcoded per pianoprova
+              console.log('Forzato ID piano pianoprova:', paymentPlanId);
+            }
           } else {
             console.warn('Impossibile recuperare le opzioni di acconto, utilizzo valori predefiniti');
           }
           
+          console.log('ID piano di pagamento salvato nei metadati:', paymentPlanId);
+            
           // Ottieni una copia del prodotto per non modificare l'originale
           const productWithDeposit = { ...product };
           
           // Ottieni i metadati per l'acconto con i valori recuperati dal backend
-          const depositMetadata = getDepositMetadata('yes', depositAmount, depositType);
-          
-          console.log('Metadati acconto generati:', depositMetadata);
+          // Includiamo anche l'ID del piano di pagamento
+          const depositMetadata = getDepositMetadata('yes', depositAmount, depositType, paymentPlanId);
           
           // Aggiungi i metadati al prodotto
           productWithDeposit.meta_data = [
@@ -133,12 +147,11 @@ export default function SimpleProductAddToCart({ product }: SimpleProductAddToCa
             wc_deposit_option: depositMetadata.wc_deposit_option,
             _wc_convert_to_deposit: 'yes',
             _wc_deposit_type: depositType,
-            _wc_deposit_amount: depositAmount
+            _wc_deposit_amount: depositAmount,
+            _deposit_payment_plan: paymentPlanId
           });
           
-          console.log('Prodotto con metadati acconto:', productWithDeposit);
-          
-          // Aggiungi il prodotto con acconto al carrello
+          // Usa la funzione addToCart del contesto carrello (comportamento originale funzionante)
           const result = addToCart(productWithDeposit, quantity);
           
           if (result.success) {

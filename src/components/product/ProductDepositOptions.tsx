@@ -186,13 +186,22 @@ export default function ProductDepositOptionsComponent({ product, onDepositOptio
                         <h6 className="text-xs font-medium mb-1 text-gray-700">Rate mensili successive:</h6>
                         <ul className="list-disc pl-5 space-y-0.5">
                           {depositOptions.payment_plan.schedule.map((item, index) => {
-                            // Calcola l'importo effettivo se è una percentuale
-                            const isPercentage = typeof item.percentage === 'number' && item.percentage > 0;
+                            // Verifica se è una percentuale usando il nuovo campo is_percent
+                            const isPercentage = item.is_percent === true || 
+                                               (typeof item.percentage === 'number' && item.percentage > 0) ||
+                                               (typeof item.amount === 'string' && item.amount.includes('%'));
+                            
                             const productPrice = typeof depositOptions.product_price === 'string' 
                               ? parseFloat(depositOptions.product_price) 
                               : Number(depositOptions.product_price);
-                            const calculatedAmount = isPercentage && item.percentage
-                              ? (productPrice * item.percentage / 100).toFixed(2)
+                              
+                            // Usa percentage se disponibile, altrimenti estrai il valore numerico da amount
+                            const percentValue = typeof item.percentage === 'number' ? item.percentage :
+                                              (typeof item.value === 'number' ? item.value : null);
+                                              
+                            // Calcola l'importo in euro basato sulla percentuale
+                            const calculatedAmount = isPercentage && percentValue
+                              ? (productPrice * percentValue / 100).toFixed(2)
                               : null;
                               
                             return (
@@ -202,13 +211,12 @@ export default function ProductDepositOptionsComponent({ product, onDepositOptio
                                 </div>
                                 <div>
                                   {isPercentage ? (
-                                    <span className="text-gray-700">
-                                      {item.formatted_amount ? (
-                                        <span dangerouslySetInnerHTML={{ __html: item.formatted_amount }} />
-                                      ) : calculatedAmount ? (
-                                        <span>{calculatedAmount}€</span>
-                                      ) : null}
-                                      {item.percentage && <span> ({Math.round(item.percentage)}%)</span>}
+                                    <span className="text-gray-700 font-medium">
+                                      {/* Mostra prima la percentuale, poi l'importo calcolato tra parentesi */}
+                                      <span className="text-blue-700">{typeof percentValue === 'number' ? `${Math.round(percentValue)}%` : item.amount}</span>
+                                      {calculatedAmount && (
+                                        <span className="text-gray-500 ml-1">({calculatedAmount}€)</span>
+                                      )}
                                     </span>
                                   ) : item.formatted_amount ? (
                                     <span className="text-gray-700">

@@ -4,10 +4,21 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(request: NextRequest) {
   // Parsifica il corpo della richiesta
   const body = await request.json().catch(() => ({}));
-  const { productId, deposit_option } = body;
+  const { productId, deposit_option, paymentPlanId } = body;
   
-  // Log dei dati ricevuti per debug
-  console.log('Checkout richiesto per prodotto:', productId, 'con opzione acconto:', deposit_option);
+  // Log SUPER dettagliato dei dati ricevuti per debug
+  console.log('===================== DEBUG CHECKOUT DEPOSIT =====================');
+  console.log('BODY COMPLETO RICEVUTO:', JSON.stringify(body, null, 2));
+  console.log('Dati ricevuti dalla chiamata frontend:');
+  console.log('- Prodotto ID:', productId);
+  console.log('- Opzione acconto:', deposit_option);
+  console.log('- Piano di pagamento ID:', paymentPlanId);
+  console.log('- Tipo piano di pagamento:', typeof paymentPlanId);
+  console.log('- Piano di pagamento valido:', paymentPlanId ? 'SÌ' : 'NO');
+  console.log('- Valore effettivo del paymentPlanId:', String(paymentPlanId));
+  console.log('- paymentPlanId è null?', paymentPlanId === null);
+  console.log('- paymentPlanId è undefined?', paymentPlanId === undefined);
+  console.log('==============================================================');
   
   // Ottieni il token di autenticazione se disponibile (ora opzionale)
   const token = await getAuthToken();
@@ -38,9 +49,15 @@ export async function POST(request: NextRequest) {
     
     console.log('Invio richiesta checkout a WordPress');
     
+    // Prepariamo il corpo della richiesta con l'ID del piano di pagamento
+    const requestBody = {
+      paymentPlanId // Inviamo l'ID del piano di pagamento al backend
+    };
+    
     const response = await fetch(wpEndpoint, {
       method: 'POST',
-      headers
+      headers,
+      body: JSON.stringify(requestBody)
     });
     
     console.log('Risposta ricevuta da WordPress - Status:', response.status);
