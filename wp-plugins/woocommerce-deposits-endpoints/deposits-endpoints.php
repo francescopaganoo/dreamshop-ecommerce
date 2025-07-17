@@ -1914,32 +1914,32 @@ class DreamShop_Deposits_API {
                     // Calcola gli importi delle rate in base alla percentuale o importo fisso
                     foreach ($installments as $key => $installment) {
                         $amount = 0;
+                        $has_percent = isset($installment['percent']) && floatval($installment['percent']) > 0;
                         
-                        // Calcolo per rate definite come percentuale
-                        if (isset($installment['percent']) && !isset($installment['amount'])) {
+                        // Priorità 1: Usa la percentuale se è specificata, anche se amount è presente
+                        if ($has_percent) {
                             $percent = floatval($installment['percent']);
-                            if ($percent <= 0) {
-                                $percent = 10; // Fallback al 10% se la percentuale è invalida
-                            }
                             $amount = round(($total_price * $percent) / 100, 2);
-                            error_log("[DEBUG] Rata calcolata da percentuale: {$percent}% di {$total_price} = {$amount}");
+                            error_log("[DEBUG] Rata calcolata da percentuale esplicita: {$percent}% di {$total_price} = {$amount}");
                         } 
-                        // Usa importi fissi se definiti
-                        elseif (isset($installment['amount'])) {
+                        // Priorità 2: Usa importi fissi se definiti e maggiori di zero
+                        else if (isset($installment['amount']) && floatval($installment['amount']) > 0) {
                             $amount = floatval($installment['amount']);
                             error_log("[DEBUG] Rata con importo fisso: {$amount}");
                         }
-                        // Fallback se nessuna delle opzioni precedenti è valida
+                        // Priorità 3: Fallback se né percentuale né importo sono validi
                         else {
                             // Calcola un importo predefinito del 10% del totale
                             $amount = round($total_price * 0.10, 2);
-                            error_log("[WARN] Nessun importo/percentuale specificato per la rata #{$key}, uso fallback 10%: {$amount}");
-                        }
-                        
-                        // Verifica che l'importo sia valido (maggiore di zero)
-                        if ($amount <= 0) {
-                            $amount = round($total_price * 0.10, 2); // Fallback al 10% se l'importo è zero o negativo
-                            error_log("[WARN] Importo rata #{$key} non valido, uso fallback 10%: {$amount}");
+                            
+                            // Log più dettagliato per capire perché si è arrivati al fallback
+                            if (isset($installment['percent'])) {
+                                error_log("[WARN] Percentuale non valida ({$installment['percent']}), uso fallback 10%: {$amount}");
+                            } else if (isset($installment['amount'])) {
+                                error_log("[WARN] Importo non valido ({$installment['amount']}), uso fallback 10%: {$amount}");
+                            } else {
+                                error_log("[WARN] Nessun importo/percentuale specificato per la rata #{$key}, uso fallback 10%: {$amount}");
+                            }
                         }
                         
                         $installments[$key]['amount'] = $amount;
