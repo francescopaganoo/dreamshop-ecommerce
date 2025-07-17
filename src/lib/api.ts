@@ -449,10 +449,55 @@ export async function createOrder(orderData: OrderData): Promise<WooCommerceOrde
       orderData_full: JSON.stringify(orderDataToSend)
     });
 
-    // Invio dei dati a WooCommerce API
-    const response = await api.post('orders', orderDataToSend);
+    // Verifichiamo se ci sono prodotti con acconti nell'ordine (solo per debug)
+    let hasDeposits = false;
+    if (orderDataToSend.line_items && Array.isArray(orderDataToSend.line_items)) {
+      // Controlliamo se qualche articolo ha i metadati di acconto
+      for (const item of orderDataToSend.line_items) {
+        // Verifica nelle proprietà dirette dell'oggetto
+        if (item._wc_convert_to_deposit === 'yes') {
+          hasDeposits = true;
+          break;
+        }
+        
+        // Verifica nella struttura meta_data se esiste
+        if (item.meta_data && Array.isArray(item.meta_data)) {
+          const depositMeta = item.meta_data.find((meta: { key: string, value: string }) => 
+            meta.key === '_wc_convert_to_deposit' && meta.value === 'yes'
+          );
+          if (depositMeta) {
+            hasDeposits = true;
+            break;
+          }
+        }
+        
+        // Verifica se c'è un riferimento al piano di pagamento
+        if (
+          (item._wc_payment_plan && item._wc_payment_plan !== '') ||
+          (item.payment_plan && item.payment_plan !== '') ||
+          (item.deposit_amount && parseFloat(String(item.deposit_amount)) > 0)
+        ) {
+          hasDeposits = true;
+          break;
+        }
+      }
+    }
     
-    // Cast sicuro della risposta al tipo corretto
+    // Verifica anche nei metadati dell'ordine principale (solo per debug)
+    if (!hasDeposits && orderDataToSend.meta_data && Array.isArray(orderDataToSend.meta_data)) {
+      const orderDepositMeta = orderDataToSend.meta_data.find((meta: { key: string, value: string }) => 
+        meta.key === '_wc_deposits_order_has_deposit' && meta.value === 'yes'
+      );
+      if (orderDepositMeta) {
+        hasDeposits = true;
+      }
+    }
+    
+    console.log('API DEBUG - Ordine contiene acconti:', hasDeposits);
+    
+    // Usa sempre l'endpoint standard WooCommerce per tutti gli ordini
+    console.log('API DEBUG - Utilizzo endpoint standard WooCommerce');
+    const response = await api.post('orders', orderDataToSend);
     const orderResponse = response.data as WooCommerceOrderResponse;
     
     // Log della risposta

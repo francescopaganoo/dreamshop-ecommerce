@@ -158,6 +158,13 @@ class DreamShop_Deposits_API {
             'callback' => array($this, 'get_deposit_checkout_url'),
             'permission_callback' => '__return_true' // Accessibile senza autenticazione
         ));
+        
+        // Nuovo endpoint per il checkout con acconti direttamente dal frontend Next.js
+        register_rest_route('dreamshop/v1', '/orders/create-with-deposits', array(
+            'methods'  => 'POST',
+            'callback' => array($this, 'create_order_with_deposits'),
+            'permission_callback' => array($this, 'check_user_permission')
+        ));
     }
     
     /**
@@ -613,6 +620,7 @@ class DreamShop_Deposits_API {
         $quantity = $request->get_param('quantity') ?: 1;
         $enable_deposit = $request->get_param('enable_deposit') ?: 'yes';
         $variation_id = $request->get_param('variation_id') ?: 0;
+        $payment_plan_id = $request->get_param('payment_plan_id'); // Nuovo parametro per il piano di pagamento
         
         $product = wc_get_product($product_id);
         
@@ -632,7 +640,8 @@ class DreamShop_Deposits_API {
                 'product_id' => $product_id, 
                 'enable_deposit' => $enable_deposit, 
                 'quantity' => $quantity, 
-                'variation_id' => $variation_id
+                'variation_id' => $variation_id,
+                'payment_plan_id' => $payment_plan_id
             ])        
         );
         
@@ -655,6 +664,12 @@ class DreamShop_Deposits_API {
         // Aggiungi i dati per l'acconto
         if ('yes' === $enable_deposit) {
             $cart_item_data['wc_deposit_option'] = 'yes';
+            
+            // Salviamo anche il piano di pagamento se specificato
+            if (!empty($payment_plan_id)) {
+                $cart_item_data['_deposit_payment_plan'] = $payment_plan_id;
+                error_log("[INFO] Piano di pagamento salvato nel carrello: {$payment_plan_id}");
+            }
         }
         
         // Assicurati che WooCommerce sia caricato
@@ -740,6 +755,238 @@ class DreamShop_Deposits_API {
             'success' => true,
             'checkout_url' => wc_get_checkout_url()
         ), 200);
+    }
+    
+    /**
+     * Crea un ordine con acconti direttamente dal frontend Next.js
+     *
+     * @param WP_REST_Request $request
+     * @return WP_REST_Response
+     */
+    public function create_order_with_deposits($request) {
+        $params = $request->get_params();
+        
+        try {
+            // Verifica che ci siano tutti i dati necessari
+            if (empty($params['billing']) || empty($params['line_items'])) {
+                return new WP_REST_Response(array(
+                    'success' => false,
+                    'message' => 'Dati mancanti per la creazione dell\'ordine'
+                ), 400);
+            }
+            
+            // Crea un nuovo ordine
+            $order = wc_create_order();
+            
+            // Imposta i dati dell'ordine
+            if (!empty($params['customer_id'])) {
+                $order->set_customer_id($params['customer_id']);
+            } else {
+                // Se non è specificato un customer_id, usiamo l'utente corrente
+                $current_user_id = get_current_user_id();
+                if ($current_user_id) {
+                    $order->set_customer_id($current_user_id);
+                }
+            }
+            
+            // Aggiungi gli articoli con metadati per gli acconti
+            foreach ($params['line_items'] as $item) {
+                $product_id = isset($item['product_id']) ? $item['product_id'] : 0;
+                $variation_id = isset($item['variation_id']) ? $item['variation_id'] : 0;
+                $quantity = isset($item['quantity']) ? $item['quantity'] : 1;
+                
+                // Seleziona l'ID del prodotto corretto (variazione o prodotto principale)
+                $final_product_id = $variation_id ? $variation_id : $product_id;
+                $product = wc_get_product($final_product_id);
+                
+                if (!$product) {
+                    continue;
+                }
+                
+                // Aggiungi l'articolo all'ordine
+                $item_id = $order->add_product($product, $quantity);
+                
+                // Verifica se ci sono metadati per gli acconti
+                if (isset($item['meta_data']) && is_array($item['meta_data'])) {
+                    $convert_to_deposit = false;
+                    $deposit_type = 'percent';
+                    $deposit_amount = '40';
+                    $payment_plan = '';
+                    
+                    // Estrai i metadati di acconto
+                    foreach ($item['meta_data'] as $meta) {
+                        if (isset($meta['key']) && $meta['key'] === '_wc_convert_to_deposit' && $meta['value'] === 'yes') {
+                            $convert_to_deposit = true;
+                        }
+                        if (isset($meta['key']) && $meta['key'] === '_wc_deposit_type') {
+                            $deposit_type = $meta['value'];
+                        }
+                        if (isset($meta['key']) && $meta['key'] === '_wc_deposit_amount') {
+                            $deposit_amount = $meta['value'];
+                        }
+                        if (isset($meta['key']) && $meta['key'] === '_wc_payment_plan') {
+                            $payment_plan = $meta['value'];
+                        }
+                    }
+                    
+                    // Log per il debug
+                    error_log("[INFO] Elaborazione prodotto ID: {$final_product_id} per ordine con acconto. Convert: {$convert_to_deposit}, Tipo: {$deposit_type}, Importo: {$deposit_amount}");
+                    
+                    if ($convert_to_deposit) {
+                        // Verifica se il prodotto supporta gli acconti
+                        $has_deposit = get_post_meta($product_id, '_wc_deposit_enabled', true);
+                        
+                        if ($has_deposit === 'yes' || $has_deposit === 'optional') {
+                            $product_price = $product->get_price();
+                            
+                            // Calcola l'importo dell'acconto
+                            if ($deposit_type === 'percent') {
+                                $deposit_value = ($product_price * floatval($deposit_amount)) / 100;
+                            } else {
+                                $deposit_value = floatval($deposit_amount);
+                            }
+                            
+                            // Arrotonda a 2 decimali
+                            $deposit_value = round($deposit_value, 2);
+                            
+                            // Aggiungi metadati necessari per WooCommerce Deposits (con doppia notazione per sicurezza)
+                            // Usa sia i nostri nomi di chiave che quelli standard di WooCommerce Deposits
+                            
+                            // Metadati fondamentali per il rilevamento dell'acconto
+                            wc_add_order_item_meta($item_id, 'is_deposit', 'yes');
+                            wc_add_order_item_meta($item_id, 'wc_deposit_option', 'yes'); // Chiave standard WC Deposits
+                            
+                            // Informazioni sull'importo dell'acconto
+                            wc_add_order_item_meta($item_id, 'deposit_amount', $deposit_value);
+                            wc_add_order_item_meta($item_id, '_deposit_amount', $deposit_value); // Chiave standard WC Deposits
+                            
+                            // Importo totale del prodotto
+                            wc_add_order_item_meta($item_id, 'full_amount', $product_price);
+                            wc_add_order_item_meta($item_id, '_original_amount', $product_price); // Chiave standard WC Deposits
+                            
+                            // Importi al netto delle tasse
+                            wc_add_order_item_meta($item_id, '_deposit_deposit_amount_ex_tax', wc_get_price_excluding_tax($product, ['price' => $deposit_value]));
+                            wc_add_order_item_meta($item_id, '_deposit_full_amount_ex_tax', wc_get_price_excluding_tax($product));
+                            
+                            // Tipo di deposito (percentuale o importo fisso)
+                            wc_add_order_item_meta($item_id, '_deposit_type', $deposit_type);
+                            
+                            // Piano di pagamento
+                            if (!empty($payment_plan)) {
+                                wc_add_order_item_meta($item_id, 'payment_plan', $payment_plan);
+                                wc_add_order_item_meta($item_id, '_payment_plan', $payment_plan); // Chiave standard WC Deposits
+                            }
+                            
+                            error_log("[INFO] Metadati completi aggiunti per l'articolo #{$item_id}. Tipo: {$deposit_type}, Importo: {$deposit_value}, Piano: {$payment_plan}");
+                            
+                            error_log("[INFO] Metadati per acconto aggiunti all'articolo dell'ordine ID: {$item_id}");
+                        } else {
+                            error_log("[WARNING] Il prodotto ID: {$product_id} non supporta acconti. Valore _wc_deposit_enabled: {$has_deposit}");
+                        }
+                    }
+                }
+            }
+            
+            // Imposta gli indirizzi di fatturazione e spedizione
+            if (!empty($params['billing'])) {
+                $order->set_address($params['billing'], 'billing');
+            }
+            
+            if (!empty($params['shipping'])) {
+                $order->set_address($params['shipping'], 'shipping');
+            } else if (!empty($params['billing'])) {
+                // Se l'indirizzo di spedizione non è fornito, usa quello di fatturazione
+                $order->set_address($params['billing'], 'shipping');
+            }
+            
+            // Imposta il metodo di pagamento
+            if (!empty($params['payment_method'])) {
+                $order->set_payment_method($params['payment_method']);
+                if (!empty($params['payment_method_title'])) {
+                    $order->set_payment_method_title($params['payment_method_title']);
+                }
+            }
+            
+            // Imposta i totali dell'ordine (opzionale)
+            if (!empty($params['shipping_total'])) {
+                $order->set_shipping_total($params['shipping_total']);
+            }
+            
+            if (!empty($params['shipping_tax'])) {
+                $order->set_shipping_tax($params['shipping_tax']);
+            }
+            
+            // Note dell'ordine
+            if (!empty($params['customer_note'])) {
+                $order->set_customer_note($params['customer_note']);
+            }
+            
+            // Calcola i totali
+            $order->calculate_totals();
+            
+            // Verifica la presenza di acconti
+            $has_deposit = false;
+            foreach ($order->get_items() as $item) {
+                if ($item->get_meta('is_deposit') === 'yes') {
+                    $has_deposit = true;
+                    break;
+                }
+            }
+            
+            // Imposta lo stato dell'ordine e i metadati per gli acconti
+            if ($has_deposit) {
+                // Imposta i metadati a livello di ordine richiesti da WooCommerce Deposits
+                update_post_meta($order->get_id(), '_wc_deposits_order_has_deposit', 'yes');
+                update_post_meta($order->get_id(), '_wc_deposits_payment_schedule', 'yes'); // Indica che l'ordine ha una schedule di pagamento
+                
+                // Calcola e salva gli importi totali dell'acconto e del saldo
+                $deposit_total = 0;
+                $second_payment_total = 0;
+                
+                foreach ($order->get_items() as $item_id => $item) {
+                    $deposit_amount = floatval($item->get_meta('deposit_amount'));
+                    $full_amount = floatval($item->get_meta('full_amount'));
+                    
+                    if ($deposit_amount > 0) {
+                        $deposit_total += $deposit_amount * $item->get_quantity();
+                        $second_payment_total += ($full_amount - $deposit_amount) * $item->get_quantity();
+                    }
+                }
+                
+                update_post_meta($order->get_id(), '_wc_deposits_deposit_amount', $deposit_total);
+                update_post_meta($order->get_id(), '_wc_deposits_second_payment', $second_payment_total);
+                
+                error_log("[INFO] Metadati ordine impostati. Deposit total: {$deposit_total}, Second payment: {$second_payment_total}");
+                
+                // Imposta lo stato a pagamento parziale
+                $order->update_status('partial-payment', 'Ordine creato come pagamento parziale via API');
+            } else {
+                $order->update_status('pending', 'Ordine creato via API');
+            }
+            
+            // Salva l'ordine
+            $order->save();
+            
+            // Processa gli acconti se necessario
+            if ($has_deposit) {
+                $this->ensure_deposits_processing($order);
+            }
+            
+            // Restituisci i dati dell'ordine
+            return new WP_REST_Response([
+                'success' => true,
+                'order_id' => $order->get_id(),
+                'order_key' => $order->get_order_key(),
+                'payment_url' => $order->get_checkout_payment_url()
+            ], 200);
+            
+        } catch (Exception $e) {
+            error_log("[ERROR] Creazione ordine con acconti fallita: " . $e->getMessage());
+            return new WP_REST_Response([
+                'success' => false,
+                'message' => 'Errore durante la creazione dell\'ordine: ' . $e->getMessage()
+            ], 500);
+        }
     }
     
     /**
@@ -854,11 +1101,137 @@ class DreamShop_Deposits_API {
     }
     
     /**
+     * Ottiene le impostazioni di un piano di pagamento rateale
+     * 
+     * @param string $plan_id ID o nome del piano di pagamento
+     * @return array Impostazioni del piano con le rate configurate
+     */
+    /**
+     * Ottiene le impostazioni di un piano di pagamento dal database
+     * 
+     * @param string $plan_id ID del piano o nome del piano
+     * @return array|false Impostazioni del piano o false se non trovato
+     */
+    private function get_payment_plan_settings($plan_id) {
+        error_log("[DEBUG] Ricerca impostazioni per il piano: {$plan_id}");
+        
+        // Se non abbiamo un ID, non possiamo procedere
+        if (empty($plan_id)) {
+            error_log("[WARN] ID piano vuoto, impossibile recuperare le impostazioni");
+            return false;
+        }
+        
+        // Normalizza l'ID del piano
+        $original_plan_id = $plan_id;
+        $plan_id = trim(strtolower($plan_id));
+        
+        // Cerca nelle opzioni di WordPress
+        $all_plans = get_option('wc_deposits_payment_plans', array());
+        
+        // Cerca corrispondenza esatta
+        if (isset($all_plans[$plan_id])) {
+            error_log("[INFO] Piano trovato nelle opzioni WordPress con ID esatto: {$plan_id}");
+            return $all_plans[$plan_id];
+        }
+        
+        // Se è pianoprova e non abbiamo trovato corrispondenza, restituisci la configurazione hardcoded
+        if ($plan_id === 'pianoprova' || $plan_id === 'piano-prova') {
+            error_log("[INFO] Restituisco configurazione predefinita per Piano Prova");
+            return $this->get_piano_prova_plan();
+        }
+        
+        // Se è gear fourth luffy e non abbiamo trovato corrispondenza, restituisci la configurazione hardcoded
+        if ($plan_id === 'luffy-gear-fourth' || $plan_id === 'gear-fourth-luffy') {
+            error_log("[INFO] Restituisco configurazione predefinita per Gear Fourth Luffy");
+            return $this->get_luffy_gear_fourth_plan();
+        }
+        
+        // Riconosci plan-default e mappalo al piano appropriato in base ai metadati dell'ordine
+        if ($plan_id === 'plan-default') {
+            // Determina quale piano usare in base ai metadati (deposit_percent o altre informazioni)
+            $order_id = isset($_REQUEST['order_id']) ? intval($_REQUEST['order_id']) : 0;
+            
+            if ($order_id > 0) {
+                $order = wc_get_order($order_id);
+                if ($order) {
+                    // Cerca di determinare l'acconto percentuale dagli item
+                    $deposit_percent = 0;
+                    foreach ($order->get_items() as $item) {
+                        $deposit_amount = $item->get_meta('_deposit_deposit_amount');
+                        $full_amount = $item->get_meta('_deposit_full_amount');
+                        
+                        if (!empty($deposit_amount) && !empty($full_amount) && $full_amount > 0) {
+                            $deposit_percent = ($deposit_amount / $full_amount) * 100;
+                            break;
+                        }
+                    }
+                    
+                    error_log("[INFO] Per plan-default, percentuale di acconto rilevata: {$deposit_percent}%");
+                    
+                    // Mappa in base alla percentuale di acconto
+                    if ($deposit_percent >= 20 && $deposit_percent <= 30) {
+                        error_log("[INFO] plan-default mappato a pianoprova per acconto del {$deposit_percent}%");
+                        return $this->get_piano_prova_plan();
+                    } else if ($deposit_percent >= 35 && $deposit_percent <= 45) {
+                        error_log("[INFO] plan-default mappato a luffy-gear-fourth per acconto del {$deposit_percent}%");
+                        return $this->get_luffy_gear_fourth_plan();
+                    }
+                }
+            }
+            
+            // Se non siamo riusciti a determinare il piano, usa pianoprova come default
+            error_log("[INFO] plan-default mappato a pianoprova (fallback)");
+            return $this->get_piano_prova_plan();
+        }
+        
+        // Nessun piano corrispondente trovato
+        error_log("[WARN] Nessun piano trovato per ID: {$original_plan_id}");
+        return false;
+    }
+    
+    /**
+     * Restituisce la configurazione del piano Gear Fourth Luffy
+     * 
+     * @return array Configurazione del piano
+     */
+    private function get_luffy_gear_fourth_plan() {
+        return array(
+            'name' => 'Gear Fourth Luffy LX Studio',
+            'deposit_percent' => 40,
+            'installments' => array(
+                array('percent' => 10, 'months' => 1, 'description' => 'Rata 1 di 6'),
+                array('percent' => 10, 'months' => 2, 'description' => 'Rata 2 di 6'),
+                array('percent' => 10, 'months' => 3, 'description' => 'Rata 3 di 6'),
+                array('percent' => 10, 'months' => 4, 'description' => 'Rata 4 di 6'),
+                array('percent' => 10, 'months' => 5, 'description' => 'Rata 5 di 6'),
+                array('percent' => 10, 'months' => 6, 'description' => 'Rata 6 di 6')
+            )
+        );
+    }
+    
+    /**
+     * Restituisce la configurazione del piano prova
+     * 
+     * @return array Configurazione del piano
+     */
+    private function get_piano_prova_plan() {
+        return array(
+            'name' => 'Piano Prova',
+            'deposit_percent' => 25,  // Aggiornato al 25% come mostrato nel frontend
+            'installments' => array(
+                array('percent' => 35, 'months' => 1, 'description' => 'Rata 1 di 2'),  // Convertito da importo fisso a percentuale
+                array('percent' => 40, 'months' => 2, 'description' => 'Rata 2 di 2')   // Convertito da importo fisso a percentuale
+            )
+        );
+    }
+    
+    /**
      * Garantisce che gli acconti vengano processati dopo la creazione dell'ordine via checkout standard o Store API
      * 
      * @param int|WC_Order $order L'ordine o l'ID dell'ordine
      * @param array $data Dati del checkout (opzionale)
      * @param WP_Error $errors Eventuali errori (opzionale)
+     * @return void
      */
     public function ensure_deposits_processing($order, $data = array(), $errors = null) {
         if (!$order instanceof WC_Order) {
@@ -875,10 +1248,76 @@ class DreamShop_Deposits_API {
         // Controlla se l'ordine contiene articoli con acconto
         $has_deposit = false;
         
-        foreach ($order->get_items() as $item) {
+        foreach ($order->get_items() as $item_id => $item) {
+            // Log di tutti i metadati dell'item per debug
+            $meta_data = $item->get_meta_data();
+            $meta_values = [];
+            foreach ($meta_data as $meta) {
+                $meta_values[$meta->key] = $meta->value;
+            }
+            error_log("[DEBUG] Metadati dell'item #{$item_id}: " . json_encode($meta_values));
+            
+            // Verifica i diversi metadati possibili per gli acconti
+            $is_deposit = $item->get_meta('is_deposit');
             $wc_deposit_option = $item->get_meta('wc_deposit_option');
-            if ($wc_deposit_option === 'yes') {
+            $wc_convert_to_deposit = $item->get_meta('_wc_convert_to_deposit');
+            
+            if ($is_deposit === 'yes' || $wc_deposit_option === 'yes' || $wc_convert_to_deposit === 'yes') {
                 $has_deposit = true;
+                error_log("[DEBUG] Item #{$item_id} identificato come acconto: is_deposit={$is_deposit}, wc_deposit_option={$wc_deposit_option}, _wc_convert_to_deposit={$wc_convert_to_deposit}");
+                
+                // Assicurati che tutti i metadati necessari siano impostati correttamente
+                if ($wc_convert_to_deposit === 'yes') {
+                    $deposit_type = $item->get_meta('_wc_deposit_type');
+                    $deposit_amount = $item->get_meta('_wc_deposit_amount');
+                    error_log("[DEBUG] Trovati metadati di acconto: _wc_deposit_type={$deposit_type}, _wc_deposit_amount={$deposit_amount}");
+                    
+                    // Recupera il prezzo e la quantità dell'item per calcoli corretti
+                    $product_id = $item->get_product_id();
+                    $product = wc_get_product($product_id);
+                    $quantity = $item->get_quantity();
+                    $product_price = $product ? $product->get_price() : $item->get_total() / $quantity;
+                    $line_total = $item->get_total();
+                    error_log("[DEBUG] Dettagli prodotto: ID={$product_id}, Prezzo={$product_price}, Quantità={$quantity}, Totale={$line_total}");
+                    
+                    // Calcola l'importo effettivo dell'acconto in base al tipo
+                    $deposit_value = 0;
+                    if ($deposit_type === 'percent') {
+                        // Converti la percentuale in decimale
+                        $deposit_percentage = floatval($deposit_amount) / 100;
+                        $deposit_value = $line_total * $deposit_percentage;
+                        error_log("[DEBUG] Calcolo acconto percentuale: {$deposit_amount}% di {$line_total} = {$deposit_value}");
+                    } else {
+                        // Importo fisso moltiplicato per quantità
+                        $deposit_value = floatval($deposit_amount) * $quantity;
+                        error_log("[DEBUG] Calcolo acconto fisso: {$deposit_amount} * {$quantity} = {$deposit_value}");
+                    }
+                    
+                    // Calcola l'importo futuro (saldo)
+                    $future_amount = $line_total - $deposit_value;
+                    error_log("[DEBUG] Importo futuro (saldo): {$line_total} - {$deposit_value} = {$future_amount}");
+                    
+                    // Imposta i metadati nel formato atteso da WooCommerce Deposits
+                    $item->update_meta_data('is_deposit', 'yes');
+                    $item->update_meta_data('wc_deposit_option', 'yes');
+                    $item->update_meta_data('deposit_type', $deposit_type);
+                    $item->update_meta_data('deposit_amount', $deposit_amount);
+                    
+                    // Aggiungi i metadati aggiuntivi necessari per il funzionamento completo
+                    $item->update_meta_data('_deposit_full_amount', $line_total);
+                    $item->update_meta_data('_deposit_deposit_amount', $deposit_value);
+                    $item->update_meta_data('_deposit_future_amount', $future_amount);
+                    $item->update_meta_data('_deposit_payment_plan', 'plan-default'); // Piano di pagamento predefinito
+                    
+                    // Aggiungi i metadati originali per compatibilità
+                    $item->update_meta_data('_original_deposit_full_amount_meta', '_deposit_full_amount');
+                    $item->update_meta_data('_original_deposit_deposit_amount_meta', '_deposit_deposit_amount');
+                    $item->update_meta_data('_original_deposit_future_amount_meta', '_deposit_future_amount');
+                    
+                    $item->save();
+                    error_log("[INFO] Metadati aggiornati per compatibilità con WooCommerce Deposits. Acconto: {$deposit_value}, Totale: {$line_total}");
+                }
+                
                 break;
             }
         }
@@ -886,43 +1325,441 @@ class DreamShop_Deposits_API {
         if ($has_deposit) {
             error_log("[INFO] L'ordine #{$order->get_id()} contiene acconti, avvio processamento");
             
+            // Calcola gli importi totali dell'ordine
+            $order_total = $order->get_total();
+            $deposit_total = 0;
+            $future_total = 0;
+            
+            // Calcola gli importi di acconto e saldo per ogni item
+            foreach ($order->get_items() as $item_id => $item) {
+                // Controlla se questo item ha un acconto
+                $is_deposit = $item->get_meta('is_deposit');
+                $wc_deposit_option = $item->get_meta('wc_deposit_option');
+                $wc_convert_to_deposit = $item->get_meta('_wc_convert_to_deposit');
+                
+                if ($is_deposit === 'yes' || $wc_deposit_option === 'yes' || $wc_convert_to_deposit === 'yes') {
+                    $deposit_amount_item = $item->get_meta('_deposit_deposit_amount');
+                    $future_amount_item = $item->get_meta('_deposit_future_amount');
+                    
+                    if ($deposit_amount_item && $future_amount_item) {
+                        $deposit_total += floatval($deposit_amount_item);
+                        $future_total += floatval($future_amount_item);
+                    }
+                }
+            }
+            
+            error_log("[DEBUG] Calcolo importi ordine: Totale={$order_total}, Acconto={$deposit_total}, Saldo={$future_total}");
+            
+            // Imposta i metadati a livello di ordine per gli acconti
+            update_post_meta($order->get_id(), '_wc_deposits_order_has_deposit', 'yes');
+            update_post_meta($order->get_id(), '_wc_deposits_deposit_paid', 'no'); // Inizialmente non è stato pagato
+            update_post_meta($order->get_id(), '_wc_deposits_deposit_amount', $deposit_total);
+            update_post_meta($order->get_id(), '_wc_deposits_second_payment', $future_total);
+            update_post_meta($order->get_id(), '_wc_deposits_deposit_payment_time', current_time('timestamp'));
+            update_post_meta($order->get_id(), '_wc_deposits_payment_schedule', 'schedule-default');
+            
+            // IMPORTANTE: Non modifichiamo direttamente il totale dell'ordine perché causa problemi
+            // Imposta solo i metadati necessari per WooCommerce Deposits
+            error_log("[INFO] Impostazione metadati per acconto: {$deposit_total} di totale {$order->get_total()}");
+            
+            // I metadati sono sufficienti, WooCommerce Deposits gestirà il resto
+            
+            // Imposta lo stato dell'ordine come pagamento parziale usando l'API diretta per evitare problemi
+            error_log("[INFO] Aggiorno lo stato dell'ordine #{$order->get_id()} a 'partial-payment' usando wp_update_post");
+            
+            // Imposta prima lo stato dell'ordine usando wp_update_post per aggirare problemi con set_status
+            wp_update_post(array(
+                'ID'          => $order->get_id(),
+                'post_status' => 'wc-partial-payment'
+            ));
+            
+            // Imposta anche lo status nell'oggetto ordine per coerenza
+            try {
+                $order->set_status('partial-payment');
+            } catch (Exception $e) {
+                error_log("[WARN] Impossibile aggiornare lo stato nell'oggetto ordine: " . $e->getMessage());
+            }
+            
+            // Imposta un meta chiave aggiuntivo che indica che l'ordine è parziale
+            update_post_meta($order->get_id(), '_payment_status', 'partial');
+            
+            error_log("[INFO] Ordine #{$order->get_id()} impostato come 'partial-payment'");
+            
             // Verifica se la classe del plugin WooCommerce Deposits è disponibile
             if (class_exists('WC_Deposits_Order_Manager')) {
                 $deposits_manager = WC_Deposits_Order_Manager::get_instance();
                 
+                // Log di tutti i metadati dell'ordine per debug
+                $order_meta = get_post_meta($order->get_id());
+                error_log("[DEBUG] Metadati dell'ordine #{$order->get_id()} prima del processamento: " . json_encode(array_keys($order_meta)));
+                
+                // Crea rate future in base al piano di pagamento configurato
+                error_log("[INFO] Tentativo di creare rate future per l'ordine principale #{$order->get_id()}");
+                
+                try {
+                    // Recupera informazioni dell'ordine originale
+                    $order_data = $order->get_data();
+                    $customer_id = $order->get_customer_id();
+                    $billing_address = $order->get_address('billing');
+                    $shipping_address = $order->get_address('shipping');
+                    $total_price = $order->get_total();
+                    
+                    // Recupera l'acconto pagato
+                    $deposit_amount = get_post_meta($order->get_id(), '_wc_deposits_deposit_amount', true);
+                    if (!$deposit_amount) {
+                        $deposit_amount = 0;
+                        foreach ($order->get_items() as $item_id => $item) {
+                            $item_deposit = $item->get_meta('_deposit_deposit_amount');
+                            if ($item_deposit) {
+                                $deposit_amount += floatval($item_deposit);
+                            }
+                        }
+                    }
+                    error_log("[DEBUG] Acconto pagato: {$deposit_amount}");
+                    
+                    // Controlla quale piano di pagamento è stato selezionato
+                    $payment_plan = '';
+                    $payment_plan_name = '';
+                    $deposit_percentage = 0;
+                    $installment_meta_data = null;
+                    
+                    error_log("[DEBUG] Inizio ricerca piano di pagamento per ordine #{$order->get_id()}");
+                    
+                    // Cerca nei metadati degli item il piano di pagamento e le sue caratteristiche
+                    foreach ($order->get_items() as $item_id => $item) {
+                        // Log dei metadati più importanti
+                        $plan = $item->get_meta('_deposit_payment_plan');
+                        $plan_name = $item->get_meta('_deposit_payment_plan_name');
+                        $deposit_percent = $item->get_meta('_deposit_percentage');
+                        
+                        error_log("[DEBUG] Item #{$item_id} - Piano: {$plan}, Nome: {$plan_name}, %: {$deposit_percent}");
+                        
+                        // Per debug stampiamo anche tutti i metadati dell'item
+                        $meta_data = $item->get_meta_data();
+                        foreach ($meta_data as $meta) {
+                            error_log("[DEBUG] Meta {$meta->key} = {$meta->value}");
+                            
+                            // Cerca informazioni sulle rate direttamente nei metadati
+                            if ($meta->key === '_deposit_installments' && is_array($meta->value)) {
+                                $installment_meta_data = $meta->value;
+                                error_log("[INFO] Trovate informazioni sulle rate nei metadati");
+                            }
+                        }
+                        
+                        // Determina il piano da usare - usa solo quello specificato nel prodotto
+                        if (!empty($plan)) {
+                            $payment_plan = $plan;
+                            $payment_plan_name = $plan_name;
+                            error_log("[INFO] Piano trovato dai metadati: {$payment_plan}");
+                        } elseif (!empty($plan_name)) {
+                            $payment_plan_name = $plan_name;
+                            $payment_plan = sanitize_title($plan_name);
+                            error_log("[INFO] Piano determinato dal nome: {$payment_plan}");
+                        }
+                        
+                        // Recupera percentuale e schedule se disponibili
+                        if (!empty($deposit_percent)) {
+                            $deposit_percentage = floatval($deposit_percent);
+                        }
+                        
+                        // Se abbiamo un piano, interrompi la ricerca
+                        if (!empty($payment_plan)) {
+                            break;
+                        }
+                    }
+                    
+                    error_log("[INFO] Piano di pagamento finale: {$payment_plan}, Nome: {$payment_plan_name}");
+                    
+                    // Definisci le rate in base al piano
+                    $installments = array();
+                    
+                    // Prima prova a usare i metadati dell'installment se disponibili
+                    if (!empty($installment_meta_data) && is_array($installment_meta_data)) {
+                        $installments = $installment_meta_data;
+                        error_log("[INFO] Utilizzo configurazione rate dai metadati dell'ordine");
+                    } else {
+                        // Altrimenti cerca la configurazione del piano
+                        $plan_settings = false;
+                        
+                        if (!empty($payment_plan)) {
+                            $plan_settings = $this->get_payment_plan_settings($payment_plan);
+                        }
+                        
+                        if (!empty($plan_settings) && isset($plan_settings['installments']) && is_array($plan_settings['installments'])) {
+                            // Usa le impostazioni del piano dal database
+                            error_log("[INFO] Utilizzo configurazione piano dal database: {$payment_plan}");
+                            $installments = $plan_settings['installments'];
+                        } else {
+                            // Non abbiamo trovato nessun dato, creiamo una singola rata con il saldo residuo
+                            $future_amount = $total_price - $deposit_amount;
+                            if ($future_amount <= 0) {
+                                $future_amount = round($total_price * 0.6, 2); // 60% come saldo se il calcolo fallisce
+                            }
+                            
+                            $installments[] = array(
+                                'amount' => $future_amount,
+                                'months' => 1,
+                                'description' => 'Saldo'
+                            );
+                            
+                            error_log("[INFO] Configurazione piano fallback: 1 rata di {$future_amount}€");
+                        }
+                    }
+                    
+                    // Calcola gli importi delle rate in base alla percentuale o importo fisso
+                    foreach ($installments as $key => $installment) {
+                        $amount = 0;
+                        
+                        // Calcolo per rate definite come percentuale
+                        if (isset($installment['percent']) && !isset($installment['amount'])) {
+                            $percent = floatval($installment['percent']);
+                            if ($percent <= 0) {
+                                $percent = 10; // Fallback al 10% se la percentuale è invalida
+                            }
+                            $amount = round(($total_price * $percent) / 100, 2);
+                            error_log("[DEBUG] Rata calcolata da percentuale: {$percent}% di {$total_price} = {$amount}");
+                        } 
+                        // Usa importi fissi se definiti
+                        elseif (isset($installment['amount'])) {
+                            $amount = floatval($installment['amount']);
+                            error_log("[DEBUG] Rata con importo fisso: {$amount}");
+                        }
+                        // Fallback se nessuna delle opzioni precedenti è valida
+                        else {
+                            // Calcola un importo predefinito del 10% del totale
+                            $amount = round($total_price * 0.10, 2);
+                            error_log("[WARN] Nessun importo/percentuale specificato per la rata #{$key}, uso fallback 10%: {$amount}");
+                        }
+                        
+                        // Verifica che l'importo sia valido (maggiore di zero)
+                        if ($amount <= 0) {
+                            $amount = round($total_price * 0.10, 2); // Fallback al 10% se l'importo è zero o negativo
+                            error_log("[WARN] Importo rata #{$key} non valido, uso fallback 10%: {$amount}");
+                        }
+                        
+                        $installments[$key]['amount'] = $amount;
+                        error_log("[INFO] Rata #{$key} configurata con importo: {$amount}");
+                    }
+                    
+                    error_log("[INFO] Creazione di " . count($installments) . " rate future");
+                    
+                    $order_ids = array();
+                    $current_time = current_time('timestamp');
+                    
+                    // Crea un ordine per ogni rata
+                    foreach ($installments as $index => $installment) {
+                        // Verifica che l'importo sia valido - a questo punto dovrebbe sempre essere valido
+                        // grazie ai controlli precedenti, ma per sicurezza controlliamo di nuovo
+                        $installment_amount = floatval($installment['amount']);
+                        if ($installment_amount <= 0) {
+                            error_log("[ERROR] Importo non valido per la rata #{$index}: {$installment_amount}, saltata");
+                            continue;
+                        }
+                    
+                        // Calcola la data di scadenza
+                        $months = isset($installment['months']) ? intval($installment['months']) : ($index + 1);
+                        if ($months <= 0) $months = 1;
+                        $payment_date = date('Y-m-d', strtotime("+{$months} month", $current_time));
+                        $payment_date_formatted = date('d F Y', strtotime($payment_date));
+                        
+                        // Descrizione della rata
+                        $rata_description = !empty($installment['description']) ? 
+                                        $installment['description'] : 
+                                        'Rata ' . ($index + 1) . ' di ' . count($installments);
+                        
+                        error_log("[INFO] Creazione rata #{$index}: {$installment_amount}€, scadenza: {$payment_date}, desc: {$rata_description}");
+                        
+                        try {
+                            // Crea un nuovo ordine per questa rata
+                            $installment_order = wc_create_order(array(
+                                'status'        => 'pending',
+                                'customer_id'    => $customer_id,
+                                'customer_note'  => $rata_description . ' per ordine #' . $order->get_id(),
+                                'created_via'    => 'wc_deposits',
+                            ));
+                            
+                            if (!$installment_order) {
+                                throw new Exception("Creazione ordine fallita");
+                            }
+                            
+                            $installment_order_id = $installment_order->get_id();
+                            $order_ids[] = $installment_order_id;
+                            error_log("[INFO] Ordine rata #{$installment_order_id} creato con successo");
+                            
+                            // Imposta indirizzi di fatturazione e spedizione
+                            $installment_order->set_address($billing_address, 'billing');
+                            $installment_order->set_address($shipping_address, 'shipping');
+                            
+                            // Cerca un prodotto valido da usare come placeholder
+                            $product = null;
+                            
+                            // Prima prova con l'ID 1
+                            $product = wc_get_product(1);
+                            
+                            // Se non esiste, cerca un qualsiasi prodotto pubblicato
+                            if (!$product) {
+                                $products = wc_get_products(array('limit' => 1, 'status' => 'publish'));
+                                if (!empty($products)) {
+                                    $product = $products[0];
+                                }
+                            }
+                            
+                            // Ultimo tentativo: cerca qualsiasi prodotto
+                            if (!$product) {
+                                $products = wc_get_products(array('limit' => 1));
+                                if (!empty($products)) {
+                                    $product = $products[0];
+                                }
+                            }
+                            
+                            if (!$product) {
+                                throw new Exception("Nessun prodotto disponibile per l'ordine rata");
+                            }
+                            
+                            // Crea un item per questa rata
+                            $item_id = $installment_order->add_product(
+                                $product,
+                                1,
+                                array(
+                                    'name' => $rata_description . ' per ordine #' . $order->get_id() . ' - Scadenza ' . $payment_date_formatted,
+                                    'total' => $installment_amount,
+                                    'subtotal' => $installment_amount
+                                )
+                            );
+                            
+                            if (!$item_id) {
+                                throw new Exception("Impossibile aggiungere il prodotto all'ordine");
+                            }
+                            
+                            // Imposta i metadati dell'ordine
+                            $installment_order->set_total($installment_amount);
+                            $installment_order->update_meta_data('_wc_deposits_payment_type', 'installment_' . ($index + 1));
+                            $installment_order->update_meta_data('_wc_deposits_parent_order', $order->get_id());
+                            $installment_order->update_meta_data('_wc_deposits_payment_date', $payment_date);
+                            $installment_order->update_meta_data('_wc_deposits_payment_number', ($index + 1));
+                            $installment_order->update_meta_data('_wc_deposits_payment_description', $rata_description);
+                            
+                            // Aggiungi metadati dell'ordine originale per riferimento
+                            $installment_order->update_meta_data('_wc_deposits_original_order', $order->get_id());
+                            
+                            // Salva l'ordine
+                            $installment_order->calculate_totals();
+                            $installment_order->save();
+                            
+                            error_log("[INFO] Ordine rata #{$installment_order_id} salvato con importo {$installment_amount}€ e scadenza {$payment_date}");
+                        } catch (Exception $e) {
+                            error_log("[ERROR] Errore nella creazione della rata #{$index}: " . $e->getMessage());
+                            continue;
+                        }
+                    }
+                    
+                    // Salva gli ID degli ordini delle rate nell'ordine principale
+                    if (!empty($order_ids)) {
+                        // Calcola l'importo totale delle rate
+                        $total_installments = 0;
+                        foreach ($installments as $installment) {
+                            if (isset($installment['amount'])) {
+                                $total_installments += floatval($installment['amount']);
+                            }
+                        }
+                        
+                        // Aggiorna i metadati dell'ordine principale
+                        update_post_meta($order->get_id(), '_wc_deposits_payment_schedule_orders', $order_ids);
+                        update_post_meta($order->get_id(), '_wc_deposits_second_payment_order', $order_ids[0]); // Per compatibilità con vecchio codice
+                        update_post_meta($order->get_id(), '_wc_deposits_second_payment_reminder_email_sent', 'no');
+                        update_post_meta($order->get_id(), '_wc_deposits_payment_schedule_count', count($order_ids)); // Numero di rate
+                        update_post_meta($order->get_id(), '_wc_deposits_payment_schedule_total', $total_installments); // Importo totale delle rate
+                        
+                        error_log("[INFO] Metadati degli ordini aggiornati nell'ordine principale #{$order->get_id()}: " . count($order_ids) . " rate per un totale di {$total_installments}€");
+                        
+                        // Se questo è un piano Gear Fourth Luffy, salviamo un flag specifico
+                        if (strpos(strtolower($payment_plan), 'luffy') !== false || strpos(strtolower($payment_plan_name), 'luffy') !== false) {
+                            update_post_meta($order->get_id(), '_wc_deposits_gear_fourth_plan', 'yes');
+                            error_log("[INFO] Piano Gear Fourth Luffy confermato per l'ordine #{$order->get_id()}");
+                        }
+                    } else {
+                        error_log("[WARN] Nessuna rata creata per l'ordine #{$order->get_id()}");
+                    }
+                    
+                } catch (Exception $e) {
+                    error_log("[ERROR] Errore nella creazione delle rate future: " . $e->getMessage());
+                }
+                
                 // Invoca il metodo per processare gli acconti nell'ordine
                 if (method_exists($deposits_manager, 'process_deposits_in_order')) {
                     error_log("[INFO] Invocazione process_deposits_in_order per ordine #{$order->get_id()}");
-                    $deposits_manager->process_deposits_in_order($order->get_id());
-                    error_log("[INFO] Processamento acconti completato per ordine #{$order->get_id()}");
+                    try {
+                        $deposits_manager->process_deposits_in_order($order->get_id());
+                        error_log("[INFO] Processamento acconti completato per ordine #{$order->get_id()}");
+                    } catch (Exception $e) {
+                        error_log("[ERROR] Errore nel processare gli acconti per l'ordine #{$order->get_id()}: " . $e->getMessage());
+                    }
+                    
+                    // Log di tutti i metadati dell'ordine dopo il processamento
+                    $order_meta_after = get_post_meta($order->get_id());
+                    error_log("[DEBUG] Metadati dell'ordine #{$order->get_id()} dopo il processamento: " . json_encode(array_keys($order_meta_after)));
                 } else {
                     error_log("[ERROR] Metodo process_deposits_in_order non trovato nel plugin WooCommerce Deposits");
                 }
             } else {
                 error_log("[ERROR] Classe WC_Deposits_Order_Manager non trovata, verifica che il plugin WooCommerce Deposits sia attivo");
             }
-        } else {
-            error_log("[INFO] L'ordine #{$order->get_id()} non contiene acconti, nessun processamento richiesto");
         }
+        
+        // Salva l'ordine dopo il processamento degli acconti
+        $order->save();
     }
     
     /**
-     * Garantisce che gli acconti vengano processati dopo la creazione dell'ordine via REST API
+     * Assicura che gli acconti vengano processati dopo la creazione dell'ordine via REST API
      * 
-     * @param WP_REST_Response|WP_Error $response La risposta REST
-     * @param WP_Post $post Il post dell'ordine
-     * @param WP_REST_Request $request La richiesta REST
+     * @param mixed $response La risposta originale
+     * @param WP_REST_Request|WP_Post $post La richiesta o il post/ordine
+     * @param WP_REST_Request $request La richiesta originale
+     * @return mixed La risposta originale
      */
     public function ensure_deposits_processing_api($response, $post, $request) {
-        if (is_wp_error($response)) {
+        // Controllo preliminare
+        if (!$response || is_wp_error($response)) {
+            return $response;
+        }
+
+        // Identifica l'ordine in modo diverso in base al tipo di oggetto ricevuto
+        $order_id = null;
+        
+        if (is_object($post) && isset($post->ID)) {
+            // Se è un oggetto WP_Post
+            if (isset($post->post_type) && $post->post_type === 'shop_order') {
+                $order_id = $post->ID;
+            } else {
+                return $response; // Non è un ordine, esci
+            }
+        } else if (is_object($post) && method_exists($post, 'get_params')) {
+            // Se è un oggetto WP_REST_Request
+            $params = $post->get_params();
+            if (isset($params['id'])) {
+                $order_id = $params['id'];
+                // Verifica che sia un ordine
+                $post_type = get_post_type($order_id);
+                if ($post_type !== 'shop_order') {
+                    return $response;
+                }
+            } else {
+                return $response;
+            }
+        } else {
+            // Non possiamo determinare l'ordine
             return $response;
         }
         
-        $order_id = $post->ID;
-        error_log("[INFO] Processamento acconti per ordine API #{$order_id}");
-        
-        // Usa il metodo principale per processare gli acconti
-        $this->ensure_deposits_processing($order_id);
+        try {
+            $order = wc_get_order($order_id);
+            if ($order) {
+                $this->ensure_deposits_processing($order);
+            }
+        } catch (Exception $e) {
+            error_log("Errore nell'elaborazione dell'acconto per l'ordine {$order_id}: " . $e->getMessage());
+        }
         
         return $response;
     }

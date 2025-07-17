@@ -37,16 +37,48 @@ export async function POST(request: NextRequest) {
     interface CartItem {
       product: {
         id: number;
+        _wc_convert_to_deposit?: string;
+        _wc_deposit_type?: string;
+        _wc_deposit_amount?: string;
+        meta_data?: Array<{key: string, value: string}>;
       };
       quantity: number;
     }
     
     const cartItems = JSON.parse(orderData.cartItems || '[]') as CartItem[];
+    console.log('Debug cartItems:', cartItems);
     
-    const line_items = cartItems.map((item: CartItem) => ({
-      product_id: item.product.id,
-      quantity: item.quantity
-    }));
+    const line_items = cartItems.map((item: CartItem) => {
+      // Oggetto base dell'articolo
+      const lineItem: any = {
+        product_id: item.product.id,
+        quantity: item.quantity
+      };
+      
+      // Controlla se il prodotto ha i metadati di acconto
+      if (item.product._wc_convert_to_deposit === 'yes') {
+        // Aggiungi i metadati dell'acconto all'articolo
+        console.log(`Aggiungo metadati acconto all'articolo ${item.product.id}`);
+        lineItem.meta_data = [
+          {
+            key: '_wc_convert_to_deposit',
+            value: 'yes'
+          },
+          {
+            key: '_wc_deposit_type',
+            value: item.product._wc_deposit_type || 'percent'
+          },
+          {
+            key: '_wc_deposit_amount',
+            value: item.product._wc_deposit_amount || '40'
+          }
+        ];
+      }
+      
+      return lineItem;
+    });
+    
+    console.log('Debug line_items con metadati:', line_items);
     
     // Prepara il titolo del metodo di pagamento corretto
     const paymentMethodTitle = orderData.paymentMethod === 'cod' ? 'Contrassegno' : 

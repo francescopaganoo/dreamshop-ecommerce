@@ -259,45 +259,61 @@ export function getDepositInfo(product: any) {
   
   console.log('Analisi prodotto per acconto:', product);
   
-  // Controlla se i metadati sono disponibili
-  if (product.meta_data && Array.isArray(product.meta_data)) {
+  // Privilegia le proprietà dirette del prodotto
+  if (product._wc_convert_to_deposit === 'yes') {
+    hasDeposit = true;
+    depositType = product._wc_deposit_type || 'percent';
+    
+    // Assicurati che depositAmount sia un numero valido
+    if (product._wc_deposit_amount) {
+      const parsedAmount = parseInt(product._wc_deposit_amount, 10);
+      depositAmount = !isNaN(parsedAmount) ? parsedAmount : 40;
+    }
+    
+    console.log('Trovato acconto dalle proprietà dirette:', { depositType, depositAmount });
+  }
+  // Fallback ai meta_data solo se non abbiamo trovato informazioni nelle proprietà dirette
+  else if (product.meta_data && Array.isArray(product.meta_data)) {
     console.log('Meta_data disponibili:', product.meta_data);
     
     // Cerca _wc_convert_to_deposit
     const convertToDeposit = product.meta_data.find((meta: any) => meta.key === '_wc_convert_to_deposit');
     console.log('_wc_convert_to_deposit trovato:', convertToDeposit);
-    hasDeposit = convertToDeposit?.value === 'yes';
     
-    // Cerca il tipo di acconto
-    const depositTypeObj = product.meta_data.find((meta: any) => meta.key === '_wc_deposit_type');
-    console.log('_wc_deposit_type trovato:', depositTypeObj);
-    if (depositTypeObj) {
-      depositType = depositTypeObj.value;
-    }
-    
-    // Cerca l'importo dell'acconto
-    const depositAmountObj = product.meta_data.find((meta: any) => meta.key === '_wc_deposit_amount');
-    console.log('_wc_deposit_amount trovato:', depositAmountObj);
-    if (depositAmountObj) {
-      depositAmount = parseInt(depositAmountObj.value, 10);
-      console.log('Importo acconto convertito in numero:', depositAmount);
+    if (convertToDeposit?.value === 'yes') {
+      hasDeposit = true;
+      
+      // Cerca il tipo di acconto
+      const depositTypeObj = product.meta_data.find((meta: any) => meta.key === '_wc_deposit_type');
+      console.log('_wc_deposit_type trovato:', depositTypeObj);
+      if (depositTypeObj && depositTypeObj.value) {
+        depositType = depositTypeObj.value;
+      }
+      
+      // Cerca l'importo dell'acconto
+      const depositAmountObj = product.meta_data.find((meta: any) => meta.key === '_wc_deposit_amount');
+      console.log('_wc_deposit_amount trovato:', depositAmountObj);
+      if (depositAmountObj && depositAmountObj.value) {
+        const parsedAmount = parseInt(depositAmountObj.value, 10);
+        depositAmount = !isNaN(parsedAmount) ? parsedAmount : 40; // Default a 40 se NaN
+        console.log('Importo acconto convertito in numero:', depositAmount);
+      }
     }
   } else {
     console.log('Nessun meta_data disponibile nel prodotto');
   }
   
-  // Alternativa: controlla se le proprietà sono direttamente nel prodotto
+  // Log delle proprietà dirette per debug
   console.log('Proprietà dirette del prodotto:', {
     _wc_convert_to_deposit: product._wc_convert_to_deposit,
     _wc_deposit_type: product._wc_deposit_type,
     _wc_deposit_amount: product._wc_deposit_amount
   });
   
-  if (!hasDeposit && product._wc_convert_to_deposit === 'yes') {
-    hasDeposit = true;
-    depositType = product._wc_deposit_type || 'percent';
-    depositAmount = product._wc_deposit_amount ? parseInt(product._wc_deposit_amount, 10) : 40;
-    console.log('Trovato acconto dalle proprietà dirette:', { depositType, depositAmount });
+  // Assicurati che depositAmount sia un numero valido
+  if (isNaN(depositAmount)) {
+    console.warn('depositAmount non valido, uso default 40');
+    depositAmount = 40;
   }
   
   const depositPercentage = depositType === 'percent' ? depositAmount / 100 : 0;

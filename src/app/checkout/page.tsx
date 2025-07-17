@@ -319,13 +319,39 @@ export default function CheckoutPage() {
             lineItem.variation_id = item.variation_id;
           }
           
+          // Inizializza meta_data se necessario
+          if (!lineItem.meta_data) {
+            lineItem.meta_data = [];
+          }
+          
           // Aggiungi gli attributi se presenti
           if (item.attributes && item.attributes.length > 0) {
             // Formatta gli attributi nel formato richiesto da WooCommerce
-            lineItem.meta_data = item.attributes.map(attr => ({
+            const attributeMeta = item.attributes.map(attr => ({
               key: `pa_${attr.name.toLowerCase().replace(/\s+/g, '-')}`,
               value: attr.option
             }));
+            
+            // Assicurati che meta_data sia un array e aggiungi gli attributi
+            lineItem.meta_data = [...(lineItem.meta_data || []), ...attributeMeta];
+          }
+          
+          // Aggiungi i metadati degli acconti se il prodotto li ha
+          if (item.product._wc_convert_to_deposit === 'yes') {
+            console.log(`Checkout: Aggiungo metadati acconto al prodotto ${item.product.id}`);
+            
+            // Assicurati che meta_data sia un array
+            if (!lineItem.meta_data) lineItem.meta_data = [];
+            
+            // Aggiungi i metadati degli acconti
+            lineItem.meta_data.push(
+              { key: '_wc_convert_to_deposit', value: 'yes' },
+              { key: '_wc_deposit_type', value: item.product._wc_deposit_type || 'percent' },
+              { key: '_wc_deposit_amount', value: item.product._wc_deposit_amount || '40' }
+            );
+            
+            // Aggiungi metadati a livello di ordine per compatibilità con WooCommerce Deposits
+            console.log(`Checkout: Prodotto ${item.product.id} ha acconto: ${item.product._wc_deposit_type} ${item.product._wc_deposit_amount}`);
           }
           
           return lineItem;
@@ -430,7 +456,7 @@ export default function CheckoutPage() {
         });
       }
       
-      // Prepare line items for the order
+      // Prepara i line_items per l'ordine
       const line_items = cart.map(item => {
         // Oggetto base con product_id e quantity
         const lineItem: LineItem = {
@@ -443,19 +469,45 @@ export default function CheckoutPage() {
           lineItem.variation_id = item.variation_id;
         }
         
+        // Inizializza meta_data se necessario
+        if (!lineItem.meta_data) {
+          lineItem.meta_data = [];
+        }
+        
         // Aggiungi gli attributi se presenti
         if (item.attributes && item.attributes.length > 0) {
           // Formatta gli attributi nel formato richiesto da WooCommerce
-          lineItem.meta_data = item.attributes.map(attr => ({
+          const attributeMeta = item.attributes.map(attr => ({
             key: `pa_${attr.name.toLowerCase().replace(/\s+/g, '-')}`,
             value: attr.option
           }));
+          
+          // Assicurati che meta_data sia un array e aggiungi gli attributi
+          lineItem.meta_data = [...(lineItem.meta_data || []), ...attributeMeta];
+        }
+        
+        // Aggiungi i metadati degli acconti se il prodotto li ha
+        if (item.product._wc_convert_to_deposit === 'yes') {
+          console.log(`Checkout: Aggiungo metadati acconto al prodotto ${item.product.id}`);
+          
+          // Assicurati che meta_data sia un array
+          if (!lineItem.meta_data) lineItem.meta_data = [];
+          
+          // Aggiungi i metadati degli acconti
+          lineItem.meta_data.push(
+            { key: '_wc_convert_to_deposit', value: 'yes' },
+            { key: '_wc_deposit_type', value: item.product._wc_deposit_type || 'percent' },
+            { key: '_wc_deposit_amount', value: item.product._wc_deposit_amount || '40' }
+          );
+          
+          // Aggiungi metadati a livello di ordine per compatibilità con WooCommerce Deposits
+          console.log(`Checkout: Prodotto ${item.product.id} ha acconto: ${item.product._wc_deposit_type} ${item.product._wc_deposit_amount}`);
         }
         
         return lineItem;
       });
       
-      // Prepare billing info
+      // Prepara i dati cliente
       const billingInfo = {
         first_name: formData.firstName,
         last_name: formData.lastName,
@@ -470,7 +522,7 @@ export default function CheckoutPage() {
       };
 
       
-      // Prepare shipping info (use billing info or shipping info based on checkbox)
+      // Prepara i dati di spedizione (usa i dati di fatturazione o di spedizione in base alla checkbox)
       const shippingInfo = formData.shipToDifferentAddress ? {
         first_name: formData.shippingFirstName,
         last_name: formData.shippingLastName,
@@ -546,7 +598,6 @@ export default function CheckoutPage() {
             
             // Prepara i line items per l'ordine
             const line_items = cart.map(item => {
-              // Oggetto base con product_id e quantity
               const lineItem: LineItem = {
                 product_id: item.product.id,
                 quantity: item.quantity
@@ -557,13 +608,38 @@ export default function CheckoutPage() {
                 lineItem.variation_id = item.variation_id;
               }
               
+              // Inizializza meta_data se necessario
+              if (!lineItem.meta_data) {
+                lineItem.meta_data = [];
+              }
+              
               // Aggiungi gli attributi se presenti
               if (item.attributes && item.attributes.length > 0) {
-                // Formatta gli attributi nel formato richiesto da WooCommerce
-                lineItem.meta_data = item.attributes.map(attr => ({
+                const attributeMeta = item.attributes.map(attr => ({
                   key: `pa_${attr.name.toLowerCase().replace(/\s+/g, '-')}`,
                   value: attr.option
                 }));
+                
+                // Assicurati che meta_data sia un array e aggiungi gli attributi
+                lineItem.meta_data = [...(lineItem.meta_data || []), ...attributeMeta];
+              }
+              
+              // Aggiungi i metadati degli acconti se il prodotto li ha
+              if (item.product._wc_convert_to_deposit === 'yes') {
+                console.log(`Checkout PayPal: Aggiungo metadati acconto al prodotto ${item.product.id}`);
+                
+                // Assicurati che meta_data sia un array
+                if (!lineItem.meta_data) lineItem.meta_data = [];
+                
+                // Aggiungi i metadati degli acconti
+                lineItem.meta_data.push(
+                  { key: '_wc_convert_to_deposit', value: 'yes' },
+                  { key: '_wc_deposit_type', value: item.product._wc_deposit_type || 'percent' },
+                  { key: '_wc_deposit_amount', value: item.product._wc_deposit_amount || '40' }
+                );
+                
+                // Aggiungi metadati a livello di ordine per compatibilità con WooCommerce Deposits
+                console.log(`Checkout PayPal: Prodotto ${item.product.id} ha acconto: ${item.product._wc_deposit_type} ${item.product._wc_deposit_amount}`);
               }
               
               return lineItem;
