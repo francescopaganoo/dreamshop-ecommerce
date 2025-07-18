@@ -2051,17 +2051,25 @@ class DreamShop_Deposits_API {
                             $installment_order->calculate_totals();
                             $installment_order->save();
                             
-                            // Aggiorna il post_parent direttamente nel database per creare la relazione gerarchica
+                            // Aggiorna il post_parent e post_date direttamente nel database
                             global $wpdb;
+                            
+                            // Formatta la data di scadenza nel formato corretto per MySQL (Y-m-d H:i:s)
+                            $mysql_date = date('Y-m-d 12:00:00', strtotime($payment_date));
+                            
                             $wpdb->update(
                                 $wpdb->posts,
-                                array('post_parent' => $order->get_id()),
+                                array(
+                                    'post_parent' => $order->get_id(),
+                                    'post_date' => $mysql_date,
+                                    'post_date_gmt' => get_gmt_from_date($mysql_date),
+                                ),
                                 array('ID' => $installment_order_id),
-                                array('%d'),
+                                array('%d', '%s', '%s'),
                                 array('%d')
                             );
                             
-                            error_log("[INFO] Ordine rata #{$installment_order_id} salvato con importo {$installment_amount}€ e scadenza {$payment_date} e post_parent {$order->get_id()}");
+                            error_log("[INFO] Ordine rata #{$installment_order_id} salvato con importo {$installment_amount}€, scadenza {$payment_date} (data MySQL: {$mysql_date}), e post_parent {$order->get_id()}");
                         } catch (Exception $e) {
                             error_log("[ERROR] Errore nella creazione della rata #{$index}: " . $e->getMessage());
                             continue;
