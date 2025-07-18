@@ -2051,7 +2051,17 @@ class DreamShop_Deposits_API {
                             $installment_order->calculate_totals();
                             $installment_order->save();
                             
-                            error_log("[INFO] Ordine rata #{$installment_order_id} salvato con importo {$installment_amount}€ e scadenza {$payment_date}");
+                            // Aggiorna il post_parent direttamente nel database per creare la relazione gerarchica
+                            global $wpdb;
+                            $wpdb->update(
+                                $wpdb->posts,
+                                array('post_parent' => $order->get_id()),
+                                array('ID' => $installment_order_id),
+                                array('%d'),
+                                array('%d')
+                            );
+                            
+                            error_log("[INFO] Ordine rata #{$installment_order_id} salvato con importo {$installment_amount}€ e scadenza {$payment_date} e post_parent {$order->get_id()}");
                         } catch (Exception $e) {
                             error_log("[ERROR] Errore nella creazione della rata #{$index}: " . $e->getMessage());
                             continue;
