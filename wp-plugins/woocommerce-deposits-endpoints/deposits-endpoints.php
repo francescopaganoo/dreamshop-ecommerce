@@ -1977,7 +1977,7 @@ class DreamShop_Deposits_API {
                         try {
                             // Crea un nuovo ordine per questa rata
                             $installment_order = wc_create_order(array(
-                                'status'        => 'pending',
+                                'status'        => 'scheduled-payment',
                                 'customer_id'    => $customer_id,
                                 'customer_note'  => $rata_description . ' per ordine #' . $order->get_id(),
                                 'created_via'    => 'wc_deposits',
