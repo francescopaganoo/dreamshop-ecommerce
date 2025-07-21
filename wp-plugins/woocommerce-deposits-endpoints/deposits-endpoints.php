@@ -510,24 +510,35 @@ class DreamShop_Deposits_API {
                             // Per questo prodotto specifico, sappiamo che il valore '37' o '37,00€' dovrebbe essere interpretato come 37%
                             // anche se non ha il simbolo % esplicito
                             
-                            if (strpos($first_payment->amount, '%') !== false) {
-                                // È esplicitamente specificato come percentuale
-                                $initial_percentage = floatval(str_replace('%', '', $first_payment->amount));
+                            // Verifichiamo prima se abbiamo informazioni sul tipo di valore direttamente dal database
+                            $is_percentage = false;
+                            
+                            // Controlliamo se esiste un campo 'type' nella tabella schedule
+                            if (isset($first_payment->type)) {
+                                $is_percentage = ($first_payment->type === 'percent');
+                                error_log("[DEBUG] Tipo definito esplicitamente nel DB: " . ($is_percentage ? "percentuale" : "importo fisso"));
+                            } else if (strpos($first_payment->amount, '%') !== false) {
+                                // È esplicitamente specificato come percentuale nel valore
+                                $is_percentage = true;
+                                error_log("[DEBUG] Percentuale identificata dal simbolo %");
                             } else {
-                                // Verifichiamo se è un numero che rappresenta una percentuale
-                                $cleaned_value = preg_replace('/[^0-9.,]/', '', $first_payment->amount); // Rimuove tutti i caratteri non numerici
-                                $initial_value = floatval(str_replace(',', '.', $cleaned_value));
-                                
-                                // Se il valore è tra 35 e 40, assumiamo che sia una percentuale
-                                if ($initial_value >= 35 && $initial_value <= 40) {
-                                    $initial_percentage = $initial_value;
-                                    error_log("[DEBUG] Valore interpretato come percentuale: {$initial_percentage}%");
-                                } else {
-                                    // Altrimenti, è un valore fisso
-                                    $initial_amount = $initial_value;
-                                    $initial_percentage = ($initial_amount / $product_price) * 100;
-                                    error_log("[DEBUG] Valore interpretato come importo fisso: {$initial_amount}");
-                                }
+                                // Definiamo esplicitamente che i valori per gli acconti sono SEMPRE percentuali 
+                                // (essendo questo il comportamento atteso per il piano di pagamento)
+                                $is_percentage = true;
+                                error_log("[DEBUG] Valore trattato come percentuale per default (acconto iniziale)");
+                            }
+                            
+                            // Pulizia del valore numerico
+                            $cleaned_value = preg_replace('/[^0-9.,]/', '', $first_payment->amount); // Rimuove tutti i caratteri non numerici
+                            $initial_value = floatval(str_replace(',', '.', $cleaned_value));
+                            
+                            if ($is_percentage) {
+                                $initial_percentage = $initial_value;
+                                error_log("[DEBUG] Valore trattato come percentuale: {$initial_percentage}%");
+                            } else {
+                                $initial_amount = $initial_value;
+                                $initial_percentage = ($initial_amount / $product_price) * 100;
+                                error_log("[DEBUG] Valore trattato come importo fisso: {$initial_amount}€, che corrisponde al {$initial_percentage}% del prezzo");
                             }
                             
                             // Calcola l'importo in base alla percentuale
