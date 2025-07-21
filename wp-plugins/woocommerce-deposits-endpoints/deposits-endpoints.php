@@ -1191,6 +1191,11 @@ class DreamShop_Deposits_API {
                 
                 error_log("[INFO] Metadati ordine impostati. Deposit total: {$deposit_total}, Second payment: {$second_payment_total}");
                 
+                // IMPORTANTE: Imposta il totale dell'ordine principale pari all'importo dell'acconto
+                // In questo modo l'ordine principale rifletterà solo l'importo effettivamente pagato
+                $order->set_total($deposit_total);
+                error_log("[INFO] Totale ordine principale aggiornato a: {$deposit_total} (importo acconto)");
+                
                 // Imposta lo stato a pagamento parziale
                 $order->update_status('partial-payment', 'Ordine creato come pagamento parziale via API');
             } else {
@@ -1832,6 +1837,15 @@ class DreamShop_Deposits_API {
                         }
                     }
                     error_log("[DEBUG] Acconto pagato: {$deposit_amount}");
+                    
+                    // IMPORTANTE: Aggiorniamo il totale dell'ordine principale per riflettere solo l'acconto
+                    // Questo risolve il problema dell'ordine visualizzato a prezzo pieno invece che al solo importo dell'acconto
+                    if ($deposit_amount > 0) {
+                        $original_total = $order->get_total();
+                        $order->set_total($deposit_amount);
+                        $order->save();
+                        error_log("[INFO CORREZIONE] Totale ordine principale #{$order->get_id()} aggiornato da {$original_total} a {$deposit_amount} (importo acconto)");
+                    }
                     
                     // Controlla quale piano di pagamento è stato selezionato
                     $payment_plan = '';
