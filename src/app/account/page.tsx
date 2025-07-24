@@ -337,6 +337,7 @@ function AccountContent() {
                               {order.status === 'completed' ? 'Completato' :
                                order.status === 'processing' ? 'In elaborazione' :
                                order.status === 'on-hold' ? 'In attesa' :
+                               order.status === 'partial-payment' ? 'Acconto Pagato' :
                                order.status}
                             </span>
                           </td>
