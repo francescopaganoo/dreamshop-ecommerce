@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verify } from 'jsonwebtoken';
+import { verify, sign } from 'jsonwebtoken';
 import api from '@/lib/woocommerce'; // Importa l'istanza API WooCommerce configurata
 import { AxiosError } from 'axios';
+import { cookies } from 'next/headers';
 
 // Interfaccia per il payload JWT decodificato
 interface JwtPayload {
@@ -24,6 +25,9 @@ interface WooCommerceErrorResponse {
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dwi37ljio_5tk_3jt3';
 
+// Durata del token in secondi (24 ore invece di default 1 ora)
+const TOKEN_EXPIRY = 86400;
+
 // Tipizzazione corretta per Next.js 14+ route handler
 export async function POST(request: NextRequest) {
   // Ottieni l'id dal percorso dell'URL invece di usare params
@@ -32,15 +36,29 @@ export async function POST(request: NextRequest) {
   const id = pathSegments[pathSegments.indexOf('complete-payment') - 1] || '';
   console.log('API Complete Payment - Notifica completamento pagamento per rata ID:', id);
   
-  // Ottieni il token dall'header Authorization
+  // Ottieni il token dall'header Authorization o dai cookie come fallback
   const authHeader = request.headers.get('Authorization');
+  let token;
   
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    console.error('API Complete Payment: Token non fornito o formato non valido');
-    return NextResponse.json({ error: 'Token non fornito o formato non valido' }, { status: 401 });
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.substring(7); // Rimuovi 'Bearer ' dal token
+    console.log('API Complete Payment: Token ottenuto da header Authorization');
+  } else {
+    try {
+      // In Next.js 14, cookies() restituisce una Promise
+      const cookieStore = await cookies();
+      token = cookieStore.get('auth_token')?.value;
+      
+      if (!token) {
+        console.error('API Complete Payment: Token non fornito né negli header né nei cookie');
+        return NextResponse.json({ error: 'Token non fornito o formato non valido' }, { status: 401 });
+      }
+      console.log('API Complete Payment: Token ottenuto da cookie');
+    } catch (cookieError) {
+      console.error('API Complete Payment: Errore nel recupero del token dai cookie', cookieError);
+      return NextResponse.json({ error: 'Errore nel recupero del token' }, { status: 401 });
+    }
   }
-  
-  const token = authHeader.substring(7); // Rimuovi 'Bearer ' dal token
   
   try {
     // Verifica il token JWT per ottenere l'ID utente
@@ -49,6 +67,42 @@ export async function POST(request: NextRequest) {
     if (!decoded || !decoded.id) {
       console.error('API Complete Payment: Token JWT non valido', decoded);
       return NextResponse.json({ error: 'Token non valido' }, { status: 401 });
+    }
+    
+    // Log del timestamp di scadenza per debug
+    if (decoded.exp) {
+      const expDate = new Date(decoded.exp * 1000);
+      const nowDate = new Date();
+      const timeRemaining = Math.floor((expDate.getTime() - nowDate.getTime()) / 1000 / 60); // minuti rimanenti
+      
+      console.log(`API Complete Payment: Token scade il ${expDate.toISOString()}, minuti rimanenti: ${timeRemaining}`);
+      
+      // Se il token sta per scadere (meno di 30 minuti), genera un nuovo token per le chiamate successive
+      if (timeRemaining < 30) {
+        console.log('API Complete Payment: Token in scadenza, generazione di un nuovo token per future chiamate');
+        
+        // Aggiornamento non bloccante del token nei cookie
+        const newToken = sign({ id: decoded.id, email: decoded.email }, JWT_SECRET, {
+          expiresIn: TOKEN_EXPIRY
+        });
+        
+        try {
+          // In Next.js 14, cookies() restituisce una Promise
+          const cookieStore = await cookies();
+          cookieStore.set({
+            name: 'auth_token',
+            value: newToken,
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            maxAge: TOKEN_EXPIRY,
+            path: '/'
+          });
+        } catch (cookieError) {
+          // Log dell'errore ma continua con l'esecuzione
+          console.error('API Complete Payment: Errore nell\'impostazione del nuovo token nei cookie', cookieError);
+          // Non interrompiamo l'esecuzione per questo errore
+        }
+      }
     }
     
     const userId = decoded.id;

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import Stripe from 'stripe';
+import { cookies } from 'next/headers';
 
 // Interfaccia per il payload JWT decodificato
 interface JwtPayload {
@@ -25,6 +26,9 @@ interface ScheduledOrder {
 // Chiave segreta per verificare i token JWT
 const JWT_SECRET = process.env.JWT_SECRET || 'dwi37ljio_5tk_3jt3';
 
+// Durata del token in secondi (24 ore invece di default 1 ora)
+const TOKEN_EXPIRY = 86400;
+
 // Inizializza Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
   apiVersion: '2025-04-30.basil',
@@ -37,15 +41,29 @@ export async function POST(request: NextRequest) {
   const id = pathSegments[pathSegments.indexOf('stripe-pay') - 1] || '';
   console.log('API scheduled-order Stripe payment - Richiesta di pagamento ricevuta per ID:', id);
   
-  // Ottieni il token dall'header Authorization
+  // Ottieni il token dall'header Authorization o dai cookie come fallback
   const authHeader = request.headers.get('Authorization');
+  let token;
   
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    console.error('API Stripe Payment: Token non fornito o formato non valido');
-    return NextResponse.json({ error: 'Token non fornito o formato non valido' }, { status: 401 });
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.substring(7); // Rimuovi 'Bearer ' dal token
+    console.log('API Stripe Payment: Token ottenuto da header Authorization');
+  } else {
+    try {
+      // In Next.js 14, cookies() restituisce una Promise
+      const cookieStore = await cookies();
+      token = cookieStore.get('auth_token')?.value;
+      
+      if (!token) {
+        console.error('API Stripe Payment: Token non fornito né negli header né nei cookie');
+        return NextResponse.json({ error: 'Token non fornito o formato non valido' }, { status: 401 });
+      }
+      console.log('API Stripe Payment: Token ottenuto da cookie');
+    } catch (cookieError) {
+      console.error('API Stripe Payment: Errore nel recupero del token dai cookie', cookieError);
+      return NextResponse.json({ error: 'Errore nel recupero del token' }, { status: 401 });
+    }
   }
-  
-  const token = authHeader.substring(7); // Rimuovi 'Bearer ' dal token
   
   try {
     // Verifica il token JWT
@@ -54,6 +72,43 @@ export async function POST(request: NextRequest) {
     if (!decoded || !decoded.id) {
       console.error('API Stripe Payment: Token JWT non valido', decoded);
       return NextResponse.json({ error: 'Token non valido' }, { status: 401 });
+    }
+    
+    // Log del timestamp di scadenza per debug
+    if (decoded.exp) {
+      const expDate = new Date(decoded.exp * 1000);
+      const nowDate = new Date();
+      const timeRemaining = Math.floor((expDate.getTime() - nowDate.getTime()) / 1000 / 60); // minuti rimanenti
+      
+      console.log(`API Stripe Payment: Token scade il ${expDate.toISOString()}, minuti rimanenti: ${timeRemaining}`);
+      
+      // Se il token sta per scadere (meno di 30 minuti), genera un nuovo token per le chiamate successive
+      // Questo non influenza la richiesta corrente ma aiuta per le future
+      if (timeRemaining < 30) {
+        console.log('API Stripe Payment: Token in scadenza, generazione di un nuovo token per future chiamate');
+        
+        // Aggiornamento non bloccante del token nei cookie
+        const newToken = jwt.sign({ id: decoded.id, email: decoded.email }, JWT_SECRET, {
+          expiresIn: TOKEN_EXPIRY
+        });
+        
+        try {
+          // In Next.js 14, cookies() restituisce una Promise
+          const cookieStore = await cookies();
+          cookieStore.set({
+            name: 'auth_token',
+            value: newToken,
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            maxAge: TOKEN_EXPIRY,
+            path: '/'
+          });
+        } catch (cookieError) {
+          // Log dell'errore ma continua con l'esecuzione
+          console.error('API Stripe Payment: Errore nell\'impostazione del nuovo token nei cookie', cookieError);
+          // Non interrompiamo l'esecuzione per questo errore
+        }
+      }
     }
     
     console.log(`API Stripe Payment: Processando pagamento per utente ID ${decoded.id}, ordine ${id}`);
