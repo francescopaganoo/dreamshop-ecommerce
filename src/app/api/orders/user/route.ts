@@ -55,16 +55,36 @@ export async function GET(request: NextRequest) {
       console.log(`API: Recupero ordini per utente ID: ${decoded.id}`);
       
       try {
-        // Strategia 1: Usa il parametro customer per filtrare gli ordini
-        // Questo è il metodo più diretto e dovrebbe funzionare nella maggior parte dei casi
+        // Otteniamo prima gli ordini standard e poi eventualmente quelli scheduled-payment
         const response = await api.get(`orders?customer=${decoded.id}&per_page=100&orderby=date&order=desc`);
-        let orders = response.data;
+        let orders = Array.isArray(response.data) ? response.data : [];
+        
+        // Controlliamo se abbiamo solo ordini scheduled-payment
+        const initialOrderStatuses = orders.map((order: any) => order.status);
+        const initialUniqueStatuses = [...new Set(initialOrderStatuses)];
+        
+        // Se abbiamo SOLO ordini scheduled-payment, proviamo a recuperare anche altri tipi
+        // per assicurarci di mostrare tutti i tipi di ordini all'utente
+        if (orders.length > 0 && initialUniqueStatuses.length === 1 && initialUniqueStatuses[0] === 'scheduled-payment') {
+          // Proviamo un'altra chiamata per ottenere ordini non scheduled-payment
+          try {
+            const regularResponse = await api.get(`orders?customer=${decoded.id}&status=processing,on-hold,completed,pending,partial-payment&per_page=100&orderby=date&order=desc`);
+            const regularOrders = Array.isArray(regularResponse.data) ? regularResponse.data : [];
+            
+            // Se troviamo ordini regolari, li aggiungiamo al risultato
+            if (regularOrders.length > 0) {
+              orders = [...regularOrders, ...orders];
+            }
+          } catch (regularError) {
+            // Fallback silenzioso in caso di errore
+          }
+        }
         
         // Se non troviamo ordini con il parametro customer, proviamo con customer_id
         if (!orders || !Array.isArray(orders) || orders.length === 0) {
           console.log(`API: Nessun ordine trovato con parametro customer, provo con customer_id=${decoded.id}`);
           const response2 = await api.get(`orders?customer_id=${decoded.id}&per_page=100&orderby=date&order=desc`);
-          orders = response2.data;
+          orders = Array.isArray(response2.data) ? response2.data : [];
           
           // Se ancora non troviamo ordini e abbiamo un'email, proviamo a filtrare per email
           if ((!orders || !Array.isArray(orders) || orders.length === 0) && decoded.email) {
@@ -115,7 +135,19 @@ export async function GET(request: NextRequest) {
         
         console.log(`API: Trovati ${filteredOrders.length} ordini per l'utente ${decoded.id}`);
         
-        // Restituisci gli ordini filtrati
+        // Debug: elenco stati ordini per capire cosa arriva da WooCommerce
+        const orderStatuses = filteredOrders.map(order => order.status);
+        const uniqueStatuses = [...new Set(orderStatuses)];
+        console.log('Stati degli ordini recuperati:', uniqueStatuses);
+        
+        // Debug: conteggio per ogni tipo di stato
+        const statusCounts = orderStatuses.reduce((acc, status) => {
+          acc[status] = (acc[status] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+        console.log('Conteggio per stato:', statusCounts);
+        
+        // Restituisci TUTTI gli ordini filtrati senza escludere nessuno stato
         return NextResponse.json(filteredOrders);
       } catch (error: unknown) {
         const err = error as { response?: { status?: number } };

@@ -113,8 +113,24 @@ function AccountContent() {
         }
         
         const data = await response.json();
-        console.log(`Ordini caricati: ${data.length}`);
-        setOrders(data);
+        
+        // Filtriamo gli ordini per rimuovere quelli con stato "scheduled-payment"
+        // in quanto questi sono già visibili nella sezione rate
+        // Gli ordini con stato partial-payment vengono mantenuti nella lista principale
+        const filteredOrders = data.filter((order: Order) => 
+          order.status !== 'scheduled-payment' && 
+          order.status !== 'wc-scheduled-payment'
+        );
+        
+        // Se abbiamo ordini dopo il filtro, mostriamo quelli
+        // altrimenti mostreremo tutti gli ordini per evitare una pagina vuota
+        if (filteredOrders.length > 0) {
+          setOrders(filteredOrders);
+        } else {
+          // Se tutti gli ordini sono scheduled-payment, mostriamo comunque tutti
+          // per evitare che la pagina ordini sia vuota
+          setOrders(data);
+        }
       } catch (error) {
         console.error('Errore durante il caricamento degli ordini:', error);
       } finally {
