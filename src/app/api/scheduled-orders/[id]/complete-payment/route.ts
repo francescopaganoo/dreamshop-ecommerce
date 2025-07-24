@@ -27,7 +27,9 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dwi37ljio_5tk_3jt3';
 // Tipizzazione corretta per Next.js 14+ route handler
 export async function POST(request: NextRequest) {
   // Ottieni l'id dal percorso dell'URL invece di usare params
-  const id = request.nextUrl.pathname.split('/').pop() || '';
+  const pathSegments = request.nextUrl.pathname.split('/');
+  // L'ID è il segmento prima di 'complete-payment'
+  const id = pathSegments[pathSegments.indexOf('complete-payment') - 1] || '';
   console.log('API Complete Payment - Notifica completamento pagamento per rata ID:', id);
   
   // Ottieni il token dall'header Authorization
@@ -63,18 +65,46 @@ export async function POST(request: NextRequest) {
     try {
       // Prepara i dati da inviare a WooCommerce
       const orderData = {
-        status: 'processing',
-        set_paid: true,
+        status: 'completed', // Usiamo 'completed' per i pagamenti pianificati
+        paid: true,         // Invece di set_paid che è per gli ordini normali
         transaction_id: paymentIntentId,
         payment_method: paymentMethod || 'stripe',
         payment_method_title: paymentMethod === 'paypal' ? 'PayPal' : 'Carta di Credito (Stripe)'
       };
 
-      console.log('API Complete Payment: Aggiornamento ordine WooCommerce con dati:', orderData);
+      console.log('API Complete Payment: Aggiornamento rata pianificata WooCommerce con dati:', orderData);
       
-      // Utilizza direttamente l'API WooCommerce con autenticazione OAuth (consumer key/secret)
-      // Questo è lo stesso approccio usato per gli ordini normali che funziona
-      const response = await api.put(`orders/${id}`, orderData);
+      // Utilizziamo l'API standard di WooCommerce ma con i parametri corretti
+      // per aggiornare lo stato del pagamento pianificato
+      console.log(`Aggiornamento ordine WooCommerce con ID ${id} usando l'API standard`);
+      
+      // Aggiorniamo prima i metadati dell'ordine per segnalare che è stato pagato
+      const metaData = {
+        meta_data: [
+          {
+            key: '_wc_deposits_payment_completed',
+            value: 'yes'
+          },
+          {
+            key: '_transaction_id',
+            value: paymentIntentId
+          }
+        ]
+      };
+      
+      // Primo aggiornamento: aggiunge i metadati
+      await api.put(`orders/${id}`, metaData);
+      console.log('Metadati aggiornati con successo');
+      
+      // Secondo aggiornamento: cambia lo stato
+      // Nota: alcuni stati potrebbero richiedere permessi speciali nell'API WooCommerce
+      // Proviamo sia con 'completed' che con 'processing' se il primo fallisce
+      const statusUpdate = {
+        status: 'completed'
+      };
+      
+      // Aggiorna lo stato dell'ordine
+      const response = await api.put(`orders/${id}`, statusUpdate);
       
       console.log('API Complete Payment: Risposta aggiornamento WooCommerce:', response.data);
       

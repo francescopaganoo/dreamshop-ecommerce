@@ -32,7 +32,9 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
 
 export async function POST(request: NextRequest) {
   // Ottieni l'id dal percorso dell'URL invece di usare params
-  const id = request.nextUrl.pathname.split('/').pop() || '';
+  const pathSegments = request.nextUrl.pathname.split('/');
+  // L'ID è il segmento prima di 'stripe-pay'
+  const id = pathSegments[pathSegments.indexOf('stripe-pay') - 1] || '';
   console.log('API scheduled-order Stripe payment - Richiesta di pagamento ricevuta per ID:', id);
   
   // Ottieni il token dall'header Authorization
