@@ -158,7 +158,7 @@ const CheckoutForm = ({
       <div className="mb-4">
         <div className="flex justify-between items-center mb-4">
           <span className="text-lg font-medium">Importo da pagare:</span>
-          <span className="text-xl font-bold text-blue-700">{orderTotal}</span>
+          <span className="text-xl font-bold text-bred-500">{orderTotal}</span>
         </div>
         
         <label className="block text-gray-700 mb-2">
@@ -205,7 +205,7 @@ const CheckoutForm = ({
         <button
           type="submit"
           disabled={!isCardElementReady || isProcessing}
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+          className="bg-bred-500 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
         >
           {isProcessing ? (
             <>
@@ -263,7 +263,7 @@ const ScheduledPaymentModal = ({
             <div className="mb-4">
               <div className="flex justify-between items-center mb-4">
                 <span className="text-lg text-gray-600 font-medium">Importo da pagare:</span>
-                <span className="text-xl font-bold text-blue-700">{orderTotal}</span>
+                <span className="text-xl font-bold text-bred-500">{orderTotal}</span>
               </div>
               <p className="mb-4 text-gray-700">Scegli il metodo di pagamento:</p>
             </div>
@@ -314,7 +314,7 @@ const ScheduledPaymentModal = ({
             <div className="mb-4">
               <div className="flex justify-between items-center mb-4">
                 <span className="text-lg font-medium">Importo da pagare:</span>
-                <span className="text-xl font-bold text-blue-700">{orderTotal}</span>
+                <span className="text-xl font-bold text-bred-500">{orderTotal}</span>
               </div>
               <p className="mb-4 text-gray-600 text-sm">Completa il pagamento con PayPal</p>
             </div>
