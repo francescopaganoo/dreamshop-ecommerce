@@ -25,6 +25,18 @@ export async function GET(request: NextRequest) {
       cache: 'no-store',
     });
 
+    // Gestione speciale per errore 400 - Prodotto senza opzioni di acconto
+    if (response.status === 400) {
+      console.log(`Prodotto ${productId} non supporta acconti`);
+      return NextResponse.json({
+        success: true, // Impostiamo success: true per non far scattare messaggi di errore nel frontend
+        deposit_enabled: false, // Indichiamo esplicitamente che l'acconto non è disponibile
+        product_id: productId,
+        message: "Acconto non disponibile per questo prodotto"
+      });
+    }
+    
+    // Altri tipi di errori
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`Errore API WordPress: ${response.status}`, errorText);

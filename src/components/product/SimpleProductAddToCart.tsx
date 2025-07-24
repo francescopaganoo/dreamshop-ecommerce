@@ -103,6 +103,20 @@ export default function SimpleProductAddToCart({ product }: SimpleProductAddToCa
             const depositOptions = await depositOptionsResponse.json();
             console.log('Opzioni acconto dal backend:', depositOptions);
             
+            // Verifica se l'acconto è abilitato per questo prodotto
+            if (depositOptions.success === true && depositOptions.deposit_enabled === false) {
+              // Prodotto non supporta acconti, procedi con acquisto normale
+              console.log('Prodotto non supporta acconti, procedo con acquisto normale');
+              
+              // Disabilita l'opzione di acconto e procedi con acquisto normale
+              setEnableDeposit('no');
+              
+              // Aggiungi il prodotto al carrello normalmente
+              await addToCart(product, quantity);
+              setIsAddingToCart(false);
+              return; // Esci dalla funzione qui
+            }
+            
             // Estrai le informazioni sull'acconto
             if (depositOptions.deposit_amount) {
               depositAmount = depositOptions.deposit_amount.toString();

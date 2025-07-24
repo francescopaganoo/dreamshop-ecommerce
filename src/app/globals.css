@@ -15,7 +15,7 @@
   --color-bred-700: #ae0b02;
 }
 
-@media (prefers-color-scheme: dark) {
+@media (prefers-color-scheme: lite) {
   :root {
     --background: #fbf9fa;
     --foreground: #ededed;

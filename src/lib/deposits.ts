@@ -179,7 +179,7 @@ export const processScheduledOrderPayment = async (orderId: number): Promise<str
 /**
  * Ottiene le opzioni di acconto disponibili per un prodotto
  * @param productId ID del prodotto
- * @returns Opzioni di acconto per il prodotto
+ * @returns Opzioni di acconto per il prodotto o null se non disponibili
  */
 export const getProductDepositOptions = async (productId: number): Promise<ProductDepositOptions> => {
   // Questo endpoint non richiede autenticazione
@@ -202,20 +202,34 @@ export const getProductDepositOptions = async (productId: number): Promise<Produ
     
     const data = await response.json();
     
-    // Log per debug
-    console.log(`Risposta API deposit-options per prodotto ${productId}:`, data);
+    // Log per debug (solo in sviluppo)
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Risposta API deposit-options per prodotto ${productId}:`, data);
+    }
     
+    // Verifica se la risposta è successful ma deposit_enabled è false
+    // Questa è la nuova risposta formato per prodotti che non supportano acconti
+    if (data.success && data.deposit_enabled === false) {
+      // Non lanciare un errore, ma restituire l'oggetto così com'è
+      // Sarà gestito dal componente ProductDepositOptions
+      console.log(`Prodotto ${productId} non supporta acconti`);
+      return data as ProductDepositOptions;
+    }
+    
+    // Verifica se la risposta è stata un fallimento
     if (!data.success) {
       console.error(`Risposta API fallita per prodotto ${productId}:`, data);
       throw new Error(data.message || 'Opzioni di acconto non disponibili');
     }
     
-    // Log dei dati principali
-    console.log(`Dettagli deposito per prodotto ${productId}:`, { 
-      deposit_enabled: data.deposit_enabled, 
-      deposit_type: data.deposit_type,
-      payment_plan: data.payment_plan ? 'presente' : 'assente'
-    });
+    // Log dei dati principali (solo in sviluppo)
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Dettagli deposito per prodotto ${productId}:`, { 
+        deposit_enabled: data.deposit_enabled, 
+        deposit_type: data.deposit_type,
+        payment_plan: data.payment_plan ? 'presente' : 'assente'
+      });
+    }
     
     return data as ProductDepositOptions;
   } catch (error: unknown) {

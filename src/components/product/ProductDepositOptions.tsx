@@ -38,7 +38,7 @@ export default function ProductDepositOptionsComponent({ product, onDepositOptio
     fetchDepositOptions();
   }, [product.id, onDepositOptionChange]);
 
-  // Se c'è un errore o stiamo caricando, non mostrare nulla
+  // Se stiamo caricando, mostra uno skeleton loader
   if (loading) {
     return (
       <div className="mb-6 animate-pulse">
@@ -47,9 +47,14 @@ export default function ProductDepositOptionsComponent({ product, onDepositOptio
       </div>
     );
   }
+  
+  // Se il prodotto non supporta acconti (deposit_enabled è false), non mostrare nulla
+  if (depositOptions && !depositOptions.deposit_enabled) {
+    return null; // Non mostrare nulla
+  }
 
-  // In ambiente di sviluppo, mostra informazioni di debug
-  if (process.env.NODE_ENV === 'development' && (error || !depositOptions || !depositOptions.deposit_enabled)) {
+  // In ambiente di sviluppo, mostra informazioni di debug solo per errori reali
+  if (process.env.NODE_ENV === 'development' && (error || !depositOptions)) {
     return (
       <div className="mb-6 border border-amber-300 bg-amber-50 p-4 rounded-md">
         <h3 className="text-amber-800 font-semibold mb-2">Info Sviluppo: Acconto non disponibile</h3>
@@ -68,36 +73,9 @@ export default function ProductDepositOptionsComponent({ product, onDepositOptio
     );
   }
   
-  // Temporaneamente: Mostra sempre informazioni di debug
-  if (error || !depositOptions || !depositOptions.deposit_enabled) {
-    // Aggiungiamo più informazioni di debug
-    console.log('ProductDepositOptions non mostrato:', { 
-      error, 
-      hasDepositOptions: !!depositOptions,
-      depositEnabled: depositOptions?.deposit_enabled,
-      productId: product.id
-    });
-    
-    // Mostra informazioni anche in produzione per debug
-    return (
-      <div className="mb-6 border border-amber-300 bg-amber-50 p-4 rounded-md">
-        <h3 className="text-amber-800 font-semibold mb-2">Debug: Acconto non disponibile</h3>
-        {error && <p className="text-red-600 mb-2">Errore: {error}</p>}
-        {depositOptions && (
-          <div>
-            <p className="text-amber-700">Prodotto ID: {product.id}</p>
-            <p className="text-amber-700">Acconto abilitato: {depositOptions.deposit_enabled ? 'Sì' : 'No'}</p>
-            {depositOptions.message && <p className="text-amber-700">Messaggio: {depositOptions.message}</p>}
-            <pre className="mt-2 text-xs bg-amber-100 p-2 rounded overflow-x-auto">
-              {JSON.stringify(depositOptions, null, 2)}
-            </pre>
-          </div>
-        )}
-        {!depositOptions && (
-          <p className="text-amber-700">Nessuna opzione di acconto ricevuta dall&apos;API</p>
-        )}
-      </div>
-    );
+  // Se non abbiamo dati di acconto, non mostrare il componente
+  if (!depositOptions) {
+    return null;
   }
 
   const handleOptionChange = (option: 'yes' | 'no') => {
