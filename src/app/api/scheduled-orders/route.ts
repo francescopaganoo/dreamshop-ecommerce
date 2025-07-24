@@ -42,6 +42,12 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dwi37ljio_5tk_3jt3';
 
 export async function GET(request: NextRequest) {
   console.log('API scheduled-orders - Richiesta ricevuta');
+  
+  // Ottieni il parametro page dalla URL
+  const url = new URL(request.url);
+  const page = url.searchParams.get('page') || '1';
+  console.log(`Richiesta pagina: ${page}`);
+  
   console.log('Headers ricevuti:', JSON.stringify(Object.fromEntries(request.headers.entries())));
   
   // Ottieni il token dall'header Authorization
@@ -72,8 +78,8 @@ export async function GET(request: NextRequest) {
     // quelli relativi a depositi/acconti nel nostro codice
     console.log('Recupero ordini standard e applicazione filtri');
     try {
-      console.log(`Recupero ordini standard per utente ID: ${decoded.id}`);
-      const ordersResponse = await api.get(`orders?customer=${decoded.id}&per_page=100&orderby=date&order=desc`);
+      console.log(`Recupero ordini standard per utente ID: ${decoded.id}, pagina: ${page}`);
+      const ordersResponse = await api.get(`orders?customer=${decoded.id}&per_page=100&page=${page}&orderby=date&order=desc`);
       
       // Verifichiamo che data sia un array e gestiamo il tipo unknown
       const orders = Array.isArray(ordersResponse.data) ? ordersResponse.data : [];

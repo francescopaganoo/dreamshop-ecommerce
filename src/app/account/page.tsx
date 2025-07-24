@@ -31,10 +31,13 @@ function AccountContent() {
   
   // Stato per la tab attiva
   const [activeTab, setTab] = useState(defaultTab);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [isLoadingOrders, setIsLoadingOrders] = useState(false);
   
-  // Stati per la paginazione degli ordini
+  // Stati per gli ordini
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [isLoadingOrders, setIsLoadingOrders] = useState(true);
+  const [ordersError, setOrdersError] = useState<string | null>(null);
+  const [nextOrdersPage, setNextOrdersPage] = useState(2); // Pagina successiva da caricare
+  const [hasMoreOrders, setHasMoreOrders] = useState(true); // Indica se ci sono altre pagine
   const [ordersCurrentPage, setOrdersCurrentPage] = useState(1);
   const ordersPerPage = 10; // Numero di ordini per pagina
   
@@ -60,6 +63,8 @@ function AccountContent() {
   const [scheduledOrders, setScheduledOrders] = useState<ScheduledOrder[]>([]);
   const [isLoadingScheduledOrders, setIsLoadingScheduledOrders] = useState(false);
   const [scheduledOrdersError, setScheduledOrdersError] = useState<string | null>(null);
+  const [nextScheduledOrdersPage, setNextScheduledOrdersPage] = useState(2); // Pagina successiva da caricare
+  const [hasMoreScheduledOrders, setHasMoreScheduledOrders] = useState(true); // Indica se ci sono altre pagine
   
   // Reindirizza l'utente se non è autenticato
   useEffect(() => {
@@ -97,9 +102,9 @@ function AccountContent() {
         
         console.log('Recupero ordini per utente:', user.id);
         
-        // Aggiungiamo un timestamp per evitare problemi di cache
+        // Aggiungiamo un timestamp per evitare problemi di cache e il parametro page
         const timestamp = new Date().getTime();
-        const response = await fetch(`/api/orders/user?_=${timestamp}`, {
+        const response = await fetch(`/api/orders/user?_=${timestamp}&page=1`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Cache-Control': 'no-cache, no-store'
@@ -126,10 +131,26 @@ function AccountContent() {
         // altrimenti mostreremo tutti gli ordini per evitare una pagina vuota
         if (filteredOrders.length > 0) {
           setOrders(filteredOrders);
+          
+          // Se abbiamo meno di 100 ordini nel primo caricamento, non ci sono altri ordini da caricare
+          if (filteredOrders.length < 100) {
+            setHasMoreOrders(false);
+          } else {
+            setHasMoreOrders(true);
+            setNextOrdersPage(2); // Resetta a pagina 2 per eventuali ulteriori caricamenti
+          }
         } else {
           // Se tutti gli ordini sono scheduled-payment, mostriamo comunque tutti
           // per evitare che la pagina ordini sia vuota
           setOrders(data);
+          
+          // Se abbiamo meno di 100 ordini nel primo caricamento, non ci sono altri ordini da caricare
+          if (data.length < 100) {
+            setHasMoreOrders(false);
+          } else {
+            setHasMoreOrders(true);
+            setNextOrdersPage(2); // Resetta a pagina 2 per eventuali ulteriori caricamenti
+          }
         }
       } catch (error) {
         console.error('Errore durante il caricamento degli ordini:', error);
@@ -157,6 +178,14 @@ function AccountContent() {
           const data = await getScheduledOrders();
           console.log(`Ordini pianificati caricati: ${data.length}`);
           setScheduledOrders(data);
+          
+          // Se abbiamo meno di 100 ordini nel primo caricamento, non ci sono altri ordini da caricare
+          if (data.length < 100) {
+            setHasMoreScheduledOrders(false);
+          } else {
+            setHasMoreScheduledOrders(true);
+            setNextScheduledOrdersPage(2); // Resetta a pagina 2 per eventuali ulteriori caricamenti
+          }
         } catch (error) {
           console.error('Errore durante il caricamento degli ordini pianificati:', error);
           setScheduledOrdersError('Impossibile caricare gli ordini pianificati. Riprova più tardi.');
@@ -364,11 +393,67 @@ function AccountContent() {
                         Precedente
                       </button>
                       <button
-                        onClick={() => setOrdersCurrentPage(prev => Math.min(prev + 1, Math.ceil(orders.length / ordersPerPage)))}
-                        disabled={ordersCurrentPage === Math.ceil(orders.length / ordersPerPage)}
-                        className={`relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 ${ordersCurrentPage === Math.ceil(orders.length / ordersPerPage) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                        onClick={async () => {
+                          const maxPage = Math.ceil(orders.length / ordersPerPage);
+                          
+                          // Se siamo all'ultima pagina e ci sono potenzialmente altri ordini da caricare
+                          if (ordersCurrentPage === maxPage && hasMoreOrders && !isLoadingOrders) {
+                            try {
+                              setIsLoadingOrders(true);
+                              
+                              // Recupera il token dal localStorage
+                              const token = localStorage.getItem('woocommerce_token');
+                              
+                              if (!token) {
+                                throw new Error('Token non trovato');
+                              }
+                              
+                              // Carica la pagina successiva
+                              const timestamp = new Date().getTime();
+                              const response = await fetch(`/api/orders/user?_=${timestamp}&page=${nextOrdersPage}`, {
+                                headers: {
+                                  'Authorization': `Bearer ${token}`,
+                                  'Cache-Control': 'no-cache, no-store'
+                                }
+                              });
+                              
+                              if (!response.ok) {
+                                throw new Error(`Errore nel caricamento degli ordini aggiuntivi`);
+                              }
+                              
+                              const moreData = await response.json();
+                              
+                              const moreFilteredOrders = moreData.filter((order: Order) => 
+                                order.status !== 'scheduled-payment' && 
+                                order.status !== 'wc-scheduled-payment'
+                              );
+                              
+                              const dataToAdd = moreFilteredOrders.length > 0 ? moreFilteredOrders : moreData;
+                              
+                              if (dataToAdd.length > 0) {
+                                setOrders(prevOrders => [...prevOrders, ...dataToAdd]);
+                                setNextOrdersPage(prev => prev + 1);
+                                if (dataToAdd.length < 100) {
+                                  setHasMoreOrders(false);
+                                }
+                                setOrdersCurrentPage(prev => prev + 1);
+                              } else {
+                                setHasMoreOrders(false);
+                              }
+                            } catch (error) {
+                              console.error('Errore nel caricamento di altri ordini:', error);
+                            } finally {
+                              setIsLoadingOrders(false);
+                            }
+                          } else {
+                            // Comportamento normale: avanza di una pagina
+                            setOrdersCurrentPage(prev => Math.min(prev + 1, maxPage));
+                          }
+                        }}
+                        disabled={isLoadingOrders || (ordersCurrentPage === Math.ceil(orders.length / ordersPerPage) && !hasMoreOrders)}
+                        className={`relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 ${isLoadingOrders || (ordersCurrentPage === Math.ceil(orders.length / ordersPerPage) && !hasMoreOrders) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
                       >
-                        Successiva
+                        {isLoadingOrders ? 'Caricamento...' : 'Successiva'}
                       </button>
                     </div>
                     <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
@@ -422,9 +507,74 @@ function AccountContent() {
                           )}
                           
                           <button
-                            onClick={() => setOrdersCurrentPage(prev => Math.min(prev + 1, Math.ceil(orders.length / ordersPerPage)))}
-                            disabled={ordersCurrentPage === Math.ceil(orders.length / ordersPerPage)}
-                            className={`relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ${ordersCurrentPage === Math.ceil(orders.length / ordersPerPage) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                            onClick={async () => {
+                              const maxPage = Math.ceil(orders.length / ordersPerPage);
+                              
+                              // Se siamo all'ultima pagina e ci sono potenzialmente altri ordini da caricare
+                              if (ordersCurrentPage === maxPage && hasMoreOrders && !isLoadingOrders) {
+                                try {
+                                  setIsLoadingOrders(true);
+                                  console.log(`Caricamento pagina aggiuntiva ${nextOrdersPage} di ordini`);
+                                  
+                                  // Recupera il token dal localStorage
+                                  const token = localStorage.getItem('woocommerce_token');
+                                  
+                                  if (!token) {
+                                    console.error('Token non trovato nel localStorage');
+                                    throw new Error('Token non trovato');
+                                  }
+                                  
+                                  // Carica la pagina successiva
+                                  const timestamp = new Date().getTime();
+                                  const response = await fetch(`/api/orders/user?_=${timestamp}&page=${nextOrdersPage}`, {
+                                    headers: {
+                                      'Authorization': `Bearer ${token}`,
+                                      'Cache-Control': 'no-cache, no-store'
+                                    }
+                                  });
+                                  
+                                  if (!response.ok) {
+                                    throw new Error(`Errore nel caricamento degli ordini aggiuntivi: ${response.status}`);
+                                  }
+                                  
+                                  const moreData = await response.json();
+                                  console.log(`Caricati ${moreData.length} ordini aggiuntivi`);
+                                  
+                                  // Filtra i nuovi ordini come fatto per il caricamento iniziale
+                                  const moreFilteredOrders = moreData.filter((order: Order) => 
+                                    order.status !== 'scheduled-payment' && 
+                                    order.status !== 'wc-scheduled-payment'
+                                  );
+                                  
+                                  const dataToAdd = moreFilteredOrders.length > 0 ? moreFilteredOrders : moreData;
+                                  
+                                  if (dataToAdd.length > 0) {
+                                    // Aggiungi i nuovi dati agli ordini esistenti
+                                    setOrders(prevOrders => [...prevOrders, ...dataToAdd]);
+                                    // Incrementa la pagina successiva da caricare
+                                    setNextOrdersPage(prev => prev + 1);
+                                    // Se abbiamo ricevuto meno di 100 ordini, non ci sono più pagine
+                                    if (dataToAdd.length < 100) {
+                                      setHasMoreOrders(false);
+                                    }
+                                    // Avanza alla pagina successiva
+                                    setOrdersCurrentPage(prev => prev + 1);
+                                  } else {
+                                    // Non ci sono più ordini da caricare
+                                    setHasMoreOrders(false);
+                                  }
+                                } catch (error) {
+                                  console.error('Errore nel caricamento di altri ordini:', error);
+                                } finally {
+                                  setIsLoadingOrders(false);
+                                }
+                              } else {
+                                // Comportamento normale: avanza di una pagina
+                                setOrdersCurrentPage(prev => Math.min(prev + 1, maxPage));
+                              }
+                            }}
+                            disabled={isLoadingOrders || (ordersCurrentPage === Math.ceil(orders.length / ordersPerPage) && !hasMoreOrders)}
+                            className={`relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ${isLoadingOrders || (ordersCurrentPage === Math.ceil(orders.length / ordersPerPage) && !hasMoreOrders) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
                           >
                             <span className="sr-only">Successiva</span>
                             {/* Chevron right icon */}
@@ -582,9 +732,46 @@ function AccountContent() {
                           )}
                           
                           <button
-                            onClick={() => setScheduledOrdersCurrentPage(prev => Math.min(prev + 1, Math.ceil(scheduledOrders.length / scheduledOrdersPerPage)))}
-                            disabled={scheduledOrdersCurrentPage === Math.ceil(scheduledOrders.length / scheduledOrdersPerPage)}
-                            className={`relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ${scheduledOrdersCurrentPage === Math.ceil(scheduledOrders.length / scheduledOrdersPerPage) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                            onClick={async () => {
+                              const maxPage = Math.ceil(scheduledOrders.length / scheduledOrdersPerPage);
+                              
+                              // Se siamo all'ultima pagina e ci sono potenzialmente altri ordini da caricare
+                              if (scheduledOrdersCurrentPage === maxPage && hasMoreScheduledOrders && !isLoadingScheduledOrders) {
+                                try {
+                                  setIsLoadingScheduledOrders(true);
+                                  console.log(`Caricamento pagina aggiuntiva ${nextScheduledOrdersPage} di ordini programmati`);
+                                  
+                                  // Carica la pagina successiva
+                                  const moreData = await getScheduledOrders(nextScheduledOrdersPage);
+                                  console.log(`Caricati ${moreData.length} ordini aggiuntivi`);
+                                  
+                                  if (moreData.length > 0) {
+                                    // Aggiungi i nuovi dati agli ordini esistenti
+                                    setScheduledOrders(prevOrders => [...prevOrders, ...moreData]);
+                                    // Incrementa la pagina successiva da caricare
+                                    setNextScheduledOrdersPage(prev => prev + 1);
+                                    // Se abbiamo ricevuto meno di 100 ordini, non ci sono più pagine
+                                    if (moreData.length < 100) {
+                                      setHasMoreScheduledOrders(false);
+                                    }
+                                    // Avanza alla pagina successiva
+                                    setScheduledOrdersCurrentPage(prev => prev + 1);
+                                  } else {
+                                    // Non ci sono più ordini da caricare
+                                    setHasMoreScheduledOrders(false);
+                                  }
+                                } catch (error) {
+                                  console.error('Errore nel caricamento di altri ordini programmati:', error);
+                                } finally {
+                                  setIsLoadingScheduledOrders(false);
+                                }
+                              } else {
+                                // Comportamento normale: avanza di una pagina
+                                setScheduledOrdersCurrentPage(prev => Math.min(prev + 1, maxPage));
+                              }
+                            }}
+                            disabled={isLoadingScheduledOrders || (scheduledOrdersCurrentPage === Math.ceil(scheduledOrders.length / scheduledOrdersPerPage) && !hasMoreScheduledOrders)}
+                            className={`relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ${isLoadingScheduledOrders || (scheduledOrdersCurrentPage === Math.ceil(scheduledOrders.length / scheduledOrdersPerPage) && !hasMoreScheduledOrders) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
                           >
                             <span className="sr-only">Successiva</span>
                             {/* Chevron right icon */}

@@ -33,6 +33,11 @@ interface WooOrder {
 
 export async function GET(request: NextRequest) {
   try {
+    // Ottieni il parametro page dalla URL
+    const url = new URL(request.url);
+    const page = url.searchParams.get('page') || '1';
+    console.log(`API orders/user - Richiesta pagina: ${page}`);
+    
     // Ottieni il token dall'header Authorization
     const authHeader = request.headers.get('Authorization');
     
@@ -55,8 +60,8 @@ export async function GET(request: NextRequest) {
       console.log(`API: Recupero ordini per utente ID: ${decoded.id}`);
       
       try {
-        // Otteniamo prima gli ordini standard e poi eventualmente quelli scheduled-payment
-        const response = await api.get(`orders?customer=${decoded.id}&per_page=100&orderby=date&order=desc`);
+        // Otteniamo prima gli ordini standard con paginazione
+        const response = await api.get(`orders?customer=${decoded.id}&per_page=100&page=${page}&orderby=date&order=desc`);
         let orders = Array.isArray(response.data) ? response.data : [];
         
         // Controlliamo se abbiamo solo ordini scheduled-payment

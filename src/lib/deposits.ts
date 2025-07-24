@@ -70,8 +70,9 @@ export interface DepositCheckoutResult {
 
 /**
  * Recupera tutti gli ordini pianificati dell'utente
+ * @param page Opzionale: pagina specifica da richiedere (per il caricamento di pagine aggiuntive)
  */
-export const getScheduledOrders = async (): Promise<ScheduledOrder[]> => {
+export const getScheduledOrders = async (page?: number): Promise<ScheduledOrder[]> => {
   const token = getWooCommerceToken();
   
   if (!token) {
@@ -80,7 +81,9 @@ export const getScheduledOrders = async (): Promise<ScheduledOrder[]> => {
   
   // Aggiungi un timestamp per evitare problemi di cache
   const timestamp = new Date().getTime();
-  const apiUrl = `/api/scheduled-orders?_=${timestamp}`;
+  // Includi il parametro page solo se fornito
+  const pageParam = page ? `page=${page}&` : '';
+  const apiUrl = `/api/scheduled-orders?${pageParam}_=${timestamp}`;
   
   const response = await fetch(apiUrl, {
     method: 'GET',
