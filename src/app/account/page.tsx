@@ -41,6 +41,11 @@ function AccountContent() {
   const [ordersCurrentPage, setOrdersCurrentPage] = useState(1);
   const ordersPerPage = 10; // Numero di ordini per pagina
   
+  // Stato per i filtri degli ordini
+  const [allOrders, setAllOrders] = useState<Order[]>([]); // Tutti gli ordini non filtrati
+  const [statusFilters, setStatusFilters] = useState<{[key: string]: boolean}>({}); // Filtri attivi
+  const [showFilters, setShowFilters] = useState(false); // Mostra/nascondi pannello filtri
+  
   // Stati per la paginazione delle rate da pagare
   const [scheduledOrdersCurrentPage, setScheduledOrdersCurrentPage] = useState(1);
   const scheduledOrdersPerPage = 10; // Numero di rate per pagina
@@ -130,7 +135,16 @@ function AccountContent() {
         }, {});
         console.log('Distribuzione stati ordini:', orderStates);
         
+        // Memorizziamo tutti gli ordini per poterli filtrare successivamente
+        setAllOrders(data);
         setOrders(data);
+        
+        // Inizializza i filtri di stato con tutti gli stati disponibili
+        const initialStatusFilters: {[key: string]: boolean} = {};
+        Object.keys(orderStates).forEach(status => {
+          initialStatusFilters[status] = true; // Tutti attivati per default
+        });
+        setStatusFilters(initialStatusFilters);
         
         // Se abbiamo meno di 100 ordini nel primo caricamento, non ci sono altri ordini da caricare
         if (data.length < 100) {
@@ -317,7 +331,150 @@ function AccountContent() {
       case 'orders':
         return (
           <div>
-            <h2 className="text-xl font-semibold mb-4 text-gray-600">I tuoi ordini</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-600">I tuoi ordini</h2>
+              <button 
+                onClick={() => setShowFilters(!showFilters)} 
+                className="flex items-center text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded text-gray-700"
+              >
+                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                Filtri
+              </button>
+            </div>
+            
+            {showFilters && (
+              <div className="mb-4 p-4 border rounded bg-gray-50">
+                <h3 className="text-sm font-medium text-gray-700 mb-2">Filtra per stato:</h3>
+                <div className="flex flex-wrap gap-3">
+                  {Object.keys(statusFilters).map(status => (
+                    <label key={status} className="inline-flex items-center">
+                      <input 
+                        type="checkbox" 
+                        className="form-checkbox h-4 w-4 text-bred-500" 
+                        checked={statusFilters[status]}
+                        onChange={async () => {
+                          // Inverte lo stato del filtro selezionato
+                          const newFilters = {...statusFilters, [status]: !statusFilters[status]};
+                          
+                          try {
+                            // Indica che stiamo caricando
+                            setIsLoadingOrders(true);
+                            
+                            // Aggiorna lo stato dei filtri
+                            setStatusFilters(newFilters);
+                            
+                            // 1. APPROCCIO COMPLETAMENTE DIVERSO: Ricarichiamo TUTTI gli ordini dal server
+                            // e poi applichiamo i filtri localmente. Questo evita problemi di sincronizzazione.
+                            console.log('Ricaricando tutti gli ordini dal server per evitare problemi di sincronizzazione');
+                            
+                            const token = localStorage.getItem('woocommerce_token');
+                            if (!token) throw new Error('Token non trovato');
+                            
+                            // Carica tutte le pagine necessarie
+                            let allLoadedOrders: Order[] = [];
+                            let currentPage = 1;
+                            let continueLoading = true;
+                            
+                            while (continueLoading) {
+                              const timestamp = new Date().getTime();
+                              const response = await fetch(`/api/orders/user?_=${timestamp}&page=${currentPage}`, {
+                                headers: {
+                                  'Authorization': `Bearer ${token}`,
+                                  'Cache-Control': 'no-cache, no-store'
+                                }
+                              });
+                              
+                              if (!response.ok) {
+                                console.error(`Errore nel caricamento degli ordini: ${response.status}`);
+                                break;
+                              }
+                              
+                              const pageData = await response.json();
+                              console.log(`Caricati ${pageData.length} ordini dalla pagina ${currentPage}`);
+                              
+                              if (pageData.length === 0) {
+                                continueLoading = false;
+                              } else {
+                                // Verifica se gli ordini sono già presenti per evitare duplicati
+                                const existingIds = new Set(allLoadedOrders.map((o: Order) => o.id));
+                                const newOrders = pageData.filter((o: Order) => !existingIds.has(o.id));
+                                
+                                allLoadedOrders = [...allLoadedOrders, ...newOrders];
+                                
+                                // Carica al massimo 3 pagine per evitare richieste eccessive
+                                if (currentPage >= 3 || pageData.length < 100) {
+                                  continueLoading = false;
+                                }
+                                
+                                currentPage++;
+                              }
+                            }
+                            
+                            // Aggiorna il numero totale di pagine disponibili
+                            setNextOrdersPage(currentPage);
+                            
+                            // Aggiorna hasMoreOrders in base ai risultati
+                            if (currentPage > 3 && allLoadedOrders.length >= 300) {
+                              setHasMoreOrders(true);
+                            } else {
+                              setHasMoreOrders(false);
+                            }
+                            
+                            console.log(`Caricati in totale ${allLoadedOrders.length} ordini`);
+                            
+                            // Aggiorna allOrders con tutti gli ordini disponibili
+                            setAllOrders(allLoadedOrders);
+                            
+                            // Calcola tutti i possibili stati degli ordini
+                            const allOrderStates = allLoadedOrders.reduce((acc: Record<string, number>, order: Order) => {
+                              acc[order.status] = (acc[order.status] || 0) + 1;
+                              return acc;
+                            }, {});
+                            
+                            // Assicurati che tutti gli stati siano nei filtri
+                            const completeFilters = {...newFilters};
+                            Object.keys(allOrderStates).forEach(orderStatus => {
+                              if (completeFilters[orderStatus] === undefined) {
+                                completeFilters[orderStatus] = true;
+                              }
+                            });
+                            setStatusFilters(completeFilters);
+                            
+                            // Applica i filtri agli ordini caricati
+                            const filteredOrders = allLoadedOrders.filter((order: Order) => completeFilters[order.status]);
+                            console.log(`${filteredOrders.length} ordini dopo l'applicazione dei filtri`);
+                            
+                            // Aggiorna gli ordini visualizzati
+                            setOrders(filteredOrders);
+                            
+                          } catch (error) {
+                            console.error('Errore durante l\'aggiornamento dei filtri:', error);
+                            
+                            // Fallback: applica semplicemente i filtri agli ordini esistenti
+                            const fallbackFiltered = allOrders.filter((order: Order) => newFilters[order.status]);
+                            setOrders(fallbackFiltered);
+                            
+                          } finally {
+                            setIsLoadingOrders(false);
+                            setOrdersCurrentPage(1); // Torna alla prima pagina
+                          }
+                        }} 
+                      />
+                      <span className="ml-2 text-sm text-gray-700">
+                        {status === 'completed' ? 'Completato' :
+                         status === 'processing' ? 'In elaborazione' :
+                         status === 'on-hold' ? 'In attesa' :
+                         status === 'partial-payment' ? 'Acconto Pagato' :
+                         status}
+                      </span>
+                      <span className="ml-1 text-xs text-gray-500">({allOrders.filter(o => o.status === status).length})</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
             
             {isLoadingOrders ? (
               <p className="text-gray-600">Caricamento ordini in corso...</p>
@@ -418,7 +575,37 @@ function AccountContent() {
                               const dataToAdd = moreFilteredOrders.length > 0 ? moreFilteredOrders : moreData;
                               
                               if (dataToAdd.length > 0) {
+                                // Aggiungi i nuovi dati agli ordini esistenti
                                 setOrders(prevOrders => [...prevOrders, ...dataToAdd]);
+                                
+                                // Aggiorna anche allOrders con i nuovi dati
+                                setAllOrders(prevOrders => {
+                                  const updatedOrders = [...prevOrders, ...dataToAdd];
+                                  
+                                  // Aggiorna i filtri di stato con eventuali nuovi stati
+                                  const updatedOrderStates = updatedOrders.reduce((acc: Record<string, number>, order: Order) => {
+                                    acc[order.status] = (acc[order.status] || 0) + 1;
+                                    return acc;
+                                  }, {});
+                                  
+                                  // Aggiorna i filtri di stato mantenendo le selezioni correnti
+                                  setStatusFilters(prevFilters => {
+                                    const updatedFilters = {...prevFilters};
+                                    
+                                    // Aggiungi eventuali nuovi stati come attivi
+                                    Object.keys(updatedOrderStates).forEach(status => {
+                                      if (updatedFilters[status] === undefined) {
+                                        updatedFilters[status] = true; // Attiva di default
+                                        console.log(`Aggiunto nuovo stato agli ordini: ${status}`);
+                                      }
+                                    });
+                                    
+                                    return updatedFilters;
+                                  });
+                                  
+                                  return updatedOrders;
+                                });
+                                
                                 setNextOrdersPage(prev => prev + 1);
                                 if (dataToAdd.length < 100) {
                                   setHasMoreOrders(false);
@@ -538,6 +725,34 @@ function AccountContent() {
                                   if (dataToAdd.length > 0) {
                                     // Aggiungi i nuovi dati agli ordini esistenti
                                     setOrders(prevOrders => [...prevOrders, ...dataToAdd]);
+                                    
+                                    // Aggiorna anche allOrders con i nuovi dati
+                                    setAllOrders(prevOrders => {
+                                      const updatedOrders = [...prevOrders, ...dataToAdd];
+                                      
+                                      // Aggiorna i filtri di stato con eventuali nuovi stati
+                                      const updatedOrderStates = updatedOrders.reduce((acc: Record<string, number>, order: Order) => {
+                                        acc[order.status] = (acc[order.status] || 0) + 1;
+                                        return acc;
+                                      }, {});
+                                      
+                                      // Aggiorna i filtri di stato mantenendo le selezioni correnti
+                                      setStatusFilters(prevFilters => {
+                                        const updatedFilters = {...prevFilters};
+                                        
+                                        // Aggiungi eventuali nuovi stati come attivi
+                                        Object.keys(updatedOrderStates).forEach(status => {
+                                          if (updatedFilters[status] === undefined) {
+                                            updatedFilters[status] = true; // Attiva di default
+                                            console.log(`Aggiunto nuovo stato agli ordini: ${status}`);
+                                          }
+                                        });
+                                        
+                                        return updatedFilters;
+                                      });
+                                      
+                                      return updatedOrders;
+                                    });
                                     // Incrementa la pagina successiva da caricare
                                     setNextOrdersPage(prev => prev + 1);
                                     // Se abbiamo ricevuto meno di 100 ordini, non ci sono più pagine
