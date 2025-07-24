@@ -118,16 +118,22 @@ export async function GET(request: NextRequest) {
       
       console.log(`Tutti gli ordini potenziali: ${allPotentialScheduledOrders.length}`);
       
-      // Filtriamo gli ordini con stato scheduled-payment e wc-pending-deposit (acconti in attesa)
-      const scheduledOrdersByStatus = orders.filter((order: WooOrder) => {
-        // Include scheduled-payment (rate future) e wc-pending-deposit (acconti da pagare)
-        return order.status === 'scheduled-payment' || order.status === 'wc-pending-deposit' || order.status === 'pending-deposit';
-      });
+      // NON filtriamo più gli ordini: restituiamo TUTTI gli ordini all'utente
+      // Questo permetterà di visualizzare tutti gli stati: completati, in lavorazione, parzialmente pagati, ecc.
+      const scheduledOrdersByStatus = orders;
       
+      // Log per debug
       console.log(`Ordini scheduled-payment: ${orders.filter(o => o.status === 'scheduled-payment').length}`);
       console.log(`Ordini wc-pending-deposit: ${orders.filter(o => o.status === 'wc-pending-deposit' || o.status === 'pending-deposit').length}`);
+      console.log(`Ordini completed: ${orders.filter(o => o.status === 'completed').length}`);
+      console.log(`Altri stati: ${orders.filter(o => 
+        o.status !== 'scheduled-payment' && 
+        o.status !== 'wc-pending-deposit' && 
+        o.status !== 'pending-deposit' &&
+        o.status !== 'completed'
+      ).length}`);
       
-      console.log(`Ordini con stati rilevanti: ${scheduledOrdersByStatus.length}`);
+      console.log(`Totale ordini per l'utente (senza filtri): ${scheduledOrdersByStatus.length}`);
       
       // Cerchiamo anche ordini con specifici flag
       const scheduledOrdersByMeta = orders.filter((order: WooOrder) => {
@@ -150,9 +156,8 @@ export async function GET(request: NextRequest) {
       
       console.log(`Ordini con meta rilevanti: ${scheduledOrdersByMeta.length}`);
       
-      // NON uniamo più tutti i risultati - usiamo SOLO gli ordini con scheduled-payment
-      // Questo è il filtro più preciso e ci assicura di mostrare solo le rate future
-      console.log(`Totale ordini pianificati con stato scheduled-payment: ${scheduledOrdersByStatus.length}`);
+      // NON uniamo più tutti i risultati - ma ritorniamo tutti gli ordini ordinati
+      console.log(`Totale ordini dell'utente: ${scheduledOrdersByStatus.length}`);
       
       // Trasformiamo gli ordini nel formato atteso
       const finalScheduledOrders = scheduledOrdersByStatus.map((order: WooOrder): ScheduledOrder => {
@@ -168,6 +173,16 @@ export async function GET(request: NextRequest) {
           payment_url: order.payment_url || '',
           view_url: `${process.env.NEXT_PUBLIC_WORDPRESS_URL}/my-account/view-order/${order.id}/`
         };
+      });
+      
+      // Ordina gli ordini in modo che gli ordini completati appaiano per ultimi
+      // Questo è importante perché il frontend potrebbe dare priorità agli ordini completati
+      finalScheduledOrders.sort((a, b) => {
+        // Se uno è completato e l'altro no, l'ordine completato va dopo
+        if (a.status === 'completed' && b.status !== 'completed') return 1;
+        if (a.status !== 'completed' && b.status === 'completed') return -1;
+        // Altrimenti, ordina per data (più recenti prima)
+        return new Date(b.date_created).getTime() - new Date(a.date_created).getTime();
       });
       
       console.log(`Ordini pianificati filtrati e formattati: ${finalScheduledOrders.length}`);

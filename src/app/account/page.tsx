@@ -119,38 +119,25 @@ function AccountContent() {
         
         const data = await response.json();
         
-        // Filtriamo gli ordini per rimuovere quelli con stato "scheduled-payment"
-        // in quanto questi sono già visibili nella sezione rate
-        // Gli ordini con stato partial-payment vengono mantenuti nella lista principale
-        const filteredOrders = data.filter((order: Order) => 
-          order.status !== 'scheduled-payment' && 
-          order.status !== 'wc-scheduled-payment'
-        );
+        // NON filtriamo più gli ordini: mostriamo TUTTI gli ordini all'utente
+        // Questo permetterà di visualizzare tutti i tipi di ordini senza distinzioni
+        console.log('Mostro tutti gli ordini senza filtri:', data.length);
         
-        // Se abbiamo ordini dopo il filtro, mostriamo quelli
-        // altrimenti mostreremo tutti gli ordini per evitare una pagina vuota
-        if (filteredOrders.length > 0) {
-          setOrders(filteredOrders);
-          
-          // Se abbiamo meno di 100 ordini nel primo caricamento, non ci sono altri ordini da caricare
-          if (filteredOrders.length < 100) {
-            setHasMoreOrders(false);
-          } else {
-            setHasMoreOrders(true);
-            setNextOrdersPage(2); // Resetta a pagina 2 per eventuali ulteriori caricamenti
-          }
+        // Conteggio per debug
+        const orderStates = data.reduce((acc: Record<string, number>, order: Order) => {
+          acc[order.status] = (acc[order.status] || 0) + 1;
+          return acc;
+        }, {});
+        console.log('Distribuzione stati ordini:', orderStates);
+        
+        setOrders(data);
+        
+        // Se abbiamo meno di 100 ordini nel primo caricamento, non ci sono altri ordini da caricare
+        if (data.length < 100) {
+          setHasMoreOrders(false);
         } else {
-          // Se tutti gli ordini sono scheduled-payment, mostriamo comunque tutti
-          // per evitare che la pagina ordini sia vuota
-          setOrders(data);
-          
-          // Se abbiamo meno di 100 ordini nel primo caricamento, non ci sono altri ordini da caricare
-          if (data.length < 100) {
-            setHasMoreOrders(false);
-          } else {
-            setHasMoreOrders(true);
-            setNextOrdersPage(2); // Resetta a pagina 2 per eventuali ulteriori caricamenti
-          }
+          setHasMoreOrders(true);
+          setNextOrdersPage(2); // Resetta a pagina 2 per eventuali ulteriori caricamenti
         }
       } catch (error) {
         console.error('Errore durante il caricamento degli ordini:', error);
