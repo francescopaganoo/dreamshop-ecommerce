@@ -8,7 +8,7 @@ import { useCart } from '@/context/CartContext';
 import { useState, useEffect } from 'react';
 import WishlistButton from '@/components/WishlistButton';
 import { motion } from 'framer-motion';
-import { FaShoppingCart, FaCreditCard, FaRegEye } from 'react-icons/fa';
+import { FaPlus } from 'react-icons/fa';
 
 interface ProductCardProps {
   product: Product;
@@ -128,29 +128,24 @@ export default function ProductCard({ product }: ProductCardProps) {
   return (
     <motion.div 
       id={`product-card-${product.id}`} 
-      className="bg-white rounded-2xl shadow-sm overflow-hidden flex flex-col h-full relative group border border-gray-100"
-      initial={{ opacity: 0, y: 20 }}
+      className="bg-white rounded-3xl shadow-sm flex flex-col h-full relative border border-gray-100 p-5"
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      whileHover={{ y: -5, boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 10px 10px -5px rgba(0, 0, 0, 0.03)' }}
+      whileHover={{ boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.05)' }}
     >
-      {/* Messaggio di conferma */}
+      {/* Messaggio di conferma - semplificato e meno invasivo */}
       {showMessage && (
         <motion.div 
-          className="absolute top-3 left-3 right-3 z-50 bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-xl shadow-lg"
-          initial={{ opacity: 0, y: -10 }}
+          className="absolute top-2 left-2 right-2 z-50 bg-green-50 text-green-800 px-3 py-2 rounded-xl"
+          initial={{ opacity: 0, y: -5 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
+          exit={{ opacity: 0 }}
         >
           <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <svg className="h-5 w-5 mr-2 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              <span className="text-sm font-medium">{message}</span>
-            </div>
+            <span className="text-xs font-medium">{message}</span>
             <button onClick={() => setShowMessage(false)} className="text-green-600 hover:text-green-800 focus:outline-none">
-              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+              <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
               </svg>
             </button>
@@ -158,116 +153,83 @@ export default function ProductCard({ product }: ProductCardProps) {
         </motion.div>
       )}
       
-      {/* Wishlist Button - migliorata con effetto di fade-in */}
-      <div className="absolute top-3 left-3 z-10 opacity-80 group-hover:opacity-100 transition-opacity">
-        <WishlistButton productId={product.id} />
-      </div>
-      
-      {/* Badge offerta riposizionato e migliorato */}
-      {product.sale_price && (
-        <div className="absolute top-3 right-3 z-10">
-          <div className="bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm transform group-hover:scale-110 transition-transform">
-            Offerta
-          </div>
-        </div>
-      )}
-      
-      {/* Badge acconto se disponibile - migliorato */}
-      <div className="absolute bottom-32 right-3 z-10">
-        <div className="bg-bred-500/20 text-bred-600 text-xs font-medium px-3 py-1 rounded-full flex items-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm backdrop-blur-sm">
-          <FaCreditCard className="mr-1" size={10} />
-          <span>Acconto 40%</span>
-        </div>
-      </div>
-      
-      {/* Quick view button che appare in hover - con overlay più leggero */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-transparent flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20 pointer-events-none">
-        <Link 
-          href={`/product/${product.slug}`}
-          className="bg-white/90 backdrop-blur-sm text-gray-800 hover:bg-bred-500 hover:text-white px-4 py-2 rounded-full flex items-center transition-colors duration-200 pointer-events-auto shadow-md"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <FaRegEye className="mr-2" />
-          Anteprima
-        </Link>
-      </div>
-      
-      {/* Immagine prodotto con hover effect migliorato */}
-      <Link href={`/product/${product.slug}`} className="block overflow-hidden">
-        <div className="relative h-60 w-full bg-gradient-to-b from-gray-50 to-white">
-          <div className="absolute inset-0 flex items-center justify-center p-6 group-hover:p-4 transition-all duration-300">
-            <Image
-              src={imageUrl}
-              alt={product.name}
-              fill
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              style={{ 
-                objectFit: 'contain',
-                transition: 'all 0.6s ease-in-out'
-              }}
-              className="group-hover:scale-110 transition-transform duration-500 group-hover:brightness-105"
-            />
-          </div>
+      {/* Immagine prodotto semplificata - stile minimalista */}
+      <Link href={`/product/${product.slug}`} className="block mb-5">
+        <div className="relative h-52 w-full transition-all duration-300">
+          <Image
+            src={imageUrl}
+            alt={product.name}
+            fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            style={{ objectFit: 'contain' }}
+            className="transition-transform duration-300 hover:scale-105"
+          />
         </div>
       </Link>
       
-      {/* Contenuto testuale e CTA */}
-      <div className="p-5 flex flex-col flex-grow">
-        <div className="flex-grow">
-          <Link href={`/product/${product.slug}`} className="block group">
-            <h3 className="text-lg font-medium text-gray-800 mb-2 line-clamp-2 group-hover:text-bred-500 transition-colors">{product.name}</h3>
-          </Link>
-          
-          {/* Prezzi con badge */}
-          <div className="flex items-center mb-4">
-            {product.sale_price ? (
-              <div className="flex items-center space-x-3">
-                {formatPrice(product.sale_price) && (
-                  <span className="text-xl font-bold text-red-600">
-                    {formatPrice(product.sale_price)}
-                  </span>
-                )}
-                {formatPrice(product.regular_price) && (
-                  <span className="text-sm line-through text-gray-400">
-                    {formatPrice(product.regular_price)}
-                  </span>
-                )}
-              </div>
-            ) : (
-              formatPrice(product.price || product.regular_price) && (
-                <span className="text-xl font-bold text-gray-900">
-                  {formatPrice(product.price || product.regular_price)}
+      {/* Contenuto testuale minimalista */}
+      <div className="flex flex-col flex-grow space-y-3">
+        <Link href={`/product/${product.slug}`} className="block">
+          <h3 className="text-xl font-medium text-gray-900 line-clamp-1">{product.name}</h3>
+        </Link>
+        
+        
+        {/* Prezzo semplificato */}
+        <div>
+          {product.sale_price ? (
+            <div className="flex items-center space-x-2">
+              {formatPrice(product.sale_price) && (
+                <span className="text-xl font-medium text-gray-900">
+                  {formatPrice(product.sale_price)}
                 </span>
-              )
-            )}
-          </div>
+              )}
+              {formatPrice(product.regular_price) && (
+                <span className="text-sm line-through text-gray-400">
+                  {formatPrice(product.regular_price)}
+                </span>
+              )}
+            </div>
+          ) : (
+            formatPrice(product.price || product.regular_price) && (
+              <span className="text-xl font-medium text-gray-900">
+                {formatPrice(product.price || product.regular_price)}
+              </span>
+            )
+          )}
         </div>
         
-        {/* Button migliorato con feedback visivo */}
+        {/* Spazio extra tra prezzo e pulsante */}
+        <div className="pt-2"></div>
+        
+        {/* Spazio vuoto per pushare il pulsante in basso */}
+        <div className="flex-grow"></div>
+        
+        {/* Button con colore originale e cursor-pointer */}
         <motion.button
           onClick={handleButtonClick}
           disabled={isAddingToCart}
-          className={`w-full py-3 rounded-lg font-medium flex items-center justify-center mt-auto transition-all duration-300 ${
-            isVariable 
-              ? 'bg-gray-50 border border-bred-500 text-bred-500 hover:bg-bred-500 hover:text-white' 
-              : isAddingToCart
-                ? 'bg-bred-500 text-white cursor-not-allowed'
-                : 'bg-bred-500 hover:bg-bred-600 text-white'
-          }`}
-          whileTap={{ scale: 0.97 }}
+          className={`w-full py-2.5 rounded-md font-medium flex items-center justify-center cursor-pointer transition-colors ${isVariable 
+            ? 'bg-white border border-bred-500 text-bred-500 hover:bg-bred-500 hover:text-white' 
+            : 'bg-bred-500 hover:bg-bred-600 text-white'}`}
+          whileTap={{ scale: 0.98 }}
         >
-          {isVariable ? (
-            <>
-              <FaRegEye className="mr-2" />
-              Seleziona Opzioni
-            </>
-          ) : (
-            <>
-              <FaShoppingCart className="mr-2" />
-              Aggiungi al Carrello
-            </>
-          )}
+          <FaPlus className="mr-2" size={12} />
+          {isVariable ? "Seleziona Opzioni" : "Aggiungi al Carrello"}
         </motion.button>
+        
+        {/* Wishlist Button riposizionato */}
+        <div className="absolute top-5 right-5">
+          <WishlistButton productId={product.id} />
+        </div>
+        
+        {/* Badge offerta - se necessario */}
+        {product.sale_price && (
+          <div className="absolute top-5 left-5">
+            <div className="bg-red-500 text-white text-xs font-medium px-2 py-1 rounded-md">
+              Offerta
+            </div>
+          </div>
+        )}
       </div>
     </motion.div>
   );
