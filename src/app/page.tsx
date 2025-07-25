@@ -1,7 +1,9 @@
-import { getProducts, getCategories, Product, Category } from "../lib/api";
-import ProductList from "../components/ProductList";
-import CategoryCarousel from "../components/CategoryCarousel";
+import { getProducts, getCategories, Product, Category } from "@/lib/api";
+import ProductList from "@/components/ProductList";
+import CategoryCarousel from "@/components/CategoryCarousel";
 import Link from "next/link";
+import Image from "next/image";
+import { FaSearch, FaShoppingCart, FaArrowRight, FaEnvelope, FaRegClock } from "react-icons/fa";
 
 // Configurazione per il rendering dinamico della pagina
 //export const dynamic = 'force-dynamic';
@@ -24,90 +26,207 @@ export default async function Home() {
   // Take only the first 6 categories for the homepage
 
   return (
-    <div className="min-h-screen flex flex-col">
-      
-      
-      {/* Hero Section */}
-      <section className="relative h-[500px] text-white">
-        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url('/images/hero-section.webp')" }}>
-          <div className="absolute inset-0 bg-black opacity-40"></div>
+    <div className="min-h-screen flex flex-col bg-white">
+      {/* Hero Section - Design Moderno */}
+      <section className="relative h-[80vh] text-white overflow-hidden">
+        <div className="absolute inset-0 bg-cover bg-center transform hover:scale-105 transition-transform duration-700" style={{ backgroundImage: "url('/images/hero-section.webp')" }}>
+          <div className="absolute inset-0 bg-gradient-to-r from-black via-black/70 to-transparent"></div>
         </div>
-        <div className="relative container mx-auto px-4 h-full flex flex-col justify-center z-10">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">Benvenuti su DreamShop</h1>
-          <p className="text-xl md:text-2xl mb-8 max-w-2xl">Scopri la nostra collezione esclusiva di statue, figure e trading card di anime e manga</p>
-          <Link 
-            href="/categories" 
-            className="bg-bred-500 text-white hover:bg-bred-700 px-6 py-3 rounded-md font-medium inline-block w-max transition-colors duration-300"
-          >
-            Scopri il Catalogo
-          </Link>
+        <div className="relative container mx-auto px-6 h-full flex flex-col justify-center z-10">
+          <div className="max-w-2xl transform transition-all duration-700 translate-y-0 hover:translate-y-[-10px]">
+            <span className="bg-bred-600 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-6 animate-pulse">Collezione 2025</span>
+            <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">Benvenuti su <span className="text-bred-500">DreamShop</span></h1>
+            <p className="text-xl md:text-2xl mb-8 max-w-xl text-gray-200 leading-relaxed">Scopri la nostra collezione esclusiva di statue, figure e trading card di anime e manga</p>
+            <div className="flex flex-wrap gap-4">
+              <Link 
+                href="/categories" 
+                className="group bg-bred-500 text-white hover:bg-bred-600 px-8 py-4 rounded-md font-medium inline-flex items-center transition-all duration-300 hover:shadow-lg hover:translate-y-[-2px]"
+              >
+                Scopri il Catalogo
+                <FaArrowRight className="ml-2 group-hover:translate-x-1 transition-transform" />
+              </Link>
+              <Link 
+                href="/products" 
+                className="group bg-transparent border-2 border-white text-white hover:bg-white/10 px-8 py-4 rounded-md font-medium inline-flex items-center transition-all duration-300"
+              >
+                Offerte Speciali
+              </Link>
+            </div>
+          </div>
         </div>
+        
+        {/* Decorazioni aggiuntive */}
+        <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-white to-transparent"></div>
       </section>
 
-            <section className="relative h-[400px]  flex items-center justify-center p-4">
-              <div className="container">
-                <CategoryCarousel categories={categories} />
+      {/* Features Section */}
+      <section className="py-12 bg-white">
+        <div className="container mx-auto px-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="bg-gray-50 rounded-xl p-6 shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1">
+              <div className="w-12 h-12 bg-bred-500/10 rounded-full flex items-center justify-center mb-4">
+                <FaShoppingCart className="text-bred-500 text-xl" />
               </div>
-            </section>
-
-            {/* New Arrivals Divider */}
-            <section className="container mx-auto relative h-[300px] inset-0 bg-contain bg-center bg-no-repeat" 
-              style={{ backgroundImage: "url('/images/nuovi-arrivi.webp')" }}>
-            </section>
-
-      {/* Featured Products */}
-      <section className="py-12 bg-gray-50">
-        <div className="container mx-auto px-4">          
-          <ProductList products={products} />
+              <h3 className="font-bold text-xl mb-3">Pagamento Rateale</h3>
+              <p className="text-gray-600">Possibilità di acquistare con acconto del 40% e rate mensili</p>
+            </div>
+            <div className="bg-gray-50 rounded-xl p-6 shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1">
+              <div className="w-12 h-12 bg-bred-500/10 rounded-full flex items-center justify-center mb-4">
+                <FaRegClock className="text-bred-500 text-xl" />
+              </div>
+              <h3 className="font-bold text-xl mb-3">Consegna Rapida</h3>
+              <p className="text-gray-600">Spedizione veloce e tracciabile su tutti i prodotti</p>
+            </div>
+            <div className="bg-gray-50 rounded-xl p-6 shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1">
+              <div className="w-12 h-12 bg-bred-500/10 rounded-full flex items-center justify-center mb-4">
+                <FaSearch className="text-bred-500 text-xl" />
+              </div>
+              <h3 className="font-bold text-xl mb-3">Prodotti Esclusivi</h3>
+              <p className="text-gray-600">Articoli selezionati e importati direttamente dal Giappone</p>
+            </div>
+          </div>
         </div>
       </section>
-
-      {/* New Arrivals Divider */}
-
-      <section className="container mx-auto relative h-[300px] inset-0 bg-contain bg-center bg-no-repeat" 
-         style={{ backgroundImage: "url('/images/nuovi-arrivi.webp')" }}>
-      </section>
-
-      {/* Categories Section */}
-      <section className="py-12 bg-gray-50">
-        <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold mb-8 text-center text-gray-900">Sfoglia per Categoria</h2>
-          
-          <CategoryCarousel categories={categories} />
-          
-          <div className="text-center mt-8">
+      
+      {/* Categories Carousel - Design Moderno */}
+      <section className="py-16 bg-gradient-to-b from-white to-gray-50">
+        <div className="container mx-auto px-6">
+          <div className="flex justify-between items-center mb-10">
+            <div>
+              <span className="text-bred-500 font-medium">ESPLORA</span>
+              <h2 className="text-3xl md:text-4xl font-bangers text-gray-900">Le Nostre Categorie</h2>
+            </div>
             <Link 
               href="/categories" 
-              className="inline-block bg-bred-500 text-white px-6 py-3 rounded-md font-medium hover:bg-bred-700 transition-colors"
+              className="hidden md:flex items-center text-bred-500 hover:text-bred-700 font-medium transition-colors"
             >
-              Tutte le Categorie
+              Vedi tutte <FaArrowRight className="ml-2" />
+            </Link>
+          </div>
+          <div className="-mx-4 overflow-hidden">
+            <div className="px-4">
+              <CategoryCarousel categories={categories} />
+            </div>
+          </div>
+          <div className="mt-8 text-center md:hidden">
+            <Link 
+              href="/categories" 
+              className="inline-flex items-center text-bred-500 hover:text-bred-700 font-medium transition-colors"
+            >
+              Vedi tutte le categorie <FaArrowRight className="ml-2" />
             </Link>
           </div>
         </div>
       </section>
 
-      {/* Newsletter Section */}
-      <section className="py-12 bg-gray-100">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-3xl font-bold mb-4 text-gray-900">Resta Aggiornato</h2>
-          <p className="text-gray-600 mb-6 max-w-2xl mx-auto">Iscriviti alla nostra newsletter per ricevere aggiornamenti su nuovi prodotti, offerte speciali e molto altro.</p>
+      {/* Featured Products - Design Moderno */}
+      <section className="py-16 bg-gray-50">
+        <div className="container mx-auto px-6">
+          <div className="text-center mb-12">
+            <span className="bg-bred-500/10 text-bred-500 px-4 py-1 rounded-full text-sm font-medium inline-block mb-3">IN EVIDENZA</span>
+            <h2 className="text-3xl md:text-4xl font-bangers text-gray-900">I Più Popolari</h2>
+            <p className="text-gray-600 mt-3 max-w-2xl mx-auto">Scopri i prodotti più amati dalla nostra community di appassionati</p>
+          </div>
           
-          <form className="max-w-md mx-auto flex">
-            <input 
-              type="email" 
-              placeholder="Il tuo indirizzo email" 
-              className="flex-grow px-4 py-3 rounded-l-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-bred-500"
-              required
-            />
-            <button 
-              type="submit" 
-              className="bg-bred-500 text-white px-6 py-3 rounded-r-md font-medium hover:bg-bred-700 transition-colors"
+          <div className="relative">
+            {/* Decorative elements */}
+            <div className="absolute -top-6 -left-6 w-12 h-12 bg-bred-500/5 rounded-full hidden md:block"></div>
+            <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-bred-500/5 rounded-full hidden md:block"></div>
+            
+            <ProductList products={products} />
+          </div>
+          
+          <div className="text-center mt-12">
+            <Link 
+              href="/products" 
+              className="inline-flex items-center bg-bred-500 text-white hover:bg-bred-600 px-8 py-3 rounded-md font-medium transition-colors shadow-md hover:shadow-lg"
             >
-              Iscriviti
-            </button>
-          </form>
+              Visualizza Altri Prodotti <FaArrowRight className="ml-2" />
+            </Link>
+          </div>
         </div>
       </section>
+
+      {/* New Arrivals Banner */}
+      <section className="py-16 bg-white">
+        <div className="container mx-auto px-6">
+          <div className="relative overflow-hidden rounded-2xl bg-gray-900">
+            <div className="absolute inset-0 bg-cover bg-center opacity-70" style={{ backgroundImage: "url('/images/nuovi-arrivi.webp')" }}></div>
+            <div className="relative z-10 flex flex-col md:flex-row items-center justify-between p-10 md:p-16">
+              <div className="text-center md:text-left mb-8 md:mb-0">
+                <span className="bg-white/20 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-4">APPENA ARRIVATI</span>
+                <h2 className="text-3xl md:text-5xl font-bold text-white mb-4">Nuovi Arrivi</h2>
+                <p className="text-white/80 max-w-md">Scopri le ultime novità aggiunte al nostro catalogo, direttamente dal Giappone</p>
+              </div>
+              <Link 
+                href="/new-arrivals" 
+                className="bg-white text-gray-900 hover:bg-gray-100 px-8 py-4 rounded-md font-bold inline-block transition-all duration-300 transform hover:scale-105"
+              >
+                Scopri Ora
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Newsletter Section - Design Moderno */}
+      <section className="py-20 bg-gradient-to-b from-white to-gray-50">
+        <div className="container mx-auto px-6">
+          <div className="bg-white rounded-2xl shadow-xl p-8 md:p-12">
+            <div className="flex flex-col md:flex-row items-center justify-between">
+              <div className="mb-8 md:mb-0 md:max-w-md text-center md:text-left">
+                <span className="text-bred-500 font-medium">NEWSLETTER</span>
+                <h2 className="text-3xl font-bold mb-4 text-gray-900">Resta Aggiornato</h2>
+                <p className="text-gray-600">Iscriviti per ricevere aggiornamenti su nuovi prodotti, offerte speciali e contenuti esclusivi</p>
+              </div>
+              
+              <form className="flex flex-col sm:flex-row w-full md:w-auto gap-3 max-w-md">
+                <div className="relative flex-grow">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <FaEnvelope className="text-gray-400" />
+                  </div>
+                  <input 
+                    type="email" 
+                    placeholder="Il tuo indirizzo email" 
+                    className="w-full pl-10 pr-4 py-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-bred-500 focus:border-bred-500"
+                    required
+                  />
+                </div>
+                <button 
+                  type="submit" 
+                  className="bg-bred-500 text-white hover:bg-bred-600 px-6 py-3 rounded-md font-medium transition-colors shadow-sm hover:shadow-md"
+                >
+                  Iscriviti
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </section>
+      
+      {/* Instagram-style Gallery 
+      <section className="py-16 bg-gray-50">
+        <div className="container mx-auto px-6">
+          <div className="text-center mb-10">
+            <h2 className="text-3xl font-bold text-gray-900">#DreamShopCommunity</h2>
+            <p className="text-gray-600 mt-3">Condividi le tue foto con l'hashtag #DreamShopCommunity</p>
+          </div>
+          
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map((num) => (
+              <div key={num} className="relative aspect-square overflow-hidden rounded-lg group">
+                <div className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110" 
+                  style={{ backgroundImage: `url('/images/gallery-${num}.jpg')` }}>
+                </div>
+                <div className="absolute inset-0 bg-black opacity-0 group-hover:opacity-30 transition-opacity duration-300"></div>
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                  <span className="text-white font-medium">@user{num}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>*/}
 
     </div>
   );

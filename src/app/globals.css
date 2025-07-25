@@ -13,14 +13,13 @@
   --color-bred-100: #f3dfde;
   --color-bred-500: #A01710;
   --color-bred-700: #ae0b02;
+  --font-bangers: var(--font-bangers);
 }
 
 @media (prefers-color-scheme: lite) {
   :root {
     --background: #fbf9fa;
     --foreground: #ededed;
-    
-
   }
 }
 

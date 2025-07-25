@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Bangers } from 'next/font/google'
+
 import "./globals.css";
 import ClientProviders from "../components/ClientProviders";
 import Header from "../components/Header";
@@ -15,6 +17,12 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const bangers = Bangers({
+  weight: '400',
+  subsets: ['latin'],
+  variable: '--font-bangers',
+})
+
 export const metadata: Metadata = {
   title: "WooCommerce Headless Store",
   description: "E-commerce store powered by Next.js and WooCommerce",
@@ -28,7 +36,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${bangers.variable} antialiased`}
       >
         <ClientProviders>
           <div className="flex flex-col min-h-screen">
