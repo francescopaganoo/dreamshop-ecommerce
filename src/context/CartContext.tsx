@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Product, Coupon, verifyCoupon, applyCoupon } from '@/lib/api';
 import { getUserPoints } from '@/lib/points';
-import { getDepositInfo } from '@/lib/deposits';
+import { getDepositInfo, ProductWithDeposit } from '@/lib/deposits';
 
 export interface CartItem {
   product: Product;
@@ -419,7 +419,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const getCartTotal = () => {
     const subtotal = cart.reduce((total, item) => {
       // Controlla se il prodotto ha l'acconto attivato
-      const depositInfo = getDepositInfo(item.product);
+      const depositInfo = getDepositInfo(item.product as unknown as ProductWithDeposit);
       const isDeposit = depositInfo.hasDeposit;
       
       let itemPrice = parseFloat(item.product.price || item.product.regular_price || '0');

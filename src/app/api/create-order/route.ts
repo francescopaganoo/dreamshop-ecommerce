@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createOrder } from '../../../lib/api';
+import { createOrder } from '@/lib/api';
 
 export async function POST(request: NextRequest) {
   try {
@@ -49,8 +49,15 @@ export async function POST(request: NextRequest) {
     console.log('Debug cartItems:', cartItems);
     
     const line_items = cartItems.map((item: CartItem) => {
+      // Definizione dell'interfaccia per lineItem
+      interface LineItem {
+        product_id: number;
+        quantity: number;
+        meta_data?: Array<{key: string; value: string}>;
+      }
+      
       // Oggetto base dell'articolo
-      const lineItem: any = {
+      const lineItem: LineItem = {
         product_id: item.product.id,
         quantity: item.quantity
       };

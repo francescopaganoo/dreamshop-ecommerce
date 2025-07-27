@@ -1,12 +1,12 @@
 'use client';
 
-import { useCart } from '../../context/CartContext';
+import { useCart } from '@/context/CartContext';
 import Image from 'next/image';
 import Link from 'next/link';
-import { formatPrice } from '../../lib/utils';
+// import { formatPrice } from '@/lib/utils';
 import { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { getDepositInfo } from '../../lib/deposits';
+import { useAuth } from '@/context/AuthContext';
+import { getDepositInfo, ProductWithDeposit } from '@/lib/deposits';
 
 // Interfaccia per gli errori di stock
 interface StockIssue {
@@ -78,10 +78,7 @@ export default function CartPage() {
     return `€${price.toFixed(2)}`;
   };
   
-  // Ottiene lo slug del prodotto per i link
-  const getProductSlug = (product: any) => {
-    return product.slug || `product-${product.id}`;
-  };
+  // La funzione getProductSlug e l'interfaccia correlata sono state rimosse perché non utilizzate
   
   // Carica i punti dell'utente quando la pagina viene caricata
   useEffect(() => {
@@ -356,7 +353,7 @@ export default function CartPage() {
                         console.log('Visualizzazione prodotto nel carrello:', item.product);
                         
                         // Otteniamo tutte le informazioni sull'acconto dal prodotto
-                        const depositInfo = getDepositInfo(item.product);
+                        const depositInfo = getDepositInfo(item.product as unknown as ProductWithDeposit);
                         const isDeposit = depositInfo.hasDeposit;
                         
                         console.log('Info acconto estratte:', depositInfo);
@@ -364,7 +361,7 @@ export default function CartPage() {
                         // Calcola il prezzo in base ai metadati dell'acconto
                         let itemPrice = parseFloat(item.product.price || item.product.regular_price || '0');
                         let priceLabel = '';
-                        let fullPrice = itemPrice; // Memorizziamo il prezzo pieno
+                        // const fullPrice = itemPrice; // Non utilizzato
                         
                         console.log(`Prodotto ${item.product.name} - prezzo originale:`, itemPrice);
                         

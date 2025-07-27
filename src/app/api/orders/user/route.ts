@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import api from '../../../../lib/woocommerce';
+import api from '@/lib/woocommerce';
 import jwt from 'jsonwebtoken';
 
 // Chiave segreta per verificare i token JWT (in produzione, usare una variabile d'ambiente)
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
         let orders = Array.isArray(response.data) ? response.data : [];
         
         // Controlliamo se abbiamo solo ordini scheduled-payment
-        const initialOrderStatuses = orders.map((order: any) => order.status);
+        const initialOrderStatuses = orders.map((order: WooOrder) => order.status);
         const initialUniqueStatuses = [...new Set(initialOrderStatuses)];
         
         // Se abbiamo SOLO ordini scheduled-payment, proviamo a recuperare anche altri tipi
@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
             if (regularOrders.length > 0) {
               orders = [...regularOrders, ...orders];
             }
-          } catch (regularError) {
+          } catch {
             // Fallback silenzioso in caso di errore
           }
         }

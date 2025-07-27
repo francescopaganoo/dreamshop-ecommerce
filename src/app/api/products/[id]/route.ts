@@ -3,11 +3,11 @@ import { getAuthToken } from '@/lib/auth';
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Ottieni l'ID del prodotto dai parametri dell'URL - deve essere await in Next.js 14
-    const resolvedParams = await Promise.resolve(params);
+    const resolvedParams = await params;
     const productId = resolvedParams.id;
     
     if (!productId) {

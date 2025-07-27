@@ -2,7 +2,6 @@ import { getProducts, getCategories, Product, Category } from "@/lib/api";
 import ProductList from "@/components/ProductList";
 import CategoryCarousel from "@/components/CategoryCarousel";
 import Link from "next/link";
-import Image from "next/image";
 import { FaSearch, FaShoppingCart, FaArrowRight, FaEnvelope, FaRegClock } from "react-icons/fa";
 
 // Configurazione per il rendering dinamico della pagina
@@ -151,9 +150,9 @@ export default async function Home() {
       <section className="py-16 bg-white">
         <div className="container mx-auto px-6">
           <div className="relative overflow-hidden rounded-2xl bg-gray-900">
-            <div className="absolute inset-0 bg-cover bg-center opacity-70" style={{ backgroundImage: "url('/images/nuovi-arrivi.webp')" }}></div>
+            <div className="absolute inset-0 bg-cover bg-center opacity-70" style={{ backgroundImage: "url('/images/nuovi-arrivi-3.jpeg')" }}></div>
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between p-10 md:p-16">
-              <div className="text-center md:text-left mb-8 md:mb-0">
+              <div className="text-center md:text-left ml-36 mb-8 md:mb-0">
                 <span className="bg-white/20 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-4">APPENA ARRIVATI</span>
                 <h2 className="text-3xl md:text-5xl font-bold text-white mb-4">Nuovi Arrivi</h2>
                 <p className="text-white/80 max-w-md">Scopri le ultime novità aggiunte al nostro catalogo, direttamente dal Giappone</p>

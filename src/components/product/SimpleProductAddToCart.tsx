@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Product } from '@/lib/api';
 import { useCart } from '@/context/CartContext';
 import ProductDepositOptionsComponent from '@/components/product/ProductDepositOptions';
-import { addToCartWithDeposit, getDepositMetadata } from '@/lib/deposits';
+import { getDepositMetadata } from '@/lib/deposits';
 
 interface SimpleProductAddToCartProps {
   product: Product;

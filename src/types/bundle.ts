@@ -1,7 +1,6 @@
 import { Product } from '@/lib/api';
 
-// Definizione dei tipi personalizzati per sostituzione degli 'any'
-type MetaValue = string | number | boolean | object | null;
+// Importare i tipi necessari
 
 interface BundleData {
   pricing_type?: string;
@@ -47,11 +46,8 @@ export interface BundleMetadata {
 }
 
 // Estensione dell'interfaccia Product per includere i campi dei bundle
+// Nota: non ridefiniremo meta_data per mantenere la compatibilità con Product
 export interface BundleProduct extends Product {
-  meta_data?: Array<{
-    key: string;
-    value: MetaValue;
-  }>;
   // Campi che potrebbero essere direttamente nell'oggetto prodotto
   woosb_ids?: string;
   woosb_products?: BundleItems;

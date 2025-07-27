@@ -35,7 +35,7 @@ function AccountContent() {
   // Stati per gli ordini
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(true);
-  const [ordersError, setOrdersError] = useState<string | null>(null);
+  // const [ordersError, setOrdersError] = useState<string | null>(null); // Commentato perché non utilizzato
   const [nextOrdersPage, setNextOrdersPage] = useState(2); // Pagina successiva da caricare
   const [hasMoreOrders, setHasMoreOrders] = useState(true); // Indica se ci sono altre pagine
   const [ordersCurrentPage, setOrdersCurrentPage] = useState(1);

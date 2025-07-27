@@ -80,7 +80,7 @@ export async function POST(request: Request) {
         const errorText = await response.text();
         console.error('Errore dal server WordPress:', response.status, errorText);
         errorMessage = `Errore dal server WordPress: ${response.status} - ${errorText}`;
-      } catch (e) {
+      } catch {
         console.error('Errore nel leggere la risposta di errore');
       }
       

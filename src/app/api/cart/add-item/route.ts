@@ -47,8 +47,14 @@ export async function POST(request: Request) {
       console.log('Cookie recuperati dalla richiesta originale');
     }
     
+    // Interfaccia per i metadati
+    interface MetaData {
+      key: string;
+      value: string;
+    }
+    
     // Salva eventuali metadati per il post-processing
-    const hasDepositMeta = cartItemData.meta_data?.some((meta: any) => 
+    const hasDepositMeta = cartItemData.meta_data?.some((meta: MetaData) => 
       meta.key === '_wc_convert_to_deposit' && meta.value === 'yes'
     );
     
@@ -71,7 +77,7 @@ export async function POST(request: Request) {
         const errorText = await response.text();
         console.error('Errore dal server WordPress:', response.status, errorText);
         errorMessage = `Errore dal server WordPress: ${response.status} - ${errorText}`;
-      } catch (e) {
+      } catch {
         console.error('Errore nel leggere la risposta di errore');
       }
       

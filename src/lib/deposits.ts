@@ -293,7 +293,20 @@ export const getDepositMetadata = (
  * @param product - Il prodotto da cui estrarre le informazioni
  * @returns Un oggetto con le informazioni sull'acconto
  */
-export function getDepositInfo(product: any) {
+// Define a ProductWithDeposit type for proper typing
+export interface ProductWithDeposit {
+  _wc_convert_to_deposit?: string;
+  _wc_deposit_type?: string;
+  _wc_deposit_amount?: string;
+  _deposit_payment_plan?: string;
+  meta_data?: Array<{
+    key: string;
+    value: string | number;
+  }>;
+  [key: string]: string | number | boolean | Array<{key: string; value: string | number}> | undefined; // For other potential properties
+}
+
+export function getDepositInfo(product: ProductWithDeposit) {
   let hasDeposit = false;
   let depositAmount = 40; // Valore predefinito
   let depositType = 'percent';
@@ -325,32 +338,32 @@ export function getDepositInfo(product: any) {
     console.log('Meta_data disponibili:', product.meta_data);
     
     // Cerca _wc_convert_to_deposit
-    const convertToDeposit = product.meta_data.find((meta: any) => meta.key === '_wc_convert_to_deposit');
+    const convertToDeposit = product.meta_data.find((meta: {key: string; value: string | number}) => meta.key === '_wc_convert_to_deposit');
     console.log('_wc_convert_to_deposit trovato:', convertToDeposit);
     
-    if (convertToDeposit?.value === 'yes') {
+    if (convertToDeposit && String(convertToDeposit.value) === 'yes') {
       hasDeposit = true;
       
       // Cerca il tipo di acconto
-      const depositTypeObj = product.meta_data.find((meta: any) => meta.key === '_wc_deposit_type');
+      const depositTypeObj = product.meta_data.find((meta: {key: string; value: string | number}) => meta.key === '_wc_deposit_type');
       console.log('_wc_deposit_type trovato:', depositTypeObj);
       if (depositTypeObj && depositTypeObj.value) {
-        depositType = depositTypeObj.value;
+        depositType = String(depositTypeObj.value);
       }
       
       // Cerca l'importo dell'acconto
-      const depositAmountObj = product.meta_data.find((meta: any) => meta.key === '_wc_deposit_amount');
+      const depositAmountObj = product.meta_data.find((meta: {key: string; value: string | number}) => meta.key === '_wc_deposit_amount');
       console.log('_wc_deposit_amount trovato:', depositAmountObj);
       if (depositAmountObj && depositAmountObj.value) {
-        const parsedAmount = parseInt(depositAmountObj.value, 10);
+        const parsedAmount = parseInt(String(depositAmountObj.value), 10);
         depositAmount = !isNaN(parsedAmount) ? parsedAmount : 40; // Default a 40 se NaN
         console.log('Importo acconto convertito in numero:', depositAmount);
       }
       
       // Cerca l'ID del piano di pagamento nei metadati
-      const planIdObj = product.meta_data.find((meta: any) => meta.key === '_deposit_payment_plan');
+      const planIdObj = product.meta_data.find((meta: {key: string; value: string | number}) => meta.key === '_deposit_payment_plan');
       if (planIdObj && planIdObj.value) {
-        paymentPlanId = planIdObj.value;
+        paymentPlanId = String(planIdObj.value);
         console.log('ID piano pagamento trovato nei metadati:', paymentPlanId);
       }
     }
@@ -398,9 +411,7 @@ export function getDepositInfo(product: any) {
  */
 export const addToCartWithDeposit = async (
   productId: number, 
-  enableDeposit: 'yes' | 'no' = 'yes', 
-  quantity: number = 1, 
-  variationId?: number
+  enableDeposit: 'yes' | 'no' = 'yes'
 ): Promise<AddToCartWithDepositResult> => {
   try {
     // Questo oggetto verrà restituito per compatibilità con il codice esistente
