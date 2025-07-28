@@ -19,6 +19,20 @@ interface ShippingLine {
 
 // LineItem rimosso perché non utilizzato
 
+// Interfacce per i tipi degli elementi
+interface MetaData {
+  key: string;
+  value: string;
+}
+
+interface LineItemInput {
+  product_id?: number;
+  id?: number;
+  quantity: number;
+  variation_id?: number;
+  meta_data?: MetaData[];
+}
+
 // Questa interfaccia locale deve essere compatibile con quella in lib/api.ts
 interface OrderData {
   payment_method: string;
@@ -92,13 +106,13 @@ export async function POST(request: NextRequest) {
     // Log specifico per i line_items e i loro metadati
     if (data.line_items) {
       console.log('iOS - Dettaglio line_items ricevuti:');
-      data.line_items.forEach((item: any, index: number) => {
+      data.line_items.forEach((item: LineItemInput, index: number) => {
         console.log(`iOS - Item ${index}:`, {
           product_id: item.product_id || item.id,
           quantity: item.quantity,
           variation_id: item.variation_id,
           meta_data: item.meta_data,
-          hasDepositMeta: item.meta_data && item.meta_data.some((meta: any) => meta.key === '_wc_convert_to_deposit')
+          hasDepositMeta: item.meta_data && item.meta_data.some((meta: MetaData) => meta.key === '_wc_convert_to_deposit')
         });
       });
     }
@@ -164,7 +178,7 @@ export async function POST(request: NextRequest) {
     // Crea un ordine in WooCommerce già come pagato (set_paid: true)
     // Assicurati che i line_items abbiano tutti i metadati necessari
     // Se non hanno meta_data, usali così come sono, altrimenti preservali
-    const processedLineItems = line_items.map((item: any) => ({
+    const processedLineItems = line_items.map((item: LineItemInput) => ({
       product_id: item.product_id || item.id,
       quantity: item.quantity,
       variation_id: item.variation_id || undefined,
@@ -174,11 +188,11 @@ export async function POST(request: NextRequest) {
     console.log('iOS - Line items processati:', JSON.stringify(processedLineItems, null, 2));
     
     // Log specifico per verificare che i metadati degli acconti siano stati preservati
-    processedLineItems.forEach((item: any, index: number) => {
-      const hasDepositMeta = item.meta_data && item.meta_data.some((meta: any) => meta.key === '_wc_convert_to_deposit');
+    processedLineItems.forEach((item: { product_id?: number; quantity: number; variation_id?: number; meta_data?: MetaData[] }, index: number) => {
+      const hasDepositMeta = item.meta_data && item.meta_data.some((meta: MetaData) => meta.key === '_wc_convert_to_deposit');
       if (hasDepositMeta) {
         console.log(`iOS - ACCONTO RILEVATO nell'item ${index} (product_id: ${item.product_id}):`, {
-          meta_data: item.meta_data.filter((meta: any) => meta.key.includes('deposit') || meta.key.includes('_wc_'))
+          meta_data: item.meta_data?.filter((meta: MetaData) => meta.key.includes('deposit') || meta.key.includes('_wc_')) || []
         });
       }
     });
@@ -248,8 +262,6 @@ export async function POST(request: NextRequest) {
     try {
       console.log('iOS - Tentativo di attivazione manuale del plugin deposits...');
       
-      const wcConsumerKey = process.env.WC_CONSUMER_KEY || '';
-      const wcConsumerSecret = process.env.WC_CONSUMER_SECRET || '';
       const wordpressUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL || 'https://be.dreamshop18.com/';
       const baseUrl = wordpressUrl.endsWith('/') ? wordpressUrl : `${wordpressUrl}/`;
       
