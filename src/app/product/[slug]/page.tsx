@@ -73,7 +73,7 @@ async function ProductDetails({ slug }: { slug: string }) {
             <>
               <li>
                 <Link 
-                  href={`/category/${product.categories[0].id}`} 
+                  href={`/category/${product.categories[0].slug}`} 
                   className="text-gray-500 hover:text-bred-500"
                 >
                   {product.categories[0].name}

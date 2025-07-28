@@ -55,7 +55,7 @@ export default async function CategoriesPage() {
               {categories.map((category: Category, index: number) => (
                 <Link 
                   key={category.id} 
-                  href={`/category/${category.id}`}
+                  href={`/category/${category.slug}`}
                   className="group relative h-80 bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 border border-gray-100"
                   style={{ animationDelay: `${index * 100}ms` }}
                 >

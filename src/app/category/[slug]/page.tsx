@@ -1,4 +1,4 @@
-import { getProductsByCategory, getCategories, Product, Category } from '../../../lib/api';
+import { getProductsByCategorySlug, getCategoryBySlug, Product } from '../../../lib/api';
 import ProductCard from '../../../components/ProductCard';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -10,19 +10,18 @@ import Link from 'next/link';
 export async function generateMetadata({ params }: any) {
   // Attendi i params prima di utilizzarli
   const resolvedParams = await Promise.resolve(params);
-  const categoryId = parseInt(resolvedParams.id, 10);
-  const categories = await getCategories();
-  const category = categories.find((cat: Category) => cat.id === categoryId);
+  const categorySlug = resolvedParams.slug;
+  const category = await getCategoryBySlug(categorySlug);
   
   if (!category) {
     return {
-      title: 'Category Not Found',
+      title: 'Categoria Non Trovata - DreamShop',
     };
   }
   
   return {
-    title: `${category.name} - WooStore`,
-    description: `Browse our collection of ${category.name} products.`,
+    title: `${category.name} - DreamShop`,
+    description: `Esplora la nostra collezione di prodotti ${category.name}.`,
   };
 }
 
@@ -32,20 +31,19 @@ export default async function CategoryPage({ params, searchParams }: any) {
   const resolvedParams = await Promise.resolve(params);
   const resolvedSearchParams = await Promise.resolve(searchParams);
   
-  const categoryId = parseInt(resolvedParams.id, 10);
+  const categorySlug = resolvedParams.slug;
   const page = typeof resolvedSearchParams?.page === 'string' ? parseInt(resolvedSearchParams.page, 10) : 1;
   const perPage = 12;
   
-  // Fetch products for this category
-  const products = await getProductsByCategory(categoryId, page, perPage);
-  
-  // Fetch all categories to get the current category name
-  const categories = await getCategories();
-  const category = categories.find((cat: Category) => cat.id === categoryId);
+  // Fetch category by slug
+  const category = await getCategoryBySlug(categorySlug);
   
   if (!category) {
     notFound();
   }
+  
+  // Fetch products for this category
+  const products = await getProductsByCategorySlug(categorySlug, page, perPage);
   
   return (
     <div className="min-h-screen flex flex-col">
@@ -56,11 +54,11 @@ export default async function CategoryPage({ params, searchParams }: any) {
           <nav className="mb-8 text-sm">
             <ol className="flex items-center space-x-2">
               <li>
-                <Link href="/" className="text-blue-600 hover:underline">Home</Link>
+                <Link href="/" className="text-bred-600 hover:underline">Home</Link>
               </li>
               <li className="flex items-center space-x-2">
                 <span className="text-gray-500">/</span>
-                <Link href="/categories" className="text-blue-600 hover:underline">Categories</Link>
+                <Link href="/categories" className="text-bred-600 hover:underline">Categorie</Link>
               </li>
               <li className="flex items-center space-x-2">
                 <span className="text-gray-500">/</span>
@@ -71,9 +69,9 @@ export default async function CategoryPage({ params, searchParams }: any) {
           
           {/* Category Header */}
           <div className="mb-8 text-center">
-            <h1 className="text-3xl font-bold mb-2">{category.name}</h1>
+            <h1 className="text-3xl font-bold mb-2 text-gray-900">{category.name}</h1>
             <p className="text-gray-600">
-              {category.count} {category.count === 1 ? 'product' : 'products'} available
+              {category.count} {category.count === 1 ? 'prodotto disponibile' : 'prodotti disponibili'}
             </p>
           </div>
           
@@ -86,7 +84,7 @@ export default async function CategoryPage({ params, searchParams }: any) {
             </div>
           ) : (
             <div className="text-center py-12">
-              <p className="text-gray-500">No products found in this category.</p>
+              <p className="text-gray-500">Nessun prodotto trovato in questa categoria.</p>
             </div>
           )}
           
@@ -95,19 +93,19 @@ export default async function CategoryPage({ params, searchParams }: any) {
             <div className="flex space-x-2">
               {page > 1 && (
                 <Link 
-                  href={`/category/${categoryId}?page=${page - 1}`}
+                  href={`/category/${categorySlug}?page=${page - 1}`}
                   className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100"
                 >
-                  Previous
+                  Precedente
                 </Link>
               )}
               
               {products.length === perPage && (
                 <Link 
-                  href={`/category/${categoryId}?page=${page + 1}`}
+                  href={`/category/${categorySlug}?page=${page + 1}`}
                   className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100"
                 >
-                  Next
+                  Successivo
                 </Link>
               )}
             </div>

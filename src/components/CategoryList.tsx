@@ -16,7 +16,7 @@ export default function CategoryList({ categories }: CategoryListProps) {
           {categories.map((category: Category) => (
             <Link 
               key={category.id} 
-              href={`/category/${category.id}`}
+              href={`/category/${category.slug}`}
               className="group relative h-48 bg-gray-200 rounded-lg overflow-hidden"
             >
               {category.image ? (

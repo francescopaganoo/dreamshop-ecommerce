@@ -282,7 +282,7 @@ export default async function Home() {
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between p-6 md:p-16 h-full">
               <div className="text-center md:text-left w-full md:w-auto mb-6 md:mb-0">
                 <span className="bg-white/20 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-4"> S.H.FIGUARTS</span>
-                <h2 className="text-2xl md:text-3xl lg:text-5xl font-bold text-white mb-4 leading-tight">La massima espressione dell'articolazione e del dettaglio</h2>
+                <h2 className="text-2xl md:text-3xl lg:text-5xl font-bold text-white mb-4 leading-tight">La massima espressione dell&apos;articolazione e del dettaglio</h2>
                 <p className="text-white/80 max-w-md mx-auto md:mx-0 text-sm md:text-base"></p>
               </div>
             </div>
@@ -321,7 +321,7 @@ export default async function Home() {
               <div className="text-center md:text-left w-full md:w-auto mb-6 md:mb-0">
                 <span className="bg-white/20 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-4">Shonen Jump & Gadget</span>
                 <h2 className="text-2xl md:text-3xl lg:text-5xl font-bold text-white mb-4 leading-tight">Shonen Jump & Gadget</h2>
-                <p className="text-white/80 max-w-md mx-auto md:mx-0 text-sm md:text-base">Il meglio dell'editoria giapponese e gadget esclusivi</p>
+                <p className="text-white/80 max-w-md mx-auto md:mx-0 text-sm md:text-base">Il meglio dell&apos;editoria giapponese e gadget esclusivi</p>
               </div>
             </div>
           </div>
