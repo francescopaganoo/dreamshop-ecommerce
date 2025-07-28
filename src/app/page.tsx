@@ -147,22 +147,25 @@ export default async function Home() {
       </section>
 
       {/* New Arrivals Banner */}
-      <section className="py-16 bg-white">
-        <div className="container mx-auto px-6">
-          <div className="relative overflow-hidden rounded-2xl bg-gray-900">
-            <div className="absolute inset-0 bg-cover bg-center opacity-70" style={{ backgroundImage: "url('/images/nuovi-arrivi-3.jpeg')" }}></div>
-            <div className="relative z-10 flex flex-col md:flex-row items-center justify-between p-10 md:p-16">
-              <div className="text-center md:text-left ml-36 mb-8 md:mb-0">
+      <section className="py-8 md:py-16 bg-white">
+        <div className="container mx-auto px-4 md:px-6">
+          <div className="relative overflow-hidden rounded-2xl bg-gray-900 min-h-[200px] md:min-h-[250px]">
+            <div className="absolute inset-0 bg-cover bg-right opacity-70" style={{ backgroundImage: "url('/images/nuovi-arrivi-3.jpeg')" }}></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent"></div>
+            <div className="relative z-10 flex flex-col md:flex-row items-center justify-between p-6 md:p-16 h-full">
+              <div className="text-center md:text-left w-full md:w-auto mb-6 md:mb-0">
                 <span className="bg-white/20 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-4">APPENA ARRIVATI</span>
-                <h2 className="text-3xl md:text-5xl font-bold text-white mb-4">Nuovi Arrivi</h2>
-                <p className="text-white/80 max-w-md">Scopri le ultime novità aggiunte al nostro catalogo, direttamente dal Giappone</p>
+                <h2 className="text-2xl md:text-3xl lg:text-5xl font-bold text-white mb-4 leading-tight">Nuovi Arrivi</h2>
+                <p className="text-white/80 max-w-md mx-auto md:mx-0 text-sm md:text-base">Scopri le ultime novità aggiunte al nostro catalogo, direttamente dal Giappone</p>
               </div>
-              <Link 
-                href="/new-arrivals" 
-                className="bg-white text-gray-900 hover:bg-gray-100 px-8 py-4 rounded-md font-bold inline-block transition-all duration-300 transform hover:scale-105"
-              >
-                Scopri Ora
-              </Link>
+              <div className="flex-shrink-0">
+                <Link 
+                  href="/new-arrivals" 
+                  className="bg-white text-gray-900 hover:bg-gray-100 px-6 md:px-8 py-3 md:py-4 rounded-md font-bold inline-block transition-all duration-300 transform hover:scale-105 text-sm md:text-base"
+                >
+                  Scopri Ora
+                </Link>
+              </div>
             </div>
           </div>
         </div>
