@@ -375,6 +375,10 @@ export interface OrderData {
     product_id: number;
     quantity: number;
     variation_id?: number;
+    meta_data?: Array<{
+      key: string;
+      value: string;
+    }>;
   }>;
   shipping_lines?: Array<{
     method_id: string;
@@ -383,6 +387,10 @@ export interface OrderData {
   }>;
   coupon_lines?: Array<{
     code: string;
+  }>;
+  meta_data?: Array<{
+    key: string;
+    value: string;
   }>;
 }
 

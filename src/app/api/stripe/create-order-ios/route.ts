@@ -89,6 +89,20 @@ export async function POST(request: NextRequest) {
     const data = await request.json();
     console.log('Dati ricevuti per ordine iOS:', JSON.stringify(data, null, 2));
     
+    // Log specifico per i line_items e i loro metadati
+    if (data.line_items) {
+      console.log('iOS - Dettaglio line_items ricevuti:');
+      data.line_items.forEach((item: any, index: number) => {
+        console.log(`iOS - Item ${index}:`, {
+          product_id: item.product_id || item.id,
+          quantity: item.quantity,
+          variation_id: item.variation_id,
+          meta_data: item.meta_data,
+          hasDepositMeta: item.meta_data && item.meta_data.some((meta: any) => meta.key === '_wc_convert_to_deposit')
+        });
+      });
+    }
+    
     // Log specifico per i punti e coupon
     console.log('[iOS POINTS] Verifica dati punti e coupon:', { 
       hasPointsToRedeem: 'pointsToRedeem' in data,
@@ -148,6 +162,27 @@ export async function POST(request: NextRequest) {
     }
     
     // Crea un ordine in WooCommerce già come pagato (set_paid: true)
+    // Assicurati che i line_items abbiano tutti i metadati necessari
+    // Se non hanno meta_data, usali così come sono, altrimenti preservali
+    const processedLineItems = line_items.map((item: any) => ({
+      product_id: item.product_id || item.id,
+      quantity: item.quantity,
+      variation_id: item.variation_id || undefined,
+      meta_data: item.meta_data || []  // Preserva i metadati inclusi i dati per i pagamenti a rate
+    }));
+
+    console.log('iOS - Line items processati:', JSON.stringify(processedLineItems, null, 2));
+    
+    // Log specifico per verificare che i metadati degli acconti siano stati preservati
+    processedLineItems.forEach((item: any, index: number) => {
+      const hasDepositMeta = item.meta_data && item.meta_data.some((meta: any) => meta.key === '_wc_convert_to_deposit');
+      if (hasDepositMeta) {
+        console.log(`iOS - ACCONTO RILEVATO nell'item ${index} (product_id: ${item.product_id}):`, {
+          meta_data: item.meta_data.filter((meta: any) => meta.key.includes('deposit') || meta.key.includes('_wc_'))
+        });
+      }
+    });
+
     const orderData: OrderData = {
       payment_method: 'stripe',
       payment_method_title: 'Carta di credito',
@@ -156,7 +191,7 @@ export async function POST(request: NextRequest) {
       customer_note: notes || '',
       billing: customerInfo,
       shipping: customerInfo, // Per semplicità usiamo lo stesso indirizzo
-      line_items,
+      line_items: processedLineItems,
       shipping_lines: [
         {
           method_id: 'flat_rate',
@@ -195,7 +230,12 @@ export async function POST(request: NextRequest) {
     });
     
     console.log('Creazione ordine in WooCommerce per iOS...');
+    console.log('iOS - OrderData inviata a WooCommerce:', JSON.stringify(orderData, null, 2));
+    
     const order = await createOrder(orderData);
+    
+    // Log per verificare che l'ordine sia stato creato correttamente
+    console.log('iOS - Ordine creato con risposta:', JSON.stringify(order, null, 2));
     
     if (!order || typeof order !== 'object' || !('id' in order)) {
       throw new Error('Errore nella creazione dell\'ordine');
@@ -203,6 +243,39 @@ export async function POST(request: NextRequest) {
     
     console.log(`Ordine creato con successo: ${order.id}`);
     console.log(`Ordine già impostato come pagato per l'utente ID: ${userId}`);
+    
+    // TENTATIVO 1: Chiamata diretta all'endpoint per forzare l'elaborazione degli acconti
+    try {
+      console.log('iOS - Tentativo di attivazione manuale del plugin deposits...');
+      
+      const wcConsumerKey = process.env.WC_CONSUMER_KEY || '';
+      const wcConsumerSecret = process.env.WC_CONSUMER_SECRET || '';
+      const wordpressUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL || 'https://be.dreamshop18.com/';
+      const baseUrl = wordpressUrl.endsWith('/') ? wordpressUrl : `${wordpressUrl}/`;
+      
+      // Chiamata per forzare il re-processamento dell'ordine con gli acconti
+      const activateDepositsUrl = `${baseUrl}wp-json/dreamshop/v1/orders/${order.id}/force-deposits-processing`;
+      
+      const forceResponse = await fetch(activateDepositsUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          force_processing: true,
+          source: 'ios_api'
+        })
+      });
+      
+      if (forceResponse.ok) {
+        const forceResult = await forceResponse.json();
+        console.log('iOS - Elaborazione acconti forzata con successo:', forceResult);
+      } else {
+        console.log('iOS - Elaborazione acconti forzata non disponibile (endpoint non trovato)');
+      }
+    } catch (forceError) {
+      console.log('iOS - Errore nell\'elaborazione forzata degli acconti:', forceError);
+    }
     
     // Gestione del riscatto punti
     let pointsRedeemResult = null;

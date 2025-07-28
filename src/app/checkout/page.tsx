@@ -597,6 +597,15 @@ export default function CheckoutPage() {
             console.log('Payment method creato con successo:', paymentMethod.id);
             
             // Prepara i line items per l'ordine
+            console.log('iOS CHECKOUT - Analisi prodotti nel carrello:', cart.map(item => ({
+              id: item.product.id,
+              name: item.product.name,
+              _wc_convert_to_deposit: item.product._wc_convert_to_deposit,
+              _wc_deposit_type: item.product._wc_deposit_type,
+              _wc_deposit_amount: item.product._wc_deposit_amount,
+              hasDepositSettings: item.product._wc_convert_to_deposit === 'yes'
+            })));
+            
             const line_items = cart.map(item => {
               const lineItem: LineItem = {
                 product_id: item.product.id,
@@ -626,7 +635,12 @@ export default function CheckoutPage() {
               
               // Aggiungi i metadati degli acconti se il prodotto li ha
               if (item.product._wc_convert_to_deposit === 'yes') {
-                console.log(`Checkout PayPal: Aggiungo metadati acconto al prodotto ${item.product.id}`);
+                console.log(`iOS CHECKOUT - ACCONTO RILEVATO: Aggiungo metadati acconto al prodotto ${item.product.id}`);
+                console.log(`iOS CHECKOUT - Dettagli acconto:`, {
+                  _wc_convert_to_deposit: item.product._wc_convert_to_deposit,
+                  _wc_deposit_type: item.product._wc_deposit_type,
+                  _wc_deposit_amount: item.product._wc_deposit_amount
+                });
                 
                 // Assicurati che meta_data sia un array
                 if (!lineItem.meta_data) lineItem.meta_data = [];
@@ -638,8 +652,9 @@ export default function CheckoutPage() {
                   { key: '_wc_deposit_amount', value: item.product._wc_deposit_amount || '40' }
                 );
                 
-                // Aggiungi metadati a livello di ordine per compatibilità con WooCommerce Deposits
-                console.log(`Checkout PayPal: Prodotto ${item.product.id} ha acconto: ${item.product._wc_deposit_type} ${item.product._wc_deposit_amount}`);
+                console.log(`iOS CHECKOUT - Metadati aggiunti al line_item:`, lineItem.meta_data);
+              } else {
+                console.log(`iOS CHECKOUT - NESSUN ACCONTO per prodotto ${item.product.id}: _wc_convert_to_deposit = ${item.product._wc_convert_to_deposit}`);
               }
               
               return lineItem;
@@ -651,6 +666,7 @@ export default function CheckoutPage() {
             
             // Per debug
             console.log('iOS DEBUG - ID utente dal form:', userIdFromForm);
+            console.log('iOS DEBUG - Line items finali da inviare:', JSON.stringify(line_items, null, 2));
             
             // Crea un ordine con il payment method ID
             const orderResponse = await fetch('/api/stripe/create-order-ios', {

@@ -165,6 +165,13 @@ class DreamShop_Deposits_API {
             'callback' => array($this, 'create_order_with_deposits'),
             'permission_callback' => array($this, 'check_user_permission')
         ));
+        
+        // Endpoint per forzare l'elaborazione degli acconti su un ordine esistente
+        register_rest_route('dreamshop/v1', '/orders/(?P<order_id>[\d]+)/force-deposits-processing', array(
+            'methods'  => 'POST',
+            'callback' => array($this, 'force_deposits_processing'),
+            'permission_callback' => '__return_true' // Accessibile senza autenticazione per il momento
+        ));
     }
     
     /**
@@ -2210,6 +2217,56 @@ class DreamShop_Deposits_API {
         }
         
         return $response;
+    }
+    
+    /**
+     * Forza l'elaborazione degli acconti per un ordine specifico
+     * 
+     * @param WP_REST_Request $request
+     * @return WP_REST_Response
+     */
+    public function force_deposits_processing($request) {
+        $order_id = $request->get_param('order_id');
+        
+        error_log("[FORCE DEPOSITS] Richiesta forzatura elaborazione acconti per ordine #{$order_id}");
+        
+        if (!$order_id) {
+            return new WP_REST_Response(array(
+                'success' => false,
+                'message' => 'ID ordine mancante'
+            ), 400);
+        }
+        
+        $order = wc_get_order($order_id);
+        if (!$order) {
+            return new WP_REST_Response(array(
+                'success' => false,
+                'message' => 'Ordine non trovato'
+            ), 404);
+        }
+        
+        try {
+            error_log("[FORCE DEPOSITS] Inizio elaborazione forzata per ordine #{$order_id}");
+            
+            // Chiama direttamente il metodo di elaborazione degli acconti
+            $this->ensure_deposits_processing($order);
+            
+            error_log("[FORCE DEPOSITS] Elaborazione completata per ordine #{$order_id}");
+            
+            return new WP_REST_Response(array(
+                'success' => true,
+                'message' => 'Elaborazione acconti completata',
+                'order_id' => $order_id
+            ), 200);
+            
+        } catch (Exception $e) {
+            error_log("[FORCE DEPOSITS] Errore durante l'elaborazione per ordine #{$order_id}: " . $e->getMessage());
+            
+            return new WP_REST_Response(array(
+                'success' => false,
+                'message' => 'Errore durante l\'elaborazione: ' . $e->getMessage()
+            ), 500);
+        }
     }
 }
 
