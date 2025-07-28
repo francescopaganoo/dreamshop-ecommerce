@@ -63,7 +63,7 @@ export default async function Home() {
     <div className="min-h-screen flex flex-col bg-white">
       {/* Hero Section - Design Moderno */}
       <section className="relative h-[80vh] text-white overflow-hidden">
-        <div className="absolute inset-0 bg-cover bg-center transform hover:scale-105 transition-transform duration-700" style={{ backgroundImage: "url('/images/hero-section.webp')" }}>
+        <div className="absolute inset-0 bg-cover bg-center transform hover:scale-105 transition-transform duration-700" style={{ backgroundImage: "url('/images/hero-section-2.webp')" }}>
           <div className="absolute inset-0 bg-gradient-to-r from-black via-black/70 to-transparent"></div>
         </div>
         <div className="relative container mx-auto px-6 h-full flex flex-col justify-center z-10">
@@ -226,9 +226,9 @@ export default async function Home() {
             <div className="text-center mt-12">
               <Link 
                 href="/category/ichibankuji" 
-                className="inline-flex items-center bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600 px-8 py-3 rounded-md font-medium transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105"
+                className="inline-flex items-center bg-bred-500 text-white hover:bg-bred-600 px-8 py-3 rounded-md font-medium transition-colors shadow-md hover:shadow-lg"
               >
-                Vedi Tutti i Premi Ichiban Kuji <FaArrowRight className="ml-2" />
+                Visualizza altri Ichiban Kuji <FaArrowRight className="ml-2" />
               </Link>
             </div>
           </div>
@@ -264,7 +264,7 @@ export default async function Home() {
             <div className="text-center mt-12">
               <Link 
                 href="/category/resine" 
-                className="inline-flex items-center bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 px-8 py-3 rounded-md font-medium transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105"
+                className="inline-flex items-center bg-bred-500 text-white hover:bg-bred-600 px-8 py-3 rounded-md font-medium transition-colors shadow-md hover:shadow-lg"
               >
                 Vedi Tutte le Statue in Resina <FaArrowRight className="ml-2" />
               </Link>
@@ -302,7 +302,7 @@ export default async function Home() {
             <div className="text-center mt-12">
               <Link 
                 href="/category/s-h-figuarts" 
-                className="inline-flex items-center bg-gradient-to-r from-red-500 to-orange-500 text-white hover:from-red-600 hover:to-orange-600 px-8 py-3 rounded-md font-medium transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105"
+                className="inline-flex items-center bg-bred-500 text-white hover:bg-bred-600 px-8 py-3 rounded-md font-medium transition-colors shadow-md hover:shadow-lg"
               >
                 Vedi Tutte le S.H.Figuarts <FaArrowRight className="ml-2" />
               </Link>
@@ -340,7 +340,7 @@ export default async function Home() {
             <div className="text-center mt-12">
               <Link 
                 href="/category/riviste" 
-                className="inline-flex items-center bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:from-blue-600 hover:to-indigo-600 px-8 py-3 rounded-md font-medium transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105"
+                className="inline-flex items-center bg-bred-500 text-white hover:bg-bred-600 px-8 py-3 rounded-md font-medium transition-colors shadow-md hover:shadow-lg"
               >
                 Vedi Tutte le Riviste & Gadget <FaArrowRight className="ml-2" />
               </Link>
@@ -368,7 +368,7 @@ export default async function Home() {
 
       {/* Pokemon Products Section */}
       {pokemonProducts.length > 0 && (
-        <section className="py-16 bg-gradient-to-b from-yellow-50 to-white">
+        <section className="py-16 bg-gray-50">
           <div className="container mx-auto px-6">
             <div className="relative">
               <div className="absolute -top-6 -left-6 w-12 h-12 bg-yellow-500/5 rounded-full hidden md:block animate-pulse"></div>
@@ -378,7 +378,7 @@ export default async function Home() {
             <div className="text-center mt-12">
               <Link 
                 href="/category/pokemon" 
-                className="inline-flex items-center bg-gradient-to-r from-yellow-500 to-red-500 text-white hover:from-yellow-600 hover:to-red-600 px-8 py-3 rounded-md font-medium transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105"
+                className="inline-flex items-center bg-bred-500 text-white hover:bg-bred-600 px-8 py-3 rounded-md font-medium transition-colors shadow-md hover:shadow-lg"
               >
                 Vedi Tutti i Prodotti Pokémon <FaArrowRight className="ml-2" />
               </Link>
@@ -408,11 +408,7 @@ export default async function Home() {
       {saleProducts.length > 0 && (
         <section className="py-16 bg-gray-50">
           <div className="container mx-auto px-6">
-            <div className="text-center mb-12">
-              <span className="bg-red-500/10 text-red-600 px-4 py-1 rounded-full text-sm font-medium inline-block mb-3">🔥 OFFERTE</span>
-              <h2 className="text-3xl md:text-4xl font-bangers text-gray-900">Super Sconti</h2>
-              <p className="text-gray-600 mt-3 max-w-2xl mx-auto">Approfitta delle nostre offerte speciali prima che scadano!</p>
-            </div>
+
             
             <div className="relative">
               {/* Decorative elements */}
@@ -425,7 +421,7 @@ export default async function Home() {
             <div className="text-center mt-12">
               <Link 
                 href="/products?on_sale=true" 
-                className="inline-flex items-center bg-gradient-to-r from-red-500 to-orange-500 text-white hover:from-red-600 hover:to-orange-600 px-8 py-3 rounded-md font-medium transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105"
+                className="inline-flex items-center bg-bred-500 text-white hover:bg-bred-600 px-8 py-3 rounded-md font-medium transition-colors shadow-md hover:shadow-lg"
               >
                 Vedi Tutte le Offerte <FaArrowRight className="ml-2" />
               </Link>
