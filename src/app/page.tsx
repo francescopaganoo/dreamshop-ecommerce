@@ -161,9 +161,13 @@ export default async function Home() {
               <div className="flex-shrink-0">
                 <Link 
                   href="/new-arrivals" 
-                  className="bg-white text-gray-900 hover:bg-gray-100 px-6 md:px-8 py-3 md:py-4 rounded-md font-bold inline-block transition-all duration-300 transform hover:scale-105 text-sm md:text-base"
+                  className="group relative bg-gradient-to-r from-bred-500 via-orange-500 to-red-500 hover:from-bred-600 hover:via-orange-600 hover:to-red-600 text-white px-8 md:px-10 py-4 md:py-5 rounded-xl font-black text-base md:text-lg inline-flex items-center gap-3 transition-all duration-300 transform hover:scale-110 shadow-2xl hover:shadow-bred-500/40 animate-bounce hover:animate-none overflow-hidden border-2 border-yellow-400/60"
                 >
-                  Scopri Ora
+                  <span className="relative z-10 drop-shadow-lg">🔥 SCOPRI ORA</span>
+                  <FaArrowRight className="relative z-10 group-hover:translate-x-2 transition-transform duration-300 text-xl animate-pulse" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-white/15 via-white/5 to-transparent group-hover:from-white/25 group-hover:via-white/15 transition-all duration-300"></div>
+                  <div className="absolute -inset-1 bg-gradient-to-r from-bred-400 via-orange-400 to-red-400 rounded-xl blur-md opacity-70 group-hover:opacity-90 transition-opacity duration-300 animate-pulse"></div>
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/8 to-transparent animate-shimmer"></div>
                 </Link>
               </div>
             </div>
