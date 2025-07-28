@@ -1,4 +1,4 @@
-import { getProducts, getCategories, Product, Category } from "@/lib/api";
+import { getProducts, getCategories, getProductsByCategorySlug, getProductsOnSale, Product, Category } from "@/lib/api";
 import ProductList from "@/components/ProductList";
 import CategoryCarousel from "@/components/CategoryCarousel";
 import Link from "next/link";
@@ -9,18 +9,53 @@ import { FaSearch, FaShoppingCart, FaArrowRight, FaEnvelope, FaRegClock } from "
 export const revalidate = 300;
 
 async function getFeaturedProducts(): Promise<Product[]> {
-  // In a real app, you might have a featured flag or category
-  // For now, we'll just get the first 8 products
-  return getProducts(1, 8);
+  // Ottieni gli ultimi 8 prodotti inseriti ordinati per data di creazione decrescente
+  return getProducts(1, 8, 'date', 'desc');
 }
 
 async function getProductCategories(): Promise<Category[]> {
   return getCategories();
 }
 
+async function getIchibanKujiProducts(): Promise<Product[]> {
+  // Ottieni i prodotti della categoria Ichiban Kuji
+  return getProductsByCategorySlug('ichibankuji', 1, 8, 'date', 'desc');
+}
+
+async function getResineProducts(): Promise<Product[]> {
+  // Ottieni i prodotti della categoria Resine
+  return getProductsByCategorySlug('resine', 1, 8, 'date', 'desc');
+}
+
+async function getSHFiguartsProducts(): Promise<Product[]> {
+  // Ottieni i prodotti della categoria S.H.Figuarts
+  return getProductsByCategorySlug('s-h-figuarts', 1, 8, 'date', 'desc');
+}
+
+async function getShonenJumpProducts(): Promise<Product[]> {
+  // Ottieni i prodotti della categoria Shonen Jump & Gadget
+  return getProductsByCategorySlug('riviste', 1, 8, 'date', 'desc');
+}
+
+async function getPokemonProducts(): Promise<Product[]> {
+  // Ottieni i prodotti della categoria Pokemon
+  return getProductsByCategorySlug('pokemon', 1, 8, 'date', 'desc');
+}
+
+async function getSaleProducts(): Promise<Product[]> {
+  // Ottieni i prodotti in offerta
+  return getProductsOnSale(1, 8, 'date', 'desc');
+}
+
 export default async function Home() {
   const products: Product[] = await getFeaturedProducts();
   const categories: Category[] = await getProductCategories();
+  const ichibanKujiProducts: Product[] = await getIchibanKujiProducts();
+  const resineProducts: Product[] = await getResineProducts();
+  const shFiguartsProducts: Product[] = await getSHFiguartsProducts();
+  const shonenJumpProducts: Product[] = await getShonenJumpProducts();
+  const pokemonProducts: Product[] = await getPokemonProducts();
+  const saleProducts: Product[] = await getSaleProducts();
   
   // Take only the first 6 categories for the homepage
 
@@ -88,7 +123,7 @@ export default async function Home() {
       </section>
       
       {/* Categories Carousel - Design Moderno */}
-      <section className="py-16 bg-gradient-to-b from-white to-gray-50">
+      <section className="py-16 bg-gray-50">
         <div className="container mx-auto px-6">
           <div className="flex justify-between items-center mb-10">
             <div>
@@ -118,20 +153,32 @@ export default async function Home() {
         </div>
       </section>
 
+      {/* New Arrivals Banner */}
+      <section className="py-8 md:py-16 bg-gray-50">
+        <div className="container mx-auto px-4 md:px-6">
+          <div className="relative overflow-hidden rounded-2xl bg-gray-900 min-h-[200px] md:min-h-[250px]">
+            <div className="absolute inset-0 bg-cover bg-right opacity-70" style={{ backgroundImage: "url('/images/nuovi-arrivi-3.jpeg')" }}></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent"></div>
+            <div className="relative z-10 flex flex-col md:flex-row items-center justify-between p-6 md:p-16 h-full">
+              <div className="text-center md:text-left w-full md:w-auto mb-6 md:mb-0">
+                <span className="bg-white/20 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-4">APPENA ARRIVATI</span>
+                <h2 className="text-2xl md:text-3xl lg:text-5xl font-bold text-white mb-4 leading-tight">Nuovi Arrivi</h2>
+                <p className="text-white/80 max-w-md mx-auto md:mx-0 text-sm md:text-base">Scopri le ultime novità aggiunte al nostro catalogo, direttamente dal Giappone</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Featured Products - Design Moderno */}
       <section className="py-16 bg-gray-50">
         <div className="container mx-auto px-6">
-          <div className="text-center mb-12">
-            <span className="bg-bred-500/10 text-bred-500 px-4 py-1 rounded-full text-sm font-medium inline-block mb-3">IN EVIDENZA</span>
-            <h2 className="text-3xl md:text-4xl font-bangers text-gray-900">I Più Popolari</h2>
-            <p className="text-gray-600 mt-3 max-w-2xl mx-auto">Scopri i prodotti più amati dalla nostra community di appassionati</p>
-          </div>
+
           
           <div className="relative">
             {/* Decorative elements */}
             <div className="absolute -top-6 -left-6 w-12 h-12 bg-bred-500/5 rounded-full hidden md:block"></div>
             <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-bred-500/5 rounded-full hidden md:block"></div>
-            
             <ProductList products={products} />
           </div>
           
@@ -146,8 +193,8 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* New Arrivals Banner */}
-      <section className="py-8 md:py-16 bg-white">
+      {/* Ichiban Kuji Banner */}
+      <section className="py-8 md:py-16 bg-gray-50">
         <div className="container mx-auto px-4 md:px-6">
           <div className="relative overflow-hidden rounded-2xl bg-gray-900 min-h-[200px] md:min-h-[250px]">
             <div className="absolute inset-0 bg-cover bg-right opacity-70" style={{ backgroundImage: "url('/images/nuovi-arrivi-3.jpeg')" }}></div>
@@ -155,25 +202,237 @@ export default async function Home() {
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between p-6 md:p-16 h-full">
               <div className="text-center md:text-left w-full md:w-auto mb-6 md:mb-0">
                 <span className="bg-white/20 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-4">APPENA ARRIVATI</span>
-                <h2 className="text-2xl md:text-3xl lg:text-5xl font-bold text-white mb-4 leading-tight">Nuovi Arrivi</h2>
-                <p className="text-white/80 max-w-md mx-auto md:mx-0 text-sm md:text-base">Scopri le ultime novità aggiunte al nostro catalogo, direttamente dal Giappone</p>
-              </div>
-              <div className="flex-shrink-0">
-                <Link 
-                  href="/new-arrivals" 
-                  className="group relative bg-gradient-to-r from-bred-500 via-orange-500 to-red-500 hover:from-bred-600 hover:via-orange-600 hover:to-red-600 text-white px-8 md:px-10 py-4 md:py-5 rounded-xl font-black text-base md:text-lg inline-flex items-center gap-3 transition-all duration-300 transform hover:scale-110 shadow-2xl hover:shadow-bred-500/40 animate-bounce hover:animate-none overflow-hidden border-2 border-yellow-400/60"
-                >
-                  <span className="relative z-10 drop-shadow-lg">🔥 SCOPRI ORA</span>
-                  <FaArrowRight className="relative z-10 group-hover:translate-x-2 transition-transform duration-300 text-xl animate-pulse" />
-                  <div className="absolute inset-0 bg-gradient-to-r from-white/15 via-white/5 to-transparent group-hover:from-white/25 group-hover:via-white/15 transition-all duration-300"></div>
-                  <div className="absolute -inset-1 bg-gradient-to-r from-bred-400 via-orange-400 to-red-400 rounded-xl blur-md opacity-70 group-hover:opacity-90 transition-opacity duration-300 animate-pulse"></div>
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/8 to-transparent animate-shimmer"></div>
-                </Link>
+                <h2 className="text-2xl md:text-3xl lg:text-5xl font-bold text-white mb-4 leading-tight">Ichiban Kuji</h2>
+                <p className="text-white/80 max-w-md mx-auto md:mx-0 text-sm md:text-base">Scopri i premi più ambiti delle lotterie Ichiban Kuji</p>
               </div>
             </div>
           </div>
         </div>
       </section>
+
+      {/* Ichiban Kuji Products Section */}
+      {ichibanKujiProducts.length > 0 && (
+        <section className="py-16 bg-gray-50">
+          <div className="container mx-auto px-6">
+
+            <div className="relative">
+              {/* Decorative elements */}
+              <div className="absolute -top-6 -left-6 w-12 h-12 bg-purple-500/5 rounded-full hidden md:block animate-pulse"></div>
+              <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-pink-500/5 rounded-full hidden md:block animate-pulse delay-300"></div>
+              
+              <ProductList products={ichibanKujiProducts} />
+            </div>
+            
+            <div className="text-center mt-12">
+              <Link 
+                href="/category/ichibankuji" 
+                className="inline-flex items-center bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600 px-8 py-3 rounded-md font-medium transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105"
+              >
+                Vedi Tutti i Premi Ichiban Kuji <FaArrowRight className="ml-2" />
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Resine Banner */}
+      <section className="py-8 md:py-16 bg-gray-50">
+        <div className="container mx-auto px-4 md:px-6">
+          <div className="relative overflow-hidden rounded-2xl bg-gray-900 min-h-[200px] md:min-h-[250px]">
+            <div className="absolute inset-0 bg-cover bg-right opacity-70" style={{ backgroundImage: "url('/images/nuovi-arrivi-3.jpeg')" }}></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent"></div>
+            <div className="relative z-10 flex flex-col md:flex-row items-center justify-between p-6 md:p-16 h-full">
+              <div className="text-center md:text-left w-full md:w-auto mb-6 md:mb-0">
+                <span className="bg-white/20 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-4">APPENA ARRIVATI</span>
+                <h2 className="text-2xl md:text-3xl lg:text-5xl font-bold text-white mb-4 leading-tight">Resine</h2>
+                <p className="text-white/80 max-w-md mx-auto md:mx-0 text-sm md:text-base">Le statue in resina più dettagliate e raffinate del mercato</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Resine Products Section */}
+      {resineProducts.length > 0 && (
+        <section className="py-16 bg-gray-50">
+          <div className="container mx-auto px-6">
+            <div className="relative">
+              <div className="absolute -top-6 -left-6 w-12 h-12 bg-green-500/5 rounded-full hidden md:block animate-pulse"></div>
+              <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-emerald-500/5 rounded-full hidden md:block animate-pulse delay-300"></div>
+              <ProductList products={resineProducts} />
+            </div>
+            <div className="text-center mt-12">
+              <Link 
+                href="/category/resine" 
+                className="inline-flex items-center bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 px-8 py-3 rounded-md font-medium transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105"
+              >
+                Vedi Tutte le Statue in Resina <FaArrowRight className="ml-2" />
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* S.H.Figuarts Banner */}
+      <section className="py-8 md:py-16 bg-gray-50">
+        <div className="container mx-auto px-4 md:px-6">
+          <div className="relative overflow-hidden rounded-2xl bg-gray-900 min-h-[200px] md:min-h-[250px]">
+            <div className="absolute inset-0 bg-cover bg-right opacity-70" style={{ backgroundImage: "url('/images/nuovi-arrivi-3.jpeg')" }}></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent"></div>
+            <div className="relative z-10 flex flex-col md:flex-row items-center justify-between p-6 md:p-16 h-full">
+              <div className="text-center md:text-left w-full md:w-auto mb-6 md:mb-0">
+                <span className="bg-white/20 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-4"> S.H.FIGUARTS</span>
+                <h2 className="text-2xl md:text-3xl lg:text-5xl font-bold text-white mb-4 leading-tight">La massima espressione dell'articolazione e del dettaglio</h2>
+                <p className="text-white/80 max-w-md mx-auto md:mx-0 text-sm md:text-base"></p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* S.H.Figuarts Products Section */}
+      {shFiguartsProducts.length > 0 && (
+        <section className="py-16 bg-gray-50">
+          <div className="container mx-auto px-6">
+            <div className="relative">
+              <div className="absolute -top-6 -left-6 w-12 h-12 bg-red-500/5 rounded-full hidden md:block animate-pulse"></div>
+              <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-orange-500/5 rounded-full hidden md:block animate-pulse delay-300"></div>
+              <ProductList products={shFiguartsProducts} />
+            </div>
+            <div className="text-center mt-12">
+              <Link 
+                href="/category/s-h-figuarts" 
+                className="inline-flex items-center bg-gradient-to-r from-red-500 to-orange-500 text-white hover:from-red-600 hover:to-orange-600 px-8 py-3 rounded-md font-medium transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105"
+              >
+                Vedi Tutte le S.H.Figuarts <FaArrowRight className="ml-2" />
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Shonen Jump & Gadget Banner */}
+      <section className="py-8 md:py-16 bg-gray-50">
+        <div className="container mx-auto px-4 md:px-6">
+          <div className="relative overflow-hidden rounded-2xl bg-gray-900 min-h-[200px] md:min-h-[250px]">
+            <div className="absolute inset-0 bg-cover bg-right opacity-70" style={{ backgroundImage: "url('/images/nuovi-arrivi-3.jpeg')" }}></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent"></div>
+            <div className="relative z-10 flex flex-col md:flex-row items-center justify-between p-6 md:p-16 h-full">
+              <div className="text-center md:text-left w-full md:w-auto mb-6 md:mb-0">
+                <span className="bg-white/20 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-4">Shonen Jump & Gadget</span>
+                <h2 className="text-2xl md:text-3xl lg:text-5xl font-bold text-white mb-4 leading-tight">Shonen Jump & Gadget</h2>
+                <p className="text-white/80 max-w-md mx-auto md:mx-0 text-sm md:text-base">Il meglio dell'editoria giapponese e gadget esclusivi</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Shonen Jump Products Section */}
+      {shonenJumpProducts.length > 0 && (
+        <section className="py-16 bg-gray-50">
+          <div className="container mx-auto px-6">
+            <div className="relative">
+              <div className="absolute -top-6 -left-6 w-12 h-12 bg-blue-500/5 rounded-full hidden md:block animate-pulse"></div>
+              <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-indigo-500/5 rounded-full hidden md:block animate-pulse delay-300"></div>
+              <ProductList products={shonenJumpProducts} />
+            </div>
+            <div className="text-center mt-12">
+              <Link 
+                href="/category/riviste" 
+                className="inline-flex items-center bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:from-blue-600 hover:to-indigo-600 px-8 py-3 rounded-md font-medium transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105"
+              >
+                Vedi Tutte le Riviste & Gadget <FaArrowRight className="ml-2" />
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Pokemon Banner */}
+      <section className="py-8 md:py-16 bg-gray-50">
+        <div className="container mx-auto px-4 md:px-6">
+          <div className="relative overflow-hidden rounded-2xl bg-gray-900 min-h-[200px] md:min-h-[250px]">
+            <div className="absolute inset-0 bg-cover bg-right opacity-70" style={{ backgroundImage: "url('/images/nuovi-arrivi-3.jpeg')" }}></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent"></div>
+            <div className="relative z-10 flex flex-col md:flex-row items-center justify-between p-6 md:p-16 h-full">
+              <div className="text-center md:text-left w-full md:w-auto mb-6 md:mb-0">
+                <span className="bg-white/20 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-4">APPENA ARRIVATI</span>
+                <h2 className="text-2xl md:text-3xl lg:text-5xl font-bold text-white mb-4 leading-tight">Pokemon</h2>
+                <p className="text-white/80 max-w-md mx-auto md:mx-0 text-sm md:text-base">Tutto per i veri allenatori di Pokémon</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Pokemon Products Section */}
+      {pokemonProducts.length > 0 && (
+        <section className="py-16 bg-gradient-to-b from-yellow-50 to-white">
+          <div className="container mx-auto px-6">
+            <div className="relative">
+              <div className="absolute -top-6 -left-6 w-12 h-12 bg-yellow-500/5 rounded-full hidden md:block animate-pulse"></div>
+              <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-red-500/5 rounded-full hidden md:block animate-pulse delay-300"></div>
+              <ProductList products={pokemonProducts} />
+            </div>
+            <div className="text-center mt-12">
+              <Link 
+                href="/category/pokemon" 
+                className="inline-flex items-center bg-gradient-to-r from-yellow-500 to-red-500 text-white hover:from-yellow-600 hover:to-red-600 px-8 py-3 rounded-md font-medium transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105"
+              >
+                Vedi Tutti i Prodotti Pokémon <FaArrowRight className="ml-2" />
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Sale Products Banner */}
+      <section className="py-8 md:py-16 bg-gray-50">
+        <div className="container mx-auto px-4 md:px-6">
+          <div className="relative overflow-hidden rounded-2xl bg-gray-900 min-h-[200px] md:min-h-[250px]">
+            <div className="absolute inset-0 bg-cover bg-right opacity-70" style={{ backgroundImage: "url('/images/nuovi-arrivi-3.jpeg')" }}></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent"></div>
+            <div className="relative z-10 flex flex-col md:flex-row items-center justify-between p-6 md:p-16 h-full">
+              <div className="text-center md:text-left w-full md:w-auto mb-6 md:mb-0">
+                <span className="bg-white/20 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-4">🔥 OFFERTE</span>
+                <h2 className="text-2xl md:text-3xl lg:text-5xl font-bold text-white mb-4 leading-tight">🔥 OFFERTE</h2>
+                <p className="text-white/80 max-w-md mx-auto md:mx-0 text-sm md:text-base">Approfitta delle nostre offerte speciali prima che scadano!</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Sale Products Section */}
+      {saleProducts.length > 0 && (
+        <section className="py-16 bg-gray-50">
+          <div className="container mx-auto px-6">
+            <div className="text-center mb-12">
+              <span className="bg-red-500/10 text-red-600 px-4 py-1 rounded-full text-sm font-medium inline-block mb-3">🔥 OFFERTE</span>
+              <h2 className="text-3xl md:text-4xl font-bangers text-gray-900">Super Sconti</h2>
+              <p className="text-gray-600 mt-3 max-w-2xl mx-auto">Approfitta delle nostre offerte speciali prima che scadano!</p>
+            </div>
+            
+            <div className="relative">
+              {/* Decorative elements */}
+              <div className="absolute -top-6 -left-6 w-12 h-12 bg-red-500/5 rounded-full hidden md:block animate-pulse"></div>
+              <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-orange-500/5 rounded-full hidden md:block animate-pulse delay-300"></div>
+              
+              <ProductList products={saleProducts} />
+            </div>
+            
+            <div className="text-center mt-12">
+              <Link 
+                href="/products?on_sale=true" 
+                className="inline-flex items-center bg-gradient-to-r from-red-500 to-orange-500 text-white hover:from-red-600 hover:to-orange-600 px-8 py-3 rounded-md font-medium transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105"
+              >
+                Vedi Tutte le Offerte <FaArrowRight className="ml-2" />
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Newsletter Section - Design Moderno */}
       <section className="py-20 bg-gradient-to-b from-white to-gray-50">

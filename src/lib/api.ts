@@ -133,10 +133,10 @@ export interface ShippingMethod {
 }
 
 // Fetch all products
-export async function getProducts(page = 1, per_page = 10): Promise<Product[]> {
+export async function getProducts(page = 1, per_page = 10, orderby = 'date', order = 'desc'): Promise<Product[]> {
   try {
-    // Utilizziamo un timestamp per generare una chiave di cache
-    const cacheKey = `products_${page}_${per_page}_${Math.floor(Date.now() / (1000 * 300))}`;
+    // Utilizziamo un timestamp per generare una chiave di cache che include i parametri di ordinamento
+    const cacheKey = `products_${page}_${per_page}_${orderby}_${order}_${Math.floor(Date.now() / (1000 * 300))}`;
     
     // Verifichiamo se abbiamo i dati in cache (solo lato client)
     if (typeof window !== 'undefined') {
@@ -151,6 +151,8 @@ export async function getProducts(page = 1, per_page = 10): Promise<Product[]> {
       per_page,
       page,
       status: 'publish', // Include solo i prodotti pubblicati, esclude le bozze
+      orderby, // Ordina per: date, title, price, popularity, rating, etc.
+      order, // asc o desc
     });
     
     // Salviamo i dati in cache (solo lato client)
@@ -287,6 +289,34 @@ export async function getProductsByCategory(categoryId: number, page = 1, per_pa
   }
 }
 
+// Fetch products by category slug
+export async function getProductsByCategorySlug(categorySlug: string, page = 1, per_page = 10, orderby = 'date', order = 'desc'): Promise<Product[]> {
+  try {
+    // Prima ottieni la categoria tramite slug
+    const category = await getCategoryBySlug(categorySlug);
+    
+    if (!category) {
+      console.error(`Category with slug ${categorySlug} not found`);
+      return [];
+    }
+    
+    // Poi ottieni i prodotti di quella categoria
+    const { data } = await api.get('products', {
+      category: category.id,
+      per_page,
+      page,
+      status: 'publish',
+      orderby,
+      order,
+    });
+    
+    return data as Product[];
+  } catch (error) {
+    console.error(`Error fetching products for category slug ${categorySlug}:`, error);
+    return [];
+  }
+}
+
 // Fetch all categories
 export async function getCategories(): Promise<Category[]> {
   try {
@@ -297,6 +327,24 @@ export async function getCategories(): Promise<Category[]> {
   } catch (error) {
     console.error('Error fetching categories:', error);
     return [];
+  }
+}
+
+// Fetch category by slug
+export async function getCategoryBySlug(slug: string): Promise<Category | null> {
+  try {
+    const { data } = await api.get('products/categories', {
+      slug: slug,
+    });
+    
+    if (Array.isArray(data) && data.length > 0) {
+      return data[0] as Category;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error(`Error fetching category with slug ${slug}:`, error);
+    return null;
   }
 }
 
@@ -311,6 +359,52 @@ export async function searchProducts(searchTerm: string, page = 1, per_page = 10
     return data as Product[];
   } catch (error) {
     console.error(`Error searching products with term "${searchTerm}":`, error);
+    return [];
+  }
+}
+
+// Fetch products on sale
+export async function getProductsOnSale(page = 1, per_page = 10, orderby = 'date', order = 'desc'): Promise<Product[]> {
+  try {
+    // Utilizziamo un timestamp per generare una chiave di cache
+    const cacheKey = `products_on_sale_${page}_${per_page}_${orderby}_${order}_${Math.floor(Date.now() / (1000 * 300))}`;
+    
+    // Verifichiamo se abbiamo i dati in cache (solo lato client)
+    if (typeof window !== 'undefined') {
+      const cachedData = sessionStorage.getItem(cacheKey);
+      if (cachedData) {
+        return JSON.parse(cachedData) as Product[];
+      }
+    }
+    
+    // Ottieni tutti i prodotti e filtra quelli in offerta
+    const { data } = await api.get('products', {
+      per_page: 100, // Prendiamo più prodotti per avere una buona selezione
+      page: 1,
+      status: 'publish',
+      orderby,
+      order,
+      on_sale: true, // Parametro WooCommerce per prodotti in offerta
+    });
+    
+    // Filtra ulteriormente per assicurarci che abbiano davvero un prezzo scontato
+    const saleProducts = (data as Product[]).filter(product => 
+      product.sale_price && 
+      product.sale_price !== '' && 
+      parseFloat(product.sale_price) < parseFloat(product.regular_price)
+    );
+    
+    // Prendiamo solo il numero richiesto di prodotti
+    const limitedSaleProducts = saleProducts.slice(0, per_page);
+    
+    // Salviamo i dati in cache (solo lato client)
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem(cacheKey, JSON.stringify(limitedSaleProducts));
+    }
+    
+    return limitedSaleProducts;
+  } catch (error) {
+    console.error('Error fetching products on sale:', error);
     return [];
   }
 }
