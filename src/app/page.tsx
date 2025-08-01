@@ -66,7 +66,7 @@ export default async function Home() {
       </section>
 
       {/* Features Section */}
-      <section className="py-12 bg-gray-50">
+     {/* <section className="py-12 bg-gray-50">
         <div className="container mx-auto px-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="bg-gray-50 rounded-xl p-6 shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1">
@@ -92,7 +92,7 @@ export default async function Home() {
             </div>
           </div>
         </div>
-      </section>
+      </section>*/}
       
       {/* Categories Carousel - Design Moderno */}
       <section className="py-16 bg-gray-50">
@@ -228,7 +228,7 @@ export default async function Home() {
       <LazyProductSection
         title="Statue Premium"
         badge="🏛️ RESINE"
-        description="Le statue in resina più dettagliate e raffinate del mercato"
+        description=""
         categorySlug="resine"
         categoryLink="/category/resine"
         buttonText="Vedi Tutte le Statue in Resina"
@@ -360,7 +360,7 @@ export default async function Home() {
         isSaleProducts={true}
         categoryLink="/products?on_sale=true"
         buttonText="Vedi Tutte le Offerte"
-        bgGradient="bg-gradient-to-b from-red-50 to-white"
+        bgGradient="bg-gray-50"
         decorativeColors={{
           primary: "bg-red-500/5",
           secondary: "bg-orange-500/5"
@@ -368,7 +368,7 @@ export default async function Home() {
       />
 
       {/* Newsletter Section - Design Moderno */}
-      <section className="py-20 bg-gradient-to-b from-white to-gray-50">
+     {/* <section className="py-20 bg-gradient-to-b from-white to-gray-50">
         <div className="container mx-auto px-6">
           <div className="bg-white rounded-2xl shadow-xl p-8 md:p-12">
             <div className="flex flex-col md:flex-row items-center justify-between">
@@ -400,7 +400,7 @@ export default async function Home() {
             </div>
           </div>
         </div>
-      </section>
+      </section>*/}
       
       {/* Instagram-style Gallery 
       <section className="py-16 bg-gray-50">
