@@ -3,7 +3,8 @@ import LazyProductSection from "@/components/LazyProductSection";
 import ProductList from "@/components/ProductList";
 import CategoryCarousel from "@/components/CategoryCarousel";
 import Link from "next/link";
-import { FaSearch, FaShoppingCart, FaArrowRight, FaEnvelope, FaRegClock } from "react-icons/fa";
+import {FaArrowRight } from "react-icons/fa";
+//import { FaSearch, FaShoppingCart, FaArrowRight, FaEnvelope, FaRegClock } from "react-icons/fa";
 
 // Configurazione per il rendering dinamico della pagina
 //export const dynamic = 'force-dynamic';
