@@ -35,7 +35,7 @@ export default async function Home() {
     <div className="min-h-screen flex flex-col bg-white">
       {/* Hero Section - Design Moderno */}
       <section className="relative h-[80vh] text-white overflow-hidden">
-        <div className="absolute inset-0 bg-cover bg-center transform hover:scale-105 transition-transform duration-700" style={{ backgroundImage: "url('/images/hero-section-2.webp')" }}>
+        <div className="absolute inset-0 bg-cover bg-center transform hover:scale-105 transition-transform duration-700" style={{ backgroundImage: "url('/images/hero-section-3.webp')" }}>
           <div className="absolute inset-0 bg-gradient-to-r from-black via-black/70 to-transparent"></div>
         </div>
         <div className="relative container mx-auto px-6 h-full flex flex-col justify-center z-10">
@@ -66,7 +66,7 @@ export default async function Home() {
       </section>
 
       {/* Features Section */}
-      <section className="py-12 bg-white">
+      <section className="py-12 bg-gray-50">
         <div className="container mx-auto px-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="bg-gray-50 rounded-xl p-6 shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1">
@@ -129,7 +129,7 @@ export default async function Home() {
       <section className="py-8 md:py-16 bg-gray-50">
         <div className="container mx-auto px-4 md:px-6">
           <div className="relative overflow-hidden rounded-2xl bg-gray-900 min-h-[200px] md:min-h-[250px]">
-            <div className="absolute inset-0 bg-cover bg-right opacity-70" style={{ backgroundImage: "url('/images/nuovi-arrivi-3.jpeg')" }}></div>
+            <div className="absolute inset-0 bg-cover bg-right opacity-70" style={{ backgroundImage: "url('/images/nuovi-arrivi.webp')" }}></div>
             <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent"></div>
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between p-6 md:p-16 h-full">
               <div className="text-center md:text-left w-full md:w-auto mb-6 md:mb-0">
@@ -169,7 +169,7 @@ export default async function Home() {
       <section className="py-8 md:py-16 bg-gray-50">
         <div className="container mx-auto px-4 md:px-6">
           <div className="relative overflow-hidden rounded-2xl bg-gray-900 min-h-[200px] md:min-h-[250px]">
-            <div className="absolute inset-0 bg-cover bg-right opacity-70" style={{ backgroundImage: "url('/images/nuovi-arrivi-3.jpeg')" }}></div>
+            <div className="absolute inset-0 bg-cover bg-right opacity-70" style={{ backgroundImage: "url('/images/ichiban-kuji.webp')" }}></div>
             <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent"></div>
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between p-6 md:p-16 h-full">
               <div className="text-center md:text-left w-full md:w-auto mb-6 md:mb-0">
@@ -211,7 +211,7 @@ export default async function Home() {
       <section className="py-8 md:py-16 bg-gray-50">
         <div className="container mx-auto px-4 md:px-6">
           <div className="relative overflow-hidden rounded-2xl bg-gray-900 min-h-[200px] md:min-h-[250px]">
-            <div className="absolute inset-0 bg-cover bg-right opacity-70" style={{ backgroundImage: "url('/images/nuovi-arrivi-3.jpeg')" }}></div>
+            <div className="absolute inset-0 bg-cover bg-right opacity-70" style={{ backgroundImage: "url('/images/resine.webp')" }}></div>
             <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent"></div>
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between p-6 md:p-16 h-full">
               <div className="text-center md:text-left w-full md:w-auto mb-6 md:mb-0">
@@ -232,7 +232,7 @@ export default async function Home() {
         categorySlug="resine"
         categoryLink="/category/resine"
         buttonText="Vedi Tutte le Statue in Resina"
-        bgGradient="bg-gradient-to-b from-green-50 to-white"
+        bgGradient="bg-gray-50"
         decorativeColors={{
           primary: "bg-green-500/5",
           secondary: "bg-emerald-500/5"
@@ -243,13 +243,13 @@ export default async function Home() {
       <section className="py-8 md:py-16 bg-gray-50">
         <div className="container mx-auto px-4 md:px-6">
           <div className="relative overflow-hidden rounded-2xl bg-gray-900 min-h-[200px] md:min-h-[250px]">
-            <div className="absolute inset-0 bg-cover bg-right opacity-70" style={{ backgroundImage: "url('/images/nuovi-arrivi-3.jpeg')" }}></div>
+            <div className="absolute inset-0 bg-cover bg-right opacity-70" style={{ backgroundImage: "url('/images/sh-figurearts.webp')" }}></div>
             <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent"></div>
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between p-6 md:p-16 h-full">
               <div className="text-center md:text-left w-full md:w-auto mb-6 md:mb-0">
                 <span className="bg-white/20 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-4">ACTION FIGURES PREMIUM</span>
-                <h2 className="text-2xl md:text-3xl lg:text-5xl font-bold text-white mb-4 leading-tight">S.H.Figuarts</h2>
-                <p className="text-white/80 max-w-md mx-auto md:mx-0 text-sm md:text-base">La massima espressione dell'articolazione e del dettaglio</p>
+                <h2 className="text-2xl md:text-3xl lg:text-5xl font-bold text-white mb-4 leading-tight">S.H.Figur Arts</h2>
+                <p className="text-white/80 max-w-md mx-auto md:mx-0 text-sm md:text-base">La massima espressione dell&apos;articolazione e del dettaglio</p>
               </div>
             </div>
           </div>
@@ -264,7 +264,7 @@ export default async function Home() {
         categorySlug="s-h-figuarts"
         categoryLink="/category/s-h-figuarts"
         buttonText="Vedi Tutte le S.H.Figuarts"
-        bgGradient="bg-gradient-to-b from-red-50 to-white"
+        bgGradient="bg-gray-50"
         decorativeColors={{
           primary: "bg-red-500/5",
           secondary: "bg-orange-500/5"
@@ -275,13 +275,13 @@ export default async function Home() {
       <section className="py-8 md:py-16 bg-gray-50">
         <div className="container mx-auto px-4 md:px-6">
           <div className="relative overflow-hidden rounded-2xl bg-gray-900 min-h-[200px] md:min-h-[250px]">
-            <div className="absolute inset-0 bg-cover bg-right opacity-70" style={{ backgroundImage: "url('/images/nuovi-arrivi-3.jpeg')" }}></div>
+            <div className="absolute inset-0 bg-cover bg-right opacity-70" style={{ backgroundImage: "url('/images/riviste.webp')" }}></div>
             <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent"></div>
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between p-6 md:p-16 h-full">
               <div className="text-center md:text-left w-full md:w-auto mb-6 md:mb-0">
                 <span className="bg-white/20 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-4">RIVISTE & GADGET</span>
                 <h2 className="text-2xl md:text-3xl lg:text-5xl font-bold text-white mb-4 leading-tight">Riviste</h2>
-                <p className="text-white/80 max-w-md mx-auto md:mx-0 text-sm md:text-base">Il meglio dell'editoria giapponese e gadget esclusivi</p>
+                <p className="text-white/80 max-w-md mx-auto md:mx-0 text-sm md:text-base">Il meglio dell&apos;editoria giapponese e gadget esclusivi</p>
               </div>
             </div>
           </div>
@@ -296,7 +296,7 @@ export default async function Home() {
         categorySlug="riviste"
         categoryLink="/category/riviste"
         buttonText="Vedi Tutte le Riviste & Gadget"
-        bgGradient="bg-gradient-to-b from-blue-50 to-white"
+        bgGradient="bg-gray-50"
         decorativeColors={{
           primary: "bg-blue-500/5",
           secondary: "bg-indigo-500/5"
@@ -307,7 +307,7 @@ export default async function Home() {
       <section className="py-8 md:py-16 bg-gray-50">
         <div className="container mx-auto px-4 md:px-6">
           <div className="relative overflow-hidden rounded-2xl bg-gray-900 min-h-[200px] md:min-h-[250px]">
-            <div className="absolute inset-0 bg-cover bg-right opacity-70" style={{ backgroundImage: "url('/images/nuovi-arrivi-3.jpeg')" }}></div>
+            <div className="absolute inset-0 bg-cover bg-right opacity-70" style={{ backgroundImage: "url('/images/pokemon.webp')" }}></div>
             <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent"></div>
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between p-6 md:p-16 h-full">
               <div className="text-center md:text-left w-full md:w-auto mb-6 md:mb-0">
@@ -328,7 +328,7 @@ export default async function Home() {
         categorySlug="pokemon"
         categoryLink="/category/pokemon"
         buttonText="Vedi Tutti i Prodotti Pokémon"
-        bgGradient="bg-gradient-to-b from-yellow-50 to-white"
+        bgGradient="bg-gray-50"
         decorativeColors={{
           primary: "bg-yellow-500/5",
           secondary: "bg-red-500/5"
@@ -339,7 +339,7 @@ export default async function Home() {
       <section className="py-8 md:py-16 bg-gray-50">
         <div className="container mx-auto px-4 md:px-6">
           <div className="relative overflow-hidden rounded-2xl bg-gray-900 min-h-[200px] md:min-h-[250px]">
-            <div className="absolute inset-0 bg-cover bg-right opacity-70" style={{ backgroundImage: "url('/images/nuovi-arrivi-3.jpeg')" }}></div>
+            <div className="absolute inset-0 bg-cover bg-right opacity-70" style={{ backgroundImage: "url('/images/offerte.webp')" }}></div>
             <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent"></div>
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between p-6 md:p-16 h-full">
               <div className="text-center md:text-left w-full md:w-auto mb-6 md:mb-0">
