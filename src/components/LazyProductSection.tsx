@@ -95,28 +95,65 @@ export default function LazyProductSection({
 
   useEffect(() => {
     if (isVisible && isLoading) {
+      const abortController = new AbortController();
+      
+      // Aggiungiamo un piccolo ritardo casuale per evitare richieste simultanee
+      const randomDelay = Math.random() * 500; // 0-500ms di ritardo casuale
+      
       const fetchProducts = async () => {
+        // Aspetta il ritardo casuale per distribuire le richieste
+        await new Promise(resolve => setTimeout(resolve, randomDelay));
         try {
           let response;
+          const fetchOptions = {
+            signal: abortController.signal,
+            headers: {
+              'Cache-Control': 'no-cache'
+            }
+          };
+
+          // Aggiungiamo un timeout di 10 secondi
+          const timeoutId = setTimeout(() => {
+            abortController.abort();
+          }, 10000);
+
           if (isSaleProducts) {
-            response = await fetch('/api/products/sale?limit=8');
+            response = await fetch('/api/products/sale?limit=8', fetchOptions);
           } else if (categorySlug) {
-            response = await fetch(`/api/products/category/${categorySlug}?limit=8`);
+            response = await fetch(`/api/products/category/${categorySlug}?limit=8`, fetchOptions);
           } else {
             throw new Error('Either categorySlug or isSaleProducts must be provided');
           }
           
-          if (!response.ok) throw new Error('Failed to fetch products');
+          clearTimeout(timeoutId);
+          
+          if (!response.ok) {
+            throw new Error(`Failed to fetch products: ${response.status} ${response.statusText}`);
+          }
+          
           const data = await response.json();
           setProducts(data);
           setIsLoading(false);
         } catch (error) {
-          console.error('Error loading products:', error);
+          if (error instanceof Error) {
+            if (error.name === 'AbortError') {
+              console.warn('Product fetch was aborted (timeout or component unmounted):', categorySlug || 'sale');
+            } else {
+              console.error('Error loading products:', error.message);
+            }
+          } else {
+            console.error('Unknown error loading products:', error);
+          }
           setIsLoading(false);
         }
       };
 
       fetchProducts();
+
+      // Cleanup function per cancellare la richiesta se il componente viene smontato
+      return () => {
+        abortController.abort();
+      };
     }
   }, [isVisible, isLoading, categorySlug, isSaleProducts]);
 
