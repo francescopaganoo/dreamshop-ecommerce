@@ -11,8 +11,7 @@ import {FaArrowRight } from "react-icons/fa";
 export const revalidate = 300;
 
 async function getFeaturedProducts(): Promise<Product[]> {
-  // Ottieni gli ultimi 6 prodotti inseriti ordinati per data di creazione decrescente
-  return getProducts(1, 6, 'date', 'desc');
+  return getProducts(1, 8, 'date', 'desc');
 }
 
 async function getProductCategories(): Promise<Category[]> {
@@ -30,8 +29,6 @@ export default async function Home() {
   const categories: Category[] = await getProductCategories();
   const ichibanKujiProducts: Product[] = await getIchibanKujiProducts();
   
-  // Take only the first 6 categories for the homepage
-
   return (
     <div className="min-h-screen flex flex-col bg-white">
       {/* Hero Section - Design Moderno */}
