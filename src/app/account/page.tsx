@@ -7,6 +7,7 @@ import { getScheduledOrders, ScheduledOrder } from '@/lib/deposits';
 import { useAuth } from '@/context/AuthContext';
 import ScheduledPaymentModal from '@/components/ScheduledPaymentModal';
 import { PointsResponse, PointsHistoryItem, getUserPoints } from '@/lib/points';
+import { BillingAddress, ShippingAddress, getUserAddresses } from '@/lib/api';
 
 // Interfaccia per gli ordini
 interface Order {
@@ -70,6 +71,14 @@ function AccountContent() {
   const [scheduledOrdersError, setScheduledOrdersError] = useState<string | null>(null);
   const [nextScheduledOrdersPage, setNextScheduledOrdersPage] = useState(2); // Pagina successiva da caricare
   const [hasMoreScheduledOrders, setHasMoreScheduledOrders] = useState(true); // Indica se ci sono altre pagine
+  
+  // Stati per gli indirizzi
+  const [addresses, setAddresses] = useState<{billing: BillingAddress | null, shipping: ShippingAddress | null}>({
+    billing: null,
+    shipping: null
+  });
+  const [isLoadingAddresses, setIsLoadingAddresses] = useState(false);
+  const [addressesError, setAddressesError] = useState<string | null>(null);
   
   // Reindirizza l'utente se non è autenticato
   useEffect(() => {
@@ -230,6 +239,40 @@ function AccountContent() {
         }
       };
       fetchPoints();
+    }
+    
+    if (activeTab === 'addresses' && user) {
+      const fetchAddresses = async () => {
+        if (!user) {
+          console.log('Utente non disponibile, impossibile caricare gli indirizzi');
+          return;
+        }
+        
+        setIsLoadingAddresses(true);
+        setAddressesError(null);
+        
+        try {
+          // Recupera il token dal localStorage
+          const token = localStorage.getItem('woocommerce_token');
+          
+          if (!token) {
+            console.error('Token non trovato nel localStorage');
+            throw new Error('Token non trovato');
+          }
+          
+          console.log('Recupero indirizzi per utente:', user.id);
+          
+          // Chiamata alla funzione per recuperare gli indirizzi
+          const data = await getUserAddresses(token);
+          setAddresses(data);
+        } catch (error) {
+          console.error('Errore durante il caricamento degli indirizzi:', error);
+          setAddressesError('Impossibile caricare gli indirizzi. Riprova più tardi.');
+        } finally {
+          setIsLoadingAddresses(false);
+        }
+      };
+      fetchAddresses();
     }
   }, [activeTab, user]);
   
@@ -1146,27 +1189,88 @@ function AccountContent() {
               Gli indirizzi seguenti verranno utilizzati di default durante il checkout.
             </p>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h3 className="text-lg font-semibold mb-2 text-gray-600">Indirizzo di fatturazione</h3>
-                <div className="border p-4 rounded-md">
-                  <p className="text-gray-600">Non hai ancora impostato un indirizzo di fatturazione.</p>
-                  <Link href="/account/edit-address/billing" className="text-bred-500 hover:text-bred-700 mt-2 inline-block">
-                    Aggiungi indirizzo
-                  </Link>
+            {isLoadingAddresses ? (
+              <p className="text-gray-600">Caricamento indirizzi in corso...</p>
+            ) : addressesError ? (
+              <div className="text-red-500 mb-4">{addressesError}</div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h3 className="text-lg font-semibold mb-2 text-gray-600">Indirizzo di fatturazione</h3>
+                  <div className="border p-4 rounded-md">
+                    {addresses.billing ? (
+                      <div>
+                        <div className="mb-3">
+                          <p className="font-medium text-gray-800">
+                            {addresses.billing.first_name} {addresses.billing.last_name}
+                          </p>
+                          {addresses.billing.company && (
+                            <p className="text-gray-600">{addresses.billing.company}</p>
+                          )}
+                          <p className="text-gray-600">{addresses.billing.address_1}</p>
+                          {addresses.billing.address_2 && (
+                            <p className="text-gray-600">{addresses.billing.address_2}</p>
+                          )}
+                          <p className="text-gray-600">
+                            {addresses.billing.city}, {addresses.billing.state} {addresses.billing.postcode}
+                          </p>
+                          <p className="text-gray-600">{addresses.billing.country}</p>
+                          {addresses.billing.email && (
+                            <p className="text-gray-600 mt-1">Email: {addresses.billing.email}</p>
+                          )}
+                          {addresses.billing.phone && (
+                            <p className="text-gray-600">Tel: {addresses.billing.phone}</p>
+                          )}
+                        </div>
+                        <Link href="/account/edit-address/billing" className="text-bred-500 hover:text-bred-700">
+                          Modifica indirizzo
+                        </Link>
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="text-gray-600">Non hai ancora impostato un indirizzo di fatturazione.</p>
+                        <Link href="/account/edit-address/billing" className="text-bred-500 hover:text-bred-700 mt-2 inline-block">
+                          Aggiungi indirizzo
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                <div>
+                  <h3 className="text-lg font-semibold mb-2 text-gray-600">Indirizzo di spedizione</h3>
+                  <div className="border p-4 rounded-md">
+                    {addresses.shipping ? (
+                      <div>
+                        <div className="mb-3">
+                          <p className="font-medium text-gray-800">
+                            {addresses.shipping.first_name} {addresses.shipping.last_name}
+                          </p>
+                          <p className="text-gray-600">{addresses.shipping.address_1}</p>
+                          {addresses.shipping.address_2 && (
+                            <p className="text-gray-600">{addresses.shipping.address_2}</p>
+                          )}
+                          <p className="text-gray-600">
+                            {addresses.shipping.city}, {addresses.shipping.state} {addresses.shipping.postcode}
+                          </p>
+                          <p className="text-gray-600">{addresses.shipping.country}</p>
+                        </div>
+                        <Link href="/account/edit-address/shipping" className="text-bred-500 hover:text-bred-700">
+                          Modifica indirizzo
+                        </Link>
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="text-gray-600">Non hai ancora impostato un indirizzo di spedizione.</p>
+                        <Link href="/account/edit-address/shipping" className="text-bred-500 hover:text-bred-700 mt-2 inline-block">
+                          Aggiungi indirizzo
+                        </Link>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-              
-              <div>
-                <h3 className="text-lg font-semibold mb-2 text-gray-600">Indirizzo di spedizione</h3>
-                <div className="border p-4 rounded-md">
-                  <p className="text-gray-600">Non hai ancora impostato un indirizzo di spedizione.</p>
-                  <Link href="/account/edit-address/shipping" className="text-bred-500 hover:text-bred-700 mt-2 inline-block">
-                    Aggiungi indirizzo
-                  </Link>
-                </div>
-              </div>
-            </div>
+            )}
           </div>
         );
         

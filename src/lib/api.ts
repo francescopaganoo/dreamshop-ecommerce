@@ -724,6 +724,21 @@ export interface ShippingAddress {
   country: string;
 }
 
+// Billing address interface
+export interface BillingAddress {
+  first_name: string;
+  last_name: string;
+  company?: string;
+  address_1: string;
+  address_2?: string;
+  city: string;
+  state: string;
+  postcode: string;
+  country: string;
+  email?: string;
+  phone?: string;
+}
+
 /**
  * Recupera i metodi di spedizione disponibili per un indirizzo e un totale carrello
  * @param {ShippingAddress} shippingAddress - Indirizzo di spedizione
@@ -871,5 +886,90 @@ export async function calculateShipping(shippingAddress: ShippingAddress) {
   } catch (error) {
     console.error('Errore nel calcolo della spedizione:', error);
     return 5.99; // Valore predefinito in caso di errore imprevisto
+  }
+}
+
+/**
+ * Recupera gli indirizzi dell'utente (fatturazione e spedizione)
+ * @param {string} token - Token di autenticazione
+ * @returns {Promise<{billing: BillingAddress | null, shipping: ShippingAddress | null}>}
+ */
+export async function getUserAddresses(token: string) {
+  try {
+    const timestamp = new Date().getTime();
+    const response = await fetch(`/api/user/addresses?_=${timestamp}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Cache-Control': 'no-cache, no-store'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Errore nel recupero degli indirizzi: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Errore nel recupero degli indirizzi:', error);
+    throw error;
+  }
+}
+
+/**
+ * Salva l'indirizzo di fatturazione dell'utente
+ * @param {BillingAddress} address - Indirizzo di fatturazione
+ * @param {string} token - Token di autenticazione
+ */
+export async function saveBillingAddress(address: BillingAddress, token: string) {
+  try {
+    const response = await fetch('/api/user/addresses/billing', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        'Cache-Control': 'no-cache'
+      },
+      body: JSON.stringify(address)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Errore nel salvataggio dell\'indirizzo di fatturazione');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Errore nel salvataggio dell\'indirizzo di fatturazione:', error);
+    throw error;
+  }
+}
+
+/**
+ * Salva l'indirizzo di spedizione dell'utente
+ * @param {ShippingAddress} address - Indirizzo di spedizione
+ * @param {string} token - Token di autenticazione
+ */
+export async function saveShippingAddress(address: ShippingAddress, token: string) {
+  try {
+    const response = await fetch('/api/user/addresses/shipping', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        'Cache-Control': 'no-cache'
+      },
+      body: JSON.stringify(address)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Errore nel salvataggio dell\'indirizzo di spedizione');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Errore nel salvataggio dell\'indirizzo di spedizione:', error);
+    throw error;
   }
 }
