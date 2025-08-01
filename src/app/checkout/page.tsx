@@ -8,7 +8,7 @@ import { CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { PayPalButtons, usePayPalScriptReducer } from '@paypal/react-paypal-js';
 import Link from 'next/link';
 
-import { createOrder, getShippingMethods, ShippingMethod } from '../../lib/api';
+import { createOrder, getShippingMethods, ShippingMethod, getUserAddresses } from '../../lib/api';
 import { redeemPoints } from '../../lib/points';
 
 export default function CheckoutPage() {
@@ -173,20 +173,58 @@ export default function CheckoutPage() {
   
   // Precompila il form se l'utente è autenticato
   useEffect(() => {
-    if (isAuthenticated && user) {
-      // Ottieni l'ID numerico dell'utente
-      const numericUserId = user.id ? parseInt(String(user.id), 10) : 0;
-      console.log('CHECKOUT: Impostato ID utente nel form:', numericUserId);
-      
-      setFormData(prev => ({
-        ...prev,
-        firstName: user.firstName || '',
-        lastName: user.lastName || '',
-        email: user.email || '',
-        // Rimuovo il campo phone che causa errori
-        userId: numericUserId // Salva l'ID utente nel form data
-      }));
-    }
+    const loadUserData = async () => {
+      if (isAuthenticated && user) {
+        // Ottieni l'ID numerico dell'utente
+        const numericUserId = user.id ? parseInt(String(user.id), 10) : 0;
+        console.log('CHECKOUT: Impostato ID utente nel form:', numericUserId);
+        
+        // Carica i dati base dell'utente
+        const baseUserData = {
+          firstName: user.firstName || '',
+          lastName: user.lastName || '',
+          email: user.email || '',
+          userId: numericUserId
+        };
+        
+        // Prova a caricare gli indirizzi salvati
+        try {
+          const token = localStorage.getItem('woocommerce_token');
+          if (token) {
+            console.log('CHECKOUT: Caricamento indirizzi salvati...');
+            const addresses = await getUserAddresses(token);
+            
+            // Se esiste un indirizzo di fatturazione, precompila i campi
+            if (addresses.billing) {
+              console.log('CHECKOUT: Indirizzo di fatturazione trovato, precompilazione...');
+              setFormData(prev => ({
+                ...prev,
+                ...baseUserData,
+                phone: addresses.billing.phone || prev.phone,
+                address1: addresses.billing.address_1 || prev.address1,
+                address2: addresses.billing.address_2 || prev.address2,
+                city: addresses.billing.city || prev.city,
+                state: addresses.billing.state || prev.state,
+                postcode: addresses.billing.postcode || prev.postcode,
+                country: addresses.billing.country || prev.country
+              }));
+            } else {
+              // Se non ci sono indirizzi salvati, usa solo i dati base
+              setFormData(prev => ({ ...prev, ...baseUserData }));
+            }
+          } else {
+            // Se non c'è token, usa solo i dati base
+            setFormData(prev => ({ ...prev, ...baseUserData }));
+          }
+        } catch (error) {
+          console.error('CHECKOUT: Errore nel caricamento degli indirizzi:', error);
+          // In caso di errore, usa solo i dati base
+          setFormData(prev => ({ ...prev, ...baseUserData }));
+        }
+      }
+    };
+    
+    loadUserData();
   }, [isAuthenticated, user]);
   
   // Calculate totals
