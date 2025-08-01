@@ -1,4 +1,5 @@
-import { getProducts, getCategories, getProductsByCategorySlug, getProductsOnSale, Product, Category } from "@/lib/api";
+import { getProducts, getCategories, getProductsByCategorySlug, Product, Category } from "@/lib/api";
+import LazyProductSection from "@/components/LazyProductSection";
 import ProductList from "@/components/ProductList";
 import CategoryCarousel from "@/components/CategoryCarousel";
 import Link from "next/link";
@@ -9,8 +10,8 @@ import { FaSearch, FaShoppingCart, FaArrowRight, FaEnvelope, FaRegClock } from "
 export const revalidate = 300;
 
 async function getFeaturedProducts(): Promise<Product[]> {
-  // Ottieni gli ultimi 8 prodotti inseriti ordinati per data di creazione decrescente
-  return getProducts(1, 8, 'date', 'desc');
+  // Ottieni gli ultimi 6 prodotti inseriti ordinati per data di creazione decrescente
+  return getProducts(1, 6, 'date', 'desc');
 }
 
 async function getProductCategories(): Promise<Category[]> {
@@ -22,40 +23,11 @@ async function getIchibanKujiProducts(): Promise<Product[]> {
   return getProductsByCategorySlug('ichibankuji', 1, 8, 'date', 'desc');
 }
 
-async function getResineProducts(): Promise<Product[]> {
-  // Ottieni i prodotti della categoria Resine
-  return getProductsByCategorySlug('resine', 1, 8, 'date', 'desc');
-}
-
-async function getSHFiguartsProducts(): Promise<Product[]> {
-  // Ottieni i prodotti della categoria S.H.Figuarts
-  return getProductsByCategorySlug('s-h-figuarts', 1, 8, 'date', 'desc');
-}
-
-async function getShonenJumpProducts(): Promise<Product[]> {
-  // Ottieni i prodotti della categoria Shonen Jump & Gadget
-  return getProductsByCategorySlug('riviste', 1, 8, 'date', 'desc');
-}
-
-async function getPokemonProducts(): Promise<Product[]> {
-  // Ottieni i prodotti della categoria Pokemon
-  return getProductsByCategorySlug('pokemon', 1, 8, 'date', 'desc');
-}
-
-async function getSaleProducts(): Promise<Product[]> {
-  // Ottieni i prodotti in offerta
-  return getProductsOnSale(1, 8, 'date', 'desc');
-}
 
 export default async function Home() {
   const products: Product[] = await getFeaturedProducts();
   const categories: Category[] = await getProductCategories();
   const ichibanKujiProducts: Product[] = await getIchibanKujiProducts();
-  const resineProducts: Product[] = await getResineProducts();
-  const shFiguartsProducts: Product[] = await getSHFiguartsProducts();
-  const shonenJumpProducts: Product[] = await getShonenJumpProducts();
-  const pokemonProducts: Product[] = await getPokemonProducts();
-  const saleProducts: Product[] = await getSaleProducts();
   
   // Take only the first 6 categories for the homepage
 
@@ -243,7 +215,7 @@ export default async function Home() {
             <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent"></div>
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between p-6 md:p-16 h-full">
               <div className="text-center md:text-left w-full md:w-auto mb-6 md:mb-0">
-                <span className="bg-white/20 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-4">APPENA ARRIVATI</span>
+                <span className="bg-white/20 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-4">STATUE PREMIUM</span>
                 <h2 className="text-2xl md:text-3xl lg:text-5xl font-bold text-white mb-4 leading-tight">Resine</h2>
                 <p className="text-white/80 max-w-md mx-auto md:mx-0 text-sm md:text-base">Le statue in resina più dettagliate e raffinate del mercato</p>
               </div>
@@ -252,26 +224,20 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Resine Products Section */}
-      {resineProducts.length > 0 && (
-        <section className="py-16 bg-gray-50">
-          <div className="container mx-auto px-6">
-            <div className="relative">
-              <div className="absolute -top-6 -left-6 w-12 h-12 bg-green-500/5 rounded-full hidden md:block animate-pulse"></div>
-              <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-emerald-500/5 rounded-full hidden md:block animate-pulse delay-300"></div>
-              <ProductList products={resineProducts} />
-            </div>
-            <div className="text-center mt-12">
-              <Link 
-                href="/category/resine" 
-                className="inline-flex items-center bg-bred-500 text-white hover:bg-bred-600 px-8 py-3 rounded-md font-medium transition-colors shadow-md hover:shadow-lg"
-              >
-                Vedi Tutte le Statue in Resina <FaArrowRight className="ml-2" />
-              </Link>
-            </div>
-          </div>
-        </section>
-      )}
+      {/* Resine Products Section - Lazy Loaded */}
+      <LazyProductSection
+        title="Statue Premium"
+        badge="🏛️ RESINE"
+        description="Le statue in resina più dettagliate e raffinate del mercato"
+        categorySlug="resine"
+        categoryLink="/category/resine"
+        buttonText="Vedi Tutte le Statue in Resina"
+        bgGradient="bg-gradient-to-b from-green-50 to-white"
+        decorativeColors={{
+          primary: "bg-green-500/5",
+          secondary: "bg-emerald-500/5"
+        }}
+      />
 
       {/* S.H.Figuarts Banner */}
       <section className="py-8 md:py-16 bg-gray-50">
@@ -281,37 +247,31 @@ export default async function Home() {
             <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent"></div>
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between p-6 md:p-16 h-full">
               <div className="text-center md:text-left w-full md:w-auto mb-6 md:mb-0">
-                <span className="bg-white/20 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-4"> S.H.FIGUARTS</span>
-                <h2 className="text-2xl md:text-3xl lg:text-5xl font-bold text-white mb-4 leading-tight">La massima espressione dell&apos;articolazione e del dettaglio</h2>
-                <p className="text-white/80 max-w-md mx-auto md:mx-0 text-sm md:text-base"></p>
+                <span className="bg-white/20 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-4">ACTION FIGURES PREMIUM</span>
+                <h2 className="text-2xl md:text-3xl lg:text-5xl font-bold text-white mb-4 leading-tight">S.H.Figuarts</h2>
+                <p className="text-white/80 max-w-md mx-auto md:mx-0 text-sm md:text-base">La massima espressione dell'articolazione e del dettaglio</p>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* S.H.Figuarts Products Section */}
-      {shFiguartsProducts.length > 0 && (
-        <section className="py-16 bg-gray-50">
-          <div className="container mx-auto px-6">
-            <div className="relative">
-              <div className="absolute -top-6 -left-6 w-12 h-12 bg-red-500/5 rounded-full hidden md:block animate-pulse"></div>
-              <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-orange-500/5 rounded-full hidden md:block animate-pulse delay-300"></div>
-              <ProductList products={shFiguartsProducts} />
-            </div>
-            <div className="text-center mt-12">
-              <Link 
-                href="/category/s-h-figuarts" 
-                className="inline-flex items-center bg-bred-500 text-white hover:bg-bred-600 px-8 py-3 rounded-md font-medium transition-colors shadow-md hover:shadow-lg"
-              >
-                Vedi Tutte le S.H.Figuarts <FaArrowRight className="ml-2" />
-              </Link>
-            </div>
-          </div>
-        </section>
-      )}
+      {/* S.H.Figuarts Products Section - Lazy Loaded */}
+      <LazyProductSection
+        title="Action Figures Premium"
+        badge="🤖 S.H.FIGUARTS"
+        description="La massima espressione dell'articolazione e del dettaglio"
+        categorySlug="s-h-figuarts"
+        categoryLink="/category/s-h-figuarts"
+        buttonText="Vedi Tutte le S.H.Figuarts"
+        bgGradient="bg-gradient-to-b from-red-50 to-white"
+        decorativeColors={{
+          primary: "bg-red-500/5",
+          secondary: "bg-orange-500/5"
+        }}
+      />
 
-      {/* Shonen Jump & Gadget Banner */}
+      {/* Riviste Banner */}
       <section className="py-8 md:py-16 bg-gray-50">
         <div className="container mx-auto px-4 md:px-6">
           <div className="relative overflow-hidden rounded-2xl bg-gray-900 min-h-[200px] md:min-h-[250px]">
@@ -319,35 +279,29 @@ export default async function Home() {
             <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent"></div>
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between p-6 md:p-16 h-full">
               <div className="text-center md:text-left w-full md:w-auto mb-6 md:mb-0">
-                <span className="bg-white/20 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-4">Shonen Jump & Gadget</span>
-                <h2 className="text-2xl md:text-3xl lg:text-5xl font-bold text-white mb-4 leading-tight">Shonen Jump & Gadget</h2>
-                <p className="text-white/80 max-w-md mx-auto md:mx-0 text-sm md:text-base">Il meglio dell&apos;editoria giapponese e gadget esclusivi</p>
+                <span className="bg-white/20 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-4">RIVISTE & GADGET</span>
+                <h2 className="text-2xl md:text-3xl lg:text-5xl font-bold text-white mb-4 leading-tight">Riviste</h2>
+                <p className="text-white/80 max-w-md mx-auto md:mx-0 text-sm md:text-base">Il meglio dell'editoria giapponese e gadget esclusivi</p>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Shonen Jump Products Section */}
-      {shonenJumpProducts.length > 0 && (
-        <section className="py-16 bg-gray-50">
-          <div className="container mx-auto px-6">
-            <div className="relative">
-              <div className="absolute -top-6 -left-6 w-12 h-12 bg-blue-500/5 rounded-full hidden md:block animate-pulse"></div>
-              <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-indigo-500/5 rounded-full hidden md:block animate-pulse delay-300"></div>
-              <ProductList products={shonenJumpProducts} />
-            </div>
-            <div className="text-center mt-12">
-              <Link 
-                href="/category/riviste" 
-                className="inline-flex items-center bg-bred-500 text-white hover:bg-bred-600 px-8 py-3 rounded-md font-medium transition-colors shadow-md hover:shadow-lg"
-              >
-                Vedi Tutte le Riviste & Gadget <FaArrowRight className="ml-2" />
-              </Link>
-            </div>
-          </div>
-        </section>
-      )}
+      {/* Shonen Jump Products Section - Lazy Loaded */}
+      <LazyProductSection
+        title="Riviste & Gadget"
+        badge="📚 RIVISTE"
+        description="Il meglio dell'editoria giapponese e gadget esclusivi"
+        categorySlug="riviste"
+        categoryLink="/category/riviste"
+        buttonText="Vedi Tutte le Riviste & Gadget"
+        bgGradient="bg-gradient-to-b from-blue-50 to-white"
+        decorativeColors={{
+          primary: "bg-blue-500/5",
+          secondary: "bg-indigo-500/5"
+        }}
+      />
 
       {/* Pokemon Banner */}
       <section className="py-8 md:py-16 bg-gray-50">
@@ -366,28 +320,22 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Pokemon Products Section */}
-      {pokemonProducts.length > 0 && (
-        <section className="py-16 bg-gray-50">
-          <div className="container mx-auto px-6">
-            <div className="relative">
-              <div className="absolute -top-6 -left-6 w-12 h-12 bg-yellow-500/5 rounded-full hidden md:block animate-pulse"></div>
-              <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-red-500/5 rounded-full hidden md:block animate-pulse delay-300"></div>
-              <ProductList products={pokemonProducts} />
-            </div>
-            <div className="text-center mt-12">
-              <Link 
-                href="/category/pokemon" 
-                className="inline-flex items-center bg-bred-500 text-white hover:bg-bred-600 px-8 py-3 rounded-md font-medium transition-colors shadow-md hover:shadow-lg"
-              >
-                Vedi Tutti i Prodotti Pokémon <FaArrowRight className="ml-2" />
-              </Link>
-            </div>
-          </div>
-        </section>
-      )}
+      {/* Pokemon Products Section - Lazy Loaded */}
+      <LazyProductSection
+        title="Mondo Pokémon"
+        badge="⚡ POKÉMON"
+        description="Tutto per i veri allenatori di Pokémon"
+        categorySlug="pokemon"
+        categoryLink="/category/pokemon"
+        buttonText="Vedi Tutti i Prodotti Pokémon"
+        bgGradient="bg-gradient-to-b from-yellow-50 to-white"
+        decorativeColors={{
+          primary: "bg-yellow-500/5",
+          secondary: "bg-red-500/5"
+        }}
+      />
 
-      {/* Sale Products Banner */}
+      {/* Sale Banner */}
       <section className="py-8 md:py-16 bg-gray-50">
         <div className="container mx-auto px-4 md:px-6">
           <div className="relative overflow-hidden rounded-2xl bg-gray-900 min-h-[200px] md:min-h-[250px]">
@@ -395,8 +343,8 @@ export default async function Home() {
             <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent"></div>
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between p-6 md:p-16 h-full">
               <div className="text-center md:text-left w-full md:w-auto mb-6 md:mb-0">
-                <span className="bg-white/20 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-4">🔥 OFFERTE</span>
-                <h2 className="text-2xl md:text-3xl lg:text-5xl font-bold text-white mb-4 leading-tight">🔥 OFFERTE</h2>
+                <span className="bg-white/20 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-4">SUPER SCONTI</span>
+                <h2 className="text-2xl md:text-3xl lg:text-5xl font-bold text-white mb-4 leading-tight">Offerte</h2>
                 <p className="text-white/80 max-w-md mx-auto md:mx-0 text-sm md:text-base">Approfitta delle nostre offerte speciali prima che scadano!</p>
               </div>
             </div>
@@ -404,31 +352,20 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Sale Products Section */}
-      {saleProducts.length > 0 && (
-        <section className="py-16 bg-gray-50">
-          <div className="container mx-auto px-6">
-
-            
-            <div className="relative">
-              {/* Decorative elements */}
-              <div className="absolute -top-6 -left-6 w-12 h-12 bg-red-500/5 rounded-full hidden md:block animate-pulse"></div>
-              <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-orange-500/5 rounded-full hidden md:block animate-pulse delay-300"></div>
-              
-              <ProductList products={saleProducts} />
-            </div>
-            
-            <div className="text-center mt-12">
-              <Link 
-                href="/products?on_sale=true" 
-                className="inline-flex items-center bg-bred-500 text-white hover:bg-bred-600 px-8 py-3 rounded-md font-medium transition-colors shadow-md hover:shadow-lg"
-              >
-                Vedi Tutte le Offerte <FaArrowRight className="ml-2" />
-              </Link>
-            </div>
-          </div>
-        </section>
-      )}
+      {/* Sale Products Section - Lazy Loaded */}
+      <LazyProductSection
+        title="Super Sconti"
+        badge="🔥 OFFERTE"
+        description="Approfitta delle nostre offerte speciali prima che scadano!"
+        isSaleProducts={true}
+        categoryLink="/products?on_sale=true"
+        buttonText="Vedi Tutte le Offerte"
+        bgGradient="bg-gradient-to-b from-red-50 to-white"
+        decorativeColors={{
+          primary: "bg-red-500/5",
+          secondary: "bg-orange-500/5"
+        }}
+      />
 
       {/* Newsletter Section - Design Moderno */}
       <section className="py-20 bg-gradient-to-b from-white to-gray-50">
