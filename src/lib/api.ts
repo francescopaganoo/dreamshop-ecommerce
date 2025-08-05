@@ -384,7 +384,6 @@ export async function getProductsOnSale(page = 1, per_page = 10, orderby = 'date
       status: 'publish',
       orderby,
       order,
-      on_sale: true, // Parametro WooCommerce per prodotti in offerta
     });
     
     // Filtra ulteriormente per assicurarci che abbiano davvero un prezzo scontato

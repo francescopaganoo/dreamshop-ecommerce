@@ -101,7 +101,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
     
     // Configurazioni di base per la richiesta
-    const wordpressUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL || 'https://be.dreamshop18.com/';
+    const wordpressUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL || 'https://be2.dreamshop18.com/';
     const baseUrl = wordpressUrl.endsWith('/') ? wordpressUrl : `${wordpressUrl}/`;
     const requestBody = {
       user_id: userId, // Aggiungiamo esplicitamente l'ID utente
@@ -244,7 +244,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                         try {
                           // Questo approccio mantiene i coupon esistenti e aggiunge il nuovo
                           // Prima otteniamo tutti i coupon esistenti sull'ordine
-                          const wordpressUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL || 'https://be.dreamshop18.com/';
+                          const wordpressUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL || 'https://be2.dreamshop18.com/';
                           const domain = wordpressUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
                           const orderDetailsUrl = `https://${domain}/wp-json/wc/v3/orders/${orderId}?consumer_key=${process.env.WC_CONSUMER_KEY}&consumer_secret=${process.env.WC_CONSUMER_SECRET}`;
                           const orderResponse = await fetch(orderDetailsUrl);

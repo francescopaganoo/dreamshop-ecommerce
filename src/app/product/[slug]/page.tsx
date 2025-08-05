@@ -1,5 +1,4 @@
 import { getProductBySlug } from '@/lib/api';
-import Image from 'next/image';
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -8,6 +7,7 @@ import SimpleProductAddToCart from '@/components/product/SimpleProductAddToCart'
 import ProductSkeleton from '@/components/product/ProductSkeleton';
 import ProductActions from '@/components/product/ProductActions';
 import BundleProducts from '@/components/product/BundleProducts';
+import ProductImageGallery from '@/components/product/ProductImageGallery';
 import { isBundle, BundleProduct } from '@/types/bundle';
 import { Suspense } from 'react';
 
@@ -42,10 +42,6 @@ async function ProductDetails({ slug }: { slug: string }) {
     notFound();
   }
   
-  // Get the main product image or use a placeholder
-  const mainImage = product.images && product.images.length > 0
-    ? product.images[0].src
-    : 'https://via.placeholder.com/600';
   
   // Format price with currency symbol
   const formatPrice = (price: string | null | undefined) => {
@@ -88,23 +84,11 @@ async function ProductDetails({ slug }: { slug: string }) {
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
         {/* Product Images */}
-        <div className="relative aspect-square bg-white rounded-xl overflow-hidden border border-gray-200">
-          <Image
-            src={mainImage}
-            alt={product.name}
-            fill
-            sizes="(max-width: 768px) 100vw, 50vw"
-            style={{ objectFit: 'contain' }}
-            priority
-            className="p-4"
-          />
-          
-          {isOnSale && (
-            <div className="absolute top-4 right-4 bg-red-500 text-white text-sm font-bold px-3 py-1 rounded-full">
-              Offerta
-            </div>
-          )}
-        </div>
+        <ProductImageGallery 
+          images={product.images || []}
+          productName={product.name}
+          isOnSale={!!isOnSale}
+        />
         
         {/* Product Info */}
         <div>

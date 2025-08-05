@@ -49,7 +49,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       // Primo tentativo: usa l'endpoint nuovo che funziona correttamente
       console.log(`API: Tentativo con endpoint nuovo /dreamshop-points/v1/users/${userId}/points`);
       
-      const wordpressUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL || 'https://be.dreamshop18.com/';
+      const wordpressUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL || 'https://be2.dreamshop18.com/';
       const baseUrl = wordpressUrl.endsWith('/') ? wordpressUrl : `${wordpressUrl}/`;
       
       // Chiamata diretta all'endpoint che sappiamo funzionare
@@ -81,7 +81,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       
       // Creiamo un nuovo client API WooCommerce 
       const api = new WooCommerceRestApi({
-        url: process.env.NEXT_PUBLIC_WORDPRESS_URL || 'https://be.dreamshop18.com/',
+        url: process.env.NEXT_PUBLIC_WORDPRESS_URL || 'https://be2.dreamshop18.com/',
         consumerKey: process.env.WC_CONSUMER_KEY || 'ck_56956244a9dd0650ae126115f5e5c5a100af6a99',
         consumerSecret: process.env.WC_CONSUMER_SECRET || 'cs_ec3a6b069694465a1a769795892bf8b5d67b1773',
         version: 'wc/v3',

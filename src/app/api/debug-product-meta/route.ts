@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
   
   try {
     // Ottieni l'URL corretto dall'ambiente
-    const wpUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL || 'https://be.dreamshop18.com';
+    const wpUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL || 'https://be2.dreamshop18.com';
     
     // Crea una chiamata API per ottenere i dettagli completi del prodotto tramite WooCommerce REST API
     const wcEndpoint = `${wpUrl}/wp-json/wc/v3/products/${productId}`;

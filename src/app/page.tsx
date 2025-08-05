@@ -20,7 +20,7 @@ async function getProductCategories(): Promise<Category[]> {
 
 async function getIchibanKujiProducts(): Promise<Product[]> {
   // Ottieni i prodotti della categoria Ichiban Kuji
-  return getProductsByCategorySlug('ichibankuji', 1, 8, 'date', 'desc');
+  return getProductsByCategorySlug('ichiban-kuji', 1, 8, 'date', 'desc');
 }
 
 
@@ -291,8 +291,8 @@ export default async function Home() {
         title="Riviste & Gadget"
         badge="📚 RIVISTE"
         description="Il meglio dell'editoria giapponese e gadget esclusivi"
-        categorySlug="riviste"
-        categoryLink="/category/riviste"
+        categorySlug="editoria"
+        categoryLink="/category/editoria"
         buttonText="Vedi Tutte le Riviste & Gadget"
         bgGradient="bg-gray-50"
         decorativeColors={{
