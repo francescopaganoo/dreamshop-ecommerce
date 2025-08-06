@@ -89,12 +89,6 @@ export default async function CategoriesPage() {
                       <h2 className="text-l font-bold text-gray-900 mb-2 group-hover:text-bred-600 transition-colors duration-300">
                         {decodeHtmlEntitiesServer(category.name)}
                       </h2>
-                      <div className="flex items-center gap-2 text-sm text-gray-500 mb-3">
-                        <FaTags className="text-bred-500" />
-                        <span>
-                          {category.count} {category.count === 1 ? 'prodotto' : 'prodotti'}
-                        </span>
-                      </div>
                     </div>
                     
                     {/* Action Button */}
@@ -147,10 +141,8 @@ export default async function CategoriesPage() {
                   <div className="w-16 h-16 bg-orange-500/10 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:bg-orange-500/20 transition-colors">
                     <FaStar className="text-orange-500 text-2xl" />
                   </div>
-                  <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                    {categories.reduce((sum, cat) => sum + cat.count, 0)}
-                  </h3>
-                  <p className="text-gray-600">Prodotti Totali</p>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-2">Premium</h3>
+                  <p className="text-gray-600">Qualità Prodotti</p>
                 </div>
                 
                 <div className="group">

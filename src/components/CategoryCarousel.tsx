@@ -67,9 +67,6 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({ categories }) => {
                 </div>
                 <div className="p-4 text-center flex-grow">
                   <h3 className="font-medium text-gray-900 truncate">{category.name}</h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    {category.count} {category.count === 1 ? 'prodotto' : 'prodotti'}
-                  </p>
                 </div>
               </div>
             </Link>

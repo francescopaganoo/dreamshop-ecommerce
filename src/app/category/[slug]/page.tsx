@@ -70,9 +70,6 @@ export default async function CategoryPage({ params, searchParams }: any) {
           {/* Category Header */}
           <div className="mb-8 text-center">
             <h1 className="text-3xl font-bold mb-2 text-gray-900">{category.name}</h1>
-            <p className="text-gray-600">
-              {category.count} {category.count === 1 ? 'prodotto disponibile' : 'prodotti disponibili'}
-            </p>
           </div>
           
           {/* Products Grid */}
