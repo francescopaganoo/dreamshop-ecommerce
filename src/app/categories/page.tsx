@@ -21,7 +21,30 @@ function decodeHtmlEntitiesServer(text: string): string {
 }
 
 export default async function CategoriesPage() {
-  const categories: Category[] = await getCategories();
+  const allCategories: Category[] = await getCategories();
+  
+  // Slug delle categorie da escludere
+  const excludedSlugs = [
+    'attack-on-titan',
+    'black-week', 
+    'dragon-ball-cg',
+    'one-piece-cg',
+    'yu-gi-oh',
+    'cina',
+    'cina-rs',
+    'crazy-month',
+    'editoria',
+    'gift-card',
+    'italia',
+    'no-categoria',
+    'nuovi-arrivi',
+    'jimei-palace',
+    'tsume',
+    'senza-categoria'
+  ];
+  
+  // Filtra le categorie escludendo quelle con slug nella lista
+  const categories = allCategories.filter(category => !excludedSlugs.includes(category.slug));
   
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white">
