@@ -63,7 +63,7 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({ categories }) => {
       >
         <div className="swiper-button-next !text-white !bg-bred-500 !w-12 !h-12 !rounded-full !shadow-lg hover:!bg-bred-600 hover:!shadow-xl hover:!scale-110 !transition-all !duration-300 after:!text-lg after:!font-bold !z-10"></div>
         <div className="swiper-button-prev !text-white !bg-bred-500 !w-12 !h-12 !rounded-full !shadow-lg hover:!bg-bred-600 hover:!shadow-xl hover:!scale-110 !transition-all !duration-300 after:!text-lg after:!font-bold !z-10"></div>
-        {categories.map((category, index) => (
+        {categories.map((category) => (
           <SwiperSlide key={category.id}>
             <Link href={`/category/${category.slug}`} className="block h-full group">
               <div className="relative h-40 bg-white rounded-2xl shadow-lg overflow-hidden transition-all duration-300 hover:shadow-xl border border-gray-200/50">
