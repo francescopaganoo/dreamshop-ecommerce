@@ -10,6 +10,7 @@
  * Requires PHP: 7.4
  * WC requires at least: 5.0
  * WC tested up to: 7.0
+ * Woo: 8.2.0:8.2.0
  */
 
 // Se questo file viene chiamato direttamente, interrompi l'esecuzione.
@@ -51,10 +52,22 @@ class DreamShop_Points {
      * Costruttore
      */
     private function __construct() {
+        // Dichiara la compatibilità HPOS prima di tutto
+        add_action('before_woocommerce_init', array($this, 'declare_hpos_compatibility'));
+        
         $this->load_dependencies();
         $this->define_admin_hooks();
         $this->define_public_hooks();
         $this->define_rest_api();
+    }
+    
+    /**
+     * Dichiara la compatibilità con HPOS (High-Performance Order Storage)
+     */
+    public function declare_hpos_compatibility() {
+        if (class_exists('\Automattic\WooCommerce\Utilities\FeaturesUtil')) {
+            \Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility('custom_order_tables', __FILE__, true);
+        }
     }
     
     /**
