@@ -15,7 +15,30 @@ async function getFeaturedProducts(): Promise<Product[]> {
 }
 
 async function getProductCategories(): Promise<Category[]> {
-  return getCategories();
+  const allCategories = await getCategories();
+  
+  // Slug delle categorie da escludere dal carosello
+  const excludedSlugs = [
+    'attack-on-titan',
+    'black-week', 
+    'dragon-ball-cg',
+    'one-piece-cg',
+    'yu-gi-oh',
+    'cina',
+    'cina-rs',
+    'crazy-month',
+    'editoria',
+    'gift-card',
+    'italia',
+    'no-categoria',
+    'nuovi-arrivi',
+    'jimei-palace',
+    'tsume',
+    'senza-categoria'
+  ];
+  
+  // Filtra le categorie escludendo quelle con slug nella lista
+  return allCategories.filter(category => !excludedSlugs.includes(category.slug));
 }
 
 async function getIchibanKujiProducts(): Promise<Product[]> {
