@@ -81,7 +81,7 @@ export default function LazyProductSection({
         }
       },
       {
-        rootMargin: '100px', // Start loading 100px before the section comes into view
+        rootMargin: '500px', // Start loading 500px before the section comes into view
         threshold: 0.1
       }
     );
@@ -157,7 +157,11 @@ export default function LazyProductSection({
     }
   }, [isVisible, isLoading, categorySlug, isSaleProducts]);
 
-  if (!isVisible || isLoading) {
+  if (!isVisible) {
+    return <section ref={sectionRef}></section>;
+  }
+
+  if (isLoading) {
     return (
       <section ref={sectionRef}>
         <ProductSectionSkeleton title={title} badge={badge} description={description} />
