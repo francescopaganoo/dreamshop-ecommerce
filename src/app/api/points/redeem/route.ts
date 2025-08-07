@@ -101,7 +101,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
     
     // Configurazioni di base per la richiesta
-    const wordpressUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL || 'https://be2.dreamshop18.com/';
+    const wordpressUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL!;
     const baseUrl = wordpressUrl.endsWith('/') ? wordpressUrl : `${wordpressUrl}/`;
     const requestBody = {
       user_id: userId, // Aggiungiamo esplicitamente l'ID utente
@@ -184,8 +184,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             console.log(`[POINTS API] Tentativo di applicare il coupon ${couponCode} all'ordine ${orderId} - Device: ${isIOS ? 'iOS' : 'Other'}`);
             
             // Ottieni le credenziali WooCommerce dalle variabili d'ambiente
-            const wcConsumerKey = process.env.WC_CONSUMER_KEY || '';
-            const wcConsumerSecret = process.env.WC_CONSUMER_SECRET || '';
+            const wcConsumerKey = process.env.NEXT_PUBLIC_WC_CONSUMER_KEY || '';
+            const wcConsumerSecret = process.env.NEXT_PUBLIC_WC_CONSUMER_SECRET || '';
             
             if (!wcConsumerKey || !wcConsumerSecret) {
               console.error('[POINTS API] Credenziali WooCommerce mancanti nelle variabili d\'ambiente');
@@ -244,9 +244,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                         try {
                           // Questo approccio mantiene i coupon esistenti e aggiunge il nuovo
                           // Prima otteniamo tutti i coupon esistenti sull'ordine
-                          const wordpressUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL || 'https://be2.dreamshop18.com/';
+                          const wordpressUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL!;
                           const domain = wordpressUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
-                          const orderDetailsUrl = `https://${domain}/wp-json/wc/v3/orders/${orderId}?consumer_key=${process.env.WC_CONSUMER_KEY}&consumer_secret=${process.env.WC_CONSUMER_SECRET}`;
+                          const orderDetailsUrl = `https://${domain}/wp-json/wc/v3/orders/${orderId}?consumer_key=${process.env.NEXT_PUBLIC_WC_CONSUMER_KEY}&consumer_secret=${process.env.NEXT_PUBLIC_WC_CONSUMER_SECRET}`;
                           const orderResponse = await fetch(orderDetailsUrl);
                           const orderData = await orderResponse.json() as WooOrder;
                           

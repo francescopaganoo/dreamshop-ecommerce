@@ -8,14 +8,14 @@ export async function GET(request: NextRequest) {
   
   try {
     // Ottieni l'URL corretto dall'ambiente
-    const wpUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL || 'https://be2.dreamshop18.com';
+    const wpUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL!;
     
     // Crea una chiamata API per ottenere i dettagli completi del prodotto tramite WooCommerce REST API
     const wcEndpoint = `${wpUrl}/wp-json/wc/v3/products/${productId}`;
     
     // Aggiungi le credenziali WooCommerce
-    const consumerKey = process.env.WC_CONSUMER_KEY || 'ck_56956244a9dd0650ae126115f5e5c5a100af6a99';
-    const consumerSecret = process.env.WC_CONSUMER_SECRET || 'cs_ec3a6b069694465a1a769795892bf8b5d67b1773';
+    const consumerKey = process.env.NEXT_PUBLIC_WC_CONSUMER_KEY!;
+    const consumerSecret = process.env.NEXT_PUBLIC_WC_CONSUMER_SECRET!;
     
     const wcApiUrl = `${wcEndpoint}?consumer_key=${consumerKey}&consumer_secret=${consumerSecret}`;
     

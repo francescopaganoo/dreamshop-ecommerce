@@ -1,7 +1,7 @@
 // Test diretto dell'API WordPress per gli acconti
 
 // Definisci direttamente l'URL dell'API WordPress
-const WORDPRESS_API_URL = 'https://be2.dreamshop18.com';
+const WORDPRESS_API_URL = 'https://be.dreamshop18.com';
 const productId = 54595; // ID del prodotto da testare
 
 console.log(`Test API per acconto - usando WORDPRESS_API_URL: ${WORDPRESS_API_URL}`);

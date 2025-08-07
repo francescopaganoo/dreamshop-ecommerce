@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 
 // Chiave segreta per verificare i token JWT
 const JWT_SECRET = process.env.JWT_SECRET || 'dwi37ljio_5tk_3jt3';
-const WP_URL = process.env.NEXT_PUBLIC_WORDPRESS_URL || 'https://be2.dreamshop18.com';
+const WP_URL = process.env.NEXT_PUBLIC_WORDPRESS_URL!;
 
 // Helper per verificare il token JWT
 async function verifyToken(token: string) {

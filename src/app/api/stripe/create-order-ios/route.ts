@@ -262,7 +262,7 @@ export async function POST(request: NextRequest) {
     try {
       console.log('iOS - Tentativo di attivazione manuale del plugin deposits...');
       
-      const wordpressUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL || 'https://be2.dreamshop18.com/';
+      const wordpressUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL!;
       const baseUrl = wordpressUrl.endsWith('/') ? wordpressUrl : `${wordpressUrl}/`;
       
       // Chiamata per forzare il re-processamento dell'ordine con gli acconti
@@ -300,7 +300,7 @@ export async function POST(request: NextRequest) {
         
         // Invece di usare la funzione redeemPoints, implementiamo direttamente il riscatto
         // Configurazioni di base per la richiesta diretta a WordPress
-        const wordpressUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL || 'https://be2.dreamshop18.com/';
+        const wordpressUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL!;
         const baseUrl = wordpressUrl.endsWith('/') ? wordpressUrl : `${wordpressUrl}/`;
         
         // Utilizziamo la variabile POINTS_API_KEY disponibile nell'env
@@ -347,7 +347,7 @@ export async function POST(request: NextRequest) {
             
             try {
               // Usiamo direttamente il metodo che funziona: aggiornare le coupon_lines
-              const wordpressUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL || 'https://be2.dreamshop18.com/';
+              const wordpressUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL!;
               const baseUrl = wordpressUrl.endsWith('/') ? wordpressUrl : `${wordpressUrl}/`;
               const getOrderUrl = `${baseUrl}wp-json/wc/v3/orders/${order.id}?consumer_key=${wcConsumerKey}&consumer_secret=${wcConsumerSecret}`;
               const orderResponse = await fetch(getOrderUrl);

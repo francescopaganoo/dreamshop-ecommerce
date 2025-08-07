@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
   
   try {
     // Ottieni l'URL corretto dall'ambiente
-    const wpUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL || 'https://be2.dreamshop18.com';
+    const wpUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL!;
     const wpEndpoint = `${wpUrl}/wp-json/dreamshop/v1/products/${productId}/deposit-options`;
     
     console.log('Calling WordPress endpoint:', wpEndpoint);

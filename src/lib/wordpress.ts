@@ -3,4 +3,4 @@
  */
 
 // URL del sito WordPress
-export const WORDPRESS_URL = process.env.NEXT_PUBLIC_WORDPRESS_URL || 'https://be2.dreamshop18.com';
+export const WORDPRESS_URL = process.env.NEXT_PUBLIC_WORDPRESS_URL!;
