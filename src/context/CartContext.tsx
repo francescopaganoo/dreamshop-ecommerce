@@ -24,6 +24,7 @@ interface CartContextType {
   clearCart: () => void;
   getCartTotal: () => number;
   getCartCount: () => number;
+  getSubtotal: () => number;
   coupon: Coupon | null;
   couponCode: string;
   setCouponCode: (code: string) => void;
@@ -415,9 +416,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Calculate the total price of all items in the cart
-  const getCartTotal = () => {
-    const subtotal = cart.reduce((total, item) => {
+  // Calculate subtotal (base price without discounts)
+  const getSubtotal = () => {
+    return cart.reduce((total, item) => {
       // Controlla se il prodotto ha l'acconto attivato
       const depositInfo = getDepositInfo(item.product as unknown as ProductWithDeposit);
       const isDeposit = depositInfo.hasDeposit;
@@ -439,6 +440,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
       
       return total + (itemPrice * item.quantity);
     }, 0);
+  };
+
+  // Calculate the total price of all items in the cart (with discounts)
+  const getCartTotal = () => {
+    const subtotal = getSubtotal();
     
     // Applica lo sconto del coupon e dei punti
     return Math.max(0, subtotal - discount - pointsDiscount);
@@ -483,13 +489,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
    */
   const applyPointsDiscount = () => {
     if (pointsToRedeem <= 0 || pointsToRedeem > userPoints) {
+      setPointsDiscount(0);
       return;
     }
+    
+    // Usa getSubtotal per evitare duplicazione di codice
+    const subtotal = getSubtotal();
     
     // Calcola lo sconto (100 punti = 1€)
     const pointValue = 0.01; // Valore di un punto in euro
     const rawDiscount = pointsToRedeem * pointValue;
-    const calculatedDiscount = Math.min(rawDiscount, getCartTotal());
+    // Limita lo sconto al subtotal meno discount del coupon
+    const maxDiscount = Math.max(0, subtotal - discount);
+    const calculatedDiscount = Math.min(rawDiscount, maxDiscount);
     setPointsDiscount(parseFloat(calculatedDiscount.toFixed(2))); // Arrotonda a 2 decimali
   };
   
@@ -515,6 +527,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       clearCart,
       getCartTotal,
       getCartCount,
+      getSubtotal,
       coupon,
       couponCode,
       setCouponCode,

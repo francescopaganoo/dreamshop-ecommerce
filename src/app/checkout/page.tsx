@@ -13,7 +13,7 @@ import { redeemPoints } from '../../lib/points';
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { cart, getCartTotal, clearCart, coupon, discount } = useCart();
+  const { cart, getCartTotal, getSubtotal, clearCart, coupon, discount } = useCart();
   const { isAuthenticated, user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -228,7 +228,7 @@ export default function CheckoutPage() {
   }, [isAuthenticated, user]);
   
   // Calculate totals
-  const subtotal = getCartTotal() + discount + pointsDiscount; // Aggiungiamo lo sconto al subtotale perché getCartTotal() restituisce già il valore scontato
+  const subtotal = getSubtotal(); // Usa getSubtotal per ottenere il prezzo base senza sconti
   const [shippingMethods, setShippingMethods] = useState<ShippingMethod[]>([]);
   const [selectedShippingMethod, setSelectedShippingMethod] = useState<ShippingMethod | null>(null);
   const [shippingCalculated, setShippingCalculated] = useState<boolean>(false);
