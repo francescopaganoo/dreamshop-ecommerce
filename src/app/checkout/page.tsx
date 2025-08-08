@@ -13,7 +13,7 @@ import { redeemPoints } from '../../lib/points';
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { cart, getCartTotal, getSubtotal, clearCart, coupon, discount } = useCart();
+  const { cart, getSubtotal, clearCart, coupon, discount } = useCart();
   const { isAuthenticated, user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
