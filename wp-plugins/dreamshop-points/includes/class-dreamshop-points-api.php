@@ -106,10 +106,7 @@ class DreamShop_Points_API {
      * @return bool|WP_Error True se autenticato, WP_Error altrimenti
      */
     public function check_authentication($request) {
-        // Per debug, temporaneamente permettiamo tutte le richieste
-        // In produzione, ripristinare la verifica dell'autenticazione
-        error_log('DreamShop Points API: check_authentication chiamato - permettendo accesso');
-        return true;
+        return current_user_can('read');
     }
     
     /**
@@ -260,8 +257,12 @@ class DreamShop_Points_API {
         $api_key = $request->get_header('X-API-Key');
         
         // Verifica l'API Key
-        if (!$api_key || $api_key !== $this->get_api_key()) {
-            error_log('DreamShop Points API: API Key non valida o mancante');
+        $expected_key = $this->get_api_key();
+        error_log('DreamShop Points API: Chiave ricevuta: ' . $api_key);
+        error_log('DreamShop Points API: Chiave attesa: ' . $expected_key);
+        
+        if (!$api_key || $api_key !== $expected_key) {
+            error_log('DreamShop Points API: API Key non valida o mancante - Ricevuta: [' . $api_key . '] Attesa: [' . $expected_key . ']');
             return new WP_Error(
                 'invalid_api_key',
                 'Chiave API non valida o mancante',
@@ -511,102 +512,43 @@ class DreamShop_Points_API {
      * @return WP_REST_Response|WP_Error Risposta REST o Errore
      */
     public function get_specific_user_points($request) {
-        try {
-            // Per debug, disabilitiamo temporaneamente il controllo errori PHP
-            error_reporting(E_ALL);
-            ini_set('display_errors', 1);
-            
-            // Log di debug
-            error_log('DreamShop Points API: Richiesto get_specific_user_points');
-            
-            // Ottieni l'ID utente dalla richiesta (parametro obbligatorio)
-            $user_id = $request->get_param('id');
-            if (empty($user_id)) {
-                error_log('DreamShop Points API: ID utente mancante nella richiesta');
-                return new WP_Error(
-                    'missing_id',
-                    'ID utente mancante nella richiesta',
-                    array('status' => 400)
-                );
-            }
-            error_log('DreamShop Points API: Requested user ID: ' . $user_id);
-            
-            // Per debug, temporaneamente permettiamo tutte le richieste
-            // Commentiamo il controllo permessi
-            /*
-            // Verifica se l'utente corrente è un amministratore o sta cercando i propri punti
-            if (!current_user_can('manage_options') && $current_user_id != $user_id) {
-                return new WP_Error(
-                    'rest_forbidden',
-                    'Non hai i permessi per visualizzare i punti di questo utente.',
-                    array('status' => 403)
-                );
-            }
-            */
-            
-            // Verifica se il DB è inizializzato correttamente
-            if (!isset($this->db) || !is_object($this->db)) {
-                error_log('DreamShop Points API: Errore DB non inizializzato');
-                return rest_ensure_response(array(
-                    'success' => false,
-                    'message' => 'Errore interno: DB non inizializzato',
-                    'debug' => 'this->db non disponibile'
-                ));
-            }
-            
-            // Diagnostica: Verifica l'utente nel DB WordPress
-            $user = get_user_by('id', $user_id);
-            if ($user) {
-                error_log('DreamShop Points API: Utente trovato: ' . $user->user_email);
-            } else {
-                error_log('DreamShop Points API: ERRORE - Utente con ID ' . $user_id . ' non trovato in WordPress');
-            }
-            
-            // Diagnostica: Verifica tabella dei punti
-            global $wpdb;
-            $table_name = $wpdb->prefix . 'dreamshop_points_users';
-            $query = $wpdb->prepare("SELECT * FROM {$table_name} WHERE user_id = %d", $user_id);
-            $result = $wpdb->get_row($query);
-            
-            if ($result) {
-                error_log('DreamShop Points API: Trovato record utente nella tabella punti: ' . json_encode($result));
-            } else {
-                error_log('DreamShop Points API: ERRORE - Nessun record trovato nella tabella punti per utente ID ' . $user_id);
-                error_log('DreamShop Points API: Query: ' . $query);
-                error_log('DreamShop Points API: Ultimo errore DB: ' . $wpdb->last_error);
-            }
-            
-            // Ottieni i punti dell'utente
-            $points = $this->db->get_user_points($user_id);
-            error_log('DreamShop Points API: Punti utente: ' . $points);
-            
-            // Ottieni la cronologia dei punti
-            $history = $this->db->get_points_history($user_id);
-            error_log('DreamShop Points API: Storia punti recuperata');
-            
-            // Creazione dell'etichetta dei punti
-            $points_label = $this->format_points_label($points);
-            
-            // Restituisci la risposta
-            $response_data = array(
-                'success' => true,
-                'user_id' => (int) $user_id,
-                'points' => (int) $points,
-                'pointsLabel' => $points_label,
-                'history' => is_array($history) ? $history : array()
-            );
-            
-            error_log('DreamShop Points API: Risposta generata con successo');
-            return rest_ensure_response($response_data);
-            
-        } catch (Exception $e) {
-            error_log('DreamShop Points API Exception: ' . $e->getMessage());
+        // Ottieni l'ID utente dalla richiesta (parametro obbligatorio)
+        $user_id = $request->get_param('id');
+        if (empty($user_id)) {
             return new WP_Error(
-                'dreamshop_api_error',
-                'Errore interno: ' . $e->getMessage(),
-                array('status' => 500)
+                'missing_id',
+                'ID utente mancante nella richiesta',
+                array('status' => 400)
             );
         }
+        
+        // Verifica se l'utente corrente è un amministratore o sta cercando i propri punti
+        $current_user_id = get_current_user_id();
+        if (!current_user_can('manage_options') && $current_user_id != $user_id) {
+            return new WP_Error(
+                'rest_forbidden',
+                'Non hai i permessi per visualizzare i punti di questo utente.',
+                array('status' => 403)
+            );
+        }
+        
+        // Ottieni i punti dell'utente
+        $points = $this->db->get_user_points($user_id);
+        
+        // Ottieni la cronologia dei punti
+        $history = $this->db->get_points_history($user_id);
+        
+        // Creazione dell'etichetta dei punti
+        $points_label = $this->format_points_label($points);
+        
+        // Restituisci la risposta
+        return rest_ensure_response(array(
+            'success' => true,
+            'user_id' => (int) $user_id,
+            'points' => (int) $points,
+            'pointsLabel' => $points_label,
+            'history' => is_array($history) ? $history : array()
+        ));
     }
     
     /**

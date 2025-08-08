@@ -66,3 +66,45 @@
   background: #f8f8f8;
   border: 1px solid #e5e5e5;
 }
+
+/* API Key styles */
+.dreamshop-points-api-key {
+  background: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 15px;
+  margin-top: 10px;
+}
+
+input[name="api_key"] {
+  font-family: 'Courier New', Courier, monospace;
+  background: #fff;
+  border: 2px solid #0073aa;
+  border-radius: 3px;
+  padding: 8px 12px;
+  font-size: 14px;
+  width: 400px;
+}
+
+input[name="api_key"]:focus {
+  border-color: #00a0d2;
+  box-shadow: 0 0 0 1px #00a0d2;
+  outline: none;
+}
+
+.api-key-section {
+  background: #f0f8ff;
+  border: 1px solid #0073aa;
+  border-radius: 6px;
+  padding: 20px;
+  margin: 15px 0;
+}
+
+.api-key-section h4 {
+  margin-top: 0;
+  color: #0073aa;
+}
+
+.api-key-copy-button {
+  transition: all 0.3s ease;
+}

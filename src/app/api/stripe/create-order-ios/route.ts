@@ -304,7 +304,7 @@ export async function POST(request: NextRequest) {
         const baseUrl = wordpressUrl.endsWith('/') ? wordpressUrl : `${wordpressUrl}/`;
         
         // Utilizziamo la variabile POINTS_API_KEY disponibile nell'env
-        const apiKey = process.env.POINTS_API_KEY || '9lK_jjt3Kj'; // Usa la chiave esistente nell'env
+        const apiKey = process.env.POINTS_API_KEY!; // Usa la chiave dalle variabili d'ambiente
         console.log('[iOS POINTS] Usando variabile POINTS_API_KEY');
         
         // Usa l'endpoint sicuro che richiede solo API key senza autenticazione JWT

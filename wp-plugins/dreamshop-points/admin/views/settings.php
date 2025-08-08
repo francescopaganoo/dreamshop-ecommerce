@@ -16,6 +16,24 @@ if (isset($_POST['dreamshop_points_settings_nonce']) && wp_verify_nonce($_POST['
     // Stati degli ordini che generano punti
     $earning_statuses = isset($_POST['earning_statuses']) ? $_POST['earning_statuses'] : array('completed');
     
+    // Gestione API Key
+    if (isset($_POST['api_key']) && !empty(trim($_POST['api_key']))) {
+        $api_key = sanitize_text_field($_POST['api_key']);
+        update_option('dreamshop_points_api_key', $api_key);
+        
+        echo '<div class="notice notice-success"><p>' . esc_html__('API Key aggiornata con successo!', 'dreamshop-points') . '</p></div>';
+        error_log("DreamShop Points: API Key aggiornata manualmente");
+    }
+    
+    // Genera nuova API Key se richiesto
+    if (isset($_POST['generate_new_api_key']) && $_POST['generate_new_api_key'] === '1') {
+        $new_api_key = bin2hex(random_bytes(16)); // 32 caratteri
+        update_option('dreamshop_points_api_key', $new_api_key);
+        
+        echo '<div class="notice notice-info"><p>' . esc_html__('Nuova API Key generata con successo!', 'dreamshop-points') . '</p></div>';
+        error_log("DreamShop Points: Nuova API Key generata: " . $new_api_key);
+    }
+    
     update_option('dreamshop_points_earning_ratio', $earning_ratio);
     update_option('dreamshop_points_redemption_value', $redemption_value);
     update_option('dreamshop_points_min_redemption', $min_points);
@@ -33,6 +51,15 @@ $earning_ratio = get_option('dreamshop_points_earning_ratio', 1);
 $redemption_value = get_option('dreamshop_points_redemption_value', 0.01);
 $min_points = get_option('dreamshop_points_min_redemption', 100);
 $earning_statuses = get_option('dreamshop_points_earning_statuses', array('completed'));
+
+// Recupera la API Key corrente
+$current_api_key = get_option('dreamshop_points_api_key', '');
+if (empty($current_api_key)) {
+    // Se non esiste, generala
+    $current_api_key = bin2hex(random_bytes(16));
+    update_option('dreamshop_points_api_key', $current_api_key);
+    error_log("DreamShop Points: API Key generata automaticamente: " . $current_api_key);
+}
 
 // Recupera tutti i possibili stati di ordini di WooCommerce
 $order_statuses = wc_get_order_statuses();
@@ -97,6 +124,25 @@ $order_statuses = wc_get_order_statuses();
                             <?php _e('Seleziona gli stati degli ordini che generano punti per i clienti. Di default, solo gli ordini completati generano punti.', 'dreamshop-points'); ?>
                         </p>
                     </fieldset>
+                </td>
+            </tr>
+            
+            <tr>
+                <th scope="row"><?php _e('API Key per Next.js', 'dreamshop-points'); ?></th>
+                <td>
+                    <input type="text" name="api_key" value="<?php echo esc_attr($current_api_key); ?>" class="regular-text" style="font-family: monospace;">
+                    <br><br>
+                    <button type="submit" name="generate_new_api_key" value="1" class="button button-secondary" onclick="return confirm('Generare una nuova API Key? La chiave attuale non funzionerà più.')">
+                        <?php _e('Genera Nuova API Key', 'dreamshop-points'); ?>
+                    </button>
+                    <p class="description">
+                        <?php _e('Questa chiave API viene utilizzata dal frontend Next.js per accedere in modo sicuro agli endpoint dei punti. Copia questa chiave nella variabile POINTS_API_KEY del tuo file .env.local', 'dreamshop-points'); ?>
+                        <br><br>
+                        <strong>Aggiungi nel tuo file .env.local:</strong><br>
+                        <code style="background: #f1f1f1; padding: 5px; display: inline-block; margin-top: 5px;">
+                            POINTS_API_KEY=<?php echo esc_attr($current_api_key); ?>
+                        </code>
+                    </p>
                 </td>
             </tr>
         </table>

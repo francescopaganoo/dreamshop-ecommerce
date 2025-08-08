@@ -49,5 +49,33 @@
                 e.preventDefault();
             }
         });
+
+        // Gestione API Key
+        $('input[name="api_key"]').on('select', function() {
+            this.select();
+        });
+
+        // Copia API Key negli appunti
+        $('<button type="button" class="button button-small" style="margin-left: 10px;">Copia</button>')
+            .insertAfter('input[name="api_key"]')
+            .on('click', function(e) {
+                e.preventDefault();
+                const apiKeyInput = $('input[name="api_key"]');
+                apiKeyInput.select();
+                document.execCommand('copy');
+                
+                const button = $(this);
+                const originalText = button.text();
+                button.text('Copiato!').addClass('button-primary');
+                
+                setTimeout(function() {
+                    button.text(originalText).removeClass('button-primary');
+                }, 2000);
+            });
+
+        // Evidenzia il campo API Key quando viene cliccato
+        $('input[name="api_key"]').on('click', function() {
+            $(this).select();
+        });
     });
 })(jQuery);
