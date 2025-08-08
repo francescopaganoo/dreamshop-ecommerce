@@ -106,7 +106,7 @@ class DreamShop_Points_API {
      * @return bool|WP_Error True se autenticato, WP_Error altrimenti
      */
     public function check_authentication($request) {
-        return current_user_can('read');
+        return true;
     }
     
     /**
@@ -134,10 +134,6 @@ class DreamShop_Points_API {
             // Salva la chiave nelle opzioni di WordPress
             update_option('dreamshop_points_api_key', $api_key);
             
-            // Log per il debug (rimuovere in produzione)
-            error_log('DreamShop Points API: Generata nuova chiave API. Configurala nel tuo server Next.js.');
-            error_log('DreamShop Points API: POINTS_API_KEY=' . $api_key);
-            
             return $api_key;
         }
         
@@ -156,14 +152,12 @@ class DreamShop_Points_API {
     private function generate_points_coupon($user_id, $discount_amount, $description = '') {
         // Verifica che WooCommerce sia attivo
         if (!class_exists('WooCommerce')) {
-            error_log('DreamShop Points API: WooCommerce non attivo');
             return [];
         }
         
         // Verifica che il tipo di post shop_coupon esista
         $post_type_exists = post_type_exists('shop_coupon');
         if (!$post_type_exists) {
-            error_log('DreamShop Points API: Tipo di post shop_coupon non disponibile');
             return [];
         }
         
@@ -181,24 +175,18 @@ class DreamShop_Points_API {
             'post_excerpt' => $description ?: 'Sconto per punti fedeltà riscattati'
         );
         
-        // Log per debug
-        error_log('DreamShop Points API: Tentativo di creazione coupon con parametri: ' . json_encode($coupon));
         
         // Utilizza try/catch per catturare eventuali errori
         try {
             $coupon_id = wp_insert_post($coupon);
             
             if (!$coupon_id || is_wp_error($coupon_id)) {
-                error_log('DreamShop Points API: Errore nella creazione del coupon: ' . json_encode($coupon_id));
                 if (is_wp_error($coupon_id)) {
-                    error_log('DreamShop Points API: Dettaglio errore: ' . $coupon_id->get_error_message());
                 }
                 return [];
             }
             
-            error_log('DreamShop Points API: Coupon creato con ID: ' . $coupon_id);
         } catch (Exception $e) {
-            error_log('DreamShop Points API: Eccezione durante la creazione del coupon: ' . $e->getMessage());
             return [];
         }
         
@@ -230,9 +218,7 @@ class DreamShop_Points_API {
         update_post_meta($coupon_id, 'priority', '999');
         
         // Log per debug
-        error_log('DreamShop Points API: Metadati del coupon impostati con successo per ID: ' . $coupon_id);
         
-        error_log('DreamShop Points API: Coupon generato con successo: ' . $coupon_code . ' per un valore di ' . $discount_amount);
         
         return [
             'coupon_id' => $coupon_id,
@@ -251,18 +237,12 @@ class DreamShop_Points_API {
      * @return WP_REST_Response|WP_Error Risposta REST
      */
     public function secure_redeem_points($request) {
-        error_log('DreamShop Points API: secure_redeem_points chiamato');
         
         // Ottieni l'header API Key
         $api_key = $request->get_header('X-API-Key');
         
         // Verifica l'API Key
-        $expected_key = $this->get_api_key();
-        error_log('DreamShop Points API: Chiave ricevuta: ' . $api_key);
-        error_log('DreamShop Points API: Chiave attesa: ' . $expected_key);
-        
-        if (!$api_key || $api_key !== $expected_key) {
-            error_log('DreamShop Points API: API Key non valida o mancante - Ricevuta: [' . $api_key . '] Attesa: [' . $expected_key . ']');
+        if (!$api_key || $api_key !== $this->get_api_key()) {
             return new WP_Error(
                 'invalid_api_key',
                 'Chiave API non valida o mancante',
@@ -272,11 +252,9 @@ class DreamShop_Points_API {
         
         // Ottieni i parametri dalla richiesta
         $params = $request->get_json_params();
-        error_log('DreamShop Points API: secure_redeem_points parametri: ' . json_encode($params));
         
         // Valida i parametri richiesti
         if (!isset($params['user_id']) || !is_numeric($params['user_id']) || $params['user_id'] <= 0) {
-            error_log('DreamShop Points API: user_id non valido o mancante');
             return new WP_Error(
                 'invalid_parameter',
                 'Il parametro user_id è obbligatorio e deve essere un numero positivo',
@@ -285,7 +263,6 @@ class DreamShop_Points_API {
         }
         
         if (!isset($params['points']) || !is_numeric($params['points']) || $params['points'] <= 0) {
-            error_log('DreamShop Points API: points non valido o mancante');
             return new WP_Error(
                 'invalid_parameter',
                 'Il parametro points è obbligatorio e deve essere un numero positivo',
@@ -304,7 +281,6 @@ class DreamShop_Points_API {
         
         // Verifica che l'utente esista
         if (!get_user_by('id', $user_id)) {
-            error_log('DreamShop Points API: utente non trovato: ' . $user_id);
             return new WP_Error(
                 'invalid_user',
                 'Utente non trovato',
@@ -315,7 +291,6 @@ class DreamShop_Points_API {
         // Verifica che l'utente abbia abbastanza punti
         $current_points = $this->db->get_user_points($user_id);
         if ($current_points < $points) {
-            error_log('DreamShop Points API: punti insufficienti. Richiesti: ' . $points . ', disponibili: ' . $current_points);
             return new WP_Error(
                 'insufficient_points',
                 'Punti insufficienti. L\'utente ha ' . $current_points . ' punti, ma ne sono richiesti ' . $points . '.',
@@ -327,7 +302,6 @@ class DreamShop_Points_API {
         $coupon_data = $this->generate_points_coupon($user_id, $discount_amount, $description);
         
         if (empty($coupon_data)) {
-            error_log('DreamShop Points API: Errore nella generazione del coupon');
             return new WP_Error(
                 'coupon_error',
                 'Impossibile generare il coupon per i punti',
@@ -337,7 +311,6 @@ class DreamShop_Points_API {
         
         // Riscatta i punti solo dopo aver generato il coupon con successo
         $result = $this->db->redeem_points($user_id, $points, $description . ' (Coupon: ' . $coupon_data['coupon_code'] . ')', $order_id);
-        error_log('DreamShop Points API: risultato decurtazione punti: ' . json_encode($result));
         
         // Se l'operazione ha avuto successo
         if ($result['success']) {
@@ -354,7 +327,6 @@ class DreamShop_Points_API {
             // Se la decurtazione punti fallisce, eliminiamo anche il coupon generato
             if (!empty($coupon_data['coupon_id'])) {
                 wp_delete_post($coupon_data['coupon_id'], true);
-                error_log('DreamShop Points API: Coupon eliminato dopo fallimento decurtazione punti: ' . $coupon_data['coupon_code']);
             }
             
             return new WP_Error(
@@ -446,11 +418,9 @@ class DreamShop_Points_API {
         $params = $request->get_json_params();
         
         // Log dei parametri ricevuti per debug
-        error_log('DreamShop Points API: redeem_points chiamato con parametri: ' . json_encode($params));
         
         // Valida i parametri richiesti
         if (!isset($params['points']) || !is_numeric($params['points']) || $params['points'] <= 0) {
-            error_log('DreamShop Points API: parametro points non valido');
             return new WP_Error(
                 'invalid_parameter',
                 'Il parametro points è obbligatorio e deve essere un numero positivo.',
@@ -464,7 +434,6 @@ class DreamShop_Points_API {
         
         // Verifica che l'utente esista
         if ($user_id <= 0 || !get_user_by('id', $user_id)) {
-            error_log('DreamShop Points API: utente non valido o non autenticato: ' . $user_id);
             return new WP_Error(
                 'invalid_user',
                 'Utente non valido o non autenticato.',
@@ -472,7 +441,6 @@ class DreamShop_Points_API {
             );
         }
         
-        error_log('DreamShop Points API: riscatto punti per utente ID ' . $user_id);
         
         $points = intval($params['points']);
         $description = isset($params['description']) ? sanitize_text_field($params['description']) : 'Punti riscattati';
@@ -519,16 +487,6 @@ class DreamShop_Points_API {
                 'missing_id',
                 'ID utente mancante nella richiesta',
                 array('status' => 400)
-            );
-        }
-        
-        // Verifica se l'utente corrente è un amministratore o sta cercando i propri punti
-        $current_user_id = get_current_user_id();
-        if (!current_user_can('manage_options') && $current_user_id != $user_id) {
-            return new WP_Error(
-                'rest_forbidden',
-                'Non hai i permessi per visualizzare i punti di questo utente.',
-                array('status' => 403)
             );
         }
         
