@@ -972,3 +972,52 @@ export async function saveShippingAddress(address: ShippingAddress, token: strin
     throw error;
   }
 }
+
+// Customer creation interface
+export interface CreateCustomerData {
+  email: string;
+  password: string;
+  first_name: string;
+  last_name: string;
+  billing: BillingAddress;
+  shipping: ShippingAddress;
+}
+
+// Customer response interface
+export interface WooCommerceCustomer {
+  id: number;
+  username: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+}
+
+/**
+ * Crea un nuovo customer in WooCommerce
+ * @param {CreateCustomerData} customerData - Dati del customer da creare
+ * @returns {Promise<WooCommerceCustomer>} - Il customer creato
+ */
+export async function createCustomer(customerData: CreateCustomerData): Promise<WooCommerceCustomer> {
+  try {
+    const wooCustomerData = {
+      email: customerData.email,
+      first_name: customerData.first_name,
+      last_name: customerData.last_name,
+      username: customerData.email, // Usa l'email come username
+      password: customerData.password,
+      billing: customerData.billing,
+      shipping: customerData.shipping
+    };
+
+    const response = await api.post('customers', wooCustomerData);
+    
+    if (!response.data) {
+      throw new Error('Errore nella creazione del customer');
+    }
+
+    return response.data as WooCommerceCustomer;
+  } catch (error) {
+    console.error('Errore nella creazione del customer:', error);
+    throw error;
+  }
+}

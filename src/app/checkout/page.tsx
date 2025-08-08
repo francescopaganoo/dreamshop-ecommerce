@@ -8,7 +8,7 @@ import { CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { PayPalButtons, usePayPalScriptReducer } from '@paypal/react-paypal-js';
 import Link from 'next/link';
 
-import { createOrder, getShippingMethods, ShippingMethod, getUserAddresses } from '../../lib/api';
+import { createOrder, createCustomer, getShippingMethods, ShippingMethod, getUserAddresses } from '../../lib/api';
 import { redeemPoints } from '../../lib/points';
 
 export default function CheckoutPage() {
@@ -579,6 +579,27 @@ export default function CheckoutPage() {
         
         console.log('Inizializzazione pagamento con Stripe...');
         
+        // Se l'utente vuole creare un account, crealo prima dell'ordine
+        let customerId = undefined;
+        if (formData.createAccount && formData.password && !isAuthenticated) {
+          try {
+            console.log('[CHECKOUT STRIPE] Creazione account customer...');
+            const customer = await createCustomer({
+              email: formData.email,
+              password: formData.password,
+              first_name: formData.firstName,
+              last_name: formData.lastName,
+              billing: billingInfo,
+              shipping: shippingInfo
+            });
+            customerId = customer.id;
+            console.log('[CHECKOUT STRIPE] Customer creato con ID:', customerId);
+          } catch (customerError) {
+            console.error('[CHECKOUT STRIPE] Errore nella creazione del customer:', customerError);
+            // Continua comunque con l'ordine come guest
+          }
+        }
+        
         if (!stripe || !elements) {
           setCardError('Impossibile connettersi al sistema di pagamento. Riprova più tardi.');
           setIsStripeLoading(false);
@@ -866,6 +887,7 @@ export default function CheckoutPage() {
           payment_method: 'stripe',
           payment_method_title: 'Carta di Credito (Stripe)',
           set_paid: false,
+          customer_id: customerId || (isAuthenticated && user ? user.id : 0),
           customer_note: formData.notes,
           billing: billingInfo,
           shipping: shippingInfo,
