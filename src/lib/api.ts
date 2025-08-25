@@ -889,6 +889,59 @@ export async function calculateShipping(shippingAddress: ShippingAddress) {
 }
 
 /**
+ * Salva gli indirizzi dell'utente (fatturazione e spedizione)
+ * @param {string} token - Token di autenticazione
+ * @param {object} addressData - Dati degli indirizzi da salvare
+ * @returns {Promise<{success: boolean, message: string}>}
+ */
+export async function saveUserAddresses(token: string, addressData: {
+  billing?: {
+    firstName: string;
+    lastName: string;
+    company?: string;
+    address1: string;
+    address2?: string;
+    city: string;
+    state: string;
+    postcode: string;
+    country: string;
+    email: string;
+    phone: string;
+  };
+  shipping?: {
+    firstName: string;
+    lastName: string;
+    address1: string;
+    address2?: string;
+    city: string;
+    state: string;
+    postcode: string;
+    country: string;
+  };
+}) {
+  try {
+    const response = await fetch('/api/user/addresses', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(addressData)
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error('Errore nel salvataggio degli indirizzi:', error);
+    throw error;
+  }
+}
+
+/**
  * Recupera gli indirizzi dell'utente (fatturazione e spedizione)
  * @param {string} token - Token di autenticazione
  * @returns {Promise<{billing: BillingAddress | null, shipping: ShippingAddress | null}>}

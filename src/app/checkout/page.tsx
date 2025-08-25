@@ -8,7 +8,7 @@ import { CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { PayPalButtons, usePayPalScriptReducer } from '@paypal/react-paypal-js';
 import Link from 'next/link';
 
-import { createOrder, createCustomer, getShippingMethods, ShippingMethod, getUserAddresses } from '../../lib/api';
+import { createOrder, createCustomer, getShippingMethods, ShippingMethod, getUserAddresses, saveUserAddresses } from '../../lib/api';
 import { redeemPoints } from '../../lib/points';
 
 export default function CheckoutPage() {
@@ -197,17 +197,73 @@ export default function CheckoutPage() {
             // Se esiste un indirizzo di fatturazione, precompila i campi
             if (addresses.billing) {
               console.log('CHECKOUT: Indirizzo di fatturazione trovato, precompilazione...');
-              setFormData(prev => ({
-                ...prev,
-                ...baseUserData,
-                phone: addresses.billing.phone || prev.phone,
-                address1: addresses.billing.address_1 || prev.address1,
-                address2: addresses.billing.address_2 || prev.address2,
-                city: addresses.billing.city || prev.city,
-                state: addresses.billing.state || prev.state,
-                postcode: addresses.billing.postcode || prev.postcode,
-                country: addresses.billing.country || prev.country
-              }));
+              
+              setFormData(prev => {
+                // Prepara i dati base con fatturazione
+                const formUpdate: any = {
+                  ...prev,
+                  ...baseUserData,
+                  phone: addresses.billing.phone || prev.phone,
+                  address1: addresses.billing.address_1 || prev.address1,
+                  address2: addresses.billing.address_2 || prev.address2,
+                  city: addresses.billing.city || prev.city,
+                  state: addresses.billing.state || prev.state,
+                  postcode: addresses.billing.postcode || prev.postcode,
+                  country: addresses.billing.country || prev.country
+                };
+                
+                // Se esiste un indirizzo di spedizione, controlla se ha dati significativi e diversi
+                if (addresses.shipping) {
+                  // Prima controlla se l'indirizzo di spedizione ha dati significativi (non solo valori di default)
+                  const hasSignificantShippingData = (
+                    addresses.shipping.address_1 && 
+                    addresses.shipping.address_1.trim() !== '' &&
+                    addresses.shipping.city && 
+                    addresses.shipping.city.trim() !== '' &&
+                    addresses.shipping.postcode && 
+                    addresses.shipping.postcode.trim() !== ''
+                  );
+
+                  if (hasSignificantShippingData) {
+                    // Ora controlla se gli indirizzi sono veramente diversi (confronto rigoroso)
+                    const isDifferentAddress = (
+                      addresses.shipping.address_1 !== addresses.billing.address_1 ||
+                      addresses.shipping.address_2 !== addresses.billing.address_2 ||
+                      addresses.shipping.city !== addresses.billing.city ||
+                      addresses.shipping.state !== addresses.billing.state ||
+                      addresses.shipping.postcode !== addresses.billing.postcode ||
+                      addresses.shipping.country !== addresses.billing.country ||
+                      addresses.shipping.first_name !== addresses.billing.first_name ||
+                      addresses.shipping.last_name !== addresses.billing.last_name
+                    );
+
+                    if (isDifferentAddress) {
+                      console.log('CHECKOUT: Indirizzo di spedizione significativo e diverso trovato, precompilazione...');
+                      formUpdate.shipToDifferentAddress = true;
+                      formUpdate.shippingFirstName = addresses.shipping.first_name || baseUserData.firstName;
+                      formUpdate.shippingLastName = addresses.shipping.last_name || baseUserData.lastName;
+                      formUpdate.shippingAddress1 = addresses.shipping.address_1 || '';
+                      formUpdate.shippingAddress2 = addresses.shipping.address_2 || '';
+                      formUpdate.shippingCity = addresses.shipping.city || '';
+                      formUpdate.shippingState = addresses.shipping.state || '';
+                      formUpdate.shippingPostcode = addresses.shipping.postcode || '';
+                      formUpdate.shippingCountry = addresses.shipping.country || 'IT';
+                    } else {
+                      console.log('CHECKOUT: Indirizzo di spedizione uguale a quello di fatturazione, checkbox non attivato');
+                      formUpdate.shipToDifferentAddress = false;
+                    }
+                  } else {
+                    console.log('CHECKOUT: Indirizzo di spedizione senza dati significativi, checkbox non attivato');
+                    formUpdate.shipToDifferentAddress = false;
+                  }
+                } else {
+                  // Se non c'è indirizzo di spedizione, assicurati che il checkbox sia false
+                  console.log('CHECKOUT: Nessun indirizzo di spedizione, checkbox non attivato');
+                  formUpdate.shipToDifferentAddress = false;
+                }
+                
+                return formUpdate;
+              });
             } else {
               // Se non ci sono indirizzi salvati, usa solo i dati base
               setFormData(prev => ({ ...prev, ...baseUserData }));
@@ -310,6 +366,89 @@ export default function CheckoutPage() {
           setShippingCalculated(true);
         }
       }, 500); // Attendi 500ms prima di calcolare la spedizione
+    }
+  };
+  
+  // Funzione per salvare gli indirizzi dell'utente
+  const saveAddressData = async () => {
+    if (!isAuthenticated || !user) {
+      console.log('CHECKOUT: Utente non autenticato, salvataggio indirizzi saltato');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('woocommerce_token');
+      if (!token) {
+        console.log('CHECKOUT: Token non disponibile, salvataggio indirizzi saltato');
+        return;
+      }
+
+      // Prepara i dati di fatturazione
+      const billingData = {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        company: '', // Non abbiamo questo campo nel form attuale
+        address1: formData.address1,
+        address2: formData.address2,
+        city: formData.city,
+        state: formData.state,
+        postcode: formData.postcode,
+        country: formData.country,
+        email: formData.email,
+        phone: formData.phone
+      };
+
+      // Prepara i dati di spedizione (solo se diversi dalla fatturazione E se ci sono dati significativi)
+      let shippingData = null;
+      if (formData.shipToDifferentAddress && 
+          formData.shippingAddress1 && 
+          formData.shippingCity && 
+          formData.shippingPostcode) {
+        
+        const shippingDataToCheck = {
+          firstName: formData.shippingFirstName || formData.firstName,
+          lastName: formData.shippingLastName || formData.lastName,
+          address1: formData.shippingAddress1,
+          address2: formData.shippingAddress2,
+          city: formData.shippingCity,
+          state: formData.shippingState,
+          postcode: formData.shippingPostcode,
+          country: formData.shippingCountry
+        };
+
+        // Verifica se l'indirizzo di spedizione è veramente diverso da quello di fatturazione
+        const isShippingDifferentFromBilling = (
+          shippingDataToCheck.firstName !== billingData.firstName ||
+          shippingDataToCheck.lastName !== billingData.lastName ||
+          shippingDataToCheck.address1 !== billingData.address1 ||
+          shippingDataToCheck.address2 !== billingData.address2 ||
+          shippingDataToCheck.city !== billingData.city ||
+          shippingDataToCheck.state !== billingData.state ||
+          shippingDataToCheck.postcode !== billingData.postcode ||
+          shippingDataToCheck.country !== billingData.country
+        );
+
+        // Salva i dati di spedizione solo se sono veramente diversi
+        if (isShippingDifferentFromBilling) {
+          shippingData = shippingDataToCheck;
+          console.log('CHECKOUT: Indirizzo di spedizione diverso, sarà salvato');
+        } else {
+          console.log('CHECKOUT: Indirizzo di spedizione uguale a fatturazione, non sarà salvato');
+        }
+      }
+
+      const addressDataToSave: any = { billing: billingData };
+      if (shippingData) {
+        addressDataToSave.shipping = shippingData;
+      }
+
+      console.log('CHECKOUT: Salvataggio indirizzi utente...');
+      await saveUserAddresses(token, addressDataToSave);
+      console.log('CHECKOUT: Indirizzi salvati con successo');
+
+    } catch (error) {
+      console.error('CHECKOUT: Errore durante il salvataggio degli indirizzi:', error);
+      // Non blocchiamo il checkout se il salvataggio degli indirizzi fallisce
     }
   };
   
@@ -856,6 +995,9 @@ export default function CheckoutPage() {
               }
             }
             
+            // Salva gli indirizzi dell'utente
+            await saveAddressData();
+            
             // Mostra il messaggio di successo
             setOrderSuccess(true);
             // Per PayPal, l'ID dell'ordine verrà impostato quando viene creato l'ordine in WooCommerce
@@ -1126,6 +1268,9 @@ export default function CheckoutPage() {
               // Log dell'errore senza mostrare alert all'utente
             }
           }
+          
+          // Salva gli indirizzi dell'utente
+          await saveAddressData();
           
           // Invece di reindirizzare, mostriamo un messaggio di successo nella pagina
           setOrderSuccess(true);
@@ -1808,6 +1953,9 @@ export default function CheckoutPage() {
                                             // Non blocchiamo il checkout se il riscatto punti fallisce
                                           }
                                         }
+                                        
+                                        // Salva gli indirizzi dell'utente
+                                        await saveAddressData();
                                         
                                         // Mostra il messaggio di successo
                                         setOrderSuccess(true);

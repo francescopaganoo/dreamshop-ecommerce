@@ -122,3 +122,93 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+export async function POST(request: NextRequest) {
+  try {
+    console.log('API addresses: Iniziata richiesta salvataggio indirizzi');
+    
+    // Ottieni il token dall'header Authorization
+    const authHeader = request.headers.get('Authorization');
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.error('API: Token non fornito o formato non valido');
+      return NextResponse.json({ error: 'Token non fornito' }, { status: 401 });
+    }
+    
+    const token = authHeader.substring(7);
+    
+    // Verifica il token JWT
+    let decoded: DecodedToken;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET) as DecodedToken;
+      console.log('Token verificato per userId:', decoded.id);
+    } catch (jwtError) {
+      console.error('Errore nella verifica del token JWT:', jwtError);
+      return NextResponse.json({ error: 'Token non valido' }, { status: 401 });
+    }
+    
+    // Ottieni i dati dal body della richiesta
+    const addressData = await request.json();
+    console.log('Dati indirizzo ricevuti per salvataggio');
+    
+    // Prepara i dati per WooCommerce
+    const updateData: Partial<WooCommerceUser> = {};
+    
+    // Aggiungi i dati di fatturazione se forniti
+    if (addressData.billing) {
+      updateData.billing = {
+        first_name: addressData.billing.firstName || '',
+        last_name: addressData.billing.lastName || '',
+        company: addressData.billing.company || '',
+        address_1: addressData.billing.address1 || '',
+        address_2: addressData.billing.address2 || '',
+        city: addressData.billing.city || '',
+        state: addressData.billing.state || '',
+        postcode: addressData.billing.postcode || '',
+        country: addressData.billing.country || 'IT',
+        email: addressData.billing.email || '',
+        phone: addressData.billing.phone || ''
+      };
+    }
+    
+    // Aggiungi i dati di spedizione se forniti
+    if (addressData.shipping) {
+      updateData.shipping = {
+        first_name: addressData.shipping.firstName || '',
+        last_name: addressData.shipping.lastName || '',
+        address_1: addressData.shipping.address1 || '',
+        address_2: addressData.shipping.address2 || '',
+        city: addressData.shipping.city || '',
+        state: addressData.shipping.state || '',
+        postcode: addressData.shipping.postcode || '',
+        country: addressData.shipping.country || 'IT'
+      };
+    }
+    
+    console.log('Aggiornamento dati utente in WooCommerce per ID:', decoded.id);
+    
+    // Aggiorna i dati dell'utente in WooCommerce
+    try {
+      const response = await api.put(`customers/${decoded.id}`, updateData);
+      console.log('Indirizzi aggiornati con successo in WooCommerce');
+      
+      return NextResponse.json({ 
+        success: true, 
+        message: 'Indirizzi aggiornati con successo' 
+      });
+      
+    } catch (wooError) {
+      console.error('Errore nell\'aggiornamento di WooCommerce:', wooError);
+      return NextResponse.json({ 
+        error: 'Errore nel salvataggio degli indirizzi' 
+      }, { status: 500 });
+    }
+    
+  } catch (error) {
+    console.error('Errore nel salvataggio degli indirizzi:', error);
+    return NextResponse.json(
+      { error: 'Errore interno del server' },
+      { status: 500 }
+    );
+  }
+}
