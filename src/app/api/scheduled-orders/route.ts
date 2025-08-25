@@ -118,9 +118,11 @@ export async function GET(request: NextRequest) {
       
       console.log(`Tutti gli ordini potenziali: ${allPotentialScheduledOrders.length}`);
       
-      // NON filtriamo più gli ordini: restituiamo TUTTI gli ordini all'utente
-      // Questo permetterà di visualizzare tutti gli stati: completati, in lavorazione, parzialmente pagati, ecc.
-      const scheduledOrdersByStatus = orders;
+      // Filtriamo solo gli ordini con stato scheduled-payment e pending-deposit
+      // Questi sono gli ordini che rappresentano le rate da pagare
+      const scheduledOrdersByStatus = orders.filter((order: WooOrder) => 
+        order.status === 'scheduled-payment' || order.status === 'pending-deposit'
+      );
       
       // Log per debug
       console.log(`Ordini scheduled-payment: ${orders.filter(o => o.status === 'scheduled-payment').length}`);
@@ -133,7 +135,7 @@ export async function GET(request: NextRequest) {
         o.status !== 'completed'
       ).length}`);
       
-      console.log(`Totale ordini per l'utente (senza filtri): ${scheduledOrdersByStatus.length}`);
+      console.log(`Totale rate da pagare per l'utente: ${scheduledOrdersByStatus.length}`);
       
       // Cerchiamo anche ordini con specifici flag
       const scheduledOrdersByMeta = orders.filter((order: WooOrder) => {
@@ -156,9 +158,27 @@ export async function GET(request: NextRequest) {
       
       console.log(`Ordini con meta rilevanti: ${scheduledOrdersByMeta.length}`);
       
-      // NON uniamo più tutti i risultati - ma ritorniamo tutti gli ordini ordinati
-      console.log(`Totale ordini dell'utente: ${scheduledOrdersByStatus.length}`);
+      // Restituiamo solo le rate da pagare filtrate
+      console.log(`Totale rate da pagare filtrate: ${scheduledOrdersByStatus.length}`);
       
+      // Funzione per convertire gli stati tecnici in etichette user-friendly
+      const getStatusDisplayName = (status: string, originalStatusName?: string) => {
+        switch (status) {
+          case 'pending-deposit':
+            return 'In attesa di acconto';
+          case 'scheduled-payment':
+            return 'Rata programmata';
+          case 'completed':
+            return 'Completato';
+          case 'processing':
+            return 'In elaborazione';
+          case 'on-hold':
+            return 'In attesa';
+          default:
+            return originalStatusName || status;
+        }
+      };
+
       // Trasformiamo gli ordini nel formato atteso
       const finalScheduledOrders = scheduledOrdersByStatus.map((order: WooOrder): ScheduledOrder => {
         return {
@@ -167,7 +187,7 @@ export async function GET(request: NextRequest) {
           parent_order_number: order.meta_data?.find((m: OrderMetaData) => m.key === '_deposit_parent_order_number')?.value?.toString() || '',
           date_created: order.date_created,
           status: order.status,
-          status_name: order.status_name || order.status,
+          status_name: getStatusDisplayName(order.status, order.status_name),
           total: order.total,
           formatted_total: order.currency_symbol + order.total,
           payment_url: order.payment_url || '',
@@ -175,17 +195,17 @@ export async function GET(request: NextRequest) {
         };
       });
       
-      // Ordina gli ordini in modo che gli ordini completati appaiano per ultimi
-      // Questo è importante perché il frontend potrebbe dare priorità agli ordini completati
+      // Ordina le rate da pagare per data (più recenti prima)
+      // Priorità: pending-deposit prima di scheduled-payment
       finalScheduledOrders.sort((a, b) => {
-        // Se uno è completato e l'altro no, l'ordine completato va dopo
-        if (a.status === 'completed' && b.status !== 'completed') return 1;
-        if (a.status !== 'completed' && b.status === 'completed') return -1;
+        // Se uno è pending-deposit e l'altro scheduled-payment, pending-deposit va prima
+        if (a.status === 'pending-deposit' && b.status === 'scheduled-payment') return -1;
+        if (a.status === 'scheduled-payment' && b.status === 'pending-deposit') return 1;
         // Altrimenti, ordina per data (più recenti prima)
         return new Date(b.date_created).getTime() - new Date(a.date_created).getTime();
       });
       
-      console.log(`Ordini pianificati filtrati e formattati: ${finalScheduledOrders.length}`);
+      console.log(`Rate da pagare filtrate e formattate: ${finalScheduledOrders.length}`);
       return NextResponse.json(finalScheduledOrders);
     } catch (error: unknown) {
       const ordersError = error instanceof Error ? error : new Error('Errore sconosciuto');
