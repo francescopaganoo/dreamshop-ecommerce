@@ -49,6 +49,34 @@ export default function CheckoutPage() {
     meta_data?: AttributeMetaData[];
   }
 
+  interface FormDataType {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    address1: string;
+    address2: string;
+    city: string;
+    state: string;
+    postcode: string;
+    country: string;
+    paymentMethod: string;
+    notes: string;
+    createAccount: boolean;
+    password: string;
+    shipToDifferentAddress: boolean;
+    shippingFirstName: string;
+    shippingLastName: string;
+    shippingPhone: string;
+    userId: number;
+    shippingAddress1: string;
+    shippingAddress2: string;
+    shippingCity: string;
+    shippingState: string;
+    shippingPostcode: string;
+    shippingCountry: string;
+  }
+
   interface PayPalOrderData {
     payment_method: string;
     payment_method_title: string;
@@ -140,7 +168,7 @@ export default function CheckoutPage() {
   }, [stripe, elements, isIOS, isSafari]);
   
   // Form state
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormDataType>({
     firstName: '',
     lastName: '',
     email: '',
@@ -200,7 +228,7 @@ export default function CheckoutPage() {
               
               setFormData(prev => {
                 // Prepara i dati base con fatturazione
-                const formUpdate: any = {
+                const formUpdate: FormDataType = {
                   ...prev,
                   ...baseUserData,
                   phone: addresses.billing.phone || prev.phone,
@@ -437,7 +465,20 @@ export default function CheckoutPage() {
         }
       }
 
-      const addressDataToSave: any = { billing: billingData };
+      const addressDataToSave: {
+        billing: typeof billingData;
+        shipping?: {
+          firstName: string;
+          lastName: string;
+          address1: string;
+          address2?: string;
+          city: string;
+          state: string;
+          postcode: string;
+          country: string;
+        };
+      } = { billing: billingData };
+      
       if (shippingData) {
         addressDataToSave.shipping = shippingData;
       }
@@ -1857,7 +1898,7 @@ export default function CheckoutPage() {
                             <div className="mt-4">
                               <PayPalButtons
                                 style={{ layout: 'vertical', color: 'blue', shape: 'rect', label: 'pay' }}
-                                createOrder={async (data, actions) => {
+                                createOrder={async (_data, actions) => {
                                   try {
                                     // Crea l'ordine in WooCommerce e ottieni l'ID
                                     const response = await fetch('/api/paypal/create-order', {

@@ -189,7 +189,7 @@ export async function POST(request: NextRequest) {
     
     // Aggiorna i dati dell'utente in WooCommerce
     try {
-      const response = await api.put(`customers/${decoded.id}`, updateData);
+      await api.put(`customers/${decoded.id}`, updateData);
       console.log('Indirizzi aggiornati con successo in WooCommerce');
       
       return NextResponse.json({ 
