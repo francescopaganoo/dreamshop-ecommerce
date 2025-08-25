@@ -61,7 +61,7 @@ export default async function Home() {
         </div>
         <div className="relative container mx-auto px-6 h-full flex flex-col justify-center z-10">
           <div className="max-w-2xl transform transition-all duration-700 translate-y-0 hover:translate-y-[-10px]">
-            <span className="bg-bred-600 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-6 animate-pulse">Collezione 2025</span>
+            {/*<span className="bg-bred-600 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-6 animate-pulse">Collezione 2025</span>*/}
             <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">Benvenuti su <span className="text-bred-500">DreamShop</span></h1>
             <p className="text-xl md:text-2xl mb-8 max-w-xl text-gray-200 leading-relaxed">Scopri la nostra collezione esclusiva di statue, figure e trading card di anime e manga</p>
             <div className="flex flex-wrap gap-4">
