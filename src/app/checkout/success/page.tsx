@@ -194,7 +194,7 @@ function OrderSuccessContent() {
               <div className="text-center mt-8">
                 <Link 
                   href="/"
-                  className="bg-blue-600 text-white px-6 py-3 rounded-md font-medium hover:bg-blue-700 transition-colors"
+                  className="bg-bred-500 text-white px-6 py-3 rounded-md font-medium hover:bg-bred-600 transition-colors"
                 >
                   Continua lo Shopping
                 </Link>

@@ -317,6 +317,12 @@ export default function CheckoutPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Prevent resubmission if order is already completed
+    if (orderSuccess) {
+      console.log('CHECKOUT DEBUG - Ordine già completato, evito risubmit');
+      return;
+    }
+    
     // Debug visibile nel browser
     console.log('CHECKOUT DEBUG - Form inviato');
     if (isAuthenticated && user) {
@@ -2073,17 +2079,50 @@ export default function CheckoutPage() {
                 
                 <button
                   type="submit"
-                  disabled={isSubmitting || isStripeLoading || isProcessingPayment || cart.length === 0}
-                  className={`w-full py-3 px-4 rounded-md text-white font-medium ${(isSubmitting || isStripeLoading || isProcessingPayment) ? 'bg-gray-400 cursor-not-allowed' : 'bg-bred-500 hover:bg-bred-700'}`}
+                  disabled={isSubmitting || isStripeLoading || isProcessingPayment || cart.length === 0 || orderSuccess}
+                  className={`w-full py-3 px-4 rounded-md text-white font-medium ${(isSubmitting || isStripeLoading || isProcessingPayment || orderSuccess) ? 'bg-gray-400 cursor-not-allowed' : 'bg-bred-500 hover:bg-bred-700'}`}
                 >
-                  {isSubmitting ? 'Elaborazione...' : 
+                  {orderSuccess ? 'Ordine Completato ✓' :
+                   isSubmitting ? 'Elaborazione...' : 
                    isStripeLoading ? 'Reindirizzamento a Stripe...' : 
                    isProcessingPayment ? 'Preparazione pagamento...' : 
                    'Effettua Ordine'}
                 </button>
                 
+                {/* Link di navigazione rapida sotto il pulsante quando l'ordine è completato */}
+                {orderSuccess && (
+                  <div className="mt-4 flex flex-col sm:flex-row gap-3 justify-center">
+                    <button 
+                      onClick={() => {
+                        // Se abbiamo successOrderId, naviga ai dettagli, altrimenti vai all'account
+                        const targetUrl = successOrderId 
+                          ? `/checkout/success?order_id=${successOrderId}`
+                          : '/account?tab=orders';
+                        window.location.href = targetUrl;
+                      }}
+                      className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-bred-600 bg-white border border-bred-600 rounded-md hover:bg-bred-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-bred-500 transition-colors"
+                    >
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      {successOrderId ? 'Visualizza Ordine' : 'I Miei Ordini'}
+                    </button>
+                    <button 
+                      onClick={() => {
+                        window.location.href = '/';
+                      }}
+                      className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
+                    >
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                      </svg>
+                      Torna alla Home
+                    </button>
+                  </div>
+                )}
+                
                 {/* Messaggio di conferma dell'ordine */}
-                {orderSuccess && successOrderId && (
+                {orderSuccess && (
                   <div className="mt-6 p-6 bg-green-100 text-green-800 rounded-lg shadow-md">
                     <div className="flex items-center mb-4">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mr-3 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2092,22 +2131,10 @@ export default function CheckoutPage() {
                       <h2 className="text-2xl font-bold">Ordine Completato con Successo!</h2>
                     </div>
                     <p className="text-lg mb-2">Grazie per il tuo acquisto. Il tuo ordine è stato elaborato correttamente.</p>
-                    <p className="mb-4">Numero Ordine: <span className="font-semibold">{successOrderId}</span></p>
-                    <p className="text-sm mb-6">Riceverai presto un&apos;email di conferma con i dettagli del tuo ordine.</p>
-                    <div className="flex flex-wrap gap-4">
-                      <button 
-                        onClick={() => router.push('/')} 
-                        className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
-                      >
-                        Torna alla Home
-                      </button>
-                      <button 
-                        onClick={() => router.push(`/checkout/success?order_id=${successOrderId}`)} 
-                        className="px-4 py-2 border border-green-600 text-green-600 rounded hover:bg-green-50 transition-colors"
-                      >
-                        Vai ai Dettagli Ordine
-                      </button>
-                    </div>
+                    {successOrderId && (
+                      <p className="mb-2">Numero Ordine: <span className="font-semibold">{successOrderId}</span></p>
+                    )}
+                    <p className="text-sm">Riceverai presto un&apos;email di conferma con i dettagli del tuo ordine.</p>
                   </div>
                 )}
               </form>
