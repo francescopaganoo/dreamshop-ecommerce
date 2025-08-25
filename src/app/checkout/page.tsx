@@ -397,6 +397,67 @@ export default function CheckoutPage() {
     }
   };
   
+  // Funzione per resettare il form dopo il completamento dell'ordine
+  const resetFormAfterSuccess = () => {
+    console.log('CHECKOUT: Reset form dopo successo ordine');
+    
+    // Reset del form data
+    setFormData({
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      address1: '',
+      address2: '',
+      city: '',
+      state: '',
+      postcode: '',
+      country: 'IT',
+      paymentMethod: 'bacs',
+      notes: '',
+      createAccount: false,
+      password: '',
+      shipToDifferentAddress: false,
+      shippingFirstName: '',
+      shippingLastName: '',
+      userId: 0,
+      shippingAddress1: '',
+      shippingAddress2: '',
+      shippingCity: '',
+      shippingState: '',
+      shippingPostcode: '',
+      shippingCountry: 'IT',
+      shippingPhone: ''
+    });
+    
+    // Reset errori
+    setFormError(null);
+    setCardError(null);
+    
+    // Reset dei punti
+    setPointsToRedeem(0);
+    setPointsDiscount(0);
+    
+    // Clear localStorage per i punti
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('checkout_points_to_redeem');
+      localStorage.removeItem('checkout_points_discount');
+    }
+    
+    // Reset del CardElement di Stripe
+    if (elements) {
+      const cardElement = elements.getElement(CardElement);
+      if (cardElement) {
+        cardElement.clear();
+        console.log('CHECKOUT: CardElement Stripe resettato');
+      }
+    }
+    
+    // Reset PayPal
+    setShowPayPalButtons(false);
+    setPaypalOrderData(null);
+  };
+
   // Funzione per salvare gli indirizzi dell'utente
   const saveAddressData = async () => {
     if (!isAuthenticated || !user) {
@@ -1043,6 +1104,10 @@ export default function CheckoutPage() {
             setOrderSuccess(true);
             // Per PayPal, l'ID dell'ordine verrà impostato quando viene creato l'ordine in WooCommerce
             // Questo avverrà nella gestione del pagamento PayPal
+            
+            // Reset del form dopo il successo
+            resetFormAfterSuccess();
+            
             setIsSubmitting(false);
             setIsStripeLoading(false);
             return;
@@ -1317,6 +1382,10 @@ export default function CheckoutPage() {
           setOrderSuccess(true);
           // Assicuriamoci che order.id sia una stringa
           setSuccessOrderId(typeof order.id === 'number' ? order.id.toString() : String(order.id));
+          
+          // Reset del form dopo il successo
+          resetFormAfterSuccess();
+          
           setIsSubmitting(false);
           setIsStripeLoading(false);
           return;
@@ -2000,6 +2069,10 @@ export default function CheckoutPage() {
                                         
                                         // Mostra il messaggio di successo
                                         setOrderSuccess(true);
+                                        
+                                        // Reset del form dopo il successo
+                                        resetFormAfterSuccess();
+                                        
                                         setIsSubmitting(false);
                                       } catch (captureError) {
                                         console.error('Errore durante la cattura del pagamento:', captureError);
