@@ -87,7 +87,7 @@ export default async function SearchPage({ searchParams }: any) {
                     href="/"
                     className="bg-blue-600 text-white px-6 py-3 rounded-md font-medium hover:bg-blue-700 transition-colors"
                   >
-                    Continue Shopping
+                    Torna allo shop
                   </Link>
                 </div>
               )}

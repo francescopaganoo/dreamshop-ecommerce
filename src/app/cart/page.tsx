@@ -481,7 +481,7 @@ export default function CartPage() {
                     href="/"
                     className="text-bred-500 hover:text-bred-700 font-medium"
                   >
-                    ← Continue Shopping
+                    ← Torna allo shop
                   </Link>
                   
                   <button

@@ -146,14 +146,39 @@ function AccountContent() {
         
         // Memorizziamo tutti gli ordini per poterli filtrare successivamente
         setAllOrders(data);
-        setOrders(data);
         
-        // Inizializza i filtri di stato con tutti gli stati disponibili
-        const initialStatusFilters: {[key: string]: boolean} = {};
-        Object.keys(orderStates).forEach(status => {
-          initialStatusFilters[status] = true; // Tutti attivati per default
-        });
+        // Inizializza i filtri di stato con i filtri predefiniti o quelli salvati
+        const defaultCheckedStatuses = ['completed', 'processing', 'cancelled'];
+        let initialStatusFilters: {[key: string]: boolean} = {};
+        
+        // Carica le preferenze dal localStorage se esistono
+        try {
+          const savedFilters = localStorage.getItem('orderStatusFilters');
+          if (savedFilters) {
+            const parsedFilters = JSON.parse(savedFilters);
+            // Verifica che i filtri salvati siano ancora validi
+            Object.keys(orderStates).forEach(status => {
+              initialStatusFilters[status] = parsedFilters[status] !== undefined ? parsedFilters[status] : defaultCheckedStatuses.includes(status);
+            });
+          } else {
+            // Se non ci sono preferenze salvate, usa i filtri predefiniti
+            Object.keys(orderStates).forEach(status => {
+              initialStatusFilters[status] = defaultCheckedStatuses.includes(status);
+            });
+          }
+        } catch (error) {
+          console.error('Errore nel caricamento dei filtri salvati:', error);
+          // Fallback ai filtri predefiniti
+          Object.keys(orderStates).forEach(status => {
+            initialStatusFilters[status] = defaultCheckedStatuses.includes(status);
+          });
+        }
+        
         setStatusFilters(initialStatusFilters);
+        
+        // Applica i filtri iniziali agli ordini
+        const filteredOrders = data.filter((order: Order) => initialStatusFilters[order.status]);
+        setOrders(filteredOrders);
         
         // Se abbiamo meno di 100 ordini nel primo caricamento, non ci sono altri ordini da caricare
         if (data.length < 100) {
@@ -492,12 +517,26 @@ function AccountContent() {
                             // Aggiorna gli ordini visualizzati
                             setOrders(filteredOrders);
                             
+                            // Salva le preferenze dei filtri su localStorage
+                            try {
+                              localStorage.setItem('orderStatusFilters', JSON.stringify(completeFilters));
+                            } catch (storageError) {
+                              console.error('Errore nel salvataggio delle preferenze filtri:', storageError);
+                            }
+                            
                           } catch (error) {
                             console.error('Errore durante l\'aggiornamento dei filtri:', error);
                             
                             // Fallback: applica semplicemente i filtri agli ordini esistenti
                             const fallbackFiltered = allOrders.filter((order: Order) => newFilters[order.status]);
                             setOrders(fallbackFiltered);
+                            
+                            // Salva le preferenze dei filtri anche nel fallback
+                            try {
+                              localStorage.setItem('orderStatusFilters', JSON.stringify(newFilters));
+                            } catch (storageError) {
+                              console.error('Errore nel salvataggio delle preferenze filtri (fallback):', storageError);
+                            }
                             
                           } finally {
                             setIsLoadingOrders(false);

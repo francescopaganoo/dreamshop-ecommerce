@@ -6,6 +6,7 @@ import "./globals.css";
 import ClientProviders from "../components/ClientProviders";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
+import FloatingCartButton from "../components/FloatingCartButton";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -45,6 +46,7 @@ export default function RootLayout({
               {children}
             </main>
             <Footer />
+            <FloatingCartButton />
           </div>
         </ClientProviders>
       </body>
