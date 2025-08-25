@@ -10,6 +10,7 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --color-bred-50: #f0eded;
   --color-bred-100: #f3dfde;
   --color-bred-500: #A01710;
   --color-bred-700: #ae0b02;
