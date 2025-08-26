@@ -386,14 +386,8 @@ class DreamShop_Deposits_API {
         
         // Debug: Log tutti i meta del prodotto per vedere cosa c'è effettivamente
         $all_meta = get_post_meta($product_id);
-        error_log("[DEBUG] TUTTI I META DEL PRODOTTO {$product_id}: " . var_export($all_meta, true));
         
-        // Debug: log dei valori meta per l'acconto
-        error_log("[DEBUG] Valori meta acconto per prodotto {$product_id}: ".
-            "deposit_enabled={$has_deposit}, ".
-            "deposit_type={$deposit_type}, ".
-            "deposit_force={$force_deposit}, ".
-            "deposit_amount={$deposit_amount}");
+
 
         // Assicurati che $deposit_amount sia un numero
         if (empty($deposit_amount) || !is_numeric($deposit_amount)) {
@@ -404,7 +398,6 @@ class DreamShop_Deposits_API {
         $product_price = $product->get_price();
         $deposit_value = 0;
         
-        error_log("[DEBUG] Calcolo acconto: product_price={$product_price}, deposit_type={$deposit_type}, deposit_amount={$deposit_amount}");
         
         // Assicuriamoci che deposit_amount sia un valore numerico valido
         $deposit_amount = is_numeric($deposit_amount) ? floatval($deposit_amount) : 0;
@@ -412,11 +405,9 @@ class DreamShop_Deposits_API {
         if ('percent' === $deposit_type) {
             // Per percentuale, calcoliamo l'importo basato sulla percentuale del prezzo
             $deposit_value = ($product_price * $deposit_amount) / 100;
-            error_log("[DEBUG] Calcolo percentuale: {$product_price} * {$deposit_amount} / 100 = {$deposit_value}");
         } else {
             // Per importo fisso, prendiamo il valore minimo tra l'importo e il prezzo
             $deposit_value = min($deposit_amount, $product_price);
-            error_log("[DEBUG] Importo fisso: min({$deposit_amount}, {$product_price}) = {$deposit_value}");
         }
         
         // Arrotonda a due decimali
@@ -490,9 +481,7 @@ class DreamShop_Deposits_API {
                 ));
                 
                 if ($schedule) {
-                    // Logging del contenuto completo dello schedule
-                    error_log("[DEBUG] Piano di pagamento completo: " . var_export($schedule, true));
-                    
+           
                     // La prima rata deve essere usata come acconto iniziale, quindi la trattiamo in modo speciale
                     $first_payment = null;
                     $remaining_payments = [];
@@ -512,7 +501,6 @@ class DreamShop_Deposits_API {
                         $initial_percentage = 0;
                         
                         if ($first_payment->amount) {
-                            error_log("[DEBUG] Prima rata - valore originale: {$first_payment->amount}");
                             
                             // Per questo prodotto specifico, sappiamo che il valore '37' o '37,00€' dovrebbe essere interpretato come 37%
                             // anche se non ha il simbolo % esplicito
@@ -523,16 +511,13 @@ class DreamShop_Deposits_API {
                             // Controlliamo se esiste un campo 'type' nella tabella schedule
                             if (isset($first_payment->type)) {
                                 $is_percentage = ($first_payment->type === 'percent');
-                                error_log("[DEBUG] Tipo definito esplicitamente nel DB: " . ($is_percentage ? "percentuale" : "importo fisso"));
                             } else if (strpos($first_payment->amount, '%') !== false) {
                                 // È esplicitamente specificato come percentuale nel valore
                                 $is_percentage = true;
-                                error_log("[DEBUG] Percentuale identificata dal simbolo %");
                             } else {
                                 // Definiamo esplicitamente che i valori per gli acconti sono SEMPRE percentuali 
                                 // (essendo questo il comportamento atteso per il piano di pagamento)
                                 $is_percentage = true;
-                                error_log("[DEBUG] Valore trattato come percentuale per default (acconto iniziale)");
                             }
                             
                             // Pulizia del valore numerico
@@ -541,11 +526,9 @@ class DreamShop_Deposits_API {
                             
                             if ($is_percentage) {
                                 $initial_percentage = $initial_value;
-                                error_log("[DEBUG] Valore trattato come percentuale: {$initial_percentage}%");
                             } else {
                                 $initial_amount = $initial_value;
                                 $initial_percentage = ($initial_amount / $product_price) * 100;
-                                error_log("[DEBUG] Valore trattato come importo fisso: {$initial_amount}€, che corrisponde al {$initial_percentage}% del prezzo");
                             }
                             
                             // Calcola l'importo in base alla percentuale
@@ -556,7 +539,6 @@ class DreamShop_Deposits_API {
                             $deposit_amount = $initial_percentage;
                             $deposit_value = $initial_amount;
                             
-                            error_log("[DEBUG] Acconto calcolato: {$initial_percentage}% di {$product_price} = {$initial_amount}");
                         }
                     }
                     
@@ -568,7 +550,6 @@ class DreamShop_Deposits_API {
                         $payment_percentage = 0;
                         
                         if ($payment->amount) {
-                            error_log("[DEBUG] Rata - valore originale: {$payment->amount}");
                             
                             if (strpos($payment->amount, '%') !== false) {
                                 // È esplicitamente una percentuale
@@ -581,12 +562,10 @@ class DreamShop_Deposits_API {
                                 // Se il valore è tra 8 e 10, assumiamo che sia una percentuale (come per l'acconto)
                                 if ($payment_value >= 8 && $payment_value <= 10) {
                                     $payment_percentage = $payment_value;
-                                    error_log("[DEBUG] Rata interpretata come percentuale: {$payment_percentage}%");
                                 } else {
                                     // Altrimenti è un valore fisso
                                     $payment_amount = $payment_value;
                                     $payment_percentage = ($payment_amount / $product_price) * 100;
-                                    error_log("[DEBUG] Rata interpretata come importo fisso: {$payment_amount}");
                                 }
                             }
                             
@@ -628,13 +607,7 @@ class DreamShop_Deposits_API {
                             $display_amount = $payment_percentage . '%';
                         }
                         
-                        // Log completo dei dati per debug
-                        error_log("[DEBUG] Dati rata {$payment->schedule_index}:");
-                        error_log("  - amount originale: {$payment->amount}");
-                        error_log("  - è percentuale: " . ($is_percent ? 'SI' : 'NO'));
-                        error_log("  - valore percentuale: {$payment_percentage}");
-                        error_log("  - valore visualizzato: {$display_amount}");
-                        error_log("  - importo calcolato: {$payment_amount}");
+
                         
                         // Assicuriamoci che il valore percentuale sia corretto (non troppo preciso)
                         $rounded_percentage = round($payment_percentage);
@@ -754,21 +727,12 @@ class DreamShop_Deposits_API {
         // L'account verrà creato in fase di checkout se necessario
         
         // Debug informazioni ricevute
-        error_log("[DEBUG] add_to_cart_with_deposit - Dati ricevuti: " . 
-            json_encode([
-                'product_id' => $product_id, 
-                'enable_deposit' => $enable_deposit, 
-                'quantity' => $quantity, 
-                'variation_id' => $variation_id,
-                'payment_plan_id' => $payment_plan_id
-            ])        
-        );
+
         
         // Verifica se il prodotto supporta gli acconti
         $has_deposit = get_post_meta($product_id, '_wc_deposit_enabled', true);
         
         // Aggiungiamo debug log per vedere i valori effettivi
-        error_log("[DEBUG] Prodotto ID: {$product_id} - _wc_deposit_enabled: {$has_deposit}");
         
         // Accetta sia 'yes' che 'optional' come valori validi
         if ($has_deposit !== 'yes' && $has_deposit !== 'optional') {
@@ -818,10 +782,8 @@ class DreamShop_Deposits_API {
         
         try {
             // Aggiungi al carrello
-            error_log("[DEBUG] Tentativo di aggiungere al carrello: product_id={$product_id}, quantity={$quantity}, variation_id={$variation_id}");
             $cart_item_key = WC()->cart->add_to_cart($product_id, $quantity, $variation_id, array(), $cart_item_data);
             
-            error_log("[DEBUG] Risultato add_to_cart: " . ($cart_item_key ? $cart_item_key : 'FALLITO'));
             
             if (!$cart_item_key) {
                 error_log("[ERROR] Impossibile aggiungere al carrello");
@@ -831,7 +793,6 @@ class DreamShop_Deposits_API {
                 ), 500);
             }
         } catch (Exception $e) {
-            error_log("[ERROR] Eccezione nell'aggiunta al carrello: " . $e->getMessage());
             return new WP_REST_Response(array(
                 'success' => false,
                 'message' => 'Errore: ' . $e->getMessage()
@@ -1358,11 +1319,9 @@ class DreamShop_Deposits_API {
      * @return array|false Impostazioni del piano o false se non trovato
      */
     private function get_payment_plan_settings($plan_id) {
-        error_log("[DEBUG] Ricerca impostazioni per il piano: {$plan_id}");
         
         // Se non abbiamo un ID, non possiamo procedere
         if (empty($plan_id)) {
-            error_log("[WARN] ID piano vuoto, impossibile recuperare le impostazioni");
             return false;
         }
         
@@ -1391,7 +1350,6 @@ class DreamShop_Deposits_API {
                 intval($original_plan_id)
             );
             
-            error_log("[DEBUG] Query piano: {$query}");
             $plan_data = $wpdb->get_row($query, ARRAY_A);
             
             if ($plan_data) {
@@ -1416,8 +1374,6 @@ class DreamShop_Deposits_API {
                     ));
                     
                     if ($schedule && count($schedule) > 0) {
-                        error_log("[DEBUG] Trovate " . count($schedule) . " rate per il piano {$original_plan_id}");
-                        error_log("[DEBUG] Dettagli schedule: " . var_export($schedule, true));
                         
                         // Le rate trovate vengono aggiunte alla configurazione
                         foreach ($schedule as $payment) {
@@ -1450,7 +1406,6 @@ class DreamShop_Deposits_API {
                                     'description' => "Rata {$payment->schedule_index} di " . (count($schedule) - 1)
                                 );
                                 
-                                error_log("[DEBUG] Aggiunta rata {$payment->schedule_index} con percentuale {$payment_percentage}%");
                             }
                         }
                         
@@ -1619,6 +1574,9 @@ class DreamShop_Deposits_API {
         
         error_log("[INFO] Verifica e processamento acconti per l'ordine #{$order->get_id()}");
         
+        // OPZIONE B: Controlla se ci sono punti riscattati da applicare automaticamente come coupon
+        $this->apply_points_coupon_automatically($order);
+        
         // Controlla se l'ordine contiene articoli con acconto
         $has_deposit = false;
         
@@ -1629,7 +1587,6 @@ class DreamShop_Deposits_API {
             foreach ($meta_data as $meta) {
                 $meta_values[$meta->key] = $meta->value;
             }
-            error_log("[DEBUG] Metadati dell'item #{$item_id}: " . json_encode($meta_values));
             
             // Verifica i diversi metadati possibili per gli acconti
             $is_deposit = $item->get_meta('is_deposit');
@@ -1638,13 +1595,11 @@ class DreamShop_Deposits_API {
             
             if ($is_deposit === 'yes' || $wc_deposit_option === 'yes' || $wc_convert_to_deposit === 'yes') {
                 $has_deposit = true;
-                error_log("[DEBUG] Item #{$item_id} identificato come acconto: is_deposit={$is_deposit}, wc_deposit_option={$wc_deposit_option}, _wc_convert_to_deposit={$wc_convert_to_deposit}");
                 
                 // Assicurati che tutti i metadati necessari siano impostati correttamente
                 if ($wc_convert_to_deposit === 'yes') {
                     $deposit_type = $item->get_meta('_wc_deposit_type');
                     $deposit_amount = $item->get_meta('_wc_deposit_amount');
-                    error_log("[DEBUG] Trovati metadati di acconto: _wc_deposit_type={$deposit_type}, _wc_deposit_amount={$deposit_amount}");
                     
                     // Recupera il prezzo e la quantità dell'item per calcoli corretti
                     $product_id = $item->get_product_id();
@@ -1652,24 +1607,46 @@ class DreamShop_Deposits_API {
                     $quantity = $item->get_quantity();
                     $product_price = $product ? $product->get_price() : $item->get_total() / $quantity;
                     $line_total = $item->get_total();
-                    error_log("[DEBUG] Dettagli prodotto: ID={$product_id}, Prezzo={$product_price}, Quantità={$quantity}, Totale={$line_total}");
                     
-                    // Calcola l'importo effettivo dell'acconto in base al tipo
+                    // CORREZIONE: Calcola le rate sul prezzo originale (senza sconti)
+                    // poi applica gli sconti solo alla prima rata (acconto)
+                    $original_line_total = $product_price * $quantity;
+                    $points_discount = $line_total < $original_line_total ? ($original_line_total - $line_total) : 0;
+                    
+                    // CORREZIONE iOS: Controlla anche i metadati dell'ordine per lo sconto punti
+                    $order_points_discount = floatval($order->get_meta('_points_discount_value'));
+                    if ($order_points_discount > 0 && $points_discount == 0) {
+                        $points_discount = $order_points_discount;
+                        error_log("CORREZIONE iOS: Sconto punti rilevato dai metadati dell'ordine: €{$points_discount}");
+                    }
+                    
+                    // Calcola l'importo effettivo dell'acconto in base al tipo SUL PREZZO ORIGINALE
                     $deposit_value = 0;
                     if ($deposit_type === 'percent') {
-                        // Converti la percentuale in decimale
+                        // Converti la percentuale in decimale e calcola sul prezzo ORIGINALE
                         $deposit_percentage = floatval($deposit_amount) / 100;
-                        $deposit_value = $line_total * $deposit_percentage;
-                        error_log("[DEBUG] Calcolo acconto percentuale: {$deposit_amount}% di {$line_total} = {$deposit_value}");
+                        $deposit_value = $original_line_total * $deposit_percentage;
+                        
+                        // Applica lo sconto SOLO alla prima rata (acconto)
+                        $deposit_value = $deposit_value - $points_discount;
+                        
+                        // Assicurati che l'acconto non sia negativo
+                        $deposit_value = max(0, $deposit_value);
                     } else {
                         // Importo fisso moltiplicato per quantità
                         $deposit_value = floatval($deposit_amount) * $quantity;
-                        error_log("[DEBUG] Calcolo acconto fisso: {$deposit_amount} * {$quantity} = {$deposit_value}");
+                        
+                        // Applica lo sconto SOLO alla prima rata (acconto)
+                        $deposit_value = $deposit_value - $points_discount;
+                        
+                        // Assicurati che l'acconto non sia negativo
+                        $deposit_value = max(0, $deposit_value);
                     }
                     
-                    // Calcola l'importo futuro (saldo)
-                    $future_amount = $line_total - $deposit_value;
-                    error_log("[DEBUG] Importo futuro (saldo): {$line_total} - {$deposit_value} = {$future_amount}");
+                    // Calcola l'importo futuro (saldo) SUL PREZZO ORIGINALE (senza sconto)
+                    $future_amount = $original_line_total - ($deposit_value + $points_discount);
+                    
+                    error_log("CORREZIONE CALCOLO RATE - Prodotto #{$product_id}: Prezzo originale: {$original_line_total}, Sconto punti: {$points_discount}, Acconto: {$deposit_value}, Saldo: {$future_amount}");
                     
                     // Imposta i metadati nel formato atteso da WooCommerce Deposits
                     $item->update_meta_data('is_deposit', 'yes');
@@ -1678,7 +1655,8 @@ class DreamShop_Deposits_API {
                     $item->update_meta_data('deposit_amount', $deposit_amount);
                     
                     // Aggiungi i metadati aggiuntivi necessari per il funzionamento completo
-                    $item->update_meta_data('_deposit_full_amount', $line_total);
+                    // CORREZIONE: Usa il prezzo originale come full_amount
+                    $item->update_meta_data('_deposit_full_amount', $original_line_total);
                     $item->update_meta_data('_deposit_deposit_amount', $deposit_value);
                     $item->update_meta_data('_deposit_future_amount', $future_amount);
                     // NUOVO APPROCCIO: Determinare il piano di pagamento direttamente dal prodotto
@@ -1776,7 +1754,6 @@ class DreamShop_Deposits_API {
                 }
             }
             
-            error_log("[DEBUG] Calcolo importi ordine: Totale={$order_total}, Acconto={$deposit_total}, Saldo={$future_total}");
             
             // Imposta i metadati a livello di ordine per gli acconti
             update_post_meta($order->get_id(), '_wc_deposits_order_has_deposit', 'yes');
@@ -1811,7 +1788,6 @@ class DreamShop_Deposits_API {
             // Imposta un meta chiave aggiuntivo che indica che l'ordine è parziale
             update_post_meta($order->get_id(), '_payment_status', 'partial');
             
-            error_log("[INFO] Ordine #{$order->get_id()} impostato come 'partial-payment'");
             
             // Verifica se la classe del plugin WooCommerce Deposits è disponibile
             if (class_exists('WC_Deposits_Order_Manager')) {
@@ -1819,10 +1795,7 @@ class DreamShop_Deposits_API {
                 
                 // Log di tutti i metadati dell'ordine per debug
                 $order_meta = get_post_meta($order->get_id());
-                error_log("[DEBUG] Metadati dell'ordine #{$order->get_id()} prima del processamento: " . json_encode(array_keys($order_meta)));
                 
-                // Crea rate future in base al piano di pagamento configurato
-                error_log("[INFO] Tentativo di creare rate future per l'ordine principale #{$order->get_id()}");
                 
                 try {
                     // Recupera informazioni dell'ordine originale
@@ -1843,7 +1816,6 @@ class DreamShop_Deposits_API {
                             }
                         }
                     }
-                    error_log("[DEBUG] Acconto pagato: {$deposit_amount}");
                     
                     // IMPORTANTE: Aggiorniamo il totale dell'ordine principale per riflettere solo l'acconto
                     // Questo risolve il problema dell'ordine visualizzato a prezzo pieno invece che al solo importo dell'acconto
@@ -1851,7 +1823,6 @@ class DreamShop_Deposits_API {
                         $original_total = $order->get_total();
                         $order->set_total($deposit_amount);
                         $order->save();
-                        error_log("[INFO CORREZIONE] Totale ordine principale #{$order->get_id()} aggiornato da {$original_total} a {$deposit_amount} (importo acconto)");
                     }
                     
                     // Controlla quale piano di pagamento è stato selezionato
@@ -1860,7 +1831,6 @@ class DreamShop_Deposits_API {
                     $deposit_percentage = 0;
                     $installment_meta_data = null;
                     
-                    error_log("[DEBUG] Inizio ricerca piano di pagamento per ordine #{$order->get_id()}");
                     
                     // Cerca nei metadati degli item il piano di pagamento e le sue caratteristiche
                     foreach ($order->get_items() as $item_id => $item) {
@@ -1869,17 +1839,14 @@ class DreamShop_Deposits_API {
                         $plan_name = $item->get_meta('_deposit_payment_plan_name');
                         $deposit_percent = $item->get_meta('_deposit_percentage');
                         
-                        error_log("[DEBUG] Item #{$item_id} - Piano: {$plan}, Nome: {$plan_name}, %: {$deposit_percent}");
                         
                         // Per debug stampiamo anche tutti i metadati dell'item
                         $meta_data = $item->get_meta_data();
                         foreach ($meta_data as $meta) {
-                            error_log("[DEBUG] Meta {$meta->key} = {$meta->value}");
                             
                             // Cerca informazioni sulle rate direttamente nei metadati
                             if ($meta->key === '_deposit_installments' && is_array($meta->value)) {
                                 $installment_meta_data = $meta->value;
-                                error_log("[INFO] Trovate informazioni sulle rate nei metadati");
                             }
                         }
                         
@@ -1887,11 +1854,9 @@ class DreamShop_Deposits_API {
                         if (!empty($plan)) {
                             $payment_plan = $plan;
                             $payment_plan_name = $plan_name;
-                            error_log("[INFO] Piano trovato dai metadati: {$payment_plan}");
                         } elseif (!empty($plan_name)) {
                             $payment_plan_name = $plan_name;
                             $payment_plan = sanitize_title($plan_name);
-                            error_log("[INFO] Piano determinato dal nome: {$payment_plan}");
                         }
                         
                         // Recupera percentuale e schedule se disponibili
@@ -1952,12 +1917,10 @@ class DreamShop_Deposits_API {
                         if ($has_percent) {
                             $percent = floatval($installment['percent']);
                             $amount = round(($total_price * $percent) / 100, 2);
-                            error_log("[DEBUG] Rata calcolata da percentuale esplicita: {$percent}% di {$total_price} = {$amount}");
                         } 
                         // Priorità 2: Usa importi fissi se definiti e maggiori di zero
                         else if (isset($installment['amount']) && floatval($installment['amount']) > 0) {
                             $amount = floatval($installment['amount']);
-                            error_log("[DEBUG] Rata con importo fisso: {$amount}");
                         }
                         // Priorità 3: Fallback se né percentuale né importo sono validi
                         else {
@@ -2152,7 +2115,6 @@ class DreamShop_Deposits_API {
                     
                     // Log di tutti i metadati dell'ordine dopo il processamento
                     $order_meta_after = get_post_meta($order->get_id());
-                    error_log("[DEBUG] Metadati dell'ordine #{$order->get_id()} dopo il processamento: " . json_encode(array_keys($order_meta_after)));
                 } else {
                     error_log("[ERROR] Metodo process_deposits_in_order non trovato nel plugin WooCommerce Deposits");
                 }
@@ -2266,6 +2228,54 @@ class DreamShop_Deposits_API {
                 'success' => false,
                 'message' => 'Errore durante l\'elaborazione: ' . $e->getMessage()
             ), 500);
+        }
+    }
+    
+    /**
+     * OPZIONE B: Applica automaticamente il coupon dei punti all'ordine se sono presenti i metadati
+     *
+     * @param WC_Order $order L'ordine da processare
+     */
+    private function apply_points_coupon_automatically($order) {
+        // Controlla se ci sono metadati dei punti riscattati
+        $points_redeemed = $order->get_meta('_points_redeemed');
+        $points_discount_value = $order->get_meta('_points_discount_value');
+        $points_coupon_code = $order->get_meta('_points_coupon_applied');
+        
+        if (!$points_redeemed || !$points_discount_value || !$points_coupon_code) {
+            error_log("[OPZIONE B] Nessun metadato punti trovato per l'ordine #{$order->get_id()}");
+            return;
+        }
+        
+        error_log("[OPZIONE B] Trovati metadati punti per l'ordine #{$order->get_id()}: {$points_redeemed} punti, sconto €{$points_discount_value}, coupon: {$points_coupon_code}");
+        
+        // Controlla se il coupon è già applicato
+        $existing_coupons = $order->get_coupon_codes();
+        if (in_array($points_coupon_code, $existing_coupons)) {
+            error_log("[OPZIONE B] Coupon {$points_coupon_code} già applicato all'ordine #{$order->get_id()}");
+            return;
+        }
+        
+        // Applica il coupon all'ordine
+        try {
+            // Verifica che il coupon esista
+            $coupon = new WC_Coupon($points_coupon_code);
+            if (!$coupon->get_id()) {
+                error_log("[OPZIONE B] Coupon {$points_coupon_code} non trovato per l'ordine #{$order->get_id()}");
+                return;
+            }
+            
+            // Applica il coupon all'ordine
+            $order->apply_coupon($points_coupon_code);
+            
+            // Ricalcola i totali
+            $order->calculate_totals();
+            $order->save();
+            
+            error_log("[OPZIONE B] Coupon {$points_coupon_code} applicato con successo all'ordine #{$order->get_id()}");
+            
+        } catch (Exception $e) {
+            error_log("[OPZIONE B] Errore nell'applicazione del coupon {$points_coupon_code} all'ordine #{$order->get_id()}: " . $e->getMessage());
         }
     }
 }

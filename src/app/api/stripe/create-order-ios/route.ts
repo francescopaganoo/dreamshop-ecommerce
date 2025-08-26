@@ -335,66 +335,9 @@ export async function POST(request: NextRequest) {
         if (response.ok) {
           pointsRedeemResult = await response.json();
           console.log(`[iOS POINTS] Riscatto punti completato con successo: ${pointsToRedeem} punti per l'utente ${userId}, ordine #${order.id}`);
+          console.log(`[iOS POINTS] Gestione coupon delegata completamente al plugin WordPress`);
           
-          // Applicazione coupon all'ordine WooCommerce
-          if (pointsRedeemResult.success && pointsRedeemResult.coupon && pointsRedeemResult.coupon.coupon_code) {
-            const couponCode = pointsRedeemResult.coupon.coupon_code;
-            console.log(`[iOS POINTS] Applicazione coupon ${couponCode} all'ordine ${order.id}`);
-            
-            // Configurazione delle chiavi WooCommerce
-            const wcConsumerKey = process.env.WC_CONSUMER_KEY || '';
-            const wcConsumerSecret = process.env.WC_CONSUMER_SECRET || '';
-            
-            try {
-              // Usiamo direttamente il metodo che funziona: aggiornare le coupon_lines
-              const wordpressUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL!;
-              const baseUrl = wordpressUrl.endsWith('/') ? wordpressUrl : `${wordpressUrl}/`;
-              const getOrderUrl = `${baseUrl}wp-json/wc/v3/orders/${order.id}?consumer_key=${wcConsumerKey}&consumer_secret=${wcConsumerSecret}`;
-              const orderResponse = await fetch(getOrderUrl);
-              
-              if (orderResponse.ok) {
-                const orderData = await orderResponse.json();
-                const existingCoupons = orderData.coupon_lines || [] as CouponLine[];
-                const existingCouponCodes = existingCoupons.map((coupon: CouponLine) => ({ code: coupon.code }));
-                
-                console.log(`[iOS POINTS] Coupon esistenti sull'ordine: ${JSON.stringify(existingCouponCodes)}`);
-                
-                // Controlla se il coupon è già applicato
-                const couponAlreadyApplied = existingCoupons.some((coupon: CouponLine) => coupon.code === couponCode);
-                
-                if (!couponAlreadyApplied) {
-                  // Aggiungi il nuovo coupon alla lista
-                  const updatedCouponCodes = [
-                    ...existingCouponCodes,
-                    { code: couponCode }
-                  ];
-                  
-                  const updateOrderResponse = await fetch(getOrderUrl, {
-                    method: 'PUT',
-                    headers: {
-                      'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                      coupon_lines: updatedCouponCodes
-                    })
-                  });
-                  
-                  if (updateOrderResponse.ok) {
-                    console.log(`[iOS POINTS] Coupon ${couponCode} applicato con successo all'ordine ${order.id}`);
-                    pointsRedeemResult.couponApplied = true;
-                  } else {
-                    const errorText = await updateOrderResponse.text();
-                    console.error(`[iOS POINTS] Errore nell'applicazione del coupon all'ordine:`, errorText);
-                  }
-                } else {
-                  console.log(`[iOS POINTS] Il coupon ${couponCode} è già applicato all'ordine ${order.id}`);
-                  pointsRedeemResult.couponApplied = true;
-                }
-              }
-            } catch (couponError) {
-              console.error(`[iOS POINTS] Errore durante l'applicazione del coupon:`, couponError);
-            }
-          }
+          // Il plugin WordPress gestisce automaticamente l'applicazione dello sconto tramite l'endpoint secure-redeem
         } else {
           const errorText = await response.text();
           console.error(`[iOS POINTS] Errore risposta API: ${response.status}`, errorText);

@@ -1015,6 +1015,32 @@ export default function CheckoutPage() {
               throw new Error(orderData.error);
             }
             
+            // CORREZIONE iOS: Se il pagamento è completato con successo dall'API
+            if (orderData.success && orderData.orderId && !orderData.requires_action) {
+              console.log('[iOS SUCCESS] Ordine creato e pagamento completato con successo:', {
+                orderId: orderData.orderId,
+                pointsRedeemed: orderData.pointsRedeemed,
+                paymentStatus: orderData.paymentStatus
+              });
+              
+              // Salva gli indirizzi dell'utente
+              await saveAddressData();
+              
+              // Mostra il messaggio di successo
+              setOrderSuccess(true);
+              setSuccessOrderId(orderData.orderId);
+              
+              // CORREZIONE iOS: Ritarda il reset per permettere la visualizzazione
+              setTimeout(() => {
+                resetFormAfterSuccess();
+                console.log('CHECKOUT: Reset ritardato eseguito dopo 3 secondi per sicurezza iOS');
+              }, 3000);
+              
+              setIsSubmitting(false);
+              setIsStripeLoading(false);
+              return;
+            }
+            
             // Controlla se è necessaria l'autenticazione 3D Secure
             if (orderData.requires_action && orderData.payment_intent_client_secret) {
               console.log('Autenticazione 3D Secure richiesta per iOS, gestione in-page...');

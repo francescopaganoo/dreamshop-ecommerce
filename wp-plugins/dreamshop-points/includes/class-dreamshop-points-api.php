@@ -314,12 +314,34 @@ class DreamShop_Points_API {
         
         // Se l'operazione ha avuto successo
         if ($result['success']) {
+            
+            // OPZIONE B: Salva i metadati dell'ordine per far sì che il plugin deposits applichi lo sconto
+            if ($order_id > 0) {
+                $order = wc_get_order($order_id);
+                if ($order) {
+                    // Salva i metadati standard per i punti (come fa il sistema normale)
+                    $order->update_meta_data('_points_redeemed', $points);
+                    $order->update_meta_data('_points_discount_value', $discount_amount);
+                    $order->update_meta_data('_points_user_id', $user_id);
+                    $order->update_meta_data('_points_coupon_applied', $coupon_data['coupon_code']);
+                    
+                    $order->save();
+                    
+                    error_log("OPZIONE B: Metadati punti salvati per l'ordine #{$order_id}. Riprocesso l'ordine per applicare lo sconto.");
+                    
+                    // CORREZIONE TIMING: Riprocessa l'ordine ora che i metadati sono disponibili
+                    $this->reprocess_order_with_points_discount($order);
+                }
+            }
+            
             // Aggiungi i dati del coupon alla risposta
             $response = array_merge($result, [
                 'coupon' => $coupon_data,
                 'discount_amount' => $discount_amount,
                 'points_redeemed' => $points,
-                'user_id' => $user_id
+                'user_id' => $user_id,
+                'order_id' => $order_id,
+                'metadata_saved' => $order_id > 0 ? true : false
             ]);
             
             return rest_ensure_response($response);
@@ -509,6 +531,97 @@ class DreamShop_Points_API {
         ));
     }
     
+    /**
+     * CORREZIONE TIMING: Riprocessa l'ordine dopo aver salvato i metadati punti
+     * Applica il coupon e richiama il plugin deposits se necessario
+     *
+     * @param WC_Order $order L'ordine da riprocessare
+     */
+    private function reprocess_order_with_points_discount($order) {
+        try {
+            $points_coupon_code = $order->get_meta('_points_coupon_applied');
+            
+            if (!$points_coupon_code) {
+                error_log("CORREZIONE TIMING: Nessun coupon punti da applicare per l'ordine #{$order->get_id()}");
+                return;
+            }
+            
+            // Controlla se il coupon è già applicato
+            $existing_coupons = $order->get_coupon_codes();
+            if (in_array($points_coupon_code, $existing_coupons)) {
+                error_log("CORREZIONE TIMING: Coupon {$points_coupon_code} già applicato all'ordine #{$order->get_id()}");
+                return;
+            }
+            
+            // Applica il coupon all'ordine
+            $coupon = new WC_Coupon($points_coupon_code);
+            if (!$coupon->get_id()) {
+                error_log("CORREZIONE TIMING: Coupon {$points_coupon_code} non trovato per l'ordine #{$order->get_id()}");
+                return;
+            }
+            
+            // Applica il coupon
+            $order->apply_coupon($points_coupon_code);
+            
+            // Ricalcola i totali
+            $order->calculate_totals();
+            $order->save();
+            
+            error_log("CORREZIONE TIMING: Coupon {$points_coupon_code} applicato con successo all'ordine #{$order->get_id()}");
+            
+            // Se l'ordine ha deposits, richiama il plugin deposits per riprocessare con lo sconto applicato
+            if ($this->order_has_deposits($order)) {
+                error_log("CORREZIONE TIMING: Ordine ha deposits, richiamo il riprocessamento...");
+                $this->trigger_deposits_reprocessing($order);
+            }
+            
+        } catch (Exception $e) {
+            error_log("CORREZIONE TIMING: Errore nel riprocessamento dell'ordine #{$order->get_id()}: " . $e->getMessage());
+        }
+    }
+    
+    /**
+     * Verifica se l'ordine ha deposits
+     */
+    private function order_has_deposits($order) {
+        foreach ($order->get_items() as $item) {
+            if ($item->get_meta('_wc_convert_to_deposit') === 'yes' || 
+                $item->get_meta('is_deposit') === 'yes') {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    /**
+     * Richiama il plugin deposits per riprocessare l'ordine
+     */
+    private function trigger_deposits_reprocessing($order) {
+        try {
+            // Chiama direttamente l'endpoint del plugin deposits
+            $wordpressUrl = get_site_url();
+            $endpoint = $wordpressUrl . '/wp-json/dreamshop/v1/orders/' . $order->get_id() . '/force-deposits-processing';
+            
+            $response = wp_remote_post($endpoint, array(
+                'headers' => array('Content-Type' => 'application/json'),
+                'body' => json_encode(array(
+                    'force_processing' => true,
+                    'source' => 'points_reprocessing'
+                )),
+                'timeout' => 30
+            ));
+            
+            if (is_wp_error($response)) {
+                error_log("CORREZIONE TIMING: Errore nella chiamata al deposits plugin: " . $response->get_error_message());
+            } else {
+                error_log("CORREZIONE TIMING: Deposits plugin richiamato con successo per l'ordine #{$order->get_id()}");
+            }
+            
+        } catch (Exception $e) {
+            error_log("CORREZIONE TIMING: Eccezione nel richiamo deposits plugin: " . $e->getMessage());
+        }
+    }
+
     /**
      * Formatta l'etichetta dei punti
      *
