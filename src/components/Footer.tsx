@@ -131,7 +131,7 @@ export default function Footer() {
                 <div className=" flex items-center justify-center mr-3 mt-1">
                   <FaMapMarkerAlt className="w-4 h-4 text-bred-400" />
                 </div>
-                <span className="text-sm">Via Lorem 123<br />Misterbianco, Italia</span>
+                <span className="text-sm">Via Vincenzo Florio 13/L Misterbianco 95045 CT, Italia</span>
               </li>
             </ul>
           </div>
@@ -160,8 +160,13 @@ export default function Footer() {
         {/* Copyright */}
         <div className="border-t border-gray-700/50 mt-12 pt-8 text-center">
           <p className="text-gray-400">
-            &copy; {new Date().getFullYear()} <span className="text-bred-400 font-semibold">DreamShop</span>. 
-            Tutti i diritti riservati. Fatto con ❤️ per gli appassionati di anime. <br></br>Coded by Plan Studios 
+            &copy; {new Date().getFullYear()} <span className="text-bred-400 font-semibold">DREAM SHOP S.R.L. | P.IVA 05812850872</span>. 
+            Tutti i diritti riservati. Fatto con ❤️ per gli appassionati di anime. <br></br><Link
+            href="https://planstudios.it/" target="blank"
+            className=""
+          >
+            Coded by Plan Studios
+          </Link>
           </p>
         </div>
       </div>

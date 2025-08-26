@@ -25,8 +25,8 @@ const bangers = Bangers({
 })
 
 export const metadata: Metadata = {
-  title: "WooCommerce Headless Store",
-  description: "E-commerce store powered by Next.js and WooCommerce",
+  title: "DreamShop | Tutte le action figure in un unico portale",
+  description: "Tutte le action figure in un unico portale",
 };
 
 export default function RootLayout({

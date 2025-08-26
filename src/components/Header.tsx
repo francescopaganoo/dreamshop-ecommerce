@@ -73,7 +73,7 @@ export default function Header() {
         <div className="flex items-center justify-between">
           {/* Logo - sempre visibile sia mobile che desktop */}
           <Link href="/" className="text-2xl font-bold text-gray-800 relative">
-            <Image src="/images/logo.webp" alt="WooStore Logo" width={160} height={40} priority className="w-auto h-auto" />
+            <Image src="/images/logo.webp" alt="Logo DreamShop" width={160} height={40} priority className="w-auto h-auto" />
           </Link>
 
           {/* Icone sempre visibili su mobile (carrello e wishlist) */}
