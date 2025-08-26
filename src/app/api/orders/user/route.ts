@@ -60,28 +60,44 @@ export async function GET(request: NextRequest) {
       console.log(`API: Recupero ordini per utente ID: ${decoded.id}`);
       
       try {
-        // Otteniamo prima gli ordini standard con paginazione
+        // Otteniamo prima tutti gli ordini con paginazione (senza filtri di stato)
         const response = await api.get(`orders?customer=${decoded.id}&per_page=100&page=${page}&orderby=date&order=desc`);
         let orders = Array.isArray(response.data) ? response.data : [];
         
-        // Controlliamo se abbiamo solo ordini scheduled-payment
+        console.log(`API: Prima chiamata - trovati ${orders.length} ordini`);
+        
+        // Debug: elenco stati ordini dalla prima chiamata
         const initialOrderStatuses = orders.map((order: WooOrder) => order.status);
         const initialUniqueStatuses = [...new Set(initialOrderStatuses)];
+        console.log('API: Stati dalla prima chiamata:', initialUniqueStatuses);
         
-        // Se abbiamo SOLO ordini scheduled-payment, proviamo a recuperare anche altri tipi
-        // per assicurarci di mostrare tutti i tipi di ordini all'utente
-        if (orders.length > 0 && initialUniqueStatuses.length === 1 && initialUniqueStatuses[0] === 'scheduled-payment') {
-          // Proviamo un'altra chiamata per ottenere ordini non scheduled-payment
+        // Se non troviamo stati principali come completed/processing, proviamo chiamate specifiche
+        const hasMainStates = initialUniqueStatuses.some(status => 
+          ['completed', 'processing', 'on-hold', 'pending', 'cancelled'].includes(status)
+        );
+        
+        if (!hasMainStates) {
+          console.log('API: Nessuno stato principale trovato, provo chiamate aggiuntive per tutti gli stati');
+          
+          // Proviamo chiamate separate per ogni stato principale
           try {
-            const regularResponse = await api.get(`orders?customer=${decoded.id}&status=processing,on-hold,completed,pending,partial-payment&per_page=100&orderby=date&order=desc`);
-            const regularOrders = Array.isArray(regularResponse.data) ? regularResponse.data : [];
+            const statusesToFetch = ['completed', 'processing', 'on-hold', 'pending', 'partial-payment', 'cancelled'];
             
-            // Se troviamo ordini regolari, li aggiungiamo al risultato
-            if (regularOrders.length > 0) {
-              orders = [...regularOrders, ...orders];
+            for (const status of statusesToFetch) {
+              const statusResponse = await api.get(`orders?customer=${decoded.id}&status=${status}&per_page=50&orderby=date&order=desc`);
+              const statusOrders = Array.isArray(statusResponse.data) ? statusResponse.data : [];
+              
+              if (statusOrders.length > 0) {
+                console.log(`API: Trovati ${statusOrders.length} ordini con stato ${status}`);
+                // Evita duplicati
+                const newOrders = statusOrders.filter(newOrder => 
+                  !orders.some(existingOrder => existingOrder.id === newOrder.id)
+                );
+                orders = [...orders, ...newOrders];
+              }
             }
-          } catch {
-            // Fallback silenzioso in caso di errore
+          } catch (error) {
+            console.log('API: Errore nelle chiamate aggiuntive per stato:', error);
           }
         }
         

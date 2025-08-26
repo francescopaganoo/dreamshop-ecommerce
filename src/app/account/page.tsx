@@ -148,7 +148,7 @@ function AccountContent() {
         setAllOrders(data);
         
         // Inizializza i filtri di stato con i filtri predefiniti o quelli salvati
-        const defaultCheckedStatuses = ['completed', 'processing', 'cancelled'];
+        const defaultCheckedStatuses = ['completed', 'processing', 'cancelled', 'scheduled-payment', 'pending-deposit', 'partial-payment', 'on-hold'];
         const initialStatusFilters: {[key: string]: boolean} = {};
         
         // Carica le preferenze dal localStorage se esistono
