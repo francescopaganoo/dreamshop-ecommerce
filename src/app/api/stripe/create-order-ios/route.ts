@@ -3,13 +3,6 @@ import Stripe from 'stripe';
 import { createOrder } from '../../../../lib/api';
 
 // Interfacce per i tipi WooCommerce
-interface CouponLine {
-  id?: number;
-  code: string;
-  discount?: string;
-  discount_tax?: string;
-}
-
 interface ShippingLine {
   id?: number;
   method_id: string;
