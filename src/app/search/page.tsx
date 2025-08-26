@@ -101,7 +101,7 @@ export default async function SearchPage({ searchParams }: any) {
                         href={`/search?q=${encodeURIComponent(searchQuery)}&page=${page - 1}`}
                         className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100"
                       >
-                        Previous
+                        Indietro
                       </Link>
                     )}
                     
@@ -109,7 +109,7 @@ export default async function SearchPage({ searchParams }: any) {
                       href={`/search?q=${encodeURIComponent(searchQuery)}&page=${page + 1}`}
                       className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100"
                     >
-                      Next
+                      Avanti
                     </Link>
                   </div>
                 </div>
