@@ -410,7 +410,7 @@ export default function CartPage() {
                                 </div>
                                 <div>
                                   <Link 
-                                    href={`/product/${getProductSlug(item.product)}`}
+                                    href={`/prodotto/${getProductSlug(item.product)}`}
                                     className="text-sm font-medium text-gray-900 hover:text-blue-600"
                                   >
                                     {item.product.name}

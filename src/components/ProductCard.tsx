@@ -60,7 +60,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           entries.forEach(entry => {
             if (entry.isIntersecting && !prefetched) {
               // Prefetch solo se non siamo già nella pagina del prodotto
-              if (!pathname.includes(`/product/${product.slug}`)) {
+              if (!pathname.includes(`/prodotto/${product.slug}`)) {
                 // Invece di usare un prefetch che potrebbe causare il caricamento delle variazioni,
                 // memorizziamo solo l'intenzione di navigare a questa pagina
                 setPrefetched(true);
@@ -119,7 +119,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   // Gestisce il click sul pulsante
   const handleButtonClick = () => {
     if (isVariable) {
-      router.push(`/product/${product.slug}`);
+      router.push(`/prodotto/${product.slug}`);
     } else {
       handleAddToCart();
     }
@@ -154,7 +154,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       )}
       
       {/* Immagine prodotto semplificata - stile minimalista */}
-      <Link href={`/product/${product.slug}`} className="block mb-5">
+      <Link href={`/prodotto/${product.slug}`} className="block mb-5">
         <div className="relative h-52 w-full transition-all duration-300">
           <Image
             src={imageUrl}
@@ -169,7 +169,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       
       {/* Contenuto testuale minimalista */}
       <div className="flex flex-col flex-grow space-y-3">
-        <Link href={`/product/${product.slug}`} className="block">
+        <Link href={`/prodotto/${product.slug}`} className="block">
           <h3 className="text-xl font-medium text-gray-900 line-clamp-1">{product.name}</h3>
         </Link>
         

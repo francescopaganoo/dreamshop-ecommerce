@@ -132,7 +132,7 @@ export default function WishlistPage() {
                         )}
                       </div>
                       <div className="ml-4">
-                        <Link href={`/product/${extractSlug(item.permalink)}`} className="text-sm font-medium text-gray-900 hover:text-bred-500">
+                        <Link href={`/prodotto/${extractSlug(item.permalink)}`} className="text-sm font-medium text-gray-900 hover:text-bred-500">
                           {item.name}
                         </Link>
                       </div>
@@ -158,7 +158,7 @@ export default function WishlistPage() {
                   <td className="px-6 py-4 text-right text-sm font-medium">
                     <div className="flex justify-end space-x-2">
                       <Link
-                        href={`/product/${extractSlug(item.permalink)}`}
+                        href={`/prodotto/${extractSlug(item.permalink)}`}
                         className="text-bred-500 hover:text-bred-700"
                       >
                         Visualizza

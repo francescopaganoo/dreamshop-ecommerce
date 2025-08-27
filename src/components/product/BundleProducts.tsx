@@ -119,7 +119,7 @@ export default function BundleProducts({ product }: BundleProductsProps) {
                 )}
               </div>
               
-              <Link href={`/product/${bundledProduct.slug}`} className="block">
+              <Link href={`/prodotto/${bundledProduct.slug}`} className="block">
                 <h4 className="font-medium text-lg text-gray-600 hover:text-gray-700 transition-colors">
                   {bundledProduct.name}
                 </h4>

@@ -73,7 +73,7 @@ export default async function Home() {
                 <FaArrowRight className="ml-2 group-hover:translate-x-1 transition-transform" />
               </Link>
               <Link 
-                href="/products" 
+                href="/offerte" 
                 className="group bg-transparent border-2 border-white text-white hover:bg-white/10 px-8 py-4 rounded-md font-medium inline-flex items-center transition-all duration-300"
               >
                 Offerte Speciali
