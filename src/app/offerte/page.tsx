@@ -11,7 +11,7 @@ export default function OffertePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMorePages, setHasMorePages] = useState(true);
-  const productsPerPage = 12; // Più prodotti per pagina rispetto alla home
+  const productsPerPage = 12; // Numero ottimale per distribuire meglio i prodotti
 
   const fetchProducts = async (page: number) => {
     setIsLoading(true);

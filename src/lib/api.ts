@@ -377,24 +377,28 @@ export async function getProductsOnSale(page = 1, per_page = 10, orderby = 'date
       }
     }
     
-    // Ottieni tutti i prodotti e filtra quelli in offerta
+    // Ottieni prodotti con un margine extra per il filtraggio
     const { data } = await api.get('products', {
-      per_page: 100, // Prendiamo più prodotti per avere una buona selezione
-      page: page, // Usa il parametro page passato alla funzione
+      per_page: Math.max(100, per_page * 3), // Prendiamo più prodotti per compensare il filtraggio
+      page: 1, // Sempre dalla prima pagina per semplicità
       status: 'publish',
       orderby,
       order,
     });
     
-    // Filtra ulteriormente per assicurarci che abbiano davvero un prezzo scontato
-    const saleProducts = (data as Product[]).filter(product => 
+    // Filtra per prodotti in offerta
+    const allSaleProducts = (data as Product[]).filter(product => 
       product.sale_price && 
       product.sale_price !== '' && 
       parseFloat(product.sale_price) < parseFloat(product.regular_price)
     );
     
-    // Prendiamo solo il numero richiesto di prodotti
-    const limitedSaleProducts = saleProducts.slice(0, per_page);
+    // Implementa paginazione manuale
+    const startIndex = (page - 1) * per_page;
+    const endIndex = startIndex + per_page;
+    const limitedSaleProducts = allSaleProducts.slice(startIndex, endIndex);
+    
+    console.log(`Pagina ${page}: ${allSaleProducts.length} prodotti totali in offerta, restituendo ${limitedSaleProducts.length} (${startIndex}-${endIndex-1})`);
     
     // Salviamo i dati in cache (solo lato client)
     if (typeof window !== 'undefined') {
