@@ -147,15 +147,19 @@ function AccountContent() {
         // Memorizziamo tutti gli ordini per poterli filtrare successivamente
         setAllOrders(data);
         
-        // SEMPLIFICAZIONE: Mostra SEMPRE tutti gli ordini per default
-        setOrders(data);
-        
-        // Inizializza i filtri con TUTTI gli stati attivi per default
+        // Inizializza i filtri con solo gli stati principali attivi per default
+        const defaultActiveStatuses = ['completed', 'processing', 'cancelled'];
         const initialStatusFilters: {[key: string]: boolean} = {};
         Object.keys(orderStates).forEach(status => {
-          initialStatusFilters[status] = true; // Tutti gli stati sono attivi per default
+          initialStatusFilters[status] = defaultActiveStatuses.includes(status);
         });
         setStatusFilters(initialStatusFilters);
+        
+        // Applica i filtri di default agli ordini
+        const filteredOrders = data.filter((order: Order) => initialStatusFilters[order.status]);
+        setOrders(filteredOrders);
+        
+        console.log(`Mostrando ${filteredOrders.length} ordini con filtri di default (completato, in elaborazione, annullato)`);
         
         // Se abbiamo meno di 100 ordini nel primo caricamento, non ci sono altri ordini da caricare
         if (data.length < 100) {
