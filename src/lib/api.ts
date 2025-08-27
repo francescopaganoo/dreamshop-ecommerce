@@ -380,7 +380,7 @@ export async function getProductsOnSale(page = 1, per_page = 10, orderby = 'date
     // Ottieni tutti i prodotti e filtra quelli in offerta
     const { data } = await api.get('products', {
       per_page: 100, // Prendiamo più prodotti per avere una buona selezione
-      page: 1,
+      page: page, // Usa il parametro page passato alla funzione
       status: 'publish',
       orderby,
       order,

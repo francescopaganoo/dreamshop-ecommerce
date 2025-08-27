@@ -144,6 +144,9 @@ export default function Header() {
             <Link href="/categories" className="text-white hover:text-white">
               Categorie
             </Link>
+            <Link href="/offerte" className="text-white hover:text-white">
+              Offerte
+            </Link>
             <Link href="/chi-siamo" className="text-white hover:text-white">
               Chi Siamo
             </Link>
@@ -273,6 +276,13 @@ export default function Header() {
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   Categorie
+                </Link>
+                <Link 
+                  href="/offerte" 
+                  className="block text-gray-800 hover:text-bred-500 text-lg"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  Offerte
                 </Link>
                 <Link 
                   href="/chi-siamo" 

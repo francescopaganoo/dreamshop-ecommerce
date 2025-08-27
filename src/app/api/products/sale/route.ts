@@ -5,8 +5,13 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const limit = parseInt(searchParams.get('limit') || '6', 10);
+    const page = parseInt(searchParams.get('page') || '1', 10);
     
-    const products = await getProductsOnSale(1, limit, 'date', 'desc');
+    console.log(`API: Caricamento prodotti in offerta - Pagina ${page}, Limite ${limit}`);
+    
+    const products = await getProductsOnSale(page, limit, 'date', 'desc');
+    
+    console.log(`API: Trovati ${products.length} prodotti in offerta per pagina ${page}`);
     
     return NextResponse.json(products);
   } catch (error) {

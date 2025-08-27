@@ -175,14 +175,14 @@ export default async function Home() {
             <ProductList products={products} />
           </div>
           
-          <div className="text-center mt-12">
+          {/*<div className="text-center mt-12">
             <Link 
               href="/products" 
               className="inline-flex items-center bg-bred-500 text-white hover:bg-bred-600 px-8 py-3 rounded-md font-medium transition-colors shadow-md hover:shadow-lg"
             >
               Visualizza Altri Prodotti <FaArrowRight className="ml-2" />
             </Link>
-          </div>
+          </div> */}
         </div>
       </section>
 
@@ -218,7 +218,7 @@ export default async function Home() {
             
             <div className="text-center mt-12">
               <Link 
-                href="/category/ichibankuji" 
+                href="/category/ichiban-kuji" 
                 className="inline-flex items-center bg-bred-500 text-white hover:bg-bred-600 px-8 py-3 rounded-md font-medium transition-colors shadow-md hover:shadow-lg"
               >
                 Visualizza altri Ichiban Kuji <FaArrowRight className="ml-2" />
@@ -379,7 +379,7 @@ export default async function Home() {
         badge="🔥 OFFERTE"
         description="Approfitta delle nostre offerte speciali prima che scadano!"
         isSaleProducts={true}
-        categoryLink="/products?on_sale=true"
+        categoryLink="/offerte"
         buttonText="Vedi Tutte le Offerte"
         bgGradient="bg-gray-50"
         decorativeColors={{
