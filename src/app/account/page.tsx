@@ -147,38 +147,15 @@ function AccountContent() {
         // Memorizziamo tutti gli ordini per poterli filtrare successivamente
         setAllOrders(data);
         
-        // Inizializza i filtri di stato con i filtri predefiniti o quelli salvati
-        const defaultCheckedStatuses = ['completed', 'processing', 'cancelled', 'scheduled-payment', 'pending-deposit', 'partial-payment', 'on-hold'];
+        // SEMPLIFICAZIONE: Mostra SEMPRE tutti gli ordini per default
+        setOrders(data);
+        
+        // Inizializza i filtri con TUTTI gli stati attivi per default
         const initialStatusFilters: {[key: string]: boolean} = {};
-        
-        // Carica le preferenze dal localStorage se esistono
-        try {
-          const savedFilters = localStorage.getItem('orderStatusFilters');
-          if (savedFilters) {
-            const parsedFilters = JSON.parse(savedFilters);
-            // Verifica che i filtri salvati siano ancora validi
-            Object.keys(orderStates).forEach(status => {
-              initialStatusFilters[status] = parsedFilters[status] !== undefined ? parsedFilters[status] : defaultCheckedStatuses.includes(status);
-            });
-          } else {
-            // Se non ci sono preferenze salvate, usa i filtri predefiniti
-            Object.keys(orderStates).forEach(status => {
-              initialStatusFilters[status] = defaultCheckedStatuses.includes(status);
-            });
-          }
-        } catch (error) {
-          console.error('Errore nel caricamento dei filtri salvati:', error);
-          // Fallback ai filtri predefiniti
-          Object.keys(orderStates).forEach(status => {
-            initialStatusFilters[status] = defaultCheckedStatuses.includes(status);
-          });
-        }
-        
+        Object.keys(orderStates).forEach(status => {
+          initialStatusFilters[status] = true; // Tutti gli stati sono attivi per default
+        });
         setStatusFilters(initialStatusFilters);
-        
-        // Applica i filtri iniziali agli ordini
-        const filteredOrders = data.filter((order: Order) => initialStatusFilters[order.status]);
-        setOrders(filteredOrders);
         
         // Se abbiamo meno di 100 ordini nel primo caricamento, non ci sono altri ordini da caricare
         if (data.length < 100) {
@@ -341,6 +318,7 @@ function AccountContent() {
   const handlePaymentSuccess = () => {
     setIsPaymentModalOpen(false);
     alert('Pagamento completato con successo!');
+    
     // Ricarica la lista delle rate per aggiornare lo stato
     if (user) {
       const fetchScheduledOrders = async () => {
@@ -359,6 +337,9 @@ function AccountContent() {
           setIsLoadingScheduledOrders(false);
         }
       };
+      
+      // Non c'è più bisogno di invalidare la cache - i filtri sono sempre tutti attivi per default
+      console.log('Ordini ricaricati dopo il pagamento');
       
       fetchScheduledOrders();
     }
@@ -422,126 +403,19 @@ function AccountContent() {
                         type="checkbox" 
                         className="form-checkbox h-4 w-4 text-bred-500" 
                         checked={statusFilters[status]}
-                        onChange={async () => {
-                          // Inverte lo stato del filtro selezionato
+                        onChange={() => {
+                          // SEMPLIFICAZIONE: Inverte solo lo stato del filtro e applica il filtro localmente
                           const newFilters = {...statusFilters, [status]: !statusFilters[status]};
+                          setStatusFilters(newFilters);
                           
-                          try {
-                            // Indica che stiamo caricando
-                            setIsLoadingOrders(true);
-                            
-                            // Aggiorna lo stato dei filtri
-                            setStatusFilters(newFilters);
-                            
-                            // 1. APPROCCIO COMPLETAMENTE DIVERSO: Ricarichiamo TUTTI gli ordini dal server
-                            // e poi applichiamo i filtri localmente. Questo evita problemi di sincronizzazione.
-                            console.log('Ricaricando tutti gli ordini dal server per evitare problemi di sincronizzazione');
-                            
-                            const token = localStorage.getItem('woocommerce_token');
-                            if (!token) throw new Error('Token non trovato');
-                            
-                            // Carica tutte le pagine necessarie
-                            let allLoadedOrders: Order[] = [];
-                            let currentPage = 1;
-                            let continueLoading = true;
-                            
-                            while (continueLoading) {
-                              const timestamp = new Date().getTime();
-                              const response = await fetch(`/api/orders/user?_=${timestamp}&page=${currentPage}`, {
-                                headers: {
-                                  'Authorization': `Bearer ${token}`,
-                                  'Cache-Control': 'no-cache, no-store'
-                                }
-                              });
-                              
-                              if (!response.ok) {
-                                console.error(`Errore nel caricamento degli ordini: ${response.status}`);
-                                break;
-                              }
-                              
-                              const pageData = await response.json();
-                              console.log(`Caricati ${pageData.length} ordini dalla pagina ${currentPage}`);
-                              
-                              if (pageData.length === 0) {
-                                continueLoading = false;
-                              } else {
-                                // Verifica se gli ordini sono già presenti per evitare duplicati
-                                const existingIds = new Set(allLoadedOrders.map((o: Order) => o.id));
-                                const newOrders = pageData.filter((o: Order) => !existingIds.has(o.id));
-                                
-                                allLoadedOrders = [...allLoadedOrders, ...newOrders];
-                                
-                                // Carica al massimo 3 pagine per evitare richieste eccessive
-                                if (currentPage >= 3 || pageData.length < 100) {
-                                  continueLoading = false;
-                                }
-                                
-                                currentPage++;
-                              }
-                            }
-                            
-                            // Aggiorna il numero totale di pagine disponibili
-                            setNextOrdersPage(currentPage);
-                            
-                            // Aggiorna hasMoreOrders in base ai risultati
-                            if (currentPage > 3 && allLoadedOrders.length >= 300) {
-                              setHasMoreOrders(true);
-                            } else {
-                              setHasMoreOrders(false);
-                            }
-                            
-                            console.log(`Caricati in totale ${allLoadedOrders.length} ordini`);
-                            
-                            // Aggiorna allOrders con tutti gli ordini disponibili
-                            setAllOrders(allLoadedOrders);
-                            
-                            // Calcola tutti i possibili stati degli ordini
-                            const allOrderStates = allLoadedOrders.reduce((acc: Record<string, number>, order: Order) => {
-                              acc[order.status] = (acc[order.status] || 0) + 1;
-                              return acc;
-                            }, {});
-                            
-                            // Assicurati che tutti gli stati siano nei filtri
-                            const completeFilters = {...newFilters};
-                            Object.keys(allOrderStates).forEach(orderStatus => {
-                              if (completeFilters[orderStatus] === undefined) {
-                                completeFilters[orderStatus] = true;
-                              }
-                            });
-                            setStatusFilters(completeFilters);
-                            
-                            // Applica i filtri agli ordini caricati
-                            const filteredOrders = allLoadedOrders.filter((order: Order) => completeFilters[order.status]);
-                            console.log(`${filteredOrders.length} ordini dopo l'applicazione dei filtri`);
-                            
-                            // Aggiorna gli ordini visualizzati
-                            setOrders(filteredOrders);
-                            
-                            // Salva le preferenze dei filtri su localStorage
-                            try {
-                              localStorage.setItem('orderStatusFilters', JSON.stringify(completeFilters));
-                            } catch (storageError) {
-                              console.error('Errore nel salvataggio delle preferenze filtri:', storageError);
-                            }
-                            
-                          } catch (error) {
-                            console.error('Errore durante l\'aggiornamento dei filtri:', error);
-                            
-                            // Fallback: applica semplicemente i filtri agli ordini esistenti
-                            const fallbackFiltered = allOrders.filter((order: Order) => newFilters[order.status]);
-                            setOrders(fallbackFiltered);
-                            
-                            // Salva le preferenze dei filtri anche nel fallback
-                            try {
-                              localStorage.setItem('orderStatusFilters', JSON.stringify(newFilters));
-                            } catch (storageError) {
-                              console.error('Errore nel salvataggio delle preferenze filtri (fallback):', storageError);
-                            }
-                            
-                          } finally {
-                            setIsLoadingOrders(false);
-                            setOrdersCurrentPage(1); // Torna alla prima pagina
-                          }
+                          // Applica i filtri agli ordini già caricati
+                          const filteredOrders = allOrders.filter((order: Order) => newFilters[order.status]);
+                          setOrders(filteredOrders);
+                          
+                          console.log(`Filtro ${status} ${newFilters[status] ? 'attivato' : 'disattivato'}: mostrando ${filteredOrders.length} ordini`);
+                          
+                          // Reset alla prima pagina quando si cambia filtro
+                          setOrdersCurrentPage(1);
                         }} 
                       />
                       <span className="ml-2 text-sm text-gray-700">

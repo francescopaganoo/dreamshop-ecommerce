@@ -71,13 +71,9 @@ export async function GET(request: NextRequest) {
         const initialUniqueStatuses = [...new Set(initialOrderStatuses)];
         console.log('API: Stati dalla prima chiamata:', initialUniqueStatuses);
         
-        // Se non troviamo stati principali come completed/processing, proviamo chiamate specifiche
-        const hasMainStates = initialUniqueStatuses.some(status => 
-          ['completed', 'processing', 'on-hold', 'pending', 'cancelled'].includes(status)
-        );
-        
-        if (!hasMainStates) {
-          console.log('API: Nessuno stato principale trovato, provo chiamate aggiuntive per tutti gli stati');
+        // SEMPRE prova chiamate aggiuntive per assicurarsi di recuperare tutti i tipi di ordini
+        // Questo perché WooCommerce potrebbe limitare certi tipi di ordini nella prima chiamata
+        console.log('API: Eseguo sempre chiamate aggiuntive per recuperare tutti i tipi di ordini');
           
           // Proviamo chiamate separate per ogni stato principale
           try {
@@ -99,7 +95,6 @@ export async function GET(request: NextRequest) {
           } catch (error) {
             console.log('API: Errore nelle chiamate aggiuntive per stato:', error);
           }
-        }
         
         // Se non troviamo ordini con il parametro customer, proviamo con customer_id
         if (!orders || !Array.isArray(orders) || orders.length === 0) {
