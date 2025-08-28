@@ -225,8 +225,10 @@ export default function ProductCard({ product }: ProductCardProps) {
         {/* Badge offerta - se necessario */}
         {product.sale_price && (
           <div className="absolute top-5 left-5">
-            <div className="bg-red-500 text-white text-xs font-medium px-2 py-1 rounded-md">
-              Offerta
+            <div className="bg-green-500 text-white text-xs font-medium px-2 py-1 rounded-md">
+              {product.regular_price && product.sale_price 
+                ? `Offerta -${Math.ceil(((parseFloat(product.regular_price) - parseFloat(product.sale_price)) / parseFloat(product.regular_price)) * 100)}%`
+                : 'Offerta'}
             </div>
           </div>
         )}

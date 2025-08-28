@@ -7,6 +7,7 @@ import ClientProviders from "../components/ClientProviders";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import FloatingCartButton from "../components/FloatingCartButton";
+import WhatsAppButton from "../components/WhatsAppButton";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -47,6 +48,7 @@ export default function RootLayout({
             </main>
             <Footer />
             <FloatingCartButton />
+            <WhatsAppButton />
           </div>
         </ClientProviders>
       </body>

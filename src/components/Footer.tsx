@@ -95,6 +95,24 @@ export default function Footer() {
                   Wishlist
                 </Link>
               </li>
+              <li>
+                <Link href="/termini-vendita" className="text-gray-300 hover:text-bred-400 transition-colors duration-300 flex items-center group">
+                  <span className="w-2 h-2 bg-bred-500 rounded-full mr-3 opacity-0 group-hover:opacity-100 transition-opacity"></span>
+                  Termini di vendita
+                </Link>
+              </li>
+              <li>
+                <Link href="/gift-card" className="text-gray-300 hover:text-bred-400 transition-colors duration-300 flex items-center group">
+                  <span className="w-2 h-2 bg-bred-500 rounded-full mr-3 opacity-0 group-hover:opacity-100 transition-opacity"></span>
+                  Gift Card
+                </Link>
+              </li>
+              <li>
+                <a href="https://dreamshop18distribuzione.com/" target="_blank" rel="noopener noreferrer" className="text-gray-300 hover:text-bred-400 transition-colors duration-300 flex items-center group">
+                  <span className="w-2 h-2 bg-bred-500 rounded-full mr-3 opacity-0 group-hover:opacity-100 transition-opacity"></span>
+                  Sei un rivenditore?
+                </a>
+              </li>
             </ul>
           </div>
 
@@ -186,6 +204,15 @@ export default function Footer() {
             Coded by Plan Studios
           </Link>
           </p>
+          <div className="mt-4 flex justify-center">
+            <Image 
+              src="/images/payment-icon.webp" 
+              alt="Payment Methods" 
+              width={450} 
+              height={50} 
+              className="opacity-70 hover:opacity-100 transition-opacity"
+            />
+          </div>
         </div>
       </div>
     </footer>

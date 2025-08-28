@@ -24,7 +24,7 @@ const FloatingCartButton: React.FC = () => {
 
   return (
     <Link href="/cart">
-      <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50">
+      <div className="fixed bottom-24 right-4 sm:bottom-26 sm:right-6 z-50">
         <div className="relative">
           {/* Pulsante principale */}
           <button className="bg-bred-500 hover:bg-bred-600 text-white w-12 h-12 sm:w-14 sm:h-14 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-4 focus:ring-bred-300">

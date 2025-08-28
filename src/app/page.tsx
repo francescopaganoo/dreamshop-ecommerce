@@ -301,7 +301,7 @@ export default async function Home() {
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between p-6 md:p-16 h-full">
               <div className="text-center md:text-left w-full md:w-auto mb-6 md:mb-0">
                 <span className="bg-white/20 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-4">RIVISTE & GADGET</span>
-                <h2 className="text-2xl md:text-3xl lg:text-5xl font-bold text-white mb-4 leading-tight">Riviste</h2>
+                <h2 className="text-2xl md:text-3xl lg:text-5xl font-bold text-white mb-4 leading-tight">Shōnen JumpL</h2>
                 <p className="text-white/80 max-w-md mx-auto md:mx-0 text-sm md:text-base">Il meglio dell&apos;editoria giapponese e gadget esclusivi</p>
               </div>
             </div>
