@@ -21,7 +21,12 @@ declare global {
     google: {
       translate: {
         TranslateElement: {
-          new(options: any, elementId: string): void;
+          new(options: {
+            pageLanguage: string;
+            includedLanguages: string;
+            autoDisplay: boolean;
+            layout: number;
+          }, elementId: string): void;
           InlineLayout: {
             SIMPLE: number;
           };
