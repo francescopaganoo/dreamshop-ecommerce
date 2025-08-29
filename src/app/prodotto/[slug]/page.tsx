@@ -141,9 +141,25 @@ async function ProductDetails({ slug }: { slug: string }) {
           {/* Stock Status */}
           <div className="mb-6">
             {product.stock_status === 'instock' && hasValidPrice ? (
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                Disponibile
-              </span>
+              <div>
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                  Disponibile
+                </span>
+                
+                {/* Avviso speciale quando rimangono solo 2 pezzi */}
+                {product.stock_quantity === 2 && (
+                  <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                    <div className="flex items-center">
+                      <svg className="w-5 h-5 text-orange-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      <span className="text-sm font-medium text-orange-800">
+                        ⚡ Ultimi 2 pezzi rimasti!
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
             ) : (
               <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
                 Non disponibile

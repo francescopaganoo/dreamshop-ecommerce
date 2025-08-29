@@ -249,13 +249,7 @@ export default function SimpleProductAddToCart({ product }: SimpleProductAddToCa
         <div className="mb-6">
           <div className="flex items-center mb-3">
             <h3 className="text-lg font-semibold text-gray-900">Quantità</h3>
-            {hasStockManagement && typeof product.stock_quantity === 'number' && (
-              <span className="ml-2 text-sm text-gray-600">
-                {product.stock_quantity > 0 
-                  ? `(${product.stock_quantity} ${product.stock_quantity === 1 ? 'pezzo disponibile' : 'pezzi disponibili'})` 
-                  : '(Esaurito)'}
-              </span>
-            )}
+            {/* Rimosso il contatore dei pezzi disponibili per privacy */}
           </div>
           <div className="flex items-center">
             <button 
@@ -271,7 +265,7 @@ export default function SimpleProductAddToCart({ product }: SimpleProductAddToCa
               min="1"
               value={quantity}
               onChange={handleQuantityChange}
-              className="w-16 h-10 border-t border-b border-gray-300 text-center text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-16 h-10 border-t border-b border-gray-300 text-center text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]"
             />
             <button 
               onClick={handleIncreaseQuantity}

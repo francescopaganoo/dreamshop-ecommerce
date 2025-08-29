@@ -7,7 +7,6 @@ import { Product } from '@/lib/api';
 import { useCart } from '@/context/CartContext';
 import { useState, useEffect } from 'react';
 import WishlistButton from '@/components/WishlistButton';
-import SaleCountdownCompact from '@/components/product/SaleCountdownCompact';
 import { motion } from 'framer-motion';
 import { FaPlus } from 'react-icons/fa';
 

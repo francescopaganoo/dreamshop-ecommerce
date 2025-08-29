@@ -90,7 +90,7 @@ export default function SaleCountdown({ saleEndDate, saleStartDate, className = 
       </div>
       
       <div className="text-center">
-        <p className="text-sm mb-2 opacity-90">L'offerta scade tra:</p>
+        <p className="text-sm mb-2 opacity-90">L&apos;offerta scade tra:</p>
         <div className="grid grid-cols-4 gap-2 text-center">
           {/* Giorni */}
           <div className="bg-white/20 rounded-lg py-2 px-1">
@@ -119,7 +119,7 @@ export default function SaleCountdown({ saleEndDate, saleStartDate, className = 
         
         {isUrgent && (
           <p className="text-sm mt-2 animate-pulse font-medium">
-            ⏰ Affrettati! L'offerta sta per scadere!
+            ⏰ Affrettati! L&apos;offerta sta per scadere!
           </p>
         )}
       </div>

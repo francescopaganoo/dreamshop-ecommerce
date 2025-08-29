@@ -448,7 +448,7 @@ export default function ProductVariations({
               min="1"
               value={quantity}
               onChange={handleQuantityChange}
-              className="w-16 h-10 border-t border-b border-gray-300 text-center text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-16 h-10 border-t border-b border-gray-300 text-center text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]"
             />
             <button 
               onClick={handleIncreaseQuantity}
