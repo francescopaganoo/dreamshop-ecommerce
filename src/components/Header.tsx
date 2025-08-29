@@ -7,6 +7,12 @@ import { useAuth } from '@/context/AuthContext';
 import { useWishlist } from '@/context/WishlistContext';
 import { useState, useEffect, useRef } from 'react';
 import LanguageSelector from './LanguageSelector';
+import { getCategories, Category } from '@/lib/api';
+
+// Tipo esteso per le categorie con sottocategorie
+interface ExtendedCategory extends Category {
+  subcategories?: Category[];
+}
 
 export default function Header() {
   const { getCartCount } = useCart();
@@ -15,10 +21,14 @@ export default function Header() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMegaMenuOpen, setIsMegaMenuOpen] = useState(false);
+  const [categories, setCategories] = useState<ExtendedCategory[]>([]);
+  const megaMenuTimer = useRef<NodeJS.Timeout | null>(null);
   
   // Riferimenti per gestire i click esterni
   const dropdownRef = useRef<HTMLDivElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const megaMenuRef = useRef<HTMLDivElement>(null);
   
   // Gestisce i click esterni per chiudere i menu
   useEffect(() => {
@@ -26,6 +36,11 @@ export default function Header() {
       // Chiude il menu a tendina dell'account
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsMenuOpen(false);
+      }
+      
+      // Chiude il mega menu quando si clicca fuori
+      if (megaMenuRef.current && !megaMenuRef.current.contains(event.target as Node)) {
+        setIsMegaMenuOpen(false);
       }
       
       // Chiude il menu mobile quando si clicca fuori
@@ -39,7 +54,7 @@ export default function Header() {
     }
     
     // Aggiungi l'event listener quando i menu sono aperti
-    if (isMenuOpen || isMobileMenuOpen) {
+    if (isMenuOpen || isMobileMenuOpen || isMegaMenuOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
     
@@ -47,7 +62,7 @@ export default function Header() {
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isMenuOpen, isMobileMenuOpen]);
+  }, [isMenuOpen, isMobileMenuOpen, isMegaMenuOpen]);
   
   // Blocca lo scroll quando il menu mobile è aperto
   useEffect(() => {
@@ -60,6 +75,103 @@ export default function Header() {
       document.body.style.overflow = '';
     };
   }, [isMobileMenuOpen]);
+
+  // Carica le categorie all'avvio
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const allCategories = await getCategories();
+        // Filtra le categorie per il mega menu - escludi quelle non necessarie E le sottocategorie che saranno mostrate come sottocategorie
+        const excludedSlugs = [
+          'attack-on-titan',
+          'black-week',
+          'cina',
+          'cina-rs', 
+          'crazy-month',
+          'editoria',
+          'gift-card',
+          'italia',
+          'no-categoria',
+          'nuovi-arrivi',
+          'senza-categoria',
+          // Sottocategorie da escludere come categorie principali
+          'dragon-ball-cg',
+          'one-piece-cg',
+          'yu-gi-oh',
+          'jimei-palace',
+          'tsume'
+        ];
+        
+        // Crea un array per organizzare le categorie con le loro sottocategorie
+        const organizedCategories = [];
+        const mainCategories = allCategories.filter(category => !excludedSlugs.includes(category.slug));
+        
+        // Trova le sottocategorie specifiche
+        const cardGameSubcats = allCategories.filter(cat => 
+          ['dragon-ball-cg', 'one-piece-cg', 'yu-gi-oh'].includes(cat.slug)
+        );
+        const resineSubcats = allCategories.filter(cat => 
+          ['jimei-palace', 'tsume'].includes(cat.slug)
+        );
+        
+        // Aggiungi tutte le categorie principali
+        for (const category of mainCategories) {
+          if (category.slug === 'card-game' || category.slug === 'cards' || category.name.toLowerCase().includes('card')) {
+            // Aggiungi categoria Card Game
+            organizedCategories.push({
+              ...category,
+              subcategories: cardGameSubcats
+            });
+          } else if (category.slug === 'resine' || category.name.toLowerCase().includes('resin')) {
+            // Aggiungi categoria Resine
+            organizedCategories.push({
+              ...category,
+              subcategories: resineSubcats
+            });
+          } else {
+            organizedCategories.push({
+              ...category,
+              subcategories: []
+            });
+          }
+        }
+        
+        setCategories(organizedCategories);
+      } catch (error) {
+        console.error('Error loading categories:', error);
+      }
+    };
+
+    loadCategories();
+  }, []);
+
+  // Funzioni per gestire l'hover del mega menu
+  const handleMegaMenuEnter = () => {
+    if (megaMenuTimer.current) {
+      clearTimeout(megaMenuTimer.current);
+    }
+    setIsMegaMenuOpen(true);
+  };
+
+  const handleMegaMenuLeave = () => {
+    megaMenuTimer.current = setTimeout(() => {
+      setIsMegaMenuOpen(false);
+    }, 150); // Delay di 150ms per permettere di passare al mega menu
+  };
+
+  // Funzione per decodificare le entità HTML
+  const decodeHtmlEntities = (text: string): string => {
+    return text
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&#8217;/g, "'")
+      .replace(/&#8220;/g, '"')
+      .replace(/&#8221;/g, '"');
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -142,9 +254,95 @@ export default function Header() {
 
           {/* Navigation Desktop - visibile solo da tablet in su */}
           <nav className="hidden md:flex items-center space-x-6">
-            <Link href="/categories" className="text-white hover:text-white">
-              Categorie
-            </Link>
+            <div 
+              className="relative"
+              ref={megaMenuRef}
+              onMouseEnter={handleMegaMenuEnter}
+              onMouseLeave={handleMegaMenuLeave}
+            >
+              <Link href="/categories" className="text-white hover:text-white flex items-center">
+                Categorie
+                <svg 
+                  className={`w-4 h-4 ml-1 transition-transform ${isMegaMenuOpen ? 'transform rotate-180' : ''}`} 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24" 
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </Link>
+              
+              {/* Mega Menu */}
+              {isMegaMenuOpen && (
+                <div className="absolute top-full right-0 mt-2 w-[800px] bg-white rounded-lg shadow-xl border border-gray-200 z-50 overflow-hidden">
+                  <div className="p-6">
+                    <div className="grid grid-cols-3 gap-4">
+                      {categories.map((category) => (
+                        <div key={category.id} className="space-y-2">
+                          {/* Categoria principale */}
+                          <Link
+                            href={`/category/${category.slug}`}
+                            className="flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors group"
+                            onClick={() => setIsMegaMenuOpen(false)}
+                          >
+                            {category.image ? (
+                              <div className="w-16 h-12 rounded-lg overflow-hidden mr-3 flex-shrink-0">
+                                <Image
+                                  src={category.image.src}
+                                  alt={category.name}
+                                  width={48}
+                                  height={48}
+                                  className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                                />
+                              </div>
+                            ) : (
+                              <div className="w-12 h-12 bg-gradient-to-br from-bred-500 to-orange-500 rounded-lg mr-3 flex-shrink-0"></div>
+                            )}
+                            <div>
+                              <h3 className="text-sm font-semibold text-gray-900 group-hover:text-bred-600 transition-colors">
+                                {decodeHtmlEntities(category.name).length > 18 ? `${decodeHtmlEntities(category.name).substring(0, 18)}...` : decodeHtmlEntities(category.name)}
+                              </h3>
+                              
+                            </div>
+                          </Link>
+                          
+                          {/* Sottocategorie */}
+                          {category.subcategories && category.subcategories.length > 0 && (
+                            <div className="ml-4 space-y-1">
+                              {category.subcategories.map((subcat) => (
+                                <Link
+                                  key={subcat.id}
+                                  href={`/category/${subcat.slug}`}
+                                  className="block px-3 py-2 text-xs text-gray-600 hover:text-bred-600 hover:bg-bred-50 rounded transition-colors"
+                                  onClick={() => setIsMegaMenuOpen(false)}
+                                >
+                                  • {decodeHtmlEntities(subcat.name)}
+                                </Link>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Link per vedere tutte le categorie */}
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <Link
+                        href="/categories"
+                        className="flex items-center justify-center w-full p-2 text-bred-600 hover:text-bred-700 hover:bg-bred-50 rounded-lg transition-colors text-sm font-medium"
+                        onClick={() => setIsMegaMenuOpen(false)}
+                      >
+                        Vedi tutte le categorie
+                        <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
             <Link href="/offerte" className="text-white hover:text-white">
               Offerte
             </Link>
@@ -274,13 +472,64 @@ export default function Header() {
               
               {/* Mobile Navigation Links */}
               <nav className="space-y-6">
-                <Link 
-                  href="/categories" 
-                  className="block text-gray-800 hover:text-bred-500 text-lg"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  Categorie
-                </Link>
+                <div>
+                  <Link 
+                    href="/categories" 
+                    className="block text-gray-800 hover:text-bred-500 text-lg mb-2"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Categorie
+                  </Link>
+                  
+                  {/* Mobile Categories List */}
+                  {categories.length > 0 && (
+                    <div className="space-y-2 mt-2 ml-2 max-h-80 overflow-y-auto">
+                      {categories.map((category) => (
+                        <div key={category.id} className="space-y-1">
+                          {/* Categoria principale mobile */}
+                          <Link
+                            href={`/category/${category.slug}`}
+                            className="flex items-center p-2 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+                            onClick={() => setIsMobileMenuOpen(false)}
+                          >
+                            {category.image ? (
+                              <div className="w-8 h-8 rounded overflow-hidden mr-2 flex-shrink-0">
+                                <Image
+                                  src={category.image.src}
+                                  alt={category.name}
+                                  width={32}
+                                  height={32}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            ) : (
+                              <div className="w-8 h-8 bg-gradient-to-br from-bred-500 to-orange-500 rounded mr-2 flex-shrink-0"></div>
+                            )}
+                            <span className="text-gray-700 text-sm font-medium">
+                              {decodeHtmlEntities(category.name).length > 15 ? `${decodeHtmlEntities(category.name).substring(0, 15)}...` : decodeHtmlEntities(category.name)}
+                            </span>
+                          </Link>
+                          
+                          {/* Sottocategorie mobile */}
+                          {category.subcategories && category.subcategories.length > 0 && (
+                            <div className="ml-6 space-y-1">
+                              {category.subcategories.map((subcat) => (
+                                <Link
+                                  key={subcat.id}
+                                  href={`/category/${subcat.slug}`}
+                                  className="block px-2 py-1 text-xs text-gray-600 hover:text-bred-600 rounded"
+                                  onClick={() => setIsMobileMenuOpen(false)}
+                                >
+                                  • {decodeHtmlEntities(subcat.name)}
+                                </Link>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <Link 
                   href="/offerte" 
                   className="block text-gray-800 hover:text-bred-500 text-lg"
