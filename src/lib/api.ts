@@ -67,6 +67,10 @@ export interface Product {
   type: string; // 'simple', 'variable', etc.
   attributes?: ProductAttribute[];
   variations?: number[];
+  date_on_sale_from?: string; // Data di inizio offerta ISO 8601
+  date_on_sale_to?: string; // Data di fine offerta ISO 8601
+  date_on_sale_from_gmt?: string; // Data di inizio offerta GMT
+  date_on_sale_to_gmt?: string; // Data di fine offerta GMT
   default_attributes?: Array<{
     id: number;
     name: string;

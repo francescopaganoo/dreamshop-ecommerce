@@ -221,7 +221,7 @@ export default async function Home() {
                 href="/category/ichiban-kuji" 
                 className="inline-flex items-center bg-bred-500 text-white hover:bg-bred-600 px-8 py-3 rounded-md font-medium transition-colors shadow-md hover:shadow-lg"
               >
-                Visualizza altri Ichiban Kuji <FaArrowRight className="ml-2" />
+                Visualizza altre Ichiban Kuji <FaArrowRight className="ml-2" />
               </Link>
             </div>
           </div>

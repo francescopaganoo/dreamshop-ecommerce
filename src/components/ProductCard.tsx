@@ -7,6 +7,7 @@ import { Product } from '@/lib/api';
 import { useCart } from '@/context/CartContext';
 import { useState, useEffect } from 'react';
 import WishlistButton from '@/components/WishlistButton';
+import SaleCountdownCompact from '@/components/product/SaleCountdownCompact';
 import { motion } from 'framer-motion';
 import { FaPlus } from 'react-icons/fa';
 
@@ -196,6 +197,13 @@ export default function ProductCard({ product }: ProductCardProps) {
               </span>
             )
           )}
+          
+          {/* Sale Countdown Compact - Solo per prodotti in offerta con data di fine */}
+          {/*{product.sale_price && product.date_on_sale_to && (
+            <div className="mt-2">
+              <SaleCountdownCompact saleEndDate={product.date_on_sale_to} />
+            </div>
+          )}*/}
         </div>
         
         {/* Spazio extra tra prezzo e pulsante */}

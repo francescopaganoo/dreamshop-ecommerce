@@ -8,6 +8,7 @@ import ProductSkeleton from '@/components/product/ProductSkeleton';
 import ProductActions from '@/components/product/ProductActions';
 import BundleProducts from '@/components/product/BundleProducts';
 import ProductImageGallery from '@/components/product/ProductImageGallery';
+import SaleCountdown from '@/components/product/SaleCountdown';
 import { isBundle, BundleProduct } from '@/types/bundle';
 import { Suspense } from 'react';
 
@@ -124,6 +125,16 @@ async function ProductDetails({ slug }: { slug: string }) {
                   </span>
                 )
               )}
+            </div>
+          )}
+          
+          {/* Sale Countdown - Solo per prodotti in offerta con data di fine */}
+          {isOnSale && product.date_on_sale_to && (
+            <div className="mb-6">
+              <SaleCountdown 
+                saleEndDate={product.date_on_sale_to}
+                saleStartDate={product.date_on_sale_from}
+              />
             </div>
           )}
           
