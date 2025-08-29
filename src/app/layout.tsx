@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Bangers } from 'next/font/google'
 
 import "./globals.css";
+import "../styles/cursor.css";
 import ClientProviders from "../components/ClientProviders";
 import Header from "../components/Header";
 import Footer from "../components/Footer";

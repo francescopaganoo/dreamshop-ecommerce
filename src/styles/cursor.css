@@ -1,0 +1,18 @@
+/* Custom cursor styles */
+
+/* Default cursor per tutto il sito */
+* {
+  cursor: url('/images/custom-cursor.png') 16 16, auto !important;
+}
+
+/* Cursor per link e elementi cliccabili */
+a, button, [role="button"], .clickable {
+  cursor: url('/images/custom-cursor-pointer.png') 16 16, pointer !important;
+}
+
+/* Fallback per dispositivi touch */
+@media (hover: none) and (pointer: coarse) {
+  * {
+    cursor: auto !important;
+  }
+}
