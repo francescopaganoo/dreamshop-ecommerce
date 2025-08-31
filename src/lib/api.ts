@@ -35,6 +35,13 @@ export interface MetaData {
   value: string;
 }
 
+export interface ProductACF {
+  brand?: string;
+  tipologia?: string;
+  anime?: string;
+  codice_a_barre?: string;
+}
+
 export interface Product {
   id: number;
   name: string;
@@ -1081,4 +1088,80 @@ export async function createCustomer(customerData: CreateCustomerData): Promise<
     console.error('Errore nella creazione del customer:', error);
     throw error;
   }
+}
+
+/**
+ * Ottiene i prodotti più venduti
+ * @param limit - Numero di prodotti da restituire (default: 4)
+ * @returns Promise<Product[]> - Array di prodotti più venduti
+ */
+export async function getBestSellingProducts(limit: number = 4): Promise<Product[]> {
+  try {
+    const response = await api.get('products', {
+      per_page: limit,
+      orderby: 'popularity',
+      status: 'publish',
+      stock_status: 'instock'
+    });
+    return response.data as Product[];
+  } catch (error) {
+    console.error('Errore nel recupero dei prodotti più venduti:', error);
+    return [];
+  }
+}
+
+/**
+ * Ottiene i prodotti correlati basati sulla categoria
+ * @param productId - ID del prodotto corrente
+ * @param categoryIds - Array di ID delle categorie del prodotto
+ * @param limit - Numero di prodotti da restituire (default: 4)
+ * @returns Promise<Product[]> - Array di prodotti correlati
+ */
+export async function getRelatedProducts(productId: number, categoryIds: number[], limit: number = 4): Promise<Product[]> {
+  try {
+    if (categoryIds.length === 0) return [];
+    
+    const response = await api.get('products', {
+      per_page: limit + 1, // +1 per escludere il prodotto corrente
+      category: categoryIds.join(','),
+      exclude: [productId],
+      status: 'publish',
+      stock_status: 'instock'
+    });
+    
+    return (response.data as Product[]).slice(0, limit);
+  } catch (error) {
+    console.error('Errore nel recupero dei prodotti correlati:', error);
+    return [];
+  }
+}
+
+/**
+ * Estrae i campi ACF dai meta_data del prodotto
+ * @param metaData - Array di metadati del prodotto
+ * @returns ProductACF - Oggetto con i campi ACF
+ */
+export function extractACFFields(metaData?: MetaData[]): ProductACF {
+  if (!metaData) return {};
+  
+  const acfFields: ProductACF = {};
+  
+  metaData.forEach(meta => {
+    switch (meta.key) {
+      case 'brand':
+        acfFields.brand = meta.value;
+        break;
+      case 'tipologia':
+        acfFields.tipologia = meta.value;
+        break;
+      case 'anime':
+        acfFields.anime = meta.value;
+        break;
+      case 'codice_a_barre':
+        acfFields.codice_a_barre = meta.value;
+        break;
+    }
+  });
+  
+  return acfFields;
 }
