@@ -1124,7 +1124,7 @@ export async function getRelatedProducts(productId: number, categoryIds: number[
     const response = await api.get('products', {
       per_page: limit + 1, // +1 per escludere il prodotto corrente
       category: categoryIds.join(','),
-      exclude: [productId],
+      exclude: productId.toString(),
       status: 'publish',
       stock_status: 'instock'
     });

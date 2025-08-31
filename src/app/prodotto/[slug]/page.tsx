@@ -85,12 +85,59 @@ async function ProductDetails({ slug }: { slug: string }) {
       </nav>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-        {/* Product Images */}
-        <ProductImageGallery 
-          images={product.images || []}
-          productName={product.name}
-          isOnSale={!!isOnSale}
-        />
+        {/* Product Images & Specifications */}
+        <div>
+          <ProductImageGallery 
+            images={product.images || []}
+            productName={product.name}
+            isOnSale={!!isOnSale}
+          />
+          
+          {/* Product Specifications - ACF Fields */}
+          {(() => {
+            const acfFields = extractACFFields(product.meta_data);
+            const hasACFFields = acfFields.brand || acfFields.tipologia || acfFields.anime || acfFields.codice_a_barre;
+            
+            return hasACFFields && (
+              <div className="mt-8">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                  <svg className="w-5 h-5 mr-2 text-bred-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Specifiche
+                </h3>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {acfFields.brand && (
+                      <div className="bg-white rounded-md p-3 border border-gray-200">
+                        <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Brand</div>
+                        <div className="text-gray-900 font-semibold">{acfFields.brand}</div>
+                      </div>
+                    )}
+                    {acfFields.tipologia && (
+                      <div className="bg-white rounded-md p-3 border border-gray-200">
+                        <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Tipologia</div>
+                        <div className="text-gray-900">{acfFields.tipologia}</div>
+                      </div>
+                    )}
+                    {acfFields.anime && (
+                      <div className="bg-white rounded-md p-3 border border-gray-200">
+                        <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Anime</div>
+                        <div className="text-gray-900">{acfFields.anime}</div>
+                      </div>
+                    )}
+                    {acfFields.codice_a_barre && (
+                      <div className="bg-white rounded-md p-3 border border-gray-200">
+                        <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Codice a Barre</div>
+                        <div className="text-gray-900 font-mono text-sm">{acfFields.codice_a_barre}</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
         
         {/* Product Info */}
         <div>
@@ -192,43 +239,6 @@ async function ProductDetails({ slug }: { slug: string }) {
             <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: product.description }} />
           </div>
           
-          {/* Product Specifications - ACF Fields */}
-          {(() => {
-            const acfFields = extractACFFields(product.meta_data);
-            const hasACFFields = acfFields.brand || acfFields.tipologia || acfFields.anime || acfFields.codice_a_barre;
-            
-            return hasACFFields && (
-              <div className="border-t border-gray-200 pt-6 mt-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Specifiche Prodotto</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {acfFields.brand && (
-                    <div className="flex justify-between py-2 border-b border-gray-100">
-                      <span className="font-medium text-gray-600">Brand:</span>
-                      <span className="text-gray-900">{acfFields.brand}</span>
-                    </div>
-                  )}
-                  {acfFields.tipologia && (
-                    <div className="flex justify-between py-2 border-b border-gray-100">
-                      <span className="font-medium text-gray-600">Tipologia:</span>
-                      <span className="text-gray-900">{acfFields.tipologia}</span>
-                    </div>
-                  )}
-                  {acfFields.anime && (
-                    <div className="flex justify-between py-2 border-b border-gray-100">
-                      <span className="font-medium text-gray-600">Anime:</span>
-                      <span className="text-gray-900">{acfFields.anime}</span>
-                    </div>
-                  )}
-                  {acfFields.codice_a_barre && (
-                    <div className="flex justify-between py-2 border-b border-gray-100">
-                      <span className="font-medium text-gray-600">Codice a Barre:</span>
-                      <span className="text-gray-900">{acfFields.codice_a_barre}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })()}
           
           {/* Bundle Products - Mostrato solo se il prodotto è un bundle */}
           {isBundle(product) && (
@@ -240,15 +250,33 @@ async function ProductDetails({ slug }: { slug: string }) {
       </div>
       
       {/* Related Products Section */}
-      <div className="mt-16">
-        <Suspense fallback={<div className="h-40 bg-gray-100 animate-pulse rounded-lg"></div>}>
+      <div className="mt-20 border-t border-gray-100 pt-16">
+        <Suspense fallback={
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 rounded w-48 mb-8"></div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="bg-gray-200 h-64 rounded-lg"></div>
+              ))}
+            </div>
+          </div>
+        }>
           <RelatedProductsSection productId={product.id} categories={product.categories || []} />
         </Suspense>
       </div>
       
       {/* Best Selling Products Section */}
-      <div className="mt-16">
-        <Suspense fallback={<div className="h-40 bg-gray-100 animate-pulse rounded-lg"></div>}>
+      <div className="mt-16 border-t border-gray-100 pt-16">
+        <Suspense fallback={
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 rounded w-56 mb-8"></div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="bg-gray-200 h-64 rounded-lg"></div>
+              ))}
+            </div>
+          </div>
+        }>
           <BestSellingProductsSection />
         </Suspense>
       </div>
@@ -265,7 +293,12 @@ async function RelatedProductsSection({ productId, categories }: { productId: nu
   
   return (
     <div>
-      <h2 className="text-2xl font-bold text-gray-900 mb-8">Prodotti Correlati</h2>
+      <div className="flex items-center mb-8">
+        <svg className="w-6 h-6 mr-3 text-bred-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+        <h2 className="text-2xl font-bold text-gray-900">Ti Potrebbero Interessare</h2>
+      </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
         {relatedProducts.map((product) => (
           <ProductCard key={product.id} product={product} />
@@ -283,7 +316,15 @@ async function BestSellingProductsSection() {
   
   return (
     <div>
-      <h2 className="text-2xl font-bold text-gray-900 mb-8">Prodotti Più Acquistati</h2>
+      <div className="flex items-center mb-8">
+        <svg className="w-6 h-6 mr-3 text-bred-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+        </svg>
+        <h2 className="text-2xl font-bold text-gray-900">I Più Acquistati</h2>
+        <div className="ml-3 px-2 py-1 bg-bred-100 text-bred-600 text-xs font-semibold rounded-full">
+          POPOLARI
+        </div>
+      </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
         {bestSellingProducts.map((product) => (
           <ProductCard key={product.id} product={product} />
