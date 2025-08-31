@@ -94,12 +94,16 @@ export default function CheckoutPage() {
   const shippingDebounceTimerRef = React.useRef<NodeJS.Timeout | null>(null);
   
   // Rileva se è iOS/Safari per logging e debugging
-  const isIOS = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
-  const isSafari = typeof navigator !== 'undefined' && /Safari/i.test(navigator.userAgent) && !/Chrome/i.test(navigator.userAgent);
+  const [isIOS, setIsIOS] = useState(false);
+  const [isSafari, setIsSafari] = useState(false);
   
-  // Carica i punti riscattati dal localStorage
+  // Carica i punti riscattati dal localStorage e rileva il browser
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      // Rileva iOS/Safari
+      setIsIOS(/iPhone|iPad|iPod/i.test(navigator.userAgent));
+      setIsSafari(/Safari/i.test(navigator.userAgent) && !/Chrome/i.test(navigator.userAgent));
+      
       const savedPointsToRedeem = localStorage.getItem('checkout_points_to_redeem');
       const savedPointsDiscount = localStorage.getItem('checkout_points_discount');
       
@@ -179,7 +183,7 @@ export default function CheckoutPage() {
     state: '',
     postcode: '',
     country: 'IT', // Default to Italy
-    paymentMethod: 'bacs', // Default to direct bank transfer (other options: 'stripe', 'cod')
+    paymentMethod: 'stripe', // Default to credit card payment
     notes: '',
     createAccount: false,
     password: '',
@@ -413,7 +417,7 @@ export default function CheckoutPage() {
       state: '',
       postcode: '',
       country: 'IT',
-      paymentMethod: 'bacs',
+      paymentMethod: 'stripe',
       notes: '',
       createAccount: false,
       password: '',
@@ -1442,9 +1446,7 @@ export default function CheckoutPage() {
         // Metti customer_id come prima proprietà per assicurarti che sia incluso
         customer_id: customerIdForOrder,
         payment_method: formData.paymentMethod,
-        payment_method_title: (formData.paymentMethod as string) === 'stripe' ? 'Carta di credito' : 
-                             (formData.paymentMethod as string) === 'bacs' ? 'Bonifico Bancario' : 
-                             (formData.paymentMethod as string) === 'cod' ? 'Contrassegno' : 'Carta di Credito',
+        payment_method_title: (formData.paymentMethod as string) === 'stripe' ? 'Carta di credito' : 'PayPal',
         set_paid: false, // Will be set to true after Stripe payment
         billing: billingInfo,
         shipping: shippingInfo,
@@ -1955,24 +1957,6 @@ export default function CheckoutPage() {
                 <div className="mb-6">
                   <h3 className="text-lg font-semibold mb-2 text-gray-700">Metodo di Pagamento</h3>
                   <div className="space-y-2">
-                    <div>
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          name="paymentMethod"
-                          value="bacs"
-                          checked={formData.paymentMethod === 'bacs'}
-                          onChange={handleInputChange}
-                          className="mr-2"
-                        />
-                        <span className="text-gray-700">Bonifico Bancario</span>
-                      </label>
-                      {formData.paymentMethod === 'bacs' && (
-                        <div className="mt-2 pl-6 text-sm text-gray-600">
-                          <p>Effettua il pagamento direttamente sul nostro conto bancario. Utilizza il numero dell&apos;ordine come riferimento. L&apos;ordine non verrà spedito fino all&apos;avvenuto accredito.</p>
-                        </div>
-                      )}
-                    </div>
                     
                     <div>
                       <label className="flex items-center">
@@ -2253,24 +2237,6 @@ export default function CheckoutPage() {
                               Per una migliore esperienza su iOS, assicurati di compilare tutti i campi correttamente.
                             </p>
                           )}
-                        </div>
-                      )}
-                    </div>
-                    <div>
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          name="paymentMethod"
-                          value="cod"
-                          checked={formData.paymentMethod === 'cod'}
-                          onChange={handleInputChange}
-                          className="mr-2"
-                        />
-                        <span className="text-gray-700">Contrassegno</span>
-                      </label>
-                      {formData.paymentMethod === 'cod' && (
-                        <div className="mt-2 pl-6 text-sm text-gray-600">
-                          <p>Paga in contanti alla consegna.</p>
                         </div>
                       )}
                     </div>

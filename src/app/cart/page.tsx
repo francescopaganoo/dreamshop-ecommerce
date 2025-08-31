@@ -253,7 +253,7 @@ export default function CartPage() {
       
       <main className="flex-grow py-8 bg-white">
         <div className="container mx-auto px-4">
-          <h1 className="text-3xl font-bold mb-4 text-gray-900">Your Shopping Cart</h1>
+          <h1 className="text-3xl font-bold mb-4 text-gray-900">Carrello</h1>
           
           {/* Messaggio di avviso per limiti di stock */}
           {stockMessage && (
