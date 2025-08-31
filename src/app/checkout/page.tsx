@@ -2278,20 +2278,6 @@ export default function CheckoutPage() {
                   </div>
                 </div>
                 
-                <div className="mb-6">
-                  <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
-                    Note dell&apos;ordine (opzionale)
-                  </label>
-                  <textarea
-                    id="notes"
-                    name="notes"
-                    value={formData.notes}
-                    onChange={handleInputChange}
-                    rows={4}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-bred-500 focus:border-bred-500 sm:text-sm"
-                    placeholder="Note speciali per la consegna o altre informazioni"
-                  />
-                </div>
                 
                 {/* Opzione per creare un account (solo per utenti non autenticati) */}
                 {!isAuthenticated && (
