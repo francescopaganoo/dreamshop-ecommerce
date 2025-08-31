@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import api from '../../../../lib/woocommerce';
 import jwt from 'jsonwebtoken';
+import { Product } from '../../../../lib/api';
 
 // Interface for WooCommerce Order
 interface WooCommerceOrder {
@@ -114,8 +115,30 @@ export async function GET(
       //   return NextResponse.json({ error: 'Non sei autorizzato a visualizzare questo ordine' }, { status: 403 });
       // }
       
-      // Restituisci i dettagli dell'ordine
-      return NextResponse.json(order);
+      // Arricchisci i line_items con le immagini dei prodotti
+      const enrichedLineItems = await Promise.all(
+        order.line_items.map(async (item) => {
+          try {
+            const productResponse = await api.get(`products/${item.product_id}`);
+            const product = productResponse.data as Product;
+            return {
+              ...item,
+              image: product.images && product.images.length > 0 ? product.images[0] : null
+            };
+          } catch (error) {
+            console.error(`Error fetching product ${item.product_id}:`, error);
+            return item;
+          }
+        })
+      );
+      
+      // Restituisci i dettagli dell'ordine con le immagini
+      const enrichedOrder = {
+        ...order,
+        line_items: enrichedLineItems
+      };
+      
+      return NextResponse.json(enrichedOrder);
       
     } catch (error) {
       console.error('Errore durante la verifica del token:', error);

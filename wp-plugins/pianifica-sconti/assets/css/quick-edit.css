@@ -1,0 +1,350 @@
+/* ============================================================================
+   WooCommerce Pianifica Sconto - Modifica Rapida
+   CSS Completo per i campi di pianificazione sconto
+   ============================================================================ */
+
+/* Stili base per i campi di input */
+.inline-edit-row .inline-edit-group input[name="_sale_price_quick"] {
+    width: 100px;
+    text-align: right;
+    font-family: monospace;
+    font-size: 13px;
+}
+
+.inline-edit-row .inline-edit-group input[name="_sale_price_dates_from_quick"],
+.inline-edit-row .inline-edit-group input[name="_sale_price_dates_to_quick"] {
+    width: 160px;
+    font-size: 12px;
+}
+
+/* Etichette dei campi */
+.inline-edit-row .inline-edit-group .title {
+    font-weight: 600;
+    color: #1e1e1e;
+    display: inline-block;
+    min-width: 120px;
+    vertical-align: top;
+    margin-top: 3px;
+}
+
+/* Stili specifici per i campi datetime-local */
+.inline-edit-row .inline-edit-group input[type="datetime-local"] {
+    padding: 3px 5px;
+    border: 1px solid #c3c4c7;
+    border-radius: 3px;
+    font-size: 13px;
+    background-color: #fff;
+    color: #2c3338;
+    line-height: 1.4;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.inline-edit-row .inline-edit-group input[type="datetime-local"]:focus {
+    border-color: #2271b1;
+    box-shadow: 0 0 0 1px #2271b1;
+    outline: none;
+}
+
+/* Stili per la checkbox */
+.inline-edit-row .inline-edit-group input[type="checkbox"] {
+    margin-right: 6px;
+    vertical-align: middle;
+}
+
+.inline-edit-row .inline-edit-group label[for="clear_sale_schedule"] {
+    font-weight: normal;
+    color: #d63638;
+    cursor: pointer;
+    font-size: 13px;
+    vertical-align: middle;
+    user-select: none;
+}
+
+.inline-edit-row .inline-edit-group label[for="clear_sale_schedule"]:hover {
+    color: #b32d2e;
+}
+
+/* Stili per campi disabilitati */
+.inline-edit-row .inline-edit-group input[name="_sale_price_quick"]:disabled,
+.inline-edit-row .inline-edit-group input[name="_sale_price_dates_from_quick"]:disabled,
+.inline-edit-row .inline-edit-group input[name="_sale_price_dates_to_quick"]:disabled {
+    background-color: #f6f7f7;
+    color: #8c8f94;
+    cursor: not-allowed;
+    border-color: #dcdcde;
+}
+
+/* Raggruppa visivamente i campi di pianificazione sconto */
+.inline-edit-row .inline-edit-group {
+    border-left: 3px solid #2271b1;
+    padding-left: 10px;
+    margin: 8px 0;
+    position: relative;
+}
+
+.inline-edit-row .inline-edit-group:first-of-type {
+    margin-top: 15px;
+}
+
+.inline-edit-row .inline-edit-group:last-of-type {
+    margin-bottom: 15px;
+}
+
+/* Evidenziazione quando si passa sopra il gruppo */
+.inline-edit-row .inline-edit-group:hover {
+    border-left-color: #135e96;
+    background-color: rgba(34, 113, 177, 0.02);
+}
+
+/* Stili per i wrapper degli input */
+.inline-edit-row .inline-edit-group .input-text-wrap {
+    display: inline-block;
+    vertical-align: top;
+    margin-left: 5px;
+}
+
+/* Messaggi di aiuto e validazione */
+.wc-schedule-sale-help {
+    font-size: 11px;
+    color: #646970;
+    font-style: italic;
+    margin-top: 3px;
+    display: block;
+    line-height: 1.3;
+}
+
+.wc-schedule-sale-error {
+    font-size: 11px;
+    color: #d63638;
+    font-weight: 600;
+    margin-top: 3px;
+    display: block;
+    line-height: 1.3;
+}
+
+.wc-schedule-sale-success {
+    font-size: 11px;
+    color: #00a32a;
+    font-weight: 600;
+    margin-top: 3px;
+    display: block;
+    line-height: 1.3;
+}
+
+/* Nasconde completamente i dati per la modifica rapida */
+.wc-schedule-sale-data {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    width: 0 !important;
+    overflow: hidden !important;
+    position: absolute !important;
+    left: -9999px !important;
+}
+
+/* Stili per il contenitore principale della pianificazione sconto */
+.wc-schedule-sale-container {
+    background-color: rgba(34, 113, 177, 0.05);
+    border-radius: 4px;
+    padding: 10px;
+    margin: 10px 0;
+    border: 1px solid rgba(34, 113, 177, 0.1);
+}
+
+.wc-schedule-sale-container .title {
+    color: #2271b1;
+    font-weight: 600;
+    margin-bottom: 8px;
+    display: block;
+    font-size: 14px;
+}
+
+/* Responsive: adatta per schermi più piccoli */
+@media screen and (max-width: 782px) {
+    .inline-edit-row .inline-edit-group .title {
+        display: block;
+        min-width: auto;
+        margin-bottom: 5px;
+    }
+    
+    .inline-edit-row .inline-edit-group .input-text-wrap {
+        margin-left: 0;
+        display: block;
+    }
+    
+    .inline-edit-row .inline-edit-group input[name="_sale_price_quick"] {
+        width: 120px;
+    }
+    
+    .inline-edit-row .inline-edit-group input[name="_sale_price_dates_from_quick"],
+    .inline-edit-row .inline-edit-group input[name="_sale_price_dates_to_quick"] {
+        width: 200px;
+    }
+}
+
+/* Stili per campi con errori di validazione */
+.inline-edit-row .inline-edit-group input.wc-schedule-error {
+    border-color: #d63638;
+    box-shadow: 0 0 0 1px #d63638;
+}
+
+.inline-edit-row .inline-edit-group input.wc-schedule-error:focus {
+    border-color: #d63638;
+    box-shadow: 0 0 0 1px #d63638;
+}
+
+/* Stili per campi con validazione OK */
+.inline-edit-row .inline-edit-group input.wc-schedule-success {
+    border-color: #00a32a;
+}
+
+/* Animazioni per feedback visivo */
+.inline-edit-row .inline-edit-group input {
+    transition: all 0.15s ease-in-out;
+}
+
+.inline-edit-row .inline-edit-group input:focus {
+    transform: scale(1.01);
+}
+
+/* Icone per i campi (usando pseudo-elementi) */
+.inline-edit-row .inline-edit-group .title::before {
+    content: "";
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    margin-right: 5px;
+    vertical-align: text-top;
+    background-size: 16px 16px;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.inline-edit-row .inline-edit-group .title:contains("Prezzo")::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%232271b1'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05.82 1.87 2.65 1.87 1.96 0 2.4-.98 2.4-1.59 0-.83-.44-1.61-2.67-2.14-2.48-.6-4.18-1.62-4.18-3.67 0-1.72 1.39-2.84 3.11-3.21V4h2.67v1.95c1.86.45 2.79 1.86 2.85 3.39H14.3c-.05-1.11-.64-1.87-2.22-1.87-1.5 0-2.4.68-2.4 1.64 0 .84.65 1.39 2.67 1.91 2.28.6 4.18 1.58 4.18 3.91 0 1.82-1.33 2.96-3.12 3.16z'/%3E%3C/svg%3E");
+}
+
+/* Tooltip per aiuto contestuale */
+.wc-schedule-sale-tooltip {
+    position: relative;
+    display: inline-block;
+    cursor: help;
+}
+
+.wc-schedule-sale-tooltip::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #2c3338;
+    color: #fff;
+    padding: 6px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s, visibility 0.3s;
+    z-index: 1000;
+}
+
+.wc-schedule-sale-tooltip:hover::after {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Separatore visivo tra sezioni */
+.wc-schedule-sale-divider {
+    border-top: 1px solid #dcdcde;
+    margin: 15px 0 10px 0;
+    padding-top: 10px;
+}
+
+/* Loading state per AJAX */
+.wc-schedule-loading {
+    position: relative;
+}
+
+.wc-schedule-loading::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: 5px;
+    transform: translateY(-50%);
+    width: 12px;
+    height: 12px;
+    border: 2px solid #2271b1;
+    border-top: 2px solid transparent;
+    border-radius: 50%;
+    animation: wc-schedule-spin 1s linear infinite;
+}
+
+@keyframes wc-schedule-spin {
+    0% { transform: translateY(-50%) rotate(0deg); }
+    100% { transform: translateY(-50%) rotate(360deg); }
+}
+
+/* Stili per modalità debug (solo per sviluppatori - da rimuovere in produzione) */
+/*
+.wc-schedule-debug .wc-schedule-sale-data {
+    display: block !important;
+    visibility: visible !important;
+    height: auto !important;
+    width: auto !important;
+    overflow: visible !important;
+    position: static !important;
+    left: auto !important;
+    background: #ffeb3b !important;
+    border: 2px solid #f57c00;
+    padding: 5px;
+    margin: 2px;
+    font-size: 11px;
+    font-family: monospace;
+}
+
+.wc-schedule-debug .wc-schedule-sale-data::before {
+    content: "DEBUG DATA: ";
+    font-weight: bold;
+    color: #d32f2f;
+}
+*/
+
+/* Stili per compatibilità con temi terzi */
+.wp-list-table .inline-edit-row .inline-edit-group {
+    clear: both;
+}
+
+.wp-list-table .inline-edit-row .inline-edit-group .title {
+    float: none;
+}
+
+/* Dark mode support (se supportato dal tema admin) */
+@media (prefers-color-scheme: dark) {
+    .inline-edit-row .inline-edit-group input[type="datetime-local"] {
+        background-color: #1e1e1e;
+        color: #f0f0f1;
+        border-color: #757575;
+    }
+    
+    .inline-edit-row .inline-edit-group input[type="datetime-local"]:focus {
+        border-color: #72aee6;
+        box-shadow: 0 0 0 1px #72aee6;
+    }
+    
+    .wc-schedule-sale-help {
+        color: #a7aaad;
+    }
+    
+    .inline-edit-row .inline-edit-group .title {
+        color: #f0f0f1;
+    }
+}
+
+/* Print styles (nasconde i campi quando si stampa) */
+@media print {
+    .inline-edit-row .inline-edit-group,
+    .wc-schedule-sale-data {
+        display: none !important;
+    }
+}

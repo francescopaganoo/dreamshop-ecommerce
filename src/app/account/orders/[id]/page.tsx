@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useAuth } from '../../../../context/AuthContext';
 
 
@@ -45,6 +46,11 @@ interface Order {
     price: number;
     total: string;
     product_id: number;
+    image?: {
+      id: number;
+      src: string;
+      alt: string;
+    };
   }>;
 }
 
@@ -205,40 +211,57 @@ export default function OrderDetailPage() {
                     </div>
                   </div>
                   
-                  <h3 className="text-lg font-semibold mb-2 text-gray-600">Prodotti</h3>
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full bg-white">
-                      <thead>
-                        <tr className="bg-gray-100">
-                          <th className="py-2 px-4 text-left text-gray-600">Prodotto</th>
-                          <th className="py-2 px-4 text-left text-gray-600">Quantità</th>
-                          <th className="py-2 px-4 text-right text-gray-600">Prezzo</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {order.line_items.map(item => (
-                          <tr key={item.id} className="border-t">
-                            <td className="py-2 px-4 text-gray-600">{item.name}</td>
-                            <td className="py-2 px-4 text-gray-600">{item.quantity}</td>
-                            <td className="py-2 px-4 text-right text-gray-600">{order.currency_symbol}{item.total}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                      <tfoot className="border-t">
-                        <tr>
-                          <td colSpan={2} className="py-2 px-4 text-right font-medium text-gray-600">Subtotale</td>
-                          <td className="py-2 px-4 text-right text-gray-600">{order.currency_symbol}{(parseFloat(order.total) - parseFloat(order.shipping_total)).toFixed(2)}</td>
-                        </tr>
-                        <tr>
-                          <td colSpan={2} className="py-2 px-4 text-right font-medium text-gray-600">Spedizione</td>
-                          <td className="py-2 px-4 text-right text-gray-600">{order.currency_symbol}{order.shipping_total}</td>
-                        </tr>
-                        <tr className="border-t">
-                          <td colSpan={2} className="py-2 px-4 text-right font-bold text-gray-600">Totale</td>
-                          <td className="py-2 px-4 text-right font-bold text-gray-600">{order.currency_symbol}{order.total}</td>
-                        </tr>
-                      </tfoot>
-                    </table>
+                  <h3 className="text-lg font-semibold mb-4 text-gray-600">Prodotti</h3>
+                  <div className="space-y-4">
+                    {order.line_items.map(item => (
+                      <div key={item.id} className="flex items-center p-4 bg-gray-50 rounded-lg">
+                        {/* Product Image */}
+                        <div className="w-16 h-16 mr-4 flex-shrink-0">
+                          {item.image ? (
+                            <Image
+                              src={item.image.src}
+                              alt={item.image.alt || item.name}
+                              width={64}
+                              height={64}
+                              className="w-full h-full object-cover rounded-md"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gray-200 rounded-md flex items-center justify-center">
+                              <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Product Details */}
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-gray-900 truncate">{item.name}</h4>
+                          <div className="flex items-center justify-between mt-1">
+                            <span className="text-sm text-gray-600">Quantità: {item.quantity}</span>
+                            <span className="font-semibold text-gray-900">{order.currency_symbol}{item.total}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Order Totals */}
+                  <div className="mt-6 border-t border-gray-200 pt-4">
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-gray-600">
+                        <span>Subtotale</span>
+                        <span>{order.currency_symbol}{(parseFloat(order.total) - parseFloat(order.shipping_total)).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-gray-600">
+                        <span>Spedizione</span>
+                        <span>{order.currency_symbol}{order.shipping_total}</span>
+                      </div>
+                      <div className="flex justify-between text-lg font-bold text-gray-900 pt-2 border-t border-gray-200">
+                        <span>Totale</span>
+                        <span>{order.currency_symbol}{order.total}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
