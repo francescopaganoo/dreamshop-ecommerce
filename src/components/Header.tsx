@@ -7,6 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useWishlist } from '@/context/WishlistContext';
 import { useState, useEffect, useRef } from 'react';
 import LanguageSelector from './LanguageSelector';
+import SearchBar from './SearchBar';
 import { getCategories, Category } from '@/lib/api';
 
 // Tipo esteso per le categorie con sottocategorie
@@ -18,7 +19,6 @@ export default function Header() {
   const { getCartCount } = useCart();
   const { isAuthenticated, user, logout } = useAuth();
   const { wishlistItems } = useWishlist();
-  const [searchTerm, setSearchTerm] = useState('');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMegaMenuOpen, setIsMegaMenuOpen] = useState(false);
@@ -173,12 +173,6 @@ export default function Header() {
       .replace(/&#8221;/g, '"');
   };
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchTerm.trim()) {
-      window.location.href = `/search?q=${encodeURIComponent(searchTerm)}`;
-    }
-  };
 
   return (
     <header className="bg-bred-500 shadow-md relative z-30">
@@ -232,25 +226,11 @@ export default function Header() {
           </div>
 
           {/* Search Bar - visibile solo da tablet in su */}
-          <form onSubmit={handleSearch} className="hidden md:flex flex-1 mx-10">
-            <div className="relative w-full max-w-xl">
-              <input
-                type="text"
-                placeholder="Cerca..."
-                className="w-full px-4 py-2 border text-white border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-bred-700"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              <button
-                type="submit"
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-              >
-                <svg className="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </button>
+          <div className="hidden md:flex flex-1 mx-10">
+            <div className="w-full max-w-xl">
+              <SearchBar />
             </div>
-          </form>
+          </div>
 
           {/* Navigation Desktop - visibile solo da tablet in su */}
           <nav className="hidden md:flex items-center space-x-6">
@@ -449,26 +429,9 @@ export default function Header() {
               </div>
               
               {/* Mobile Search Bar */}
-              <form onSubmit={handleSearch} className="mb-6">
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Cerca..."
-                    className="w-full px-4 py-2 text-white border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-bred-700"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                  <button
-                    type="submit"
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                  </button>
-                </div>
-              </form>
+              <div className="mb-6">
+                <SearchBar isMobile={true} onClose={() => setIsMobileMenuOpen(false)} />
+              </div>
               
               {/* Mobile Navigation Links */}
               <nav className="space-y-6">
