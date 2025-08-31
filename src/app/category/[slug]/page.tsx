@@ -87,7 +87,7 @@ export default async function CategoryPage({ params, searchParams }: any) {
           
           {/* Pagination */}
           <div className="mt-12 flex justify-center">
-            <div className="flex space-x-2">
+            <div className="flex items-center space-x-2">
               {page > 1 && (
                 <Link 
                   href={`/category/${categorySlug}?page=${page - 1}`}
@@ -96,6 +96,10 @@ export default async function CategoryPage({ params, searchParams }: any) {
                   Precedente
                 </Link>
               )}
+              
+              <span className="px-4 py-2 text-gray-700 font-medium">
+                Pagina {page}
+              </span>
               
               {products.length === perPage && (
                 <Link 
