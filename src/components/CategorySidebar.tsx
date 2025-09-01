@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { ExtendedCategory, AttributeValue } from '@/lib/api';
 import { useState } from 'react';
-import { FaChevronDown, FaChevronUp, FaBars, FaTimes, FaHome } from 'react-icons/fa';
+import { FaChevronDown, FaChevronUp, FaTimes, FaHome } from 'react-icons/fa';
 
 // Funzione per decodificare le entità HTML
 function decodeHtmlEntities(text: string): string {

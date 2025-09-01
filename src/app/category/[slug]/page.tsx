@@ -1,6 +1,6 @@
 'use client';
 
-import { getProductsByCategorySlug, getCategoryBySlug, getMegaMenuCategories, getAvailabilityOptions, getShippingTimeOptions, Product } from '../../../lib/api';
+import { getProductsByCategorySlug, getCategoryBySlug, getMegaMenuCategories, getAvailabilityOptions, getShippingTimeOptions, Product, Category, ExtendedCategory, AttributeValue } from '../../../lib/api';
 import ProductCard from '../../../components/ProductCard';
 import CategorySidebar from '../../../components/CategorySidebar';
 import MobileFilterButton from '../../../components/MobileFilterButton';
@@ -11,13 +11,17 @@ import { useState, useEffect, use } from 'react';
 // Next.js 15 has a known issue with TypeScript definitions for page components
 // where the params type doesn't satisfy the PageProps constraint
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default function CategoryPage({ params, searchParams }: any) {
-  const [category, setCategory] = useState<any>(null);
+interface CategoryPageProps {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ page?: string }>;
+}
+
+export default function CategoryPage({ params, searchParams }: CategoryPageProps) {
+  const [category, setCategory] = useState<Category | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
-  const [availabilityOptions, setAvailabilityOptions] = useState<any[]>([]);
-  const [shippingTimeOptions, setShippingTimeOptions] = useState<any[]>([]);
+  const [categories, setCategories] = useState<ExtendedCategory[]>([]);
+  const [availabilityOptions, setAvailabilityOptions] = useState<AttributeValue[]>([]);
+  const [shippingTimeOptions, setShippingTimeOptions] = useState<AttributeValue[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   

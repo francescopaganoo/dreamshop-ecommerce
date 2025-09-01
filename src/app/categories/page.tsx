@@ -1,6 +1,6 @@
 'use client';
 
-import { getMegaMenuCategories, getAvailabilityOptions, getShippingTimeOptions, ExtendedCategory } from '../../lib/api';
+import { getMegaMenuCategories, getAvailabilityOptions, getShippingTimeOptions, ExtendedCategory, AttributeValue } from '../../lib/api';
 import CategorySidebar from '../../components/CategorySidebar';
 import MobileFilterButton from '../../components/MobileFilterButton';
 import Image from 'next/image';
@@ -21,8 +21,8 @@ function decodeHtmlEntitiesServer(text: string): string {
 
 export default function CategoriesPage() {
   const [megaMenuCategories, setMegaMenuCategories] = useState<ExtendedCategory[]>([]);
-  const [availabilityOptions, setAvailabilityOptions] = useState<any[]>([]);
-  const [shippingTimeOptions, setShippingTimeOptions] = useState<any[]>([]);
+  const [availabilityOptions, setAvailabilityOptions] = useState<AttributeValue[]>([]);
+  const [shippingTimeOptions, setShippingTimeOptions] = useState<AttributeValue[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
@@ -102,7 +102,7 @@ export default function CategoriesPage() {
             <div className="flex-1">
               {categories.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
-                  {categories.map((category: Category, index: number) => (
+                  {categories.map((category, index: number) => (
                     <Link 
                       key={category.id} 
                       href={`/category/${category.slug}`}

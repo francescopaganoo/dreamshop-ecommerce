@@ -218,6 +218,43 @@ async function ProductDetails({ slug }: { slug: string }) {
           {/* Short Description */}
           <div className="mb-6 prose text-gray-600 prose-sm" dangerouslySetInnerHTML={{ __html: product.short_description }} />
           
+          {/* Product Attributes */}
+          {(() => {
+            // Cerca negli attributi WooCommerce
+            const getAttribute = (name: string) => {
+              return product.attributes?.find(attr => attr.name === name)?.options?.[0];
+            };
+            
+            const disponibilita = getAttribute('Disponibilità');
+            const spedizioneDallOriente = getAttribute("Spedizione dall'Oriente");
+            const spedizioneDallItalia = getAttribute("Spedizione dall'Italia");
+            const spedizioneIn60Giorni = getAttribute("Spedizione in 60 giorni");
+            
+            const hasAnyShipping = spedizioneDallOriente || spedizioneDallItalia || spedizioneIn60Giorni;
+            
+            return (disponibilita || hasAnyShipping) && (
+              <div className="mb-6 space-y-3">
+                {disponibilita && (
+                  <div className="flex items-center">
+                    <span className="font-medium text-gray-900 mr-2">Disponibilità:</span>
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                      {disponibilita}
+                    </span>
+                  </div>
+                )}
+                
+                {hasAnyShipping && (
+                  <div className="flex items-center">
+                    <span className="font-medium text-gray-900 mr-2">Spedizione:</span>
+                    <span className="text-gray-600">
+                      {spedizioneDallItalia || spedizioneDallOriente || spedizioneIn60Giorni}
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+          
           {/* Wishlist Button */}
           <ProductActions product={product} />
           
