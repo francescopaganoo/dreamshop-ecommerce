@@ -46,6 +46,10 @@ export default function ProductCard({ product }: ProductCardProps) {
   // Verifica se il prodotto è variabile
   const isVariable = product.type === 'variable';
   
+  // Verifica se il prodotto è disponibile
+  const hasValidPrice = product.price && parseFloat(product.price) > 0;
+  const isInStock = product.stock_status === 'instock' && hasValidPrice;
+  
   // Nascondi il messaggio dopo 3 secondi
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -128,7 +132,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   const handleButtonClick = () => {
     if (isVariable) {
       router.push(`/prodotto/${product.slug}`);
-    } else {
+    } else if (isInStock) {
       handleAddToCart();
     }
   };
@@ -222,18 +226,24 @@ export default function ProductCard({ product }: ProductCardProps) {
         {/* Button con colore originale e cursor-pointer */}
         <motion.button
           onClick={handleButtonClick}
-          disabled={isAddingToCart}
-          className={`w-full py-2.5 rounded-md font-medium flex items-center justify-center cursor-pointer transition-colors ${isVariable 
-            ? 'bg-white border border-bred-500 text-bred-500 hover:bg-bred-500 hover:text-white' 
-            : 'bg-bred-500 hover:bg-bred-600 text-white'}`}
-          whileTap={{ scale: 0.98 }}
+          disabled={isAddingToCart || (!isVariable && !isInStock)}
+          className={`w-full py-2.5 rounded-md font-medium flex items-center justify-center transition-colors ${
+            !isVariable && !isInStock
+              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              : isVariable 
+                ? 'bg-white border border-bred-500 text-bred-500 hover:bg-bred-500 hover:text-white cursor-pointer' 
+                : 'bg-bred-500 hover:bg-bred-600 text-white cursor-pointer'
+          }`}
+          whileTap={!isVariable && !isInStock ? {} : { scale: 0.98 }}
         >
           <FaPlus className="mr-2" size={12} />
           {isVariable 
             ? "Seleziona Opzioni" 
-            : isPreOrder
-              ? "Pre-ordina ora"
-              : "Aggiungi al Carrello"
+            : !isInStock
+              ? "Non disponibile"
+              : isPreOrder
+                ? "Pre-ordina ora"
+                : "Aggiungi al Carrello"
           }
         </motion.button>
         
