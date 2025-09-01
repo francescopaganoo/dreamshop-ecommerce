@@ -23,6 +23,14 @@ export default function ProductCard({ product }: ProductCardProps) {
   const [message, setMessage] = useState('');
   const [prefetched, setPrefetched] = useState(false);
   
+  // Controlla se il prodotto è in pre-order basandosi sull'attributo Disponibilità
+  const getAttribute = (name: string) => {
+    return product.attributes?.find(attr => attr.name === name)?.options?.[0];
+  };
+  
+  const disponibilita = getAttribute('Disponibilità');
+  const isPreOrder = disponibilita?.toLowerCase().includes('pre-order') || disponibilita?.toLowerCase().includes('preorder');
+  
   // Get the product image or use a placeholder
   const imageUrl = product.images && product.images.length > 0
     ? product.images[0].src
@@ -221,7 +229,12 @@ export default function ProductCard({ product }: ProductCardProps) {
           whileTap={{ scale: 0.98 }}
         >
           <FaPlus className="mr-2" size={12} />
-          {isVariable ? "Seleziona Opzioni" : "Aggiungi al Carrello"}
+          {isVariable 
+            ? "Seleziona Opzioni" 
+            : isPreOrder
+              ? "Pre-ordina ora"
+              : "Aggiungi al Carrello"
+          }
         </motion.button>
         
         {/* Wishlist Button riposizionato */}
