@@ -1,49 +1,66 @@
-import { getProductsByCategorySlug, getCategoryBySlug, Product } from '../../../lib/api';
+'use client';
+
+import { getProductsByCategorySlug, getCategoryBySlug, getMegaMenuCategories, getAvailabilityOptions, getShippingTimeOptions, Product } from '../../../lib/api';
 import ProductCard from '../../../components/ProductCard';
+import CategorySidebar from '../../../components/CategorySidebar';
+import MobileFilterButton from '../../../components/MobileFilterButton';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import { useState, useEffect, use } from 'react';
 
 // Next.js 15 has a known issue with TypeScript definitions for page components
 // where the params type doesn't satisfy the PageProps constraint
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function generateMetadata({ params }: any) {
-  // Attendi i params prima di utilizzarli
-  const resolvedParams = await Promise.resolve(params);
-  const categorySlug = resolvedParams.slug;
-  const category = await getCategoryBySlug(categorySlug);
+export default function CategoryPage({ params, searchParams }: any) {
+  const [category, setCategory] = useState<any>(null);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [availabilityOptions, setAvailabilityOptions] = useState<any[]>([]);
+  const [shippingTimeOptions, setShippingTimeOptions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
-  if (!category) {
-    return {
-      title: 'Categoria Non Trovata - DreamShop',
-    };
-  }
-  
-  return {
-    title: `${category.name} - DreamShop`,
-    description: `Esplora la nostra collezione di prodotti ${category.name}.`,
-  };
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default async function CategoryPage({ params, searchParams }: any) {
-  // Attendi i params e searchParams prima di utilizzarli
-  const resolvedParams = await Promise.resolve(params);
-  const resolvedSearchParams = await Promise.resolve(searchParams);
+  const resolvedParams = use(params) as { slug: string };
+  const resolvedSearchParams = use(searchParams) as { page?: string };
   
   const categorySlug = resolvedParams.slug;
   const page = typeof resolvedSearchParams?.page === 'string' ? parseInt(resolvedSearchParams.page, 10) : 1;
   const perPage = 12;
   
-  // Fetch category by slug
-  const category = await getCategoryBySlug(categorySlug);
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const [categoryData, productsData, categoriesData, availabilityData, shippingData] = await Promise.all([
+          getCategoryBySlug(categorySlug),
+          getProductsByCategorySlug(categorySlug, page, perPage),
+          getMegaMenuCategories(),
+          getAvailabilityOptions(),
+          getShippingTimeOptions()
+        ]);
+        
+        setCategory(categoryData);
+        setProducts(productsData);
+        setCategories(categoriesData);
+        setAvailabilityOptions(availabilityData);
+        setShippingTimeOptions(shippingData);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    fetchData();
+  }, [categorySlug, page, perPage]);
+  
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center">Caricamento...</div>;
+  }
   
   if (!category) {
     notFound();
   }
-  
-  // Fetch products for this category
-  const products = await getProductsByCategorySlug(categorySlug, page, perPage);
   
   return (
     <div className="min-h-screen flex flex-col">
@@ -66,24 +83,45 @@ export default async function CategoryPage({ params, searchParams }: any) {
               </li>
             </ol>
           </nav>
+
+          {/* Mobile Filter Button */}
+          <MobileFilterButton onClick={() => setIsSidebarOpen(true)} />
           
           {/* Category Header */}
           <div className="mb-8 text-center">
             <h1 className="text-3xl font-bold mb-2 text-gray-900">{category.name}</h1>
           </div>
           
-          {/* Products Grid */}
-          {products.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {products.map((product: Product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
+          {/* Main content with sidebar */}
+          <div className="flex flex-col lg:flex-row gap-8">
+            {/* Sidebar */}
+            <div className="lg:order-first">
+              <CategorySidebar 
+                categories={categories} 
+                availabilityOptions={availabilityOptions}
+                shippingTimeOptions={shippingTimeOptions}
+                currentCategorySlug={categorySlug}
+                isOpen={isSidebarOpen}
+                onClose={() => setIsSidebarOpen(false)}
+              />
             </div>
-          ) : (
-            <div className="text-center py-12">
-              <p className="text-gray-500">Nessun prodotto trovato in questa categoria.</p>
+            
+            {/* Products Section */}
+            <div className="flex-1">
+              {/* Products Grid */}
+              {products.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                  {products.map((product: Product) => (
+                    <ProductCard key={product.id} product={product} />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-gray-500">Nessun prodotto trovato in questa categoria.</p>
+                </div>
+              )}
             </div>
-          )}
+          </div>
           
           {/* Pagination */}
           <div className="mt-12 flex justify-center">

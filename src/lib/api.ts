@@ -40,6 +40,10 @@ export interface ProductACF {
   tipologia?: string;
   anime?: string;
   codice_a_barre?: string;
+  disponibilita?: string;
+  spedizione_dallitalia?: string;
+  spedizione_dalloriente?: string;
+  spedizione_in_60_giorni?: string;
 }
 
 export interface Product {
@@ -1160,9 +1164,204 @@ export function extractACFFields(metaData?: MetaData[]): ProductACF {
       case 'codice_a_barre':
         acfFields.codice_a_barre = meta.value;
         break;
+      case 'disponibilita':
+        acfFields.disponibilita = meta.value;
+        break;
+      case 'spedizione-dallitalia':
+        acfFields.spedizione_dallitalia = meta.value;
+        break;
+      case 'spedizione-dalloriente':
+        acfFields.spedizione_dalloriente = meta.value;
+        break;
+      case 'spedizione-in-60-giorni':
+        acfFields.spedizione_in_60_giorni = meta.value;
+        break;
     }
   });
   
   return acfFields;
+}
+
+export interface AttributeValue {
+  name: string;
+  count: number;
+  slug: string;
+}
+
+export interface ExtendedCategory extends Category {
+  subcategories?: Category[];
+}
+
+export async function getMegaMenuCategories(): Promise<ExtendedCategory[]> {
+  try {
+    const cacheKey = `mega_menu_categories_${Math.floor(Date.now() / (1000 * 300))}`;
+    
+    if (typeof window !== 'undefined') {
+      const cachedData = sessionStorage.getItem(cacheKey);
+      if (cachedData) {
+        return JSON.parse(cachedData) as ExtendedCategory[];
+      }
+    }
+    
+    const allCategories = await getCategories();
+    
+    // Escludi categorie non necessarie e sottocategorie che saranno mostrate come sottocategorie
+    const excludedSlugs = [
+      'attack-on-titan',
+      'black-week',
+      'cina',
+      'cina-rs', 
+      'crazy-month',
+      'editoria',
+      'gift-card',
+      'italia',
+      'no-categoria',
+      'nuovi-arrivi',
+      'senza-categoria',
+      // Sottocategorie da escludere come categorie principali
+      'dragon-ball-cg',
+      'one-piece-cg',
+      'yu-gi-oh',
+      'jimei-palace',
+      'tsume'
+    ];
+    
+    // Crea un array per organizzare le categorie con le loro sottocategorie
+    const organizedCategories = [];
+    const mainCategories = allCategories.filter(category => !excludedSlugs.includes(category.slug));
+    
+    // Trova le sottocategorie specifiche
+    const cardGameSubcats = allCategories.filter(cat => 
+      ['dragon-ball-cg', 'one-piece-cg', 'yu-gi-oh'].includes(cat.slug)
+    );
+    const resineSubcats = allCategories.filter(cat => 
+      ['jimei-palace', 'tsume'].includes(cat.slug)
+    );
+    
+    // Aggiungi tutte le categorie principali
+    for (const category of mainCategories) {
+      if (category.slug === 'card-game' || category.slug === 'cards' || category.name.toLowerCase().includes('card')) {
+        // Aggiungi categoria Card Game
+        organizedCategories.push({
+          ...category,
+          subcategories: cardGameSubcats
+        });
+      } else if (category.slug === 'resine' || category.name.toLowerCase().includes('resin')) {
+        // Aggiungi categoria Resine
+        organizedCategories.push({
+          ...category,
+          subcategories: resineSubcats
+        });
+      } else {
+        organizedCategories.push({
+          ...category,
+          subcategories: []
+        });
+      }
+    }
+    
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem(cacheKey, JSON.stringify(organizedCategories));
+    }
+    
+    return organizedCategories;
+  } catch (error) {
+    console.error('Error fetching mega menu categories:', error);
+    return [];
+  }
+}
+
+export async function getAvailabilityOptions(): Promise<AttributeValue[]> {
+  try {
+    const cacheKey = `availability_${Math.floor(Date.now() / (1000 * 300))}`;
+    
+    if (typeof window !== 'undefined') {
+      const cachedData = sessionStorage.getItem(cacheKey);
+      if (cachedData) {
+        return JSON.parse(cachedData) as AttributeValue[];
+      }
+    }
+    
+    const { data } = await api.get('products', {
+      per_page: 100,
+      status: 'publish',
+    });
+    
+    const availabilityCounts = new Map<string, number>();
+    
+    (data as Product[]).forEach(product => {
+      const acf = extractACFFields(product.meta_data);
+      if (acf.disponibilita && acf.disponibilita.trim()) {
+        const availability = acf.disponibilita.trim();
+        availabilityCounts.set(availability, (availabilityCounts.get(availability) || 0) + 1);
+      }
+    });
+    
+    const availabilityOptions = Array.from(availabilityCounts.entries())
+      .map(([name, count]) => ({ 
+        name, 
+        count, 
+        slug: name.toLowerCase().replace(/\s+/g, '-') 
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem(cacheKey, JSON.stringify(availabilityOptions));
+    }
+    
+    return availabilityOptions;
+  } catch (error) {
+    console.error('Error fetching availability options:', error);
+    return [];
+  }
+}
+
+export async function getShippingTimeOptions(): Promise<AttributeValue[]> {
+  try {
+    const cacheKey = `shipping_times_${Math.floor(Date.now() / (1000 * 300))}`;
+    
+    if (typeof window !== 'undefined') {
+      const cachedData = sessionStorage.getItem(cacheKey);
+      if (cachedData) {
+        return JSON.parse(cachedData) as AttributeValue[];
+      }
+    }
+    
+    const shippingOptions = [
+      { name: 'Spedizione dall\'Italia', slug: 'spedizione-dallitalia', count: 0 },
+      { name: 'Spedizione dall\'Oriente', slug: 'spedizione-dalloriente', count: 0 },
+      { name: 'Spedizione in 60 giorni', slug: 'spedizione-in-60-giorni', count: 0 }
+    ];
+    
+    const { data } = await api.get('products', {
+      per_page: 100,
+      status: 'publish',
+    });
+    
+    (data as Product[]).forEach(product => {
+      const acf = extractACFFields(product.meta_data);
+      
+      if (acf.spedizione_dallitalia === 'yes') {
+        shippingOptions[0].count++;
+      }
+      if (acf.spedizione_dalloriente === 'yes') {
+        shippingOptions[1].count++;
+      }
+      if (acf.spedizione_in_60_giorni === 'yes') {
+        shippingOptions[2].count++;
+      }
+    });
+    
+    const filteredOptions = shippingOptions.filter(option => option.count > 0);
+    
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem(cacheKey, JSON.stringify(filteredOptions));
+    }
+    
+    return filteredOptions;
+  } catch (error) {
+    console.error('Error fetching shipping time options:', error);
+    return [];
+  }
 }
 

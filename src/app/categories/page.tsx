@@ -1,13 +1,12 @@
-import { getCategories, Category } from '../../lib/api';
+'use client';
+
+import { getMegaMenuCategories, getAvailabilityOptions, getShippingTimeOptions, ExtendedCategory } from '../../lib/api';
+import CategorySidebar from '../../components/CategorySidebar';
+import MobileFilterButton from '../../components/MobileFilterButton';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Metadata } from 'next';
 import { FaArrowRight, FaTags, FaEye, FaStar } from 'react-icons/fa';
-
-export const metadata: Metadata = {
-  title: 'Tutte le Categorie - DreamShop',
-  description: 'Esplora tutte le categorie di prodotti nel nostro negozio di anime e manga',
-};
+import { useState, useEffect } from 'react';
 
 // Funzione per decodificare le entità HTML lato server
 function decodeHtmlEntitiesServer(text: string): string {
@@ -20,31 +19,41 @@ function decodeHtmlEntitiesServer(text: string): string {
     .replace(/&nbsp;/g, ' ');
 }
 
-export default async function CategoriesPage() {
-  const allCategories: Category[] = await getCategories();
+export default function CategoriesPage() {
+  const [megaMenuCategories, setMegaMenuCategories] = useState<ExtendedCategory[]>([]);
+  const [availabilityOptions, setAvailabilityOptions] = useState<any[]>([]);
+  const [shippingTimeOptions, setShippingTimeOptions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
-  // Slug delle categorie da escludere
-  const excludedSlugs = [
-    'attack-on-titan',
-    'black-week', 
-    'dragon-ball-cg',
-    'one-piece-cg',
-    'yu-gi-oh',
-    'cina',
-    'cina-rs',
-    'crazy-month',
-    'editoria',
-    'gift-card',
-    'italia',
-    'no-categoria',
-    'nuovi-arrivi',
-    'jimei-palace',
-    'tsume',
-    'senza-categoria'
-  ];
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const [categoriesData, availabilityData, shippingData] = await Promise.all([
+          getMegaMenuCategories(),
+          getAvailabilityOptions(),
+          getShippingTimeOptions()
+        ]);
+        
+        setMegaMenuCategories(categoriesData);
+        setAvailabilityOptions(availabilityData);
+        setShippingTimeOptions(shippingData);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    fetchData();
+  }, []);
   
-  // Filtra le categorie escludendo quelle con slug nella lista
-  const categories = allCategories.filter(category => !excludedSlugs.includes(category.slug));
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center">Caricamento...</div>;
+  }
+  
+  // Solo le categorie principali per la griglia (non le sottocategorie)
+  const categories = megaMenuCategories;
   
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white">
@@ -71,82 +80,102 @@ export default async function CategoriesPage() {
               
             </div>
           </div>
+
+          {/* Mobile Filter Button */}
+          <MobileFilterButton onClick={() => setIsSidebarOpen(true)} />
           
-          {/* Enhanced Categories Grid */}
-          {categories.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 lg:gap-8">
-              {categories.map((category: Category, index: number) => (
-                <Link 
-                  key={category.id} 
-                  href={`/category/${category.slug}`}
-                  className="group relative h-80 bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 border border-gray-100"
-                  style={{ animationDelay: `${index * 100}ms` }}
-                >
-                  {/* Category Image */}
-                  <div className="relative h-48 overflow-hidden">
-                    {category.image ? (
-                      <Image
-                        src={category.image.src}
-                        alt={decodeHtmlEntitiesServer(category.name)}
-                        fill
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
-                        style={{ objectFit: 'cover' }}
-                        className="group-hover:scale-110 transition-transform duration-700"
-                      />
-                    ) : (
-                      <div className="absolute inset-0 bg-gradient-to-br from-bred-500 via-orange-500 to-red-500"></div>
-                    )}
-                    
-                    {/* Overlay gradient */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                    
-                    {/* Hover icon */}
-                    <div className="absolute top-4 right-4 w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0">
-                      <FaEye className="text-white" />
-                    </div>
-                  </div>
-                  
-                  {/* Category Info */}
-                  <div className="p-6 flex flex-col justify-between h-32">
-                    <div>
-                      <h2 className="text-l font-bold text-gray-900 mb-2 group-hover:text-bred-600 transition-colors duration-300">
-                        {decodeHtmlEntitiesServer(category.name)}
-                      </h2>
-                    </div>
-                    
-                    {/* Action Button */}
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-bred-600 group-hover:text-bred-700 transition-colors">
-                        Esplora Categoria
-                      </span>
-                      <div className="w-8 h-8 bg-bred-500 rounded-full flex items-center justify-center group-hover:bg-bred-600 transition-all duration-300 transform group-hover:scale-110">
-                        <FaArrowRight className="text-white text-sm group-hover:translate-x-0.5 transition-transform duration-300" />
+          {/* Main content with sidebar */}
+          <div className="flex flex-col lg:flex-row gap-8">
+            {/* Sidebar */}
+            <div className="lg:order-first">
+              <CategorySidebar 
+                categories={megaMenuCategories} 
+                availabilityOptions={availabilityOptions}
+                shippingTimeOptions={shippingTimeOptions}
+                isOpen={isSidebarOpen}
+                onClose={() => setIsSidebarOpen(false)}
+                showAllCategoriesActive={true}
+              />
+            </div>
+            
+            {/* Categories Grid */}
+            <div className="flex-1">
+              {categories.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+                  {categories.map((category: Category, index: number) => (
+                    <Link 
+                      key={category.id} 
+                      href={`/category/${category.slug}`}
+                      className="group relative h-80 bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 border border-gray-100"
+                      style={{ animationDelay: `${index * 100}ms` }}
+                    >
+                      {/* Category Image */}
+                      <div className="relative h-48 overflow-hidden">
+                        {category.image ? (
+                          <Image
+                            src={category.image.src}
+                            alt={decodeHtmlEntitiesServer(category.name)}
+                            fill
+                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
+                            style={{ objectFit: 'cover' }}
+                            className="group-hover:scale-110 transition-transform duration-700"
+                          />
+                        ) : (
+                          <div className="absolute inset-0 bg-gradient-to-br from-bred-500 via-orange-500 to-red-500"></div>
+                        )}
+                        
+                        {/* Overlay gradient */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                        
+                        {/* Hover icon */}
+                        <div className="absolute top-4 right-4 w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0">
+                          <FaEye className="text-white" />
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                  
-                  {/* Decorative elements */}
-                  <div className="absolute -bottom-2 -right-2 w-20 h-20 bg-bred-500/5 rounded-full blur-xl group-hover:bg-bred-500/10 transition-colors duration-500"></div>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-20">
-              <div className="max-w-md mx-auto">
-                <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <FaTags className="text-gray-400 text-3xl" />
+                      
+                      {/* Category Info */}
+                      <div className="p-6 flex flex-col justify-between h-32">
+                        <div>
+                          <h2 className="text-l font-bold text-gray-900 mb-2 group-hover:text-bred-600 transition-colors duration-300">
+                            {decodeHtmlEntitiesServer(category.name)}
+                          </h2>
+                        </div>
+                        
+                        {/* Action Button */}
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-bred-600 group-hover:text-bred-700 transition-colors">
+                            Esplora Categoria
+                          </span>
+                          <div className="w-8 h-8 bg-bred-500 rounded-full flex items-center justify-center group-hover:bg-bred-600 transition-all duration-300 transform group-hover:scale-110">
+                            <FaArrowRight className="text-white text-sm group-hover:translate-x-0.5 transition-transform duration-300" />
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Decorative elements */}
+                      <div className="absolute -bottom-2 -right-2 w-20 h-20 bg-bred-500/5 rounded-full blur-xl group-hover:bg-bred-500/10 transition-colors duration-500"></div>
+                    </Link>
+                  ))}
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Nessuna Categoria Trovata</h3>
-                <p className="text-gray-500 mb-6">Al momento non ci sono categorie disponibili.</p>
-                <Link 
-                  href="/"
-                  className="inline-flex items-center gap-2 bg-bred-500 text-white hover:bg-bred-600 px-6 py-3 rounded-lg font-medium transition-colors"
-                >
-                  <FaArrowRight className="rotate-180" /> Torna alla Home
-                </Link>
-              </div>
+              ) : (
+                <div className="text-center py-20">
+                  <div className="max-w-md mx-auto">
+                    <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                      <FaTags className="text-gray-400 text-3xl" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">Nessuna Categoria Trovata</h3>
+                    <p className="text-gray-500 mb-6">Al momento non ci sono categorie disponibili.</p>
+                    <Link 
+                      href="/"
+                      className="inline-flex items-center gap-2 bg-bred-500 text-white hover:bg-bred-600 px-6 py-3 rounded-lg font-medium transition-colors"
+                    >
+                      <FaArrowRight className="rotate-180" /> Torna alla Home
+                    </Link>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+          </div>
           
           {/* Stats Section */}
           {categories.length > 0 && (
