@@ -1304,6 +1304,7 @@ export default function CheckoutPage() {
           
           setIsStripeLoading(false);
           setIsSubmitting(false);
+          setIsProcessingPayment(false);
           return;
         }
         
@@ -1313,6 +1314,7 @@ export default function CheckoutPage() {
           setCardError(result.error.message || 'Si è verificato un errore durante il pagamento');
           setIsStripeLoading(false);
           setIsSubmitting(false);
+          setIsProcessingPayment(false);
           return;
         }
         
@@ -1579,6 +1581,7 @@ export default function CheckoutPage() {
       setFormError('Si è verificato un errore durante l\'elaborazione dell\'ordine. Riprova più tardi.');
     } finally {
       setIsSubmitting(false);
+      setIsProcessingPayment(false);
     }
   };
 
@@ -2095,17 +2098,20 @@ export default function CheckoutPage() {
                                     console.error('Errore nella gestione del pagamento PayPal:', error);
                                     setFormError('Si è verificato un errore durante la finalizzazione del pagamento. Contatta il supporto clienti.');
                                     setIsSubmitting(false);
+                                    setIsProcessingPayment(false);
                                   }
                                 }}
                                 onError={(err) => {
                                   console.error('Errore PayPal:', err);
                                   setFormError('Si è verificato un errore durante il pagamento con PayPal. Riprova più tardi.');
                                   setIsSubmitting(false);
+                                  setIsProcessingPayment(false);
                                 }}
                                 onCancel={() => {
                                   console.log('Pagamento PayPal annullato dall\'utente');
                                   setFormError('Pagamento annullato. Puoi riprovare quando vuoi.');
                                   setIsSubmitting(false);
+                                  setIsProcessingPayment(false);
                                   setShowPayPalButtons(false);
                                   
                                   // Elimina l'ordine WooCommerce creato ma non completato
