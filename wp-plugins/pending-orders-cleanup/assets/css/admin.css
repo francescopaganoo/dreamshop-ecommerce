@@ -1,0 +1,90 @@
+/* Stili per il pannello admin del plugin */
+
+.dreamshop-cleanup-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin: 20px 0;
+}
+
+.dreamshop-stat-box {
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 4px;
+    padding: 20px;
+    text-align: center;
+}
+
+.dreamshop-stat-number {
+    font-size: 2em;
+    font-weight: bold;
+    color: #0073aa;
+    display: block;
+}
+
+.dreamshop-stat-label {
+    color: #666;
+    font-size: 0.9em;
+    margin-top: 5px;
+}
+
+.dreamshop-log-table {
+    margin-top: 20px;
+}
+
+.dreamshop-log-table .guest {
+    color: #666;
+    font-style: italic;
+}
+
+.dreamshop-log-table .registered {
+    color: #0073aa;
+    font-weight: bold;
+}
+
+.dreamshop-analysis-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin: 20px 0;
+}
+
+.dreamshop-analysis-box {
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 4px;
+    padding: 20px;
+}
+
+.dreamshop-warning {
+    background: #fff3cd;
+    border-left: 4px solid #ffc107;
+    padding: 10px;
+    margin: 10px 0;
+}
+
+.dreamshop-success {
+    background: #d4edda;
+    border-left: 4px solid #28a745;
+    padding: 10px;
+    margin: 10px 0;
+}
+
+.dreamshop-manual-cleanup {
+    background: #e7f3ff;
+    border: 1px solid #b3d4fc;
+    border-radius: 4px;
+    padding: 15px;
+    margin: 20px 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .dreamshop-cleanup-stats {
+        grid-template-columns: 1fr;
+    }
+    
+    .dreamshop-analysis-grid {
+        grid-template-columns: 1fr;
+    }
+}

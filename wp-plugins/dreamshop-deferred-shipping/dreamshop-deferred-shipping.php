@@ -1,10 +1,10 @@
 <?php
 /**
- * Plugin Name: DreamShop Deferred Shipping
+ * Plugin Name: Deferred Shipping
  * Plugin URI: https://dreamshop18.com
  * Description: Gestisce la spedizione posticipata per prodotti con costi di spedizione variabili
  * Version: 1.0.0
- * Author: DreamShop
+ * Author: Plan Studios Group FP
  * License: GPL v2 or later
  * Text Domain: dreamshop-deferred-shipping
  * Domain Path: /languages
