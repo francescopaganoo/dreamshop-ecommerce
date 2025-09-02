@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Product } from '@/lib/api';
 import { useCart } from '@/context/CartContext';
 import ProductDepositOptionsComponent from '@/components/product/ProductDepositOptions';
+import PayPalExpressButton from '@/components/product/PayPalExpressButton';
 import { getDepositMetadata } from '@/lib/deposits';
 
 interface SimpleProductAddToCartProps {
@@ -285,6 +286,15 @@ export default function SimpleProductAddToCart({ product }: SimpleProductAddToCa
             </button>
           </div>
         </div>
+      )}
+      
+      {/* PayPal Express Checkout - Sopra il pulsante aggiungi al carrello */}
+      {isInStock && hasValidPrice && (
+        <PayPalExpressButton 
+          product={product} 
+          quantity={quantity} 
+          enableDeposit={enableDeposit}
+        />
       )}
       
       {/* Pulsante Aggiungi al carrello */}
