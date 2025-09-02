@@ -205,7 +205,7 @@ const CheckoutForm = ({
         <button
           type="submit"
           disabled={!isCardElementReady || isProcessing}
-          className="bg-bred-500 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+          className="bg-bred-500 text-white px-4 py-2 rounded hover:bg-bred-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
         >
           {isProcessing ? (
             <>

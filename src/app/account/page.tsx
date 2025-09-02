@@ -148,7 +148,7 @@ function AccountContent() {
         setAllOrders(data);
         
         // Inizializza i filtri con solo gli stati principali attivi per default
-        const defaultActiveStatuses = ['completed', 'processing', 'cancelled'];
+        const defaultActiveStatuses = ['completed', 'processing', 'partial-payment', 'cancelled'];
         const initialStatusFilters: {[key: string]: boolean} = {};
         Object.keys(orderStates).forEach(status => {
           initialStatusFilters[status] = defaultActiveStatuses.includes(status);
@@ -426,7 +426,7 @@ function AccountContent() {
                         {status === 'completed' ? 'Completato' :
                          status === 'processing' ? 'In elaborazione' :
                          status === 'on-hold' ? 'In attesa' :
-                         status === 'partial-payment' ? 'Acconto Pagato' :
+                         status === 'partial-payment' ? 'Parzialmente pagato' :
                          status === 'scheduled-payment' ? 'Rata programmata' :
                          status === 'pending-deposit' ? 'In attesa di acconto' :
                          status === 'cancelled' ? 'Annullato' :
@@ -468,6 +468,7 @@ function AccountContent() {
                               order.status === 'completed' ? 'bg-green-100 text-green-800' :
                               order.status === 'processing' ? 'bg-blue-100 text-blue-800' :
                               order.status === 'on-hold' ? 'bg-yellow-100 text-yellow-800' :
+                              order.status === 'partial-payment' ? 'bg-orange-100 text-orange-800' :
                               order.status === 'scheduled-payment' ? 'bg-blue-100 text-blue-800' :
                               order.status === 'pending-deposit' ? 'bg-yellow-100 text-yellow-800' :
                               order.status === 'cancelled' ? 'bg-red-100 text-red-800' :
@@ -476,7 +477,7 @@ function AccountContent() {
                               {order.status === 'completed' ? 'Completato' :
                                order.status === 'processing' ? 'In elaborazione' :
                                order.status === 'on-hold' ? 'In attesa' :
-                               order.status === 'partial-payment' ? 'Acconto Pagato' :
+                               order.status === 'partial-payment' ? 'Parzialmente pagato' :
                                order.status === 'scheduled-payment' ? 'Rata programmata' :
                                order.status === 'pending-deposit' ? 'In attesa di acconto' :
                                order.status === 'cancelled' ? 'Annullato' :

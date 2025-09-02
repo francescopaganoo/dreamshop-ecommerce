@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
     try {
       // Prepara i dati da inviare a WooCommerce
       const orderData = {
-        status: 'completed', // Usiamo 'completed' per i pagamenti pianificati
+        status: 'processing', // Usiamo 'processing' per i pagamenti pianificati
         paid: true,         // Invece di set_paid che è per gli ordini normali
         transaction_id: paymentIntentId,
         payment_method: paymentMethod || 'stripe',
@@ -154,7 +154,7 @@ export async function POST(request: NextRequest) {
       // Nota: alcuni stati potrebbero richiedere permessi speciali nell'API WooCommerce
       // Proviamo sia con 'completed' che con 'processing' se il primo fallisce
       const statusUpdate = {
-        status: 'completed'
+        status: 'processing'
       };
       
       // Aggiorna lo stato dell'ordine
