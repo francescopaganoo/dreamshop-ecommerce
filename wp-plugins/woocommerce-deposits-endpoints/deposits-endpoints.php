@@ -2336,7 +2336,7 @@ class DreamShop_Deposits_API {
         error_log("[DEPOSITS] Rate pagate: {$paid_count}/{$total_count}");
         
         if ($all_paid && $total_count > 0) {
-            // Tutte le rate sono pagate, aggiorna l'ordine principale
+            // Tutte le rate sono pagate, aggiorna l'ordine principale e tutte le rate
             $parent_order = wc_get_order($parent_order_id);
             if ($parent_order) {
                 $current_parent_status = $parent_order->get_status();
@@ -2349,6 +2349,17 @@ class DreamShop_Deposits_API {
                     $parent_order->save();
                     
                     error_log("[DEPOSITS] Ordine principale #{$parent_order_id} aggiornato a completed");
+                    
+                    // Aggiorna anche tutte le rate a "completed" se sono solo in "processing"
+                    foreach ($installments as $installment) {
+                        if ($installment->get_status() === 'processing') {
+                            error_log("[DEPOSITS] Aggiorno rata #{$installment->get_id()} da processing a completed");
+                            $installment->set_status('completed', 'Tutte le rate completate.');
+                            $installment->save();
+                        }
+                    }
+                    
+                    error_log("[DEPOSITS] Tutte le rate aggiornate a completed");
                 } else {
                     error_log("[DEPOSITS] Ordine principale #{$parent_order_id} già in status {$current_parent_status}, non aggiorno");
                 }
