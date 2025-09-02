@@ -116,6 +116,9 @@ class DreamShop_Deposits_API {
         
         // Flush rewrite rules all'attivazione del plugin
         register_activation_hook(__FILE__, array($this, 'flush_rewrite_rules'));
+        
+        // Hook per controllare quando una rata viene pagata
+        add_action('woocommerce_order_status_changed', array($this, 'check_installment_completion'), 10, 4);
     }
     
     /**
@@ -2276,6 +2279,80 @@ class DreamShop_Deposits_API {
             
         } catch (Exception $e) {
             error_log("[OPZIONE B] Errore nell'applicazione del coupon {$points_coupon_code} all'ordine #{$order->get_id()}: " . $e->getMessage());
+        }
+    }
+    
+    /**
+     * Controlla quando una rata viene pagata e aggiorna l'ordine principale se tutte le rate sono pagate
+     * 
+     * @param int $order_id ID dell'ordine
+     * @param string $old_status Vecchio status
+     * @param string $new_status Nuovo status
+     * @param WC_Order $order Oggetto ordine
+     */
+    public function check_installment_completion($order_id, $old_status, $new_status, $order) {
+        // Controlla se il nuovo status indica che la rata è stata pagata
+        if (!in_array($new_status, array('processing', 'completed'))) {
+            return;
+        }
+        
+        // Controlla se questo ordine è una rata (ha un parent_id)
+        $parent_order_id = $order->get_parent_id();
+        if (!$parent_order_id || $parent_order_id <= 0) {
+            return;
+        }
+        
+        error_log("[DEPOSITS] Rata #{$order_id} pagata per ordine principale #{$parent_order_id}, controllo se tutte le rate sono pagate");
+        
+        // Recupera tutte le rate dell'ordine principale
+        $installments = wc_get_orders(array(
+            'parent' => $parent_order_id,
+            'limit' => -1,
+            'status' => array('scheduled-payment', 'pending-deposit', 'processing', 'completed')
+        ));
+        
+        if (empty($installments)) {
+            error_log("[DEPOSITS] Nessuna rata trovata per ordine principale #{$parent_order_id}");
+            return;
+        }
+        
+        error_log("[DEPOSITS] Trovate " . count($installments) . " rate per ordine principale #{$parent_order_id}");
+        
+        // Controlla se tutte le rate sono pagate (processing o completed)
+        $all_paid = true;
+        $paid_count = 0;
+        $total_count = count($installments);
+        
+        foreach ($installments as $installment) {
+            $status = $installment->get_status();
+            if (in_array($status, array('processing', 'completed'))) {
+                $paid_count++;
+            } else {
+                $all_paid = false;
+                error_log("[DEPOSITS] Rata #{$installment->get_id()} non ancora pagata (status: {$status})");
+            }
+        }
+        
+        error_log("[DEPOSITS] Rate pagate: {$paid_count}/{$total_count}");
+        
+        if ($all_paid && $total_count > 0) {
+            // Tutte le rate sono pagate, aggiorna l'ordine principale
+            $parent_order = wc_get_order($parent_order_id);
+            if ($parent_order) {
+                $current_parent_status = $parent_order->get_status();
+                
+                // Aggiorna solo se l'ordine principale è in stato "partial-payment"
+                if ($current_parent_status === 'partial-payment') {
+                    error_log("[DEPOSITS] Tutte le rate pagate per ordine #{$parent_order_id}, aggiorno da {$current_parent_status} a completed");
+                    
+                    $parent_order->set_status('completed', 'Tutte le rate sono state pagate.');
+                    $parent_order->save();
+                    
+                    error_log("[DEPOSITS] Ordine principale #{$parent_order_id} aggiornato a completed");
+                } else {
+                    error_log("[DEPOSITS] Ordine principale #{$parent_order_id} già in status {$current_parent_status}, non aggiorno");
+                }
+            }
         }
     }
 }
