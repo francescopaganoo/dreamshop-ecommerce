@@ -177,14 +177,23 @@ export default function LanguageSelector() {
     setIsOpen(false);
 
     if (langCode === 'it') {
-      // Reset to original language
+      // Reset to original language with same mechanism as other languages
       document.cookie = 'googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
       document.cookie = 'googtrans=/auto/it; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
       
-      // Add a small delay before reload to ensure cookies are cleared
+      // Use same delay mechanism as other languages
       setTimeout(() => {
-        window.location.reload();
-      }, 100);
+        // Try to use the GTranslate mechanism first
+        if (window.doGTranslate) {
+          window.doGTranslate('it|it');
+          // Add additional delay before reload as fallback
+          setTimeout(() => {
+            window.location.reload();
+          }, 300);
+        } else {
+          window.location.reload();
+        }
+      }, 200);
       return;
     }
 
