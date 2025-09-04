@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
-import { PayPalButtons } from '@paypal/react-paypal-js';
+import { PayPalButtons, PayPalMessages } from '@paypal/react-paypal-js';
 import { Product } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
+import PayPalExpressProvider from './PayPalExpressProvider';
 
 interface PayPalExpressButtonProps {
   product: Product;
@@ -31,6 +32,7 @@ export default function PayPalExpressButton({
   }
 
   // Crea l'ordine PayPal diretto
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const createPayPalOrder = async (data: any, actions: any) => {
     try {
       setIsProcessing(true);
@@ -67,6 +69,7 @@ export default function PayPalExpressButton({
   };
 
   // Gestisce l'approvazione del pagamento PayPal
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const onApprove = async (data: any, actions: any) => {
     try {
       setIsProcessing(true);
@@ -121,6 +124,7 @@ export default function PayPalExpressButton({
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const onError = (err: any) => {
     console.error('Errore PayPal:', err);
     setError('Errore durante il processo di pagamento PayPal');
@@ -133,34 +137,72 @@ export default function PayPalExpressButton({
   };
 
   return (
-    <div className="mb-4">
-      {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
-          <p className="text-red-700 text-sm">{error}</p>
+    <PayPalExpressProvider>
+      <div className="mb-4">
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+            <p className="text-red-700 text-sm">{error}</p>
+          </div>
+        )}
+        
+        {/* PayPal Standard */}
+        <div className="mb-3">
+          <PayPalButtons
+            style={{
+              layout: 'horizontal',
+              color: 'gold',
+              shape: 'rect',
+              label: 'pay',
+              height: 45
+            }}
+            createOrder={createPayPalOrder}
+            onApprove={onApprove}
+            onError={onError}
+            onCancel={onCancel}
+            disabled={isProcessing}
+          />
         </div>
-      )}
-      
-      <PayPalButtons
-        style={{
-          layout: 'horizontal',
-          color: 'blue',
-          shape: 'rect',
-          label: 'pay',
-          height: 45
-        }}
-        createOrder={createPayPalOrder}
-        onApprove={onApprove}
-        onError={onError}
-        onCancel={onCancel}
-        disabled={isProcessing}
-      />
-      
-      {isProcessing && (
-        <div className="mt-3 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-          <span className="ml-2 text-sm text-gray-600">Elaborazione...</span>
+
+        {/* Banner PayPal Pay Later */}
+        <div className="mb-3">
+          <PayPalMessages
+            amount={parseFloat(product.sale_price || product.price || '0') * quantity}
+            placement="product"
+            style={{
+              layout: 'text',
+              logo: {
+                type: 'inline'
+              }
+            }}
+          />
         </div>
-      )}
-    </div>
+
+        {/* PayPal Pay Later Button - Forces Pay in 3 */}
+        <div className="mb-3">
+          <PayPalButtons
+            fundingSource="paylater"
+            style={{
+              layout: 'horizontal',
+              color: 'blue',
+              shape: 'rect',
+              label: 'installment',
+              height: 45
+            }}
+            createOrder={createPayPalOrder}
+            onApprove={onApprove}
+            onError={onError}
+            onCancel={onCancel}
+            disabled={isProcessing}
+          />
+        </div>
+        
+        {isProcessing && (
+          <div className="mt-3 flex items-center justify-center">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+            <span className="ml-2 text-sm text-gray-600">Elaborazione...</span>
+          </div>
+        )}
+      </div>
+    </PayPalExpressProvider>
   );
 }

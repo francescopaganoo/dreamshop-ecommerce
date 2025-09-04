@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import api from '../../../../lib/woocommerce';
+import { Product } from '@/lib/api';
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,7 +18,7 @@ export async function POST(request: NextRequest) {
     console.log(`PayPal Express: Recupero prodotto ${productId}...`);
     try {
       const productResponse = await api.get(`products/${productId}`);
-      const product = productResponse.data;
+      const product = productResponse.data as Product;
       
       if (!product) {
         console.error('PayPal Express: Prodotto non trovato');
