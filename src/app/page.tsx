@@ -10,7 +10,8 @@ import {FaArrowRight } from "react-icons/fa";
 export const revalidate = 300;
 
 async function getFeaturedProducts(): Promise<Product[]> {
-  return getProducts(1, 8, 'date', 'desc');
+  const products = await getProducts(1, 20, 'date', 'desc');
+  return products.filter(product => product.stock_status === 'instock').slice(0, 8);
 }
 
 async function getProductCategories(): Promise<Category[]> {
@@ -42,32 +43,38 @@ async function getProductCategories(): Promise<Category[]> {
 
 async function getIchibanKujiProducts(): Promise<Product[]> {
   // Ottieni i prodotti della categoria Ichiban Kuji
-  return getProductsByCategorySlug('ichiban-kuji', 1, 8, 'date', 'desc');
+  const products = await getProductsByCategorySlug('ichiban-kuji', 1, 20, 'date', 'desc');
+  return products.filter(product => product.stock_status === 'instock').slice(0, 8);
 }
 
 async function getResineProducts(): Promise<Product[]> {
   // Ottieni i prodotti della categoria Resine
-  return getProductsByCategorySlug('resine', 1, 8, 'date', 'desc');
+  const products = await getProductsByCategorySlug('resine', 1, 20, 'date', 'desc');
+  return products.filter(product => product.stock_status === 'instock').slice(0, 8);
 }
 
 async function getSHFiguartsProducts(): Promise<Product[]> {
   // Ottieni i prodotti della categoria S.H.Figuarts
-  return getProductsByCategorySlug('s-h-figuarts', 1, 8, 'date', 'desc');
+  const products = await getProductsByCategorySlug('s-h-figuarts', 1, 20, 'date', 'desc');
+  return products.filter(product => product.stock_status === 'instock').slice(0, 8);
 }
 
 async function getRivisteProducts(): Promise<Product[]> {
   // Ottieni i prodotti della categoria Editoria
-  return getProductsByCategorySlug('editoria', 1, 8, 'date', 'desc');
+  const products = await getProductsByCategorySlug('editoria', 1, 20, 'date', 'desc');
+  return products.filter(product => product.stock_status === 'instock').slice(0, 8);
 }
 
 async function getPokemonProducts(): Promise<Product[]> {
   // Ottieni i prodotti della categoria Pokemon
-  return getProductsByCategorySlug('pokemon', 1, 8, 'date', 'desc');
+  const products = await getProductsByCategorySlug('pokemon', 1, 20, 'date', 'desc');
+  return products.filter(product => product.stock_status === 'instock').slice(0, 8);
 }
 
 async function getSaleProducts(): Promise<Product[]> {
   // Ottieni i prodotti in offerta
-  return getProductsOnSale(1, 8, 'date', 'desc');
+  const products = await getProductsOnSale(1, 20, 'date', 'desc');
+  return products.filter(product => product.stock_status === 'instock').slice(0, 8);
 }
 
 
