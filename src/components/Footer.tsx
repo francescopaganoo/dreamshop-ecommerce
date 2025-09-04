@@ -4,7 +4,24 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { FaEnvelope, FaPhone, FaMapMarkerAlt, FaFacebook, FaInstagram, FaTelegram } from 'react-icons/fa';
 import { FaTiktok } from 'react-icons/fa6';
+import { useState, useEffect } from 'react';
+import { getMegaMenuCategories, ExtendedCategory } from '../lib/api';
+
 export default function Footer() {
+  const [categories, setCategories] = useState<ExtendedCategory[]>([]);
+
+  useEffect(() => {
+    async function fetchCategories() {
+      try {
+        const categoriesData = await getMegaMenuCategories();
+        setCategories(categoriesData);
+      } catch (error) {
+        console.error('Error fetching categories for footer:', error);
+      }
+    }
+    
+    fetchCategories();
+  }, []);
   return (
     <footer className="relative bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white overflow-hidden">
       {/* Background decorativo */}
@@ -116,35 +133,37 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Categorie popolari */}
+          {/* Categorie */}
           <div className="lg:col-span-3">
             <h3 className="text-xl font-bold mb-6 text-white">Categorie</h3>
-            <ul className="space-y-3">
-              <li>
-                <Link href="/categories/figure" className="text-gray-300 hover:text-bred-400 transition-colors duration-300 flex items-center group">
-                  <span className="w-2 h-2 bg-purple-500 rounded-full mr-3 opacity-0 group-hover:opacity-100 transition-opacity"></span>
-                  Figure
-                </Link>
-              </li>
-              <li>
-                <Link href="/categories/statue" className="text-gray-300 hover:text-bred-400 transition-colors duration-300 flex items-center group">
-                  <span className="w-2 h-2 bg-purple-500 rounded-full mr-3 opacity-0 group-hover:opacity-100 transition-opacity"></span>
-                  Statue
-                </Link>
-              </li>
-              <li>
-                <Link href="/categories/trading-cards" className="text-gray-300 hover:text-bred-400 transition-colors duration-300 flex items-center group">
-                  <span className="w-2 h-2 bg-purple-500 rounded-full mr-3 opacity-0 group-hover:opacity-100 transition-opacity"></span>
-                  Trading Cards
-                </Link>
-              </li>
-              <li>
-                <Link href="/categories/manga" className="text-gray-300 hover:text-bred-400 transition-colors duration-300 flex items-center group">
-                  <span className="w-2 h-2 bg-purple-500 rounded-full mr-3 opacity-0 group-hover:opacity-100 transition-opacity"></span>
-                  Manga
-                </Link>
-              </li>
-            </ul>
+            <div className="space-y-4">
+              {categories.map((category) => (
+                <div key={category.id}>
+                  <Link 
+                    href={`/category/${category.slug}`} 
+                    className="text-gray-300 hover:text-bred-400 transition-colors duration-300 flex items-center group font-medium"
+                  >
+                    <span className="w-2 h-2 bg-purple-500 rounded-full mr-3 opacity-0 group-hover:opacity-100 transition-opacity"></span>
+                    {category.name}
+                  </Link>
+                  {category.subcategories && category.subcategories.length > 0 && (
+                    <ul className="ml-6 mt-2 space-y-1">
+                      {category.subcategories.map((subcat) => (
+                        <li key={subcat.id}>
+                          <Link 
+                            href={`/category/${subcat.slug}`} 
+                            className="text-gray-400 hover:text-bred-300 transition-colors duration-300 flex items-center group text-sm"
+                          >
+                            <span className="w-1 h-1 bg-bred-500 rounded-full mr-2 opacity-0 group-hover:opacity-100 transition-opacity"></span>
+                            {subcat.name}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Contatti */}
@@ -176,7 +195,7 @@ export default function Footer() {
         {/* Newsletter */}
         <div className="mt-16 p-8 bg-gradient-to-r from-bred-500/10 to-purple-500/10 rounded-2xl border border-gray-700/50">
           <div className="text-center mb-6">
-            <h3 className="text-2xl font-bold mb-2">Resta Sempre Aggiornato! 🚀</h3>
+            <h3 className="text-2xl font-bold mb-2">Resta Sempre Aggiornato!</h3>
             <p className="text-gray-300">Ricevi in anteprima le ultime novità e offerte esclusive</p>
           </div>
           <div className="max-w-md mx-auto flex gap-2">

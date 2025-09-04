@@ -102,9 +102,9 @@ export default async function Home() {
   return (
     <div className="min-h-screen flex flex-col bg-white">
       {/* Hero Section - Design Moderno */}
-      <section className="relative h-[80vh] text-white overflow-hidden">
+      <section className="relative h-[67vh] text-white overflow-hidden">
         <div className="absolute inset-0 bg-cover bg-center transform hover:scale-105 transition-transform duration-700" style={{ backgroundImage: "url('/images/hero.webp')" }}>
-          <div className="absolute inset-0 bg-gradient-to-r from-black via-black/25 to-transparent"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/10 to-transparent"></div>
         </div>
         <div className="relative container mx-auto px-6 h-full flex flex-col justify-center z-10">
           <div className="max-w-2xl transform transition-all duration-700 translate-y-0 hover:translate-y-[-10px]">

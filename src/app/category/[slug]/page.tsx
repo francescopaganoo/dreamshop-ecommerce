@@ -129,24 +129,78 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
           
           {/* Pagination */}
           <div className="mt-12 flex justify-center">
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1">
+              {/* Precedente */}
               {page > 1 && (
                 <Link 
                   href={`/category/${categorySlug}?page=${page - 1}`}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100"
+                  className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 mr-2"
                 >
                   Precedente
                 </Link>
               )}
               
-              <span className="px-4 py-2 text-gray-700 font-medium">
-                Pagina {page}
-              </span>
+              {/* Numeri pagina */}
+              {(() => {
+                const pageNumbers = [];
+                const maxVisible = 7; // Numero massimo di pagine da mostrare
+                const hasNextPage = products.length === perPage;
+                
+                // Se non sappiamo quante pagine ci sono, mostriamo un range intorno alla pagina corrente
+                const start = Math.max(1, page - Math.floor(maxVisible / 2));
+                const end = start + maxVisible - 1;
+                
+                // Aggiungi prima pagina se non è visibile
+                if (start > 1) {
+                  pageNumbers.push(
+                    <Link 
+                      key={1}
+                      href={`/category/${categorySlug}?page=1`}
+                      className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100"
+                    >
+                      1
+                    </Link>
+                  );
+                  
+                  if (start > 2) {
+                    pageNumbers.push(
+                      <span key="dots1" className="px-2 py-2 text-gray-500">...</span>
+                    );
+                  }
+                }
+                
+                // Pagine centrali
+                for (let i = start; i <= end; i++) {
+                  if (i === page) {
+                    pageNumbers.push(
+                      <span 
+                        key={i}
+                        className="px-3 py-2 bg-gray-200 text-gray-700 rounded-md font-medium cursor-not-allowed"
+                      >
+                        {i}
+                      </span>
+                    );
+                  } else if (i < page || (i > page && i <= page + 2 && hasNextPage)) {
+                    pageNumbers.push(
+                      <Link 
+                        key={i}
+                        href={`/category/${categorySlug}?page=${i}`}
+                        className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100"
+                      >
+                        {i}
+                      </Link>
+                    );
+                  }
+                }
+                
+                return pageNumbers;
+              })()}
               
+              {/* Successivo */}
               {products.length === perPage && (
                 <Link 
                   href={`/category/${categorySlug}?page=${page + 1}`}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100"
+                  className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 ml-2"
                 >
                   Successivo
                 </Link>
