@@ -103,7 +103,7 @@ export default async function Home() {
     <div className="min-h-screen flex flex-col bg-white">
       {/* Hero Section - Design Moderno */}
       <section className="relative h-[80vh] text-white overflow-hidden">
-        <div className="absolute inset-0 bg-cover bg-center transform hover:scale-105 transition-transform duration-700" style={{ backgroundImage: "url('/images/hero-section-3.webp')" }}>
+        <div className="absolute inset-0 bg-cover bg-center transform hover:scale-105 transition-transform duration-700" style={{ backgroundImage: "url('/images/hero.webp')" }}>
           <div className="absolute inset-0 bg-gradient-to-r from-black via-black/25 to-transparent"></div>
         </div>
         <div className="relative container mx-auto px-6 h-full flex flex-col justify-center z-10">
@@ -197,8 +197,8 @@ export default async function Home() {
       <section className="py-8 md:py-16 bg-gray-50">
         <div className="container mx-auto px-4 md:px-6">
           <div className="relative overflow-hidden rounded-2xl bg-gray-900 min-h-[200px] md:min-h-[250px]">
-            <div className="absolute inset-0 bg-cover bg-right opacity-70" style={{ backgroundImage: "url('/images/nuovi-arrivi.webp')" }}></div>
-            <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent"></div>
+            <div className="absolute inset-0 bg-cover bg-right opacity-80" style={{ backgroundImage: "url('/images/nuovi-arrivi.webp')" }}></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/10 to-transparent"></div>
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between p-6 md:p-16 h-full">
               <div className="text-center md:text-left w-full md:w-auto mb-6 md:mb-0">
                 <span className="bg-white/20 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-4">APPENA ARRIVATI</span>
@@ -237,8 +237,8 @@ export default async function Home() {
       <section className="py-8 md:py-16 bg-gray-50">
         <div className="container mx-auto px-4 md:px-6">
           <div className="relative overflow-hidden rounded-2xl bg-gray-900 min-h-[200px] md:min-h-[250px]">
-            <div className="absolute inset-0 bg-cover bg-right opacity-70" style={{ backgroundImage: "url('/images/ichiban-kuji.webp')" }}></div>
-            <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent"></div>
+            <div className="absolute inset-0 bg-cover bg-right opacity-80" style={{ backgroundImage: "url('/images/ichiban-kuji.webp')" }}></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/10 to-transparent"></div>
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between p-6 md:p-16 h-full">
               <div className="text-center md:text-left w-full md:w-auto mb-6 md:mb-0">
                 <span className="bg-white/20 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-4">APPENA ARRIVATI</span>
@@ -279,8 +279,8 @@ export default async function Home() {
       <section className="py-8 md:py-16 bg-gray-50">
         <div className="container mx-auto px-4 md:px-6">
           <div className="relative overflow-hidden rounded-2xl bg-gray-900 min-h-[200px] md:min-h-[250px]">
-            <div className="absolute inset-0 bg-cover bg-right opacity-70" style={{ backgroundImage: "url('/images/resine.webp')" }}></div>
-            <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent"></div>
+            <div className="absolute inset-0 bg-cover bg-right opacity-80" style={{ backgroundImage: "url('/images/resine.webp')" }}></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/10 to-transparent"></div>
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between p-6 md:p-16 h-full">
               <div className="text-center md:text-left w-full md:w-auto mb-6 md:mb-0">
                 <span className="bg-white/20 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-4">STATUE PREMIUM</span>
@@ -321,8 +321,8 @@ export default async function Home() {
       <section className="py-8 md:py-16 bg-gray-50">
         <div className="container mx-auto px-4 md:px-6">
           <div className="relative overflow-hidden rounded-2xl bg-gray-900 min-h-[200px] md:min-h-[250px]">
-            <div className="absolute inset-0 bg-cover bg-right opacity-70" style={{ backgroundImage: "url('/images/sh-figurearts.webp')" }}></div>
-            <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent"></div>
+            <div className="absolute inset-0 bg-cover bg-right opacity-80" style={{ backgroundImage: "url('/images/sh-figuarts.webp')" }}></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/10 to-transparent"></div>
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between p-6 md:p-16 h-full">
               <div className="text-center md:text-left w-full md:w-auto mb-6 md:mb-0">
                 <span className="bg-white/20 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-4">ACTION FIGURES PREMIUM</span>
@@ -363,8 +363,8 @@ export default async function Home() {
       <section className="py-8 md:py-16 bg-gray-50">
         <div className="container mx-auto px-4 md:px-6">
           <div className="relative overflow-hidden rounded-2xl bg-gray-900 min-h-[200px] md:min-h-[250px]">
-            <div className="absolute inset-0 bg-cover bg-right opacity-70" style={{ backgroundImage: "url('/images/riviste.webp')" }}></div>
-            <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent"></div>
+            <div className="absolute inset-0 bg-cover bg-right opacity-80" style={{ backgroundImage: "url('/images/riviste.webp')" }}></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/10 to-transparent"></div>
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between p-6 md:p-16 h-full">
               <div className="text-center md:text-left w-full md:w-auto mb-6 md:mb-0">
                 <span className="bg-white/20 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-4">RIVISTE & GADGET</span>
@@ -405,8 +405,8 @@ export default async function Home() {
       <section className="py-8 md:py-16 bg-gray-50">
         <div className="container mx-auto px-4 md:px-6">
           <div className="relative overflow-hidden rounded-2xl bg-gray-900 min-h-[200px] md:min-h-[250px]">
-            <div className="absolute inset-0 bg-cover bg-right opacity-70" style={{ backgroundImage: "url('/images/pokemon.webp')" }}></div>
-            <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent"></div>
+            <div className="absolute inset-0 bg-cover bg-right opacity-80" style={{ backgroundImage: "url('/images/pokemon.webp')" }}></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/10 to-transparent"></div>
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between p-6 md:p-16 h-full">
               <div className="text-center md:text-left w-full md:w-auto mb-6 md:mb-0">
                 <span className="bg-white/20 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-4">APPENA ARRIVATI</span>
@@ -447,8 +447,8 @@ export default async function Home() {
       <section className="py-8 md:py-16 bg-gray-50">
         <div className="container mx-auto px-4 md:px-6">
           <div className="relative overflow-hidden rounded-2xl bg-gray-900 min-h-[200px] md:min-h-[250px]">
-            <div className="absolute inset-0 bg-cover bg-right opacity-70" style={{ backgroundImage: "url('/images/offerte.webp')" }}></div>
-            <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent"></div>
+            <div className="absolute inset-0 bg-cover bg-right opacity-80" style={{ backgroundImage: "url('/images/offerte.webp')" }}></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/10 to-transparent"></div>
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between p-6 md:p-16 h-full">
               <div className="text-center md:text-left w-full md:w-auto mb-6 md:mb-0">
                 <span className="bg-white/20 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-4">SUPER SCONTI</span>
