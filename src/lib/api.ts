@@ -370,6 +370,7 @@ export async function searchProducts(searchTerm: string, page = 1, per_page = 10
       search: searchTerm,
       per_page,
       page,
+      status: 'publish', // Include solo i prodotti pubblicati, esclude privati e bozze
     });
     return data as Product[];
   } catch (error) {

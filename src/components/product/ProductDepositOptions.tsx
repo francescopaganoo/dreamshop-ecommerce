@@ -208,7 +208,7 @@ export default function ProductDepositOptionsComponent({ product, onDepositOptio
                               return (
                                 <li key={index} className="text-xs flex justify-between">
                                   <div>
-                                    <strong className="text-gray-700">Rata {index + 1}:</strong> dopo {item.interval_amount} {item.interval_unit === 'month' ? 'mesi' : item.interval_unit}
+                                    <strong className="text-gray-700">Rata {index + 1}:</strong> dopo {item.interval_amount} {item.interval_unit === 'month' ? 'mese' : item.interval_unit}
                                   </div>
                                   <div>
                                     {isPercentage ? (
@@ -361,7 +361,7 @@ export default function ProductDepositOptionsComponent({ product, onDepositOptio
                               return (
                                 <li key={index} className="text-xs flex justify-between">
                                   <div>
-                                    <strong className="text-gray-700">Rata {index + 1}:</strong> dopo {item.interval_amount} {item.interval_unit === 'month' ? 'mesi' : item.interval_unit}
+                                    <strong className="text-gray-700">Rata {index + 1}:</strong> dopo {item.interval_amount} {item.interval_unit === 'month' ? 'mese' : item.interval_unit}
                                   </div>
                                   <div>
                                     {isPercentage ? (

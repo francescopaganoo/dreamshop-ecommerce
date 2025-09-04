@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { FaEnvelope, FaPhone, FaMapMarkerAlt, FaFacebook, FaInstagram, FaTelegram } from 'react-icons/fa';
+import { FaEnvelope, FaMapMarkerAlt, FaFacebook, FaInstagram, FaTelegram, FaWhatsapp } from 'react-icons/fa';
 import { FaTiktok } from 'react-icons/fa6';
 import { useState, useEffect } from 'react';
 import { getMegaMenuCategories, ExtendedCategory } from '../lib/api';
@@ -119,15 +119,15 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/gift-card" className="text-gray-300 hover:text-bred-400 transition-colors duration-300 flex items-center group">
-                  <span className="w-2 h-2 bg-bred-500 rounded-full mr-3 opacity-0 group-hover:opacity-100 transition-opacity"></span>
-                  Gift Card
+                <Link href="/gift-card" className="text-bred-300 hover:text-bred-100 transition-colors duration-300 flex items-center group font-semibold text-lg">
+                  <span className="w-3 h-3 bg-yellow-400 rounded-full mr-3 group-hover:scale-125 transition-all duration-300"></span>
+                  🎁 Gift Card
                 </Link>
               </li>
               <li>
-                <a href="https://dreamshop18distribuzione.com/" target="_blank" rel="noopener noreferrer" className="text-gray-300 hover:text-bred-400 transition-colors duration-300 flex items-center group">
-                  <span className="w-2 h-2 bg-bred-500 rounded-full mr-3 opacity-0 group-hover:opacity-100 transition-opacity"></span>
-                  Sei un rivenditore?
+                <a href="https://dreamshop18distribuzione.com/" target="_blank" rel="noopener noreferrer" className="text-bred-300 hover:text-bred-100 transition-colors duration-300 flex items-center group font-semibold text-lg">
+                  <span className="w-3 h-3 bg-green-400 rounded-full mr-3 group-hover:scale-125 transition-all duration-300"></span>
+                  💼 Sei un rivenditore?
                 </a>
               </li>
             </ul>
@@ -136,7 +136,7 @@ export default function Footer() {
           {/* Categorie */}
           <div className="lg:col-span-3">
             <h3 className="text-xl font-bold mb-6 text-white">Categorie</h3>
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
               {categories.map((category) => (
                 <div key={category.id}>
                   <Link 
@@ -177,13 +177,20 @@ export default function Footer() {
                 <span className="text-sm">dreamshopfigure@gmail.com</span>
               </li>
               <li className="flex items-center">
-                <div className=" flex items-center justify-center mr-3">
-                  <FaPhone className="w-4 h-4 text-bred-400" />
+                <div className="flex items-center justify-center mr-3">
+                  <FaWhatsapp className="w-4 h-4 text-green-400" />
                 </div>
-                <span className="text-sm">+39 351 5029645</span>
+                <a 
+                  href="https://wa.me/393515029645" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-sm text-gray-300 hover:text-green-400 transition-colors duration-300"
+                >
+                  Contattaci su WhatsApp
+                </a>
               </li>
               <li className="flex items-start">
-                <div className=" flex items-center justify-center mr-3 mt-1">
+                <div className="flex items-center justify-center mr-3 mt-1">
                   <FaMapMarkerAlt className="w-4 h-4 text-bred-400" />
                 </div>
                 <span className="text-sm">Via Vincenzo Florio 13/L Misterbianco 95045 CT, Italia</span>
