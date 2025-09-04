@@ -179,7 +179,12 @@ export default function LanguageSelector() {
     if (langCode === 'it') {
       // Reset to original language
       document.cookie = 'googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-      window.location.reload();
+      document.cookie = 'googtrans=/auto/it; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+      
+      // Add a small delay before reload to ensure cookies are cleared
+      setTimeout(() => {
+        window.location.reload();
+      }, 100);
       return;
     }
 
@@ -194,7 +199,7 @@ export default function LanguageSelector() {
     // Trigger translation using GTranslate logic
     setTimeout(() => {
       window.doGTranslate(`it|${langCode}`);
-    }, 100);
+    }, 200);
   };
 
   const currentLanguage = languages.find(lang => lang.code === currentLang) || languages[0];
