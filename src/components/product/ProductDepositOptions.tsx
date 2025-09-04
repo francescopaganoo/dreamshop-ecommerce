@@ -110,7 +110,7 @@ export default function ProductDepositOptionsComponent({ product, onDepositOptio
     <div className="mb-6 border border-gray-200 rounded-md p-4 bg-gray-50">
       <h3 className="text-lg font-semibold text-gray-900 mb-3">Opzioni di pagamento</h3>
       
-      {/* Se l'utente non è autenticato, mostra solo il messaggio per accedere */}
+      {/* Se l'utente non è autenticato, mostra entrambe le opzioni ma con messaggio per accedere */}
       {!isAuthenticated ? (
         <div className="space-y-3">
           {/* Opzione di pagamento completo - sempre visibile */}
@@ -131,16 +131,119 @@ export default function ProductDepositOptionsComponent({ product, onDepositOptio
             </div>
           </label>
           
-          {/* Messaggio per utenti non autenticati */}
-          <div className="border border-blue-200 bg-bred-50 rounded-md p-4">
-            <div className="flex items-center mb-2">
-              <svg className="w-5 h-5 text-bred-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span className="font-medium text-bred-500">💳 Acquista anche a rate!</span>
+          {/* Opzione di acconto - visibile ma disabilitata per utenti non autenticati */}
+          <label className="flex items-start cursor-not-allowed opacity-60">
+            <input
+              type="radio"
+              name="depositOption"
+              value="yes"
+              checked={false}
+              disabled={true}
+              className="mr-2 mt-1 cursor-not-allowed"
+            />
+            <div>
+              <span className="font-medium">Paga con acconto</span>
+              <p className="text-sm text-gray-600">
+                Acconto iniziale: <span dangerouslySetInnerHTML={{ __html: depositOptions.formatted_deposit_value }} />
+                <br />
+                Saldo: <span dangerouslySetInnerHTML={{ __html: depositOptions.formatted_second_payment }} />
+              </p>
+              {depositOptions.payment_plan && (
+                <div className="p-3 rounded-md bg-gray-50 border border-gray-100 mt-2">
+                  <h4 className="font-semibold">{depositOptions.payment_plan.name}</h4>
+                  <p className="text-gray-600">{depositOptions.payment_plan.description}</p>
+                  {depositOptions.payment_plan.schedule && (
+                    <div className="mt-2 bg-white rounded-md p-3 border border-gray-100">
+                      <h5 className="font-medium text-sm mb-2 pb-1 border-b border-gray-100">Piano Rateale: Acconto {depositOptions.deposit_type === 'percent' ? `${Math.round(depositOptions.deposit_amount)}%` : ''} + {depositOptions.payment_plan.schedule?.length || 0} Rate</h5>
+                      
+                      {/* Acconto iniziale con stile migliorato */}
+                      <div className="mb-2 p-1.5 bg-green-50 rounded-md border border-green-100">
+                        <div className="text-sm font-medium text-green-800">
+                          <span className="flex items-center justify-between">
+                            <span>
+                              <strong>Acconto iniziale {depositOptions.deposit_type === 'percent' && `(${Math.round(depositOptions.deposit_amount)}%)`}:</strong>
+                            </span>
+                            {depositOptions.deposit_type === 'percent' ? (
+                              <span>
+                                <span dangerouslySetInnerHTML={{ __html: depositOptions.formatted_deposit_value }} />
+                              </span>
+                            ) : (
+                              <span dangerouslySetInnerHTML={{ __html: depositOptions.formatted_deposit_value }} />
+                            )}
+                          </span>
+                          <span className="text-xs text-green-600 mt-1">
+                            {depositOptions.deposit_type === 'percent' && (
+                              <>
+                                <strong>{Math.round(depositOptions.deposit_amount)}%</strong> del prezzo totale (<span dangerouslySetInnerHTML={{ __html: depositOptions.formatted_product_price }} />)
+                              </>
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {/* Elenco delle rate */}
+                      {depositOptions.payment_plan.schedule.length > 0 && (
+                        <div>
+                          <h6 className="text-xs font-medium mb-1 text-gray-700">Rate mensili successive:</h6>
+                          <ul className="list-disc pl-5 space-y-0.5">
+                            {depositOptions.payment_plan.schedule.map((item, index) => {
+                              // Verifica se è una percentuale usando il nuovo campo is_percent
+                              const isPercentage = item.is_percent === true || 
+                                                 (typeof item.percentage === 'number' && item.percentage > 0) ||
+                                                 (typeof item.amount === 'string' && item.amount.includes('%'));
+                              
+                              const productPrice = typeof depositOptions.product_price === 'string' 
+                                ? parseFloat(depositOptions.product_price) 
+                                : Number(depositOptions.product_price);
+                                
+                              // Usa percentage se disponibile, altrimenti estrai il valore numerico da amount
+                              const percentValue = typeof item.percentage === 'number' ? item.percentage :
+                                                (typeof item.value === 'number' ? item.value : null);
+                                                
+                              // Calcola l'importo in euro basato sulla percentuale
+                              const calculatedAmount = isPercentage && percentValue
+                                ? (productPrice * percentValue / 100).toFixed(2)
+                                : null;
+                                
+                              return (
+                                <li key={index} className="text-xs flex justify-between">
+                                  <div>
+                                    <strong className="text-gray-700">Rata {index + 1}:</strong> dopo {item.interval_amount} {item.interval_unit === 'month' ? 'mesi' : item.interval_unit}
+                                  </div>
+                                  <div>
+                                    {isPercentage ? (
+                                      <span className="text-gray-700 font-medium">
+                                        {/* Mostra prima la percentuale, poi l'importo calcolato tra parentesi */}
+                                        <span className="text-blue-700">{typeof percentValue === 'number' ? `${Math.round(percentValue)}%` : item.amount}</span>
+                                        {calculatedAmount && (
+                                          <span className="text-gray-500 ml-1">({calculatedAmount}€)</span>
+                                        )}
+                                      </span>
+                                    ) : item.formatted_amount ? (
+                                      <span className="text-gray-700">
+                                        <span dangerouslySetInnerHTML={{ __html: item.formatted_amount }} />
+                                      </span>
+                                    ) : item.amount ? (
+                                      <span className="text-gray-700"> {item.amount}</span>
+                                    ) : null}
+                                  </div>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
+          </label>
+          
+          {/* Messaggio per utenti non autenticati */}
+          <div className="border border-blue-200 bg-blue-50 rounded-md p-4">
             <p className="text-gray-600 text-sm mb-3">
-              <strong>Accedi o registrati</strong> per sbloccare il pagamento rateale: paga solo un acconto oggi e completa il resto con comode rate mensili.
+              Accedi o registrati per sbloccare il pagamento rateale: paga solo un acconto oggi e completa il resto con comode rate mensili.
             </p>
             <div className="flex space-x-3">
               <Link 
