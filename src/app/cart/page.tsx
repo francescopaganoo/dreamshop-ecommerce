@@ -153,6 +153,24 @@ export default function CartPage() {
     setShowStockAlert(false);
     
     try {
+      // Controlla se l'utente è guest e ha prodotti con acconto nel carrello
+      if (!user) {
+        const hasDepositProducts = cart.some(item => {
+          const depositInfo = getDepositInfo(item.product as unknown as ProductWithDeposit);
+          return depositInfo.hasDeposit;
+        });
+        
+        if (hasDepositProducts) {
+          setStockErrors([{ 
+            message: 'Effettua il login per procedere al checkout con prodotti a rate nel carrello.',
+            issue: 'login_required'
+          }]);
+          setShowStockAlert(true);
+          setIsCheckingOut(false);
+          return;
+        }
+      }
+      
       // Prepara i dati del carrello per la verifica
       const cartItems = cart.map(item => ({
         product_id: item.product.id,
@@ -269,11 +287,15 @@ export default function CartPage() {
           
           {/* Avviso di errori di disponibilità */}
           {showStockAlert && stockErrors.length > 0 && (
-            <div id="stock-alert" className={`mb-6 p-4 ${quantityUpdated ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200'} border rounded-md`}>
+            <div id="stock-alert" className={`mb-6 p-4 ${quantityUpdated ? 'bg-amber-50 border-amber-200' : stockErrors.some(e => e.issue === 'login_required') ? 'bg-blue-50 border-blue-200' : 'bg-red-50 border-red-200'} border rounded-md`}>
               <div className="flex items-start">
                 {quantityUpdated ? (
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-amber-600 mt-0.5 mr-2" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2h-1V9a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                ) : stockErrors.some(e => e.issue === 'login_required') ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600 mt-0.5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
                 ) : (
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-600 mt-0.5 mr-2" viewBox="0 0 20 20" fill="currentColor">
@@ -281,17 +303,19 @@ export default function CartPage() {
                   </svg>
                 )}
                 <div>
-                  <h3 className={`${quantityUpdated ? 'text-amber-800' : 'text-red-800'} font-medium mb-2`}>
+                  <h3 className={`${quantityUpdated ? 'text-amber-800' : stockErrors.some(e => e.issue === 'login_required') ? 'text-blue-800' : 'text-red-800'} font-medium mb-2`}>
                     {quantityUpdated 
                       ? 'Alcune quantità sono state aggiornate automaticamente' 
-                      : 'Attenzione: alcuni prodotti nel tuo carrello non sono più disponibili'}
+                      : stockErrors.some(e => e.issue === 'login_required')
+                        ? 'Login richiesto per il checkout'
+                        : 'Attenzione: alcuni prodotti nel tuo carrello non sono più disponibili'}
                   </h3>
-                  <ul className={`${quantityUpdated ? 'text-amber-700' : 'text-red-700'} text-sm space-y-1 list-disc list-inside`}>
+                  <ul className={`${quantityUpdated ? 'text-amber-700' : stockErrors.some(e => e.issue === 'login_required') ? 'text-blue-700' : 'text-red-700'} text-sm space-y-1 list-disc list-inside`}>
                     {stockErrors.map((error, index) => (
                       <li key={index} className={error.fixed ? 'font-medium' : ''}>{error.message}</li>
                     ))}
                   </ul>
-                  {!quantityUpdated && (
+                  {!quantityUpdated && !stockErrors.some(e => e.issue === 'login_required') && (
                     <p className="text-red-700 text-sm mt-2">
                       Aggiorna le quantità o rimuovi i prodotti non disponibili prima di procedere al checkout.
                     </p>
@@ -306,7 +330,7 @@ export default function CartPage() {
               <div className="mt-3 flex space-x-3">
                 <button 
                   onClick={() => setShowStockAlert(false)} 
-                  className={`${quantityUpdated ? 'text-amber-700 hover:text-amber-900' : 'text-red-700 hover:text-red-900'} text-sm font-medium`}
+                  className={`${quantityUpdated ? 'text-amber-700 hover:text-amber-900' : stockErrors.some(e => e.issue === 'login_required') ? 'text-blue-700 hover:text-blue-900' : 'text-red-700 hover:text-red-900'} text-sm font-medium`}
                 >
                   Chiudi
                 </button>
@@ -317,6 +341,22 @@ export default function CartPage() {
                   >
                     Procedi al checkout
                   </button>
+                )}
+                {stockErrors.some(e => e.issue === 'login_required') && (
+                  <div className="flex space-x-3">
+                    <Link 
+                      href="/login" 
+                      className="inline-flex items-center px-3 py-2 bg-white text-bred-700 text-sm font-medium border border-bred-700 rounded-md hover:bg-bred-50 transition-colors"
+                    >
+                      Accedi
+                    </Link>
+                    <Link 
+                      href="/register" 
+                      className="inline-flex items-center px-3 py-2 bg-bred-500 text-white text-sm font-medium rounded-md hover:bg-bred-700 transition-colors"
+                    >
+                      Registrati
+                    </Link>
+                  </div>
                 )}
               </div>
             </div>
