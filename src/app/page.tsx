@@ -113,7 +113,7 @@ export default async function Home() {
             <p className="text-xl md:text-2xl mb-8 max-w-xl text-gray-200 leading-relaxed">Scopri la nostra collezione esclusiva di statue, figure e trading card di anime e manga</p>
             <div className="flex flex-wrap gap-4">
               <Link 
-                href="/categories" 
+                href="/products" 
                 className="group bg-bred-500 text-white hover:bg-bred-600 px-8 py-4 rounded-md font-medium inline-flex items-center transition-all duration-300 hover:shadow-lg hover:translate-y-[-2px]"
               >
                 Scopri il Catalogo
