@@ -20,7 +20,7 @@ export default function LoginPage() {
   // Reindirizza l'utente se è già autenticato
   useEffect(() => {
     if (isAuthenticated) {
-      router.push('/account');
+      // Non reindirizzare automaticamente, lascia che sia il form a gestire il redirect
     }
   }, [isAuthenticated, router]);
   
@@ -38,11 +38,11 @@ export default function LoginPage() {
     setError(null);
     
     try {
-      const success = await login(formData.email, formData.password);
+      const result = await login(formData.email, formData.password);
       
-      if (success) {
-        // Reindirizza alla pagina dell'account dopo il login
-        router.push('/account');
+      if (result.success) {
+        // Reindirizza alla pagina specificata o all'account
+        router.push(result.redirectUrl || '/account');
       } else {
         setError('Credenziali non valide. Riprova.');
       }

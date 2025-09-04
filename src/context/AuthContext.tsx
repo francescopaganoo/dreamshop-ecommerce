@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { getReturnUrl, clearReturnUrl } from '../lib/auth';
 
 // Definizione del tipo utente
 export interface User {
@@ -18,7 +19,7 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   token: string | null;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<{ success: boolean; redirectUrl?: string }>;
   register: (userData: RegisterData) => Promise<boolean>;
   logout: () => void;
   updateUser: (userData: Partial<User>) => Promise<boolean>;
@@ -80,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Funzione di login
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string): Promise<{ success: boolean; redirectUrl?: string }> => {
     setIsLoading(true);
     
     try {
@@ -100,16 +101,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // Salva il token nel localStorage
       localStorage.setItem('woocommerce_token', data.token);
+      setToken(data.token);
       
       // Imposta i dati dell'utente
       setUser(data.user);
       setIsLoading(false);
       
-      return true;
+      // Recupera l'URL di ritorno se esiste
+      const returnUrl = getReturnUrl();
+      if (returnUrl) {
+        clearReturnUrl();
+        return { success: true, redirectUrl: returnUrl };
+      }
+      
+      return { success: true, redirectUrl: '/account' };
     } catch (error) {
       console.error('Errore durante il login:', error);
       setIsLoading(false);
-      return false;
+      return { success: false };
     }
   };
 

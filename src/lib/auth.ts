@@ -34,6 +34,34 @@ export const removeWooCommerceToken = (): void => {
 };
 
 /**
+ * Salva l'URL corrente per il redirect post-login
+ */
+export const setReturnUrl = (url: string): void => {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('return_url', url);
+  }
+};
+
+/**
+ * Recupera l'URL di ritorno salvato
+ */
+export const getReturnUrl = (): string | null => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('return_url');
+  }
+  return null;
+};
+
+/**
+ * Rimuove l'URL di ritorno salvato
+ */
+export const clearReturnUrl = (): void => {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('return_url');
+  }
+};
+
+/**
  * Recupera il token di autenticazione
  * Utilizzabile in contesti server-side
  */

@@ -6,9 +6,11 @@ import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { useWishlist } from '@/context/WishlistContext';
 import { useState, useEffect, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 import LanguageSelector from './LanguageSelector';
 import SearchBar from './SearchBar';
 import { getCategories, Category } from '@/lib/api';
+import { setReturnUrl } from '@/lib/auth';
 
 // Tipo esteso per le categorie con sottocategorie
 interface ExtendedCategory extends Category {
@@ -19,6 +21,7 @@ export default function Header() {
   const { getCartCount } = useCart();
   const { isAuthenticated, user, logout } = useAuth();
   const { wishlistItems } = useWishlist();
+  const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMegaMenuOpen, setIsMegaMenuOpen] = useState(false);
@@ -29,6 +32,14 @@ export default function Header() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const megaMenuRef = useRef<HTMLDivElement>(null);
+  
+  // Salva l'URL corrente per il redirect post-login
+  useEffect(() => {
+    if (pathname && pathname !== '/login' && pathname !== '/register') {
+      const currentUrl = pathname + window.location.search;
+      setReturnUrl(currentUrl);
+    }
+  }, [pathname]);
   
   // Gestisce i click esterni per chiudere i menu
   useEffect(() => {
