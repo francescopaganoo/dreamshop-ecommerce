@@ -6,10 +6,10 @@ import CategorySidebar from '../../components/CategorySidebar';
 import MobileFilterButton from '../../components/MobileFilterButton';
 import Link from 'next/link';
 import { FaArrowRight, FaBox, FaEye, FaStar } from 'react-icons/fa';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 
-export default function ProductsPage() {
+function ProductsPageContent() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<ExtendedCategory[]>([]);
   const [availabilityOptions, setAvailabilityOptions] = useState<AttributeValue[]>([]);
@@ -81,7 +81,7 @@ export default function ProductsPage() {
                 Tutti i <span className="text-bred-500">Prodotti</span>
               </h1>
               <p className="text-gray-600 text-lg max-w-3xl mx-auto mb-8 leading-relaxed">
-                Esplora l'intero catalogo dei nostri prodotti. Figure, statue, carte collezionabili e molto altro.
+                Esplora l&apos;intero catalogo dei nostri prodotti. Figure, statue, carte collezionabili e molto altro.
               </p>
               
             </div>
@@ -245,5 +245,13 @@ export default function ProductsPage() {
       </main>
       
     </div>
+  );
+}
+
+export default function ProductsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Caricamento...</div>}>
+      <ProductsPageContent />
+    </Suspense>
   );
 }
