@@ -5,7 +5,6 @@ import { PayPalButtons, PayPalMessages } from '@paypal/react-paypal-js';
 import { Product } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import PayPalExpressProvider from './PayPalExpressProvider';
 
 interface PayPalExpressButtonProps {
   product: Product;
@@ -33,7 +32,7 @@ export default function PayPalExpressButton({
 
   // Crea l'ordine PayPal diretto
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const createPayPalOrder = async (data: any, actions: any) => {
+  const createPayPalOrder = async (_data: any, actions: any) => {
     try {
       setIsProcessing(true);
       setError(null);
@@ -137,8 +136,7 @@ export default function PayPalExpressButton({
   };
 
   return (
-    <PayPalExpressProvider>
-      <div className="mb-4">
+    <div className="mb-4">
         {error && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
             <p className="text-red-700 text-sm">{error}</p>
@@ -203,6 +201,5 @@ export default function PayPalExpressButton({
           </div>
         )}
       </div>
-    </PayPalExpressProvider>
   );
 }

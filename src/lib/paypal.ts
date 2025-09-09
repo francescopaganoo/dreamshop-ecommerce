@@ -1,15 +1,20 @@
 // Configurazione PayPal
 export const PAYPAL_CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || ''; // 'sb' è l'ID client sandbox di default
 
-// Opzioni di configurazione per PayPal
+// Opzioni di configurazione per PayPal unificate
 export const paypalOptions = {
   clientId: PAYPAL_CLIENT_ID,
   currency: 'EUR',
   intent: 'capture',
-  // Disabilita i pulsanti di finanziamento che non vogliamo mostrare
-  disableFunding: 'credit,card,p24,sofort',
-  // Componenti SDK da caricare (necessari per una corretta inizializzazione)
-  components: 'buttons'
+  // Abilita Pay Later e disabilita altri metodi di pagamento
+  'enable-funding': 'paylater',
+  'disable-funding': 'credit,card,venmo',
+  // Componenti necessari per buttons e messages
+  components: 'buttons,messages',
+  // Locale Italia
+  locale: 'it_IT',
+  // Ambiente di debug
+  'data-page-type': 'product-details'
 };
 
 // Funzione per pulire l'importo (rimuove caratteri non numerici eccetto punto decimale)
