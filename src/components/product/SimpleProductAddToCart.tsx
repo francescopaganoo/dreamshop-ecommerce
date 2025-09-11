@@ -5,6 +5,7 @@ import { Product } from '@/lib/api';
 import { useCart } from '@/context/CartContext';
 import ProductDepositOptionsComponent from '@/components/product/ProductDepositOptions';
 import PayPalExpressButton from '@/components/product/PayPalExpressButton';
+import PaymentRequestButton from '@/components/product/PaymentRequestButton';
 import ProductNotificationForm from '@/components/ProductNotificationForm';
 import { getDepositMetadata } from '@/lib/deposits';
 
@@ -289,13 +290,23 @@ export default function SimpleProductAddToCart({ product }: SimpleProductAddToCa
         </div>
       )}
       
-      {/* PayPal Express Checkout - Sopra il pulsante aggiungi al carrello */}
+      {/* Express Checkout Options - Sopra il pulsante aggiungi al carrello */}
       {isInStock && hasValidPrice && (
-        <PayPalExpressButton 
-          product={product} 
-          quantity={quantity} 
-          enableDeposit={enableDeposit}
-        />
+        <div className="space-y-3">
+          {/* Apple Pay / Google Pay */}
+          <PaymentRequestButton 
+            product={product} 
+            quantity={quantity} 
+            enableDeposit={enableDeposit}
+          />
+          
+          {/* PayPal Express */}
+          <PayPalExpressButton 
+            product={product} 
+            quantity={quantity} 
+            enableDeposit={enableDeposit}
+          />
+        </div>
       )}
       
       {/* Form notifica se prodotto non disponibile */}

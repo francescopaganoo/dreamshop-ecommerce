@@ -28,10 +28,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Dati mancanti' }, { status: 400 });
     }
     
-    // Configurazione semplificata per funzionare su tutte le piattaforme
+    // Configurazione per supportare Apple Pay e Google Pay
     const paymentIntent = await stripe.paymentIntents.create({
       amount: amount,
       currency: 'eur',
+      // Abilita Apple Pay e Google Pay oltre alle carte tradizionali
+      payment_method_types: ['card', 'apple_pay', 'google_pay'],
       metadata: {
         order_id: orderId.toString(),
         platform: typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'ios' : 'other'

@@ -11,6 +11,7 @@ import LanguageSelector from './LanguageSelector';
 import SearchBar from './SearchBar';
 import { getCategories, Category } from '@/lib/api';
 import { setReturnUrl } from '@/lib/auth';
+import { FaChevronDown, FaChevronUp } from 'react-icons/fa';
 
 // Tipo esteso per le categorie con sottocategorie
 interface ExtendedCategory extends Category {
@@ -26,6 +27,8 @@ export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMegaMenuOpen, setIsMegaMenuOpen] = useState(false);
   const [categories, setCategories] = useState<ExtendedCategory[]>([]);
+  const [openMegaDropdowns, setOpenMegaDropdowns] = useState<Set<number>>(new Set());
+  const [openMobileDropdowns, setOpenMobileDropdowns] = useState<Set<number>>(new Set());
   const megaMenuTimer = useRef<NodeJS.Timeout | null>(null);
   
   // Riferimenti per gestire i click esterni
@@ -60,6 +63,7 @@ export default function Header() {
         const hamburgerButton = document.getElementById('mobile-menu-button');
         if (hamburgerButton && !hamburgerButton.contains(event.target as Node)) {
           setIsMobileMenuOpen(false);
+          setOpenMobileDropdowns(new Set());
         }
       }
     }
@@ -167,7 +171,32 @@ export default function Header() {
   const handleMegaMenuLeave = () => {
     megaMenuTimer.current = setTimeout(() => {
       setIsMegaMenuOpen(false);
+      setOpenMegaDropdowns(new Set()); // Reset dropdowns when megamenu closes
     }, 150); // Delay di 150ms per permettere di passare al mega menu
+  };
+
+  const toggleMegaDropdown = (categoryId: number) => {
+    setOpenMegaDropdowns(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(categoryId)) {
+        newSet.delete(categoryId);
+      } else {
+        newSet.add(categoryId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleMobileDropdown = (categoryId: number) => {
+    setOpenMobileDropdowns(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(categoryId)) {
+        newSet.delete(categoryId);
+      } else {
+        newSet.add(categoryId);
+      }
+      return newSet;
+    });
   };
 
   // Funzione per decodificare le entità HTML
@@ -221,7 +250,12 @@ export default function Header() {
             <button 
               id="mobile-menu-button"
               className="text-white p-1 focus:outline-none relative"
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              onClick={() => {
+                setIsMobileMenuOpen(!isMobileMenuOpen);
+                if (isMobileMenuOpen) {
+                  setOpenMobileDropdowns(new Set());
+                }
+              }}
               aria-label="Menu principale"
             >
               {isMobileMenuOpen ? (
@@ -272,35 +306,51 @@ export default function Header() {
                       {categories.map((category) => (
                         <div key={category.id} className="space-y-2">
                           {/* Categoria principale */}
-                          <Link
-                            href={`/category/${category.slug}`}
-                            className="flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors group"
-                            onClick={() => setIsMegaMenuOpen(false)}
-                          >
-                            {category.image ? (
-                              <div className="w-16 h-12 rounded-lg overflow-hidden mr-3 flex-shrink-0">
-                                <Image
-                                  src={category.image.src}
-                                  alt={category.name}
-                                  width={48}
-                                  height={48}
-                                  className="w-full h-full object-cover group-hover:scale-110 transition-transform"
-                                />
+                          <div className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition-colors group">
+                            <Link
+                              href={`/category/${category.slug}`}
+                              className="flex items-center flex-1"
+                              onClick={() => setIsMegaMenuOpen(false)}
+                            >
+                              {category.image ? (
+                                <div className="w-16 h-12 rounded-lg overflow-hidden mr-3 flex-shrink-0">
+                                  <Image
+                                    src={category.image.src}
+                                    alt={category.name}
+                                    width={48}
+                                    height={48}
+                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="w-12 h-12 bg-gradient-to-br from-bred-500 to-orange-500 rounded-lg mr-3 flex-shrink-0"></div>
+                              )}
+                              <div>
+                                <h3 className="text-sm font-semibold text-gray-900 group-hover:text-bred-600 transition-colors">
+                                  {decodeHtmlEntities(category.name).length > 18 ? `${decodeHtmlEntities(category.name).substring(0, 18)}...` : decodeHtmlEntities(category.name)}
+                                </h3>
                               </div>
-                            ) : (
-                              <div className="w-12 h-12 bg-gradient-to-br from-bred-500 to-orange-500 rounded-lg mr-3 flex-shrink-0"></div>
+                            </Link>
+                            {category.subcategories && category.subcategories.length > 0 && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleMegaDropdown(category.id);
+                                }}
+                                className="ml-2 p-1 text-gray-400 hover:text-bred-600 transition-colors duration-300"
+                                aria-label={`Toggle ${category.name} subcategories`}
+                              >
+                                {openMegaDropdowns.has(category.id) ? 
+                                  <FaChevronUp className="w-3 h-3" /> : 
+                                  <FaChevronDown className="w-3 h-3" />
+                                }
+                              </button>
                             )}
-                            <div>
-                              <h3 className="text-sm font-semibold text-gray-900 group-hover:text-bred-600 transition-colors">
-                                {decodeHtmlEntities(category.name).length > 18 ? `${decodeHtmlEntities(category.name).substring(0, 18)}...` : decodeHtmlEntities(category.name)}
-                              </h3>
-                              
-                            </div>
-                          </Link>
+                          </div>
                           
                           {/* Sottocategorie */}
-                          {category.subcategories && category.subcategories.length > 0 && (
-                            <div className="ml-4 space-y-1">
+                          {category.subcategories && category.subcategories.length > 0 && openMegaDropdowns.has(category.id) && (
+                            <div className="ml-4 space-y-1 overflow-hidden transition-all duration-300">
                               {category.subcategories.map((subcat) => (
                                 <Link
                                   key={subcat.id}
@@ -429,7 +479,10 @@ export default function Header() {
               <div className="flex justify-between items-center mb-8">
                 <h2 className="text-xl font-semibold text-gray-800">Menu</h2>
                 <button 
-                  onClick={() => setIsMobileMenuOpen(false)}
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    setOpenMobileDropdowns(new Set());
+                  }}
                   className="text-gray-500 hover:text-gray-700"
                   aria-label="Chiudi menu"
                 >
@@ -461,32 +514,46 @@ export default function Header() {
                       {categories.map((category) => (
                         <div key={category.id} className="space-y-1">
                           {/* Categoria principale mobile */}
-                          <Link
-                            href={`/category/${category.slug}`}
-                            className="flex items-center p-2 rounded-lg hover:bg-gray-50 transition-colors text-sm"
-                            onClick={() => setIsMobileMenuOpen(false)}
-                          >
-                            {category.image ? (
-                              <div className="w-8 h-8 rounded overflow-hidden mr-2 flex-shrink-0">
-                                <Image
-                                  src={category.image.src}
-                                  alt={category.name}
-                                  width={32}
-                                  height={32}
-                                  className="w-full h-full object-cover"
-                                />
-                              </div>
-                            ) : (
-                              <div className="w-8 h-8 bg-gradient-to-br from-bred-500 to-orange-500 rounded mr-2 flex-shrink-0"></div>
+                          <div className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 transition-colors text-sm">
+                            <Link
+                              href={`/category/${category.slug}`}
+                              className="flex items-center flex-1"
+                              onClick={() => setIsMobileMenuOpen(false)}
+                            >
+                              {category.image ? (
+                                <div className="w-8 h-8 rounded overflow-hidden mr-2 flex-shrink-0">
+                                  <Image
+                                    src={category.image.src}
+                                    alt={category.name}
+                                    width={32}
+                                    height={32}
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="w-8 h-8 bg-gradient-to-br from-bred-500 to-orange-500 rounded mr-2 flex-shrink-0"></div>
+                              )}
+                              <span className="text-gray-700 text-sm font-medium">
+                                {decodeHtmlEntities(category.name).length > 15 ? `${decodeHtmlEntities(category.name).substring(0, 15)}...` : decodeHtmlEntities(category.name)}
+                              </span>
+                            </Link>
+                            {category.subcategories && category.subcategories.length > 0 && (
+                              <button
+                                onClick={() => toggleMobileDropdown(category.id)}
+                                className="ml-2 p-1 text-gray-400 hover:text-bred-600 transition-colors duration-300"
+                                aria-label={`Toggle ${category.name} subcategories`}
+                              >
+                                {openMobileDropdowns.has(category.id) ? 
+                                  <FaChevronUp className="w-3 h-3" /> : 
+                                  <FaChevronDown className="w-3 h-3" />
+                                }
+                              </button>
                             )}
-                            <span className="text-gray-700 text-sm font-medium">
-                              {decodeHtmlEntities(category.name).length > 15 ? `${decodeHtmlEntities(category.name).substring(0, 15)}...` : decodeHtmlEntities(category.name)}
-                            </span>
-                          </Link>
+                          </div>
                           
                           {/* Sottocategorie mobile */}
-                          {category.subcategories && category.subcategories.length > 0 && (
-                            <div className="ml-6 space-y-1">
+                          {category.subcategories && category.subcategories.length > 0 && openMobileDropdowns.has(category.id) && (
+                            <div className="ml-6 space-y-1 overflow-hidden transition-all duration-300">
                               {category.subcategories.map((subcat) => (
                                 <Link
                                   key={subcat.id}

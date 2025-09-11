@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { FaEnvelope, FaMapMarkerAlt, FaFacebook, FaInstagram, FaTelegram, FaWhatsapp } from 'react-icons/fa';
+import { FaEnvelope, FaMapMarkerAlt, FaFacebook, FaInstagram, FaTelegram, FaWhatsapp, FaChevronDown, FaChevronUp } from 'react-icons/fa';
 import { FaTiktok } from 'react-icons/fa6';
 import { useState, useEffect } from 'react';
 import { getMegaMenuCategories, ExtendedCategory } from '../lib/api';
 
 export default function Footer() {
   const [categories, setCategories] = useState<ExtendedCategory[]>([]);
+  const [openDropdowns, setOpenDropdowns] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     async function fetchCategories() {
@@ -22,6 +23,32 @@ export default function Footer() {
     
     fetchCategories();
   }, []);
+
+  const toggleDropdown = (categoryId: number) => {
+    setOpenDropdowns(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(categoryId)) {
+        newSet.delete(categoryId);
+      } else {
+        newSet.add(categoryId);
+      }
+      return newSet;
+    });
+  };
+
+  const decodeHtmlEntities = (text: string): string => {
+    return text
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&#8217;/g, "'")
+      .replace(/&#8220;/g, '"')
+      .replace(/&#8221;/g, '"')
+      .replace(/&hellip;/g, '...');
+  };
   return (
     <footer className="relative bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white overflow-hidden">
       {/* Background decorativo */}
@@ -136,18 +163,32 @@ export default function Footer() {
           {/* Categorie */}
           <div className="lg:col-span-3">
             <h3 className="text-xl font-bold mb-6 text-white">Categorie</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3">
               {categories.map((category) => (
                 <div key={category.id}>
-                  <Link 
-                    href={`/category/${category.slug}`} 
-                    className="text-gray-300 hover:text-bred-400 transition-colors duration-300 flex items-center group font-medium"
-                  >
-                    <span className="w-2 h-2 bg-purple-500 rounded-full mr-3 opacity-0 group-hover:opacity-100 transition-opacity"></span>
-                    {category.name}
-                  </Link>
-                  {category.subcategories && category.subcategories.length > 0 && (
-                    <ul className="ml-6 mt-2 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <Link 
+                      href={`/category/${category.slug}`} 
+                      className="text-gray-300 hover:text-bred-400 transition-colors duration-300 flex items-center group font-medium flex-1"
+                    >
+                      <span className="w-2 h-2 bg-purple-500 rounded-full mr-3 opacity-0 group-hover:opacity-100 transition-opacity"></span>
+                      {decodeHtmlEntities(category.name)}
+                    </Link>
+                    {category.subcategories && category.subcategories.length > 0 && (
+                      <button
+                        onClick={() => toggleDropdown(category.id)}
+                        className="ml-2 p-1 text-gray-400 hover:text-bred-400 transition-colors duration-300"
+                        aria-label={`Toggle ${category.name} subcategories`}
+                      >
+                        {openDropdowns.has(category.id) ? 
+                          <FaChevronUp className="w-3 h-3" /> : 
+                          <FaChevronDown className="w-3 h-3" />
+                        }
+                      </button>
+                    )}
+                  </div>
+                  {category.subcategories && category.subcategories.length > 0 && openDropdowns.has(category.id) && (
+                    <ul className="ml-6 mt-2 space-y-1 overflow-hidden transition-all duration-300">
                       {category.subcategories.map((subcat) => (
                         <li key={subcat.id}>
                           <Link 
@@ -155,7 +196,7 @@ export default function Footer() {
                             className="text-gray-400 hover:text-bred-300 transition-colors duration-300 flex items-center group text-sm"
                           >
                             <span className="w-1 h-1 bg-bred-500 rounded-full mr-2 opacity-0 group-hover:opacity-100 transition-opacity"></span>
-                            {subcat.name}
+                            {decodeHtmlEntities(subcat.name)}
                           </Link>
                         </li>
                       ))}
