@@ -58,6 +58,8 @@ export default function AppleGooglePayButton({
           amount: 0,
         },
       ],
+      // Disabilita Link per forzare Apple Pay/Google Pay nativi
+      disableLink: true,
     });
 
     // Controlla disponibilità
@@ -177,8 +179,8 @@ export default function AppleGooglePayButton({
               paymentRequest,
               style: {
                 paymentRequestButton: {
-                  type: 'default', // 'default' | 'book' | 'buy' | 'checkout'
-                  theme: 'dark', // 'dark' | 'light' | 'light-outline'
+                  type: 'buy', // 'default' | 'book' | 'buy' | 'checkout'
+                  theme: 'dark', // 'dark' | 'light' | 'light-outline' 
                   height: '48px',
                 },
               },
