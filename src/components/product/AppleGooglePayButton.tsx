@@ -6,6 +6,15 @@ import { Product } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 
+// Dichiarazione tipo per ApplePaySession
+declare global {
+  interface Window {
+    ApplePaySession?: {
+      canMakePayments(): boolean;
+    };
+  }
+}
+
 interface AppleGooglePayButtonProps {
   product: Product;
   quantity: number;
