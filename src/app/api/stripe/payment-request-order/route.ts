@@ -180,6 +180,21 @@ export async function POST(request: NextRequest) {
 
     console.log(`Ordine creato: ${order.id}, Payment Intent: ${paymentIntent.id}`);
 
+    // Se il pagamento è confermato (in test mode), aggiorna lo stato dell'ordine
+    if (paymentIntent.status === 'succeeded') {
+      try {
+        await WooCommerce.put(`orders/${order.id}`, {
+          status: 'processing', // o 'completed' se preferisci
+          set_paid: true,
+          transaction_id: paymentIntent.id
+        });
+        console.log(`Ordine ${order.id} aggiornato come pagato`);
+      } catch (updateError) {
+        console.error('Errore aggiornamento ordine:', updateError);
+        // Non fail tutto l'ordine per questo errore
+      }
+    }
+
     return NextResponse.json({
       success: true,
       order_id: order.id,

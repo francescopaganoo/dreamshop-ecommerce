@@ -1,20 +1,15 @@
 // Configurazione PayPal
 export const PAYPAL_CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || ''; // 'sb' è l'ID client sandbox di default
 
-// Opzioni di configurazione per PayPal unificate
+// Opzioni di configurazione per PayPal semplificate
 export const paypalOptions = {
   clientId: PAYPAL_CLIENT_ID,
   currency: 'EUR',
   intent: 'capture',
-  // Abilita Pay Later e disabilita altri metodi di pagamento
-  'enable-funding': 'paylater',
-  'disable-funding': 'credit,card,venmo',
-  // Componenti necessari per buttons e messages
+  // Solo componenti essenziali
   components: 'buttons,messages',
   // Locale Italia
-  locale: 'it_IT',
-  // Ambiente di debug
-  'data-page-type': 'product-details'
+  locale: 'it_IT'
 };
 
 // Funzione per pulire l'importo (rimuove caratteri non numerici eccetto punto decimale)
