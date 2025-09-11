@@ -28,6 +28,9 @@ interface BillingData {
 
 export async function POST(request: NextRequest) {
   try {
+    // Ottieni l'URL base dalla richiesta
+    const origin = request.nextUrl.origin;
+    
     const {
       productId,
       quantity,
@@ -70,13 +73,14 @@ export async function POST(request: NextRequest) {
     const totalAmount = unitPrice * quantity;
     const stripeAmount = Math.round(totalAmount * 100); // Converti in centesimi
 
-    // Crea Payment Intent
+    // Crea e conferma Payment Intent direttamente 
     const paymentIntent = await stripe.paymentIntents.create({
       amount: stripeAmount,
       currency: 'eur',
       payment_method: paymentMethodId,
-      confirmation_method: 'manual',
-      confirm: false, // Non confermare subito, lo faremo nel frontend
+      confirmation_method: 'automatic',
+      confirm: true, // Conferma immediatamente 
+      return_url: `${origin}/checkout/success`,
       metadata: {
         product_id: productId.toString(),
         quantity: quantity.toString(),

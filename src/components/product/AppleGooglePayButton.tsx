@@ -35,6 +35,14 @@ export default function AppleGooglePayButton({
       return;
     }
 
+    // Debug dettagliato per iPhone
+    console.log('🔍 iPhone Debug:');
+    console.log('- User Agent:', navigator.userAgent);
+    console.log('- Apple Pay Session disponibile:', typeof window.ApplePaySession !== 'undefined');
+    console.log('- Can make payments:', window.ApplePaySession?.canMakePayments?.());
+    console.log('- HTTPS:', window.location.protocol === 'https:');
+    console.log('- Stripe loaded:', !!stripe);
+
     // Calcola il prezzo totale
     const unitPrice = parseFloat(product.sale_price || product.price || '0');
     const totalAmount = Math.round(unitPrice * quantity * 100); // Converti in centesimi
@@ -126,17 +134,11 @@ export default function AppleGooglePayButton({
         console.log('Risultato creazione ordine:', result);
 
         if (response.ok && result.success) {
-          // Conferma il pagamento
-          const { error: confirmError } = await stripe.confirmCardPayment(result.clientSecret);
+          // Pagamento già confermato dal backend
+          console.log('✅ Pagamento completato:', result.paymentIntentId);
           
-          if (confirmError) {
-            console.error('Errore conferma pagamento:', confirmError);
-            throw new Error(confirmError.message);
-          }
-
           // Successo!
           ev.complete('success');
-          console.log('✅ Pagamento completato con successo');
           router.push(`/checkout/success?order_id=${result.order_id}`);
           
         } else {
