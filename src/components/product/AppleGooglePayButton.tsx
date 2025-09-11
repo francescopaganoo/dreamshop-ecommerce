@@ -58,16 +58,20 @@ export default function AppleGooglePayButton({
           amount: 0,
         },
       ],
-      // Disabilita Link per forzare Apple Pay/Google Pay nativi
-      disableLink: true,
     });
 
-    // Controlla disponibilità
+    // Controlla disponibilità con preferenza per Apple Pay
     pr.canMakePayment().then(result => {
       console.log('Native Payment Request check:', result);
+      console.log('Result details:', {
+        applePay: result?.applePay,
+        googlePay: result?.googlePay,
+        link: result?.link
+      });
+      
       if (result) {
         setPaymentRequest(pr);
-        setDebugInfo('Apple/Google Pay disponibile');
+        setDebugInfo(`Disponibile: ${result.applePay ? 'Apple Pay' : ''} ${result.googlePay ? 'Google Pay' : ''} ${result.link ? 'Link' : ''}`);
       } else {
         setDebugInfo('Payment Request non disponibile su questo dispositivo/browser');
       }
