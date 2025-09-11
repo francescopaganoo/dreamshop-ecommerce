@@ -5,7 +5,7 @@ import { Product } from '@/lib/api';
 import { useCart } from '@/context/CartContext';
 import ProductDepositOptionsComponent from '@/components/product/ProductDepositOptions';
 import PayPalExpressButton from '@/components/product/PayPalExpressButton';
-import PaymentRequestButton from '@/components/product/PaymentRequestButton';
+import AppleGooglePayButton from '@/components/product/AppleGooglePayButton';
 import ProductNotificationForm from '@/components/ProductNotificationForm';
 import { getDepositMetadata } from '@/lib/deposits';
 
@@ -294,7 +294,7 @@ export default function SimpleProductAddToCart({ product }: SimpleProductAddToCa
       {isInStock && hasValidPrice && (
         <div className="space-y-3">
           {/* Apple Pay / Google Pay */}
-          <PaymentRequestButton 
+          <AppleGooglePayButton 
             product={product} 
             quantity={quantity} 
             enableDeposit={enableDeposit}
