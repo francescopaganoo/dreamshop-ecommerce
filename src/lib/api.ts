@@ -363,16 +363,28 @@ export async function getCategoryBySlug(slug: string): Promise<Category | null> 
   }
 }
 
-// Search products
+// Search products (only in product titles)
 export async function searchProducts(searchTerm: string, page = 1, per_page = 10): Promise<Product[]> {
   try {
+    // Otteniamo più prodotti per compensare il filtraggio lato client
     const { data } = await api.get('products', {
       search: searchTerm,
-      per_page,
-      page,
+      per_page: Math.max(100, per_page * 5), // Prendiamo più prodotti per compensare il filtraggio
+      page: 1, // Sempre dalla prima pagina
       status: 'publish', // Include solo i prodotti pubblicati, esclude privati e bozze
     });
-    return data as Product[];
+    
+    // Filtriamo solo i prodotti il cui nome contiene il termine di ricerca
+    const filteredProducts = (data as Product[]).filter(product => 
+      product.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    
+    // Implementa paginazione manuale
+    const startIndex = (page - 1) * per_page;
+    const endIndex = startIndex + per_page;
+    const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
+    
+    return paginatedProducts;
   } catch (error) {
     console.error(`Error searching products with term "${searchTerm}":`, error);
     return [];

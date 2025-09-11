@@ -7,8 +7,9 @@ import Link from 'next/link';
 // where the params type doesn't satisfy the PageProps constraint
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function generateMetadata({ searchParams }: any): Metadata {
-  const searchQuery = searchParams.q || '';
+export async function generateMetadata({ searchParams }: any): Promise<Metadata> {
+  const resolvedSearchParams = await searchParams;
+  const searchQuery = resolvedSearchParams.q || '';
   
   return {
     title: `Search results for "${searchQuery}" - WooStore`,
@@ -18,8 +19,9 @@ export function generateMetadata({ searchParams }: any): Metadata {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default async function SearchPage({ searchParams }: any) {
-  const searchQuery = searchParams.q || '';
-  const page = searchParams.page ? parseInt(searchParams.page, 10) : 1;
+  const resolvedSearchParams = await searchParams;
+  const searchQuery = resolvedSearchParams.q || '';
+  const page = resolvedSearchParams.page ? parseInt(resolvedSearchParams.page, 10) : 1;
   const perPage = 12;
   
   // If no search query is provided, we'll show an empty state
