@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 import { CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { PayPalButtons, usePayPalScriptReducer } from '@paypal/react-paypal-js';
 import Link from 'next/link';
+import AppleGooglePayCheckout from '@/components/checkout/AppleGooglePayCheckout';
 
 import { createOrder, createCustomer, getShippingMethods, ShippingMethod, getUserAddresses, saveUserAddresses } from '../../lib/api';
 import { redeemPoints } from '../../lib/points';
@@ -1959,6 +1960,43 @@ export default function CheckoutPage() {
                 
                 <div className="mb-6">
                   <h3 className="text-lg font-semibold mb-2 text-gray-700">Metodo di Pagamento</h3>
+                  
+                  {/* Apple Pay / Google Pay */}
+                  <AppleGooglePayCheckout
+                    billingData={{
+                      firstName: formData.firstName,
+                      lastName: formData.lastName,
+                      email: formData.email,
+                      phone: formData.phone,
+                      address1: formData.address1,
+                      address2: formData.address2,
+                      city: formData.city,
+                      state: formData.state,
+                      postcode: formData.postcode,
+                      country: formData.country
+                    }}
+                    shippingData={formData.shipToDifferentAddress ? {
+                      firstName: formData.shippingFirstName,
+                      lastName: formData.shippingLastName,
+                      phone: formData.shippingPhone,
+                      address1: formData.shippingAddress1,
+                      address2: formData.shippingAddress2,
+                      city: formData.shippingCity,
+                      state: formData.shippingState,
+                      postcode: formData.shippingPostcode,
+                      country: formData.shippingCountry
+                    } : undefined}
+                    onPaymentStart={() => {
+                      setIsSubmitting(true);
+                      setFormError(null);
+                    }}
+                    onPaymentError={(error) => {
+                      setFormError(error);
+                      setIsSubmitting(false);
+                    }}
+                    className="mb-6"
+                  />
+                  
                   <div className="space-y-2">
                     
                     <div>

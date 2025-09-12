@@ -28,12 +28,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Dati mancanti' }, { status: 400 });
     }
     
-    // Configurazione per supportare Apple Pay e Google Pay
+    // Configurazione per pagamenti standard (non Payment Request)
+    // Apple Pay e Google Pay sono gestiti separatamente tramite Payment Request API
     const paymentIntent = await stripe.paymentIntents.create({
       amount: amount,
       currency: 'eur',
-      // Abilita Apple Pay e Google Pay oltre alle carte tradizionali
-      payment_method_types: ['card', 'apple_pay', 'google_pay'],
+      // Per i pagamenti standard usiamo solo carte
+      payment_method_types: ['card'],
       metadata: {
         order_id: orderId.toString(),
         platform: typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'ios' : 'other'

@@ -8,6 +8,7 @@ import { useAuth } from '@/context/AuthContext';
 import ScheduledPaymentModal from '@/components/ScheduledPaymentModal';
 import { PointsResponse, PointsHistoryItem, getUserPoints } from '@/lib/points';
 import { BillingAddress, ShippingAddress, getUserAddresses } from '@/lib/api';
+import GiftCardBalance from '@/components/GiftCardBalance';
 
 // Interfaccia per gli ordini
 interface Order {
@@ -90,7 +91,7 @@ function AccountContent() {
   // Aggiorna la tab attiva quando cambia il parametro nell'URL
   useEffect(() => {
     const currentTab = searchParams.get('tab');
-    if (currentTab && ['dashboard', 'orders', 'scheduled-orders', 'addresses', 'account-details', 'points'].includes(currentTab)) {
+    if (currentTab && ['dashboard', 'orders', 'scheduled-orders', 'addresses', 'account-details', 'points', 'gift-cards'].includes(currentTab)) {
       setTab(currentTab);
     }
   }, [searchParams, setTab]);
@@ -376,7 +377,7 @@ function AccountContent() {
               Ciao <span className="font-semibold text-gray-600">{user?.displayName || user?.username}</span>, benvenuto nel tuo account.
             </p>
             <p className="mb-4 text-gray-600">
-              Da qui puoi visualizzare i tuoi <Link href="#" onClick={() => setActiveTab('orders')} className="text-bred-500 hover:text-bred-700">ordini recenti</Link>, gestire le tue <Link href="#" onClick={() => setActiveTab('scheduled-orders')} className="text-bred-500 hover:text-bred-700">rate da pagare</Link>, controllare i tuoi <Link href="#" onClick={() => setActiveTab('points')} className="text-bred-500 hover:text-bred-700">punti fedeltà</Link>, gestire i tuoi <Link href="#" onClick={() => setActiveTab('addresses')} className="text-bred-500 hover:text-bred-700">indirizzi di spedizione</Link> e <Link href="#" onClick={() => setActiveTab('account-details')} className="text-bred-500 hover:text-bred-700">modificare i dettagli del tuo account</Link>.
+              Da qui puoi visualizzare i tuoi <Link href="#" onClick={() => setActiveTab('orders')} className="text-bred-500 hover:text-bred-700">ordini recenti</Link>, gestire le tue <Link href="#" onClick={() => setActiveTab('scheduled-orders')} className="text-bred-500 hover:text-bred-700">rate da pagare</Link>, controllare i tuoi <Link href="#" onClick={() => setActiveTab('points')} className="text-bred-500 hover:text-bred-700">punti fedeltà</Link>, gestire le tue <Link href="#" onClick={() => setActiveTab('gift-cards')} className="text-bred-500 hover:text-bred-700">gift card</Link>, gestire i tuoi <Link href="#" onClick={() => setActiveTab('addresses')} className="text-bred-500 hover:text-bred-700">indirizzi di spedizione</Link> e <Link href="#" onClick={() => setActiveTab('account-details')} className="text-bred-500 hover:text-bred-700">modificare i dettagli del tuo account</Link>.
             </p>
           </div>
         );
@@ -1201,6 +1202,13 @@ function AccountContent() {
           </div>
         );
         
+      case 'gift-cards':
+        return (
+          <div>
+            <GiftCardBalance />
+          </div>
+        );
+        
       case 'account-details':
         return (
           <div>
@@ -1307,6 +1315,14 @@ function AccountContent() {
                         className={`text-gray-600 w-full text-left px-4 py-2 rounded-md ${activeTab === 'addresses' ? 'bg-bred-100 text-blue-700' : 'hover:bg-gray-100'}`}
                       >
                         Indirizzi
+                      </button>
+                    </li>
+                    <li>
+                      <button
+                        onClick={() => setActiveTab('gift-cards')}
+                        className={`text-gray-600 w-full text-left px-4 py-2 rounded-md ${activeTab === 'gift-cards' ? 'bg-bred-100 text-blue-700' : 'hover:bg-gray-100'}`}
+                      >
+                        Gift Card
                       </button>
                     </li>
                     <li>

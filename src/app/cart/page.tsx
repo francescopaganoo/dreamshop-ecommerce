@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { getDepositInfo, ProductWithDeposit } from '@/lib/deposits';
+import GiftCardCartWidget from '@/components/GiftCardCartWidget';
 
 // Interfaccia per gli errori di stock
 interface StockIssue {
@@ -92,6 +93,10 @@ export default function CartPage() {
   
   // Stato per il messaggio di errore dei punti
   const [pointsErrorMessage, setPointsErrorMessage] = useState<string | null>(null);
+  
+  // Stati per gift card
+  const [giftCardCouponCode, setGiftCardCouponCode] = useState<string>('');
+  const [giftCardDiscount, setGiftCardDiscount] = useState<number>(0);
 
   // Gestisce il cambio del valore dei punti da riscattare
   const handlePointsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -264,7 +269,7 @@ export default function CartPage() {
   };
   
   const cartTotal = getCartTotal();
-  const orderTotal = cartTotal; // Rimuoviamo la spedizione dal carrello
+  const orderTotal = cartTotal - pointsDiscount - giftCardDiscount; // Sottraiamo sconti punti e gift card
   
   return (
     <div className="min-h-screen flex flex-col">
@@ -618,6 +623,15 @@ export default function CartPage() {
                       </form>
                     )}
                     
+                    {/* Widget Gift Card */}
+                    <GiftCardCartWidget 
+                      cartTotal={cartTotal}
+                      onCouponGenerated={(couponCode, discount) => {
+                        setGiftCardCouponCode(couponCode);
+                        setGiftCardDiscount(discount);
+                      }}
+                    />
+                    
                     {/* Sezione per i punti */}
                     {user && userPoints > 0 && (
                       <div className="border-t pt-4 mt-4">
@@ -649,6 +663,13 @@ export default function CartPage() {
                         {pointsError && (
                           <p className="text-red-600 text-sm mt-1">{pointsError}</p>
                         )}
+                      </div>
+                    )}
+                    
+                    {giftCardDiscount > 0 && (
+                      <div className="flex justify-between text-green-600">
+                        <span>Sconto Gift Card</span>
+                        <span>-{formatPrice(giftCardDiscount)}</span>
                       </div>
                     )}
                     

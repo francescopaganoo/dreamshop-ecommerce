@@ -1,0 +1,275 @@
+import { NextRequest, NextResponse } from 'next/server';
+import Stripe from 'stripe';
+import WooCommerceRestApi from '@woocommerce/woocommerce-rest-api';
+
+// Inizializza Stripe
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
+
+// Inizializza WooCommerce API
+const WooCommerce = new WooCommerceRestApi({
+  url: process.env.NEXT_PUBLIC_WORDPRESS_URL || '',
+  consumerKey: process.env.NEXT_PUBLIC_WC_CONSUMER_KEY || '',
+  consumerSecret: process.env.NEXT_PUBLIC_WC_CONSUMER_SECRET || '',
+  version: 'wc/v3'
+});
+
+interface CartItem {
+  product_id: number;
+  variation_id?: number;
+  quantity: number;
+  name: string;
+  price: string;
+}
+
+interface AddressData {
+  first_name: string;
+  last_name: string;
+  email?: string;
+  phone?: string;
+  address_1: string;
+  address_2?: string;
+  city: string;
+  state: string;
+  postcode: string;
+  country: string;
+}
+
+interface ShippingOption {
+  id: string;
+  label: string;
+  amount: number;
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const origin = request.nextUrl.origin;
+    
+    const {
+      cartItems,
+      userId,
+      paymentMethodId,
+      shippingOption,
+      discount = 0,
+      billingData,
+      shippingData
+    }: {
+      cartItems: CartItem[];
+      userId: number;
+      paymentMethodId: string;
+      shippingOption?: ShippingOption;
+      discount?: number;
+      billingData: AddressData;
+      shippingData: AddressData;
+    } = await request.json();
+
+    console.log('🛒 Processando ordine carrello via Payment Request:', {
+      itemsCount: cartItems.length,
+      userId,
+      hasShipping: !!shippingOption,
+      discount
+    });
+
+    // Verifica che ci siano items nel carrello
+    if (!cartItems || cartItems.length === 0) {
+      return NextResponse.json({ error: 'Carrello vuoto' }, { status: 400 });
+    }
+
+    // Verifica la disponibilità di tutti i prodotti e calcola il totale
+    let subtotal = 0;
+    const verifiedItems = [];
+
+    for (const item of cartItems) {
+      try {
+        const productResponse = await WooCommerce.get(`products/${item.product_id}`);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const product: any = productResponse.data;
+
+        if (!product) {
+          throw new Error(`Prodotto ${item.product_id} non trovato`);
+        }
+
+        if (product.stock_status !== 'instock') {
+          throw new Error(`Prodotto "${product.name}" non disponibile`);
+        }
+
+        // Usa il prezzo attuale dal database, non quello dal carrello
+        const unitPrice = parseFloat(product.sale_price || product.price || '0');
+        if (unitPrice <= 0) {
+          throw new Error(`Prezzo non valido per "${product.name}"`);
+        }
+
+        const itemTotal = unitPrice * item.quantity;
+        subtotal += itemTotal;
+
+        verifiedItems.push({
+          product_id: item.product_id,
+          variation_id: item.variation_id || null,
+          quantity: item.quantity,
+          price: unitPrice.toString(),
+          total: itemTotal.toString()
+        });
+
+        console.log(`✓ Prodotto verificato: ${product.name} - €${unitPrice} x${item.quantity} = €${itemTotal}`);
+      } catch (error) {
+        console.error(`Errore verifica prodotto ${item.product_id}:`, error);
+        return NextResponse.json({ 
+          error: `Errore prodotto: ${error instanceof Error ? error.message : 'Prodotto non disponibile'}` 
+        }, { status: 400 });
+      }
+    }
+
+    // Calcola i costi di spedizione
+    const shippingCost = shippingOption ? shippingOption.amount / 100 : 0; // Converti da centesimi
+    
+    // Calcola il totale finale
+    const orderTotal = subtotal - discount + shippingCost;
+    const stripeAmount = Math.round(orderTotal * 100); // Converti in centesimi
+
+    console.log('💰 Calcolo totali:', {
+      subtotal: `€${subtotal.toFixed(2)}`,
+      discount: `€${discount.toFixed(2)}`,
+      shipping: `€${shippingCost.toFixed(2)}`,
+      total: `€${orderTotal.toFixed(2)}`,
+      stripeAmount: `${stripeAmount} centesimi`
+    });
+
+    if (stripeAmount <= 0) {
+      return NextResponse.json({ error: 'Totale ordine non valido' }, { status: 400 });
+    }
+
+    // Crea e conferma il Payment Intent
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: stripeAmount,
+      currency: 'eur',
+      payment_method: paymentMethodId,
+      confirmation_method: 'automatic',
+      confirm: true,
+      return_url: `${origin}/checkout/success`,
+      metadata: {
+        user_id: userId.toString(),
+        items_count: cartItems.length.toString(),
+        subtotal: subtotal.toString(),
+        discount: discount.toString(),
+        shipping_cost: shippingCost.toString(),
+        payment_source: 'payment_request_cart'
+      }
+    });
+
+    console.log(`💳 Payment Intent creato: ${paymentIntent.id} - Status: ${paymentIntent.status}`);
+
+    // Prepara i line items per WooCommerce
+    const lineItems = verifiedItems.map(item => ({
+      product_id: item.product_id,
+      variation_id: item.variation_id || undefined,
+      quantity: item.quantity
+    }));
+
+    // Prepara le linee di spedizione
+    const shippingLines = [];
+    if (shippingOption && shippingCost > 0) {
+      shippingLines.push({
+        method_id: shippingOption.id,
+        method_title: shippingOption.label,
+        total: shippingCost.toFixed(2)
+      });
+    }
+
+    // Crea l'ordine in WooCommerce
+    const orderData = {
+      payment_method: 'stripe',
+      payment_method_title: 'Apple Pay / Google Pay',
+      set_paid: false, // Verrà aggiornato dopo la conferma del pagamento
+      customer_id: userId > 0 ? userId : 0,
+      billing: {
+        first_name: billingData.first_name,
+        last_name: billingData.last_name,
+        address_1: billingData.address_1,
+        address_2: billingData.address_2 || '',
+        city: billingData.city,
+        state: billingData.state,
+        postcode: billingData.postcode,
+        country: billingData.country,
+        email: billingData.email || '',
+        phone: billingData.phone || ''
+      },
+      shipping: {
+        first_name: shippingData.first_name,
+        last_name: shippingData.last_name,
+        address_1: shippingData.address_1,
+        address_2: shippingData.address_2 || '',
+        city: shippingData.city,
+        state: shippingData.state,
+        postcode: shippingData.postcode,
+        country: shippingData.country
+      },
+      line_items: lineItems,
+      shipping_lines: shippingLines,
+      coupon_lines: discount > 0 ? [{
+        code: 'payment_request_discount',
+        discount: discount.toString()
+      }] : [],
+      meta_data: [
+        {
+          key: '_stripe_payment_intent_id',
+          value: paymentIntent.id
+        },
+        {
+          key: '_payment_source',
+          value: 'payment_request_cart'
+        },
+        {
+          key: '_original_subtotal',
+          value: subtotal.toString()
+        }
+      ]
+    };
+
+    console.log('🛍️ Creando ordine WooCommerce con', lineItems.length, 'items');
+
+    const orderResponse = await WooCommerce.post('orders', orderData);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const order: any = orderResponse.data;
+
+    // Aggiorna il Payment Intent con l'order ID
+    await stripe.paymentIntents.update(paymentIntent.id, {
+      metadata: {
+        ...paymentIntent.metadata,
+        wc_order_id: order.id.toString()
+      }
+    });
+
+    console.log(`🎉 Ordine creato: #${order.id}, Payment Intent: ${paymentIntent.id}`);
+
+    // Se il pagamento è confermato, aggiorna lo stato dell'ordine
+    if (paymentIntent.status === 'succeeded') {
+      try {
+        await WooCommerce.put(`orders/${order.id}`, {
+          status: 'processing',
+          set_paid: true,
+          transaction_id: paymentIntent.id
+        });
+        console.log(`✅ Ordine #${order.id} marcato come pagato`);
+      } catch (updateError) {
+        console.error('Errore aggiornamento ordine:', updateError);
+        // Non fallire tutto l'ordine per questo errore
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      order_id: order.id,
+      order_number: order.number,
+      clientSecret: paymentIntent.client_secret,
+      paymentIntentId: paymentIntent.id,
+      total: orderTotal.toFixed(2)
+    });
+
+  } catch (error) {
+    console.error('❌ Errore durante la creazione dell\'ordine carrello Payment Request:', error);
+    
+    return NextResponse.json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Errore durante la creazione dell\'ordine'
+    }, { status: 500 });
+  }
+}

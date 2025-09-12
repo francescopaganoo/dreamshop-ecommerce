@@ -160,6 +160,8 @@ export default function Header() {
     loadCategories();
   }, []);
 
+  // Rimosso Easter Egg tooltip del logo
+
   // Funzioni per gestire l'hover del mega menu
   const handleMegaMenuEnter = () => {
     if (megaMenuTimer.current) {
@@ -218,9 +220,29 @@ export default function Header() {
     <header className="bg-bred-500 shadow-md relative z-30">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
-          {/* Logo - sempre visibile sia mobile che desktop */}
-          <Link href="/" className="text-2xl font-bold text-gray-800 relative">
-            <Image src="/images/logo.webp" alt="Logo DreamShop" width={160} height={40} priority className="w-auto h-auto" />
+          {/* Logo - sempre visibile sia mobile che desktop con hover accattivante */}
+          <Link 
+            href="/" 
+            className="text-2xl font-bold text-gray-800 relative group inline-block"
+            aria-label="DreamShop Home"
+          >
+            {/* Glow sottile che appare al hover */}
+            <div className="pointer-events-none absolute -inset-2 rounded-xl bg-white/10 blur-md opacity-0 transition-opacity duration-300 group-hover:opacity-100"></div>
+
+            {/* Shimmer sweep diagonale solo on-hover */}
+            <span className="pointer-events-none absolute inset-0 overflow-hidden rounded-md">
+              <span className="absolute -inset-y-6 -left-1/3 w-1/4 bg-gradient-to-r from-transparent via-white/60 to-transparent opacity-0 group-hover:opacity-70 transition-all duration-700 ease-out -skew-x-12 -translate-x-full group-hover:translate-x-[350%] mix-blend-screen"></span>
+            </span>
+
+            {/* Logo con micro-tilt e scale su hover */}
+            <Image 
+              src="/images/logo.webp" 
+              alt="Logo DreamShop" 
+              width={160} 
+              height={40} 
+              priority 
+              className="w-auto h-auto transition duration-500 ease-out group-hover:scale-110 group-hover:rotate-2 drop-shadow-md group-hover:brightness-110 group-hover:contrast-110 group-hover:saturate-125"
+            />
           </Link>
 
           {/* Icone sempre visibili su mobile (carrello e wishlist) */}

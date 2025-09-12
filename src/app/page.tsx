@@ -2,6 +2,7 @@ import { getProducts, getCategories, getProductsByCategorySlug, getProductsOnSal
 import ProductList from "@/components/ProductList";
 import CategoryCarousel from "@/components/CategoryCarousel";
 import Link from "next/link";
+import Image from "next/image";
 import {FaArrowRight } from "react-icons/fa";
 //import { FaSearch, FaShoppingCart, FaArrowRight, FaEnvelope, FaRegClock } from "react-icons/fa";
 
@@ -102,35 +103,49 @@ export default async function Home() {
   return (
     <div className="min-h-screen flex flex-col bg-white">
       {/* Hero Section - Design Moderno */}
-      <section className="relative h-[67vh] text-white overflow-hidden">
-        <div className="absolute inset-0 bg-cover bg-center transform hover:scale-105 transition-transform duration-700" style={{ backgroundImage: "url('/images/hero.webp')" }}>
-          <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/10 to-transparent"></div>
-        </div>
-        <div className="relative container mx-auto px-6 h-full flex flex-col justify-center z-10">
-          <div className="max-w-2xl transform transition-all duration-700 translate-y-0 hover:translate-y-[-10px]">
-            {/*<span className="bg-bred-600 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-6 animate-pulse">Collezione 2025</span>*/}
-            <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">Benvenuti su <span className="text-bred-500">DreamShop</span></h1>
-            <p className="text-xl md:text-2xl mb-8 max-w-xl text-gray-200 leading-relaxed">Scopri la nostra collezione esclusiva di statue, figure e trading card di anime e manga</p>
-            <div className="flex flex-wrap gap-4">
-              <Link 
-                href="/products" 
-                className="group bg-bred-500 text-white hover:bg-bred-600 px-8 py-4 rounded-md font-medium inline-flex items-center transition-all duration-300 hover:shadow-lg hover:translate-y-[-2px]"
-              >
-                Scopri il Catalogo
-                <FaArrowRight className="ml-2 group-hover:translate-x-1 transition-transform" />
-              </Link>
-              <Link 
-                href="/offerte" 
-                className="group bg-transparent border-2 border-white text-white hover:bg-white/10 px-8 py-4 rounded-md font-medium inline-flex items-center transition-all duration-300"
-              >
-                Offerte Speciali
-              </Link>
+      <section className="relative text-white overflow-hidden -mt-px">
+        <div className="relative w-full">
+          <Image 
+            src="/images/hero.webp" 
+            alt="DreamShop Hero"
+            width={1920}
+            height={800}
+            priority
+            className="w-full h-auto object-contain"
+          />
+
+          {/* Overlay gradient sulla parte sinistra → destra */}
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/80 via-black/10 to-transparent"></div>
+
+          {/* Testi sovrapposti */}
+          <div className="absolute inset-0">
+            <div className="container mx-auto px-6 h-full flex flex-col justify-center z-10">
+              <div className="max-w-2xl transform transition-all duration-700 translate-y-0 hover:translate-y-[-10px]">
+                {/*<span className="bg-bred-600 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-6 animate-pulse">Collezione 2025</span>*/}
+                <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">Benvenuti su <span className="text-bred-500">DreamShop</span></h1>
+                <p className="text-xl md:text-2xl mb-8 max-w-xl text-gray-200 leading-relaxed">Scopri la nostra collezione esclusiva di statue, figure e trading card di anime e manga</p>
+                <div className="flex flex-wrap gap-4">
+                  <Link 
+                    href="/products" 
+                    className="group bg-bred-500 text-white hover:bg-bred-600 px-8 py-4 rounded-md font-medium inline-flex items-center transition-all duration-300 hover:shadow-lg hover:translate-y-[-2px]"
+                  >
+                    Scopri il Catalogo
+                    <FaArrowRight className="ml-2 group-hover:translate-x-1 transition-transform" />
+                  </Link>
+                  <Link 
+                    href="/offerte" 
+                    className="group bg-transparent border-2 border-white text-white hover:bg-white/10 px-8 py-4 rounded-md font-medium inline-flex items-center transition-all duration-300"
+                  >
+                    Offerte Speciali
+                  </Link>
+                </div>
+              </div>
             </div>
           </div>
+
+          {/* Sfumatura in basso, aderente al bordo dell'immagine */}
+          <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-20 bg-gradient-to-t from-white to-transparent"></div>
         </div>
-        
-        {/* Decorazioni aggiuntive */}
-        <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-white to-transparent"></div>
       </section>
 
       {/* Features Section */}
