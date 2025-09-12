@@ -214,7 +214,7 @@ export default function CategorySidebar({
                       : 'text-gray-700 hover:bg-gray-100 hover:text-bred-600'
                   }`}
                 >
-                  {decodeHtmlEntities(brand.name)}{typeof brand.count === 'number' ? ` (${brand.count})` : ''}
+                  {decodeHtmlEntities(brand.name)}
                 </Link>
               </li>
             ))}

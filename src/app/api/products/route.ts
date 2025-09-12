@@ -9,9 +9,9 @@ export async function GET(request: NextRequest) {
     const orderby = searchParams.get('orderby') || 'date';
     const order = searchParams.get('order') || 'desc';
     
-    const products = await getProducts(page, limit, orderby, order);
+    const productsResponse = await getProducts(page, limit, orderby, order);
     
-    return NextResponse.json(products);
+    return NextResponse.json(productsResponse);
   } catch (error) {
     console.error('Error fetching products:', error);
     return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 });

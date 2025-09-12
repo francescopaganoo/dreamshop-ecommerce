@@ -10,7 +10,7 @@ import {FaArrowRight } from "react-icons/fa";
 export const revalidate = 300;
 
 async function getFeaturedProducts(): Promise<Product[]> {
-  const products = await getProducts(1, 20, 'date', 'desc');
+  const { products } = await getProducts(1, 20, 'date', 'desc');
   return products.filter(product => product.stock_status === 'instock').slice(0, 8);
 }
 

@@ -156,7 +156,7 @@ export interface ShippingMethod {
 }
 
 // Fetch all products
-export async function getProducts(page = 1, per_page = 10, orderby = 'date', order = 'desc'): Promise<Product[]> {
+export async function getProducts(page = 1, per_page = 10, orderby = 'date', order = 'desc'): Promise<{ products: Product[], total: number }> {
   try {
     // Utilizziamo un timestamp per generare una chiave di cache che include i parametri di ordinamento
     const cacheKey = `products_${page}_${per_page}_${orderby}_${order}_${Math.floor(Date.now() / (1000 * 300))}`;
@@ -165,12 +165,12 @@ export async function getProducts(page = 1, per_page = 10, orderby = 'date', ord
     if (typeof window !== 'undefined') {
       const cachedData = sessionStorage.getItem(cacheKey);
       if (cachedData) {
-        return JSON.parse(cachedData) as Product[];
+        return JSON.parse(cachedData) as { products: Product[], total: number };
       }
     }
     
     // Se non abbiamo dati in cache, facciamo la chiamata API
-    const { data } = await api.get('products', {
+    const response = await api.get('products', {
       per_page,
       page,
       status: 'publish', // Include solo i prodotti pubblicati, esclude le bozze
@@ -178,15 +178,19 @@ export async function getProducts(page = 1, per_page = 10, orderby = 'date', ord
       order, // asc o desc
     });
     
+    const products = response.data as Product[];
+    const total = parseInt((response.headers as any)['x-wp-total'] || '0', 10);
+    const result = { products, total };
+    
     // Salviamo i dati in cache (solo lato client)
     if (typeof window !== 'undefined') {
-      sessionStorage.setItem(cacheKey, JSON.stringify(data));
+      sessionStorage.setItem(cacheKey, JSON.stringify(result));
     }
     
-    return data as Product[];
+    return result;
   } catch (error) {
     console.error('Error fetching products:', error);
-    return [];
+    return { products: [], total: 0 };
   }
 }
 
@@ -431,14 +435,25 @@ export async function getProductsByBrand(brandId: number, page = 1, per_page = 1
   }
 }
 
-export async function getProductsByBrandSlug(brandSlug: string, page = 1, per_page = 10): Promise<Product[]> {
+export async function getProductsByBrandSlug(brandSlug: string, page = 1, per_page = 10): Promise<{ products: Product[], total: number }> {
   try {
     const brand = await getBrandBySlug(brandSlug);
-    if (!brand) return [];
-    return await getProductsByBrand(brand.id, page, per_page);
+    if (!brand) return { products: [], total: 0 };
+    
+    const response = await api.get('products', {
+      brand: brand.id,
+      per_page,
+      page,
+      status: 'publish',
+    });
+    
+    const products = response.data as Product[];
+    const total = parseInt((response.headers as any)['x-wp-total'] || '0', 10);
+    
+    return { products, total };
   } catch (error) {
     console.error(`Error fetching products for brand slug ${brandSlug}:`, error);
-    return [];
+    return { products: [], total: 0 };
   }
 }
 

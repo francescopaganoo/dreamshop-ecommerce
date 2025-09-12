@@ -11,6 +11,7 @@ import { useSearchParams } from 'next/navigation';
 
 function ProductsPageContent() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [totalProducts, setTotalProducts] = useState(0);
   const [categories, setCategories] = useState<ExtendedCategory[]>([]);
   const [availabilityOptions, setAvailabilityOptions] = useState<AttributeValue[]>([]);
   const [shippingTimeOptions, setShippingTimeOptions] = useState<AttributeValue[]>([]);
@@ -32,18 +33,19 @@ function ProductsPageContent() {
           getShippingTimeOptions(),
           getBrands()
         ]);
-        let productsData: Product[] = [];
+        let productsResponse: { products: Product[], total: number };
         if (brandSlug) {
-          productsData = await getProductsByBrandSlug(brandSlug, page, perPage);
+          productsResponse = await getProductsByBrandSlug(brandSlug, page, perPage);
         } else {
-          productsData = await getProducts(page, perPage);
+          productsResponse = await getProducts(page, perPage);
         }
         
         setCategories(categoriesData);
         setAvailabilityOptions(availabilityData);
         setShippingTimeOptions(shippingData);
         setBrands(brandsData);
-        setProducts(productsData);
+        setProducts(productsResponse.products);
+        setTotalProducts(productsResponse.total);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -141,10 +143,10 @@ function ProductsPageContent() {
                       {(() => {
                         const pageNumbers = [];
                         const maxVisible = 7;
-                        const hasNextPage = products.length === perPage;
+                        const maxPage = Math.ceil(totalProducts / perPage);
                         
                         const start = Math.max(1, page - Math.floor(maxVisible / 2));
-                        const end = start + maxVisible - 1;
+                        const end = Math.min(maxPage, start + maxVisible - 1);
                         
                         // Aggiungi prima pagina se non è visibile
                         if (start > 1) {
@@ -176,7 +178,7 @@ function ProductsPageContent() {
                                 {i}
                               </span>
                             );
-                          } else if (i < page || (i > page && i <= page + 2 && hasNextPage)) {
+                          } else if (i <= maxPage) {
                             pageNumbers.push(
                               <Link 
                                 key={i}
@@ -193,7 +195,7 @@ function ProductsPageContent() {
                       })()}
                       
                       {/* Successivo */}
-                      {products.length === perPage && (
+                      {page < Math.ceil(totalProducts / perPage) && (
                         <Link 
                           href={`/products?page=${page + 1}${brandSlug ? `&brand=${encodeURIComponent(brandSlug)}` : ''}`}
                           className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 ml-2"
