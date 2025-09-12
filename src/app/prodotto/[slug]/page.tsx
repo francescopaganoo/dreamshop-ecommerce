@@ -44,6 +44,21 @@ async function ProductDetails({ slug }: { slug: string }) {
     notFound();
   }
   
+  // Determina la categoria primaria utilizzando Yoast (se disponibile)
+  const primaryCategory = (() => {
+    try {
+      const primaryMeta = product.meta_data?.find(m => m.key === '_yoast_wpseo_primary_product_cat');
+      const primaryId = primaryMeta ? parseInt(String(primaryMeta.value), 10) : undefined;
+      if (primaryId && product.categories && Array.isArray(product.categories)) {
+        const match = product.categories.find(c => c.id === primaryId);
+        if (match) return match;
+      }
+    } catch {
+      // no-op: fallback gestito sotto
+    }
+    return product.categories?.[0];
+  })();
+  
   
   // Format price with currency symbol
   const formatPrice = (price: string | null | undefined) => {
@@ -67,14 +82,14 @@ async function ProductDetails({ slug }: { slug: string }) {
             <Link href="/" className="text-gray-500 hover:text-bred-500">Home</Link>
           </li>
           <li className="text-gray-500">/</li>
-          {product.categories && product.categories.length > 0 && (
+          {primaryCategory && (
             <>
               <li>
                 <Link 
-                  href={`/category/${product.categories[0].slug}`} 
+                  href={`/category/${primaryCategory.slug}`} 
                   className="text-gray-500 hover:text-bred-500"
                 >
-                  {product.categories[0].name}
+                  {primaryCategory.name}
                 </Link>
               </li>
               <li className="text-gray-500">/</li>
