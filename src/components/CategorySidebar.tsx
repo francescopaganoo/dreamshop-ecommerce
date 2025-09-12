@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ExtendedCategory, AttributeValue } from '@/lib/api';
+import { ExtendedCategory, AttributeValue, Brand } from '@/lib/api';
 import { useState } from 'react';
 import { FaChevronDown, FaChevronUp, FaTimes, FaHome } from 'react-icons/fa';
 
@@ -21,6 +21,8 @@ interface CategorySidebarProps {
   availabilityOptions?: AttributeValue[];
   shippingTimeOptions?: AttributeValue[];
   currentCategorySlug?: string;
+  brands?: Brand[];
+  currentBrandSlug?: string;
   isOpen?: boolean;
   onClose?: () => void;
   showAllCategoriesActive?: boolean;
@@ -31,6 +33,8 @@ export default function CategorySidebar({
   availabilityOptions = [], 
   shippingTimeOptions = [], 
   currentCategorySlug, 
+  brands = [],
+  currentBrandSlug,
   isOpen = false, 
   onClose, 
   showAllCategoriesActive = false 
@@ -38,10 +42,12 @@ export default function CategorySidebar({
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [showAllAvailability, setShowAllAvailability] = useState(false);
   const [showAllShipping, setShowAllShipping] = useState(false);
+  const [showAllBrands, setShowAllBrands] = useState(false);
 
   const displayedCategories = showAllCategories ? categories : categories.slice(0, 8);
   const displayedAvailability = showAllAvailability ? availabilityOptions : availabilityOptions.slice(0, 6);
   const displayedShipping = showAllShipping ? shippingTimeOptions : shippingTimeOptions.slice(0, 6);
+  const displayedBrands = showAllBrands ? brands : brands.slice(0, 8);
 
   return (
     <>
@@ -184,6 +190,47 @@ export default function CategorySidebar({
               ) : (
                 <>
                   Mostra tutte ({availabilityOptions.length - 6} in più) <FaChevronDown className="text-xs" />
+                </>
+              )}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Brands Section */}
+      {brands.length > 0 && (
+        <div className="mb-8">
+          <h3 className="text-lg font-bold text-gray-900 mb-4 border-b border-gray-100 pb-2">
+            Marchi
+          </h3>
+          <ul className="space-y-2">
+            {displayedBrands.map((brand) => (
+              <li key={brand.id}>
+                <Link
+                  href={`/products?brand=${encodeURIComponent(brand.slug)}`}
+                  className={`block py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+                    currentBrandSlug === brand.slug
+                      ? 'bg-bred-500 text-white'
+                      : 'text-gray-700 hover:bg-gray-100 hover:text-bred-600'
+                  }`}
+                >
+                  {decodeHtmlEntities(brand.name)}{typeof brand.count === 'number' ? ` (${brand.count})` : ''}
+                </Link>
+              </li>
+            ))}
+          </ul>
+          {brands.length > 8 && (
+            <button
+              onClick={() => setShowAllBrands(!showAllBrands)}
+              className="mt-3 text-sm text-bred-600 hover:text-bred-700 flex items-center gap-1"
+            >
+              {showAllBrands ? (
+                <>
+                  Mostra meno <FaChevronUp className="text-xs" />
+                </>
+              ) : (
+                <>
+                  Mostra tutti ({brands.length - 8} in più) <FaChevronDown className="text-xs" />
                 </>
               )}
             </button>

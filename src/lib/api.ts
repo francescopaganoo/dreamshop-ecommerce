@@ -101,6 +101,14 @@ export interface Category {
   };
 }
 
+// Brand (product_brand taxonomy)
+export interface Brand {
+  id: number;
+  name: string;
+  slug: string;
+  count?: number;
+}
+
 export interface Coupon {
   id: number;
   code: string;
@@ -360,6 +368,77 @@ export async function getCategoryBySlug(slug: string): Promise<Category | null> 
   } catch (error) {
     console.error(`Error fetching category with slug ${slug}:`, error);
     return null;
+  }
+}
+
+// Fetch brands (product_brand terms from WP REST API)
+export async function getBrands(): Promise<Brand[]> {
+  try {
+    const cacheKey = `brands_${Math.floor(Date.now() / (1000 * 300))}`;
+    if (typeof window !== 'undefined') {
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) return JSON.parse(cached) as Brand[];
+    }
+
+    const baseUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL?.replace(/\/$/, '') || '';
+    const res = await fetch(`${baseUrl}/wp-json/wp/v2/product_brand?per_page=100&_fields=id,slug,name,count`, {
+      // Public taxonomy; no auth required
+      cache: 'no-store'
+    });
+    if (!res.ok) throw new Error(`Failed to fetch brands: ${res.status}`);
+    const data = (await res.json()) as Array<{ id: number; slug: string; name: string; count?: number }>;
+    const brands: Brand[] = data.map(b => ({ id: b.id, slug: b.slug, name: b.name, count: b.count }));
+
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem(cacheKey, JSON.stringify(brands));
+    }
+    return brands;
+  } catch (error) {
+    console.error('Error fetching brands:', error);
+    return [];
+  }
+}
+
+export async function getBrandBySlug(slug: string): Promise<Brand | null> {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL?.replace(/\/$/, '') || '';
+    const res = await fetch(`${baseUrl}/wp-json/wp/v2/product_brand?slug=${encodeURIComponent(slug)}&_fields=id,slug,name,count`, {
+      cache: 'no-store'
+    });
+    if (!res.ok) throw new Error(`Failed to fetch brand ${slug}: ${res.status}`);
+    const arr = (await res.json()) as Array<{ id: number; slug: string; name: string; count?: number }>;
+    if (arr && arr.length > 0) return { id: arr[0].id, slug: arr[0].slug, name: arr[0].name, count: arr[0].count };
+    return null;
+  } catch (error) {
+    console.error(`Error fetching brand with slug ${slug}:`, error);
+    return null;
+  }
+}
+
+// Fetch products filtered by brand id (product_brand term)
+export async function getProductsByBrand(brandId: number, page = 1, per_page = 10): Promise<Product[]> {
+  try {
+    const { data } = await api.get('products', {
+      brand: brandId,
+      per_page,
+      page,
+      status: 'publish',
+    });
+    return data as Product[];
+  } catch (error) {
+    console.error(`Error fetching products for brand ${brandId}:`, error);
+    return [];
+  }
+}
+
+export async function getProductsByBrandSlug(brandSlug: string, page = 1, per_page = 10): Promise<Product[]> {
+  try {
+    const brand = await getBrandBySlug(brandSlug);
+    if (!brand) return [];
+    return await getProductsByBrand(brand.id, page, per_page);
+  } catch (error) {
+    console.error(`Error fetching products for brand slug ${brandSlug}:`, error);
+    return [];
   }
 }
 
@@ -1377,4 +1456,3 @@ export async function getShippingTimeOptions(): Promise<AttributeValue[]> {
     return [];
   }
 }
-

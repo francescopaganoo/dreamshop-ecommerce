@@ -1,6 +1,6 @@
 'use client';
 
-import { getProducts, getMegaMenuCategories, getAvailabilityOptions, getShippingTimeOptions, Product, ExtendedCategory, AttributeValue } from '../../lib/api';
+import { getProducts, getMegaMenuCategories, getAvailabilityOptions, getShippingTimeOptions, getBrands, getProductsByBrandSlug, Product, ExtendedCategory, AttributeValue, Brand } from '../../lib/api';
 import ProductCard from '../../components/ProductCard';
 import CategorySidebar from '../../components/CategorySidebar';
 import MobileFilterButton from '../../components/MobileFilterButton';
@@ -14,27 +14,36 @@ function ProductsPageContent() {
   const [categories, setCategories] = useState<ExtendedCategory[]>([]);
   const [availabilityOptions, setAvailabilityOptions] = useState<AttributeValue[]>([]);
   const [shippingTimeOptions, setShippingTimeOptions] = useState<AttributeValue[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
   const searchParams = useSearchParams();
   const page = parseInt(searchParams.get('page') || '1', 10);
+  const brandSlug = searchParams.get('brand') || '';
   const perPage = 12;
   
   useEffect(() => {
     async function fetchData() {
       try {
-        const [productsData, categoriesData, availabilityData, shippingData] = await Promise.all([
-          getProducts(page, perPage),
+        const [categoriesData, availabilityData, shippingData, brandsData] = await Promise.all([
           getMegaMenuCategories(),
           getAvailabilityOptions(),
-          getShippingTimeOptions()
+          getShippingTimeOptions(),
+          getBrands()
         ]);
+        let productsData: Product[] = [];
+        if (brandSlug) {
+          productsData = await getProductsByBrandSlug(brandSlug, page, perPage);
+        } else {
+          productsData = await getProducts(page, perPage);
+        }
         
-        setProducts(productsData);
         setCategories(categoriesData);
         setAvailabilityOptions(availabilityData);
         setShippingTimeOptions(shippingData);
+        setBrands(brandsData);
+        setProducts(productsData);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -43,7 +52,7 @@ function ProductsPageContent() {
     }
     
     fetchData();
-  }, [page, perPage]);
+  }, [page, perPage, brandSlug]);
   
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Caricamento...</div>;
@@ -98,6 +107,8 @@ function ProductsPageContent() {
                 categories={categories} 
                 availabilityOptions={availabilityOptions}
                 shippingTimeOptions={shippingTimeOptions}
+                brands={brands}
+                currentBrandSlug={brandSlug || undefined}
                 isOpen={isSidebarOpen}
                 onClose={() => setIsSidebarOpen(false)}
               />
@@ -106,11 +117,93 @@ function ProductsPageContent() {
             {/* Products Grid */}
             <div className="flex-1">
               {products.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                  {products.map((product: Product) => (
-                    <ProductCard key={product.id} product={product} />
-                  ))}
-                </div>
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                    {products.map((product: Product) => (
+                      <ProductCard key={product.id} product={product} />
+                    ))}
+                  </div>
+                  
+                  {/* Pagination */}
+                  <div className="mt-12 flex justify-center">
+                    <div className="flex items-center space-x-1">
+                      {/* Precedente */}
+                      {page > 1 && (
+                        <Link 
+                          href={`/products?page=${page - 1}${brandSlug ? `&brand=${encodeURIComponent(brandSlug)}` : ''}`}
+                          className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 mr-2"
+                        >
+                          Precedente
+                        </Link>
+                      )}
+                      
+                      {/* Numeri pagina */}
+                      {(() => {
+                        const pageNumbers = [];
+                        const maxVisible = 7;
+                        const hasNextPage = products.length === perPage;
+                        
+                        const start = Math.max(1, page - Math.floor(maxVisible / 2));
+                        const end = start + maxVisible - 1;
+                        
+                        // Aggiungi prima pagina se non è visibile
+                        if (start > 1) {
+                          pageNumbers.push(
+                            <Link 
+                              key={1}
+                              href={`/products?page=1${brandSlug ? `&brand=${encodeURIComponent(brandSlug)}` : ''}`}
+                              className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100"
+                            >
+                              1
+                            </Link>
+                          );
+                          
+                          if (start > 2) {
+                            pageNumbers.push(
+                              <span key="dots1" className="px-2 py-2 text-gray-500">...</span>
+                            );
+                          }
+                        }
+                        
+                        // Pagine centrali
+                        for (let i = start; i <= end; i++) {
+                          if (i === page) {
+                            pageNumbers.push(
+                              <span 
+                                key={i}
+                                className="px-3 py-2 bg-gray-200 text-gray-700 rounded-md font-medium cursor-not-allowed"
+                              >
+                                {i}
+                              </span>
+                            );
+                          } else if (i < page || (i > page && i <= page + 2 && hasNextPage)) {
+                            pageNumbers.push(
+                              <Link 
+                                key={i}
+                                href={`/products?page=${i}${brandSlug ? `&brand=${encodeURIComponent(brandSlug)}` : ''}`}
+                                className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100"
+                              >
+                                {i}
+                              </Link>
+                            );
+                          }
+                        }
+                        
+                        return pageNumbers;
+                      })()}
+                      
+                      {/* Successivo */}
+                      {products.length === perPage && (
+                        <Link 
+                          href={`/products?page=${page + 1}${brandSlug ? `&brand=${encodeURIComponent(brandSlug)}` : ''}`}
+                          className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 ml-2"
+                        >
+                          Successivo
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                </>
               ) : (
                 <div className="text-center py-20">
                   <div className="max-w-md mx-auto">
@@ -127,86 +220,6 @@ function ProductsPageContent() {
                     </Link>
                   </div>
                 </div>
-              )}
-            </div>
-          </div>
-          
-          {/* Pagination */}
-          <div className="mt-12 flex justify-center">
-            <div className="flex items-center space-x-1">
-              {/* Precedente */}
-              {page > 1 && (
-                <Link 
-                  href={`/products?page=${page - 1}`}
-                  className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 mr-2"
-                >
-                  Precedente
-                </Link>
-              )}
-              
-              {/* Numeri pagina */}
-              {(() => {
-                const pageNumbers = [];
-                const maxVisible = 7;
-                const hasNextPage = products.length === perPage;
-                
-                const start = Math.max(1, page - Math.floor(maxVisible / 2));
-                const end = start + maxVisible - 1;
-                
-                // Aggiungi prima pagina se non è visibile
-                if (start > 1) {
-                  pageNumbers.push(
-                    <Link 
-                      key={1}
-                      href="/products?page=1"
-                      className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100"
-                    >
-                      1
-                    </Link>
-                  );
-                  
-                  if (start > 2) {
-                    pageNumbers.push(
-                      <span key="dots1" className="px-2 py-2 text-gray-500">...</span>
-                    );
-                  }
-                }
-                
-                // Pagine centrali
-                for (let i = start; i <= end; i++) {
-                  if (i === page) {
-                    pageNumbers.push(
-                      <span 
-                        key={i}
-                        className="px-3 py-2 bg-gray-200 text-gray-700 rounded-md font-medium cursor-not-allowed"
-                      >
-                        {i}
-                      </span>
-                    );
-                  } else if (i < page || (i > page && i <= page + 2 && hasNextPage)) {
-                    pageNumbers.push(
-                      <Link 
-                        key={i}
-                        href={`/products?page=${i}`}
-                        className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100"
-                      >
-                        {i}
-                      </Link>
-                    );
-                  }
-                }
-                
-                return pageNumbers;
-              })()}
-              
-              {/* Successivo */}
-              {products.length === perPage && (
-                <Link 
-                  href={`/products?page=${page + 1}`}
-                  className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 ml-2"
-                >
-                  Successivo
-                </Link>
               )}
             </div>
           </div>
