@@ -1,6 +1,6 @@
 'use client';
 
-import { getMegaMenuCategories, getAvailabilityOptions, getShippingTimeOptions, getBrands, ExtendedCategory, AttributeValue, Brand } from '../../lib/api';
+import { getMegaMenuCategories, getBrands, ExtendedCategory, Brand } from '../../lib/api';
 import CategorySidebar from '../../components/CategorySidebar';
 import MobileFilterButton from '../../components/MobileFilterButton';
 import Image from 'next/image';
@@ -21,8 +21,6 @@ function decodeHtmlEntitiesServer(text: string): string {
 
 export default function CategoriesPage() {
   const [megaMenuCategories, setMegaMenuCategories] = useState<ExtendedCategory[]>([]);
-  const [availabilityOptions, setAvailabilityOptions] = useState<AttributeValue[]>([]);
-  const [shippingTimeOptions, setShippingTimeOptions] = useState<AttributeValue[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -30,16 +28,13 @@ export default function CategoriesPage() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const [categoriesData, availabilityData, shippingData, brandsData] = await Promise.all([
+        // Carica categorie e marchi (ottimizzato: solo 2 chiamate invece di 4)
+        const [categoriesData, brandsData] = await Promise.all([
           getMegaMenuCategories(),
-          getAvailabilityOptions(),
-          getShippingTimeOptions(),
           getBrands()
         ]);
         
         setMegaMenuCategories(categoriesData);
-        setAvailabilityOptions(availabilityData);
-        setShippingTimeOptions(shippingData);
         setBrands(brandsData);
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -93,8 +88,8 @@ export default function CategoriesPage() {
             <div className="lg:order-first">
               <CategorySidebar 
                 categories={megaMenuCategories} 
-                availabilityOptions={availabilityOptions}
-                shippingTimeOptions={shippingTimeOptions}
+                availabilityOptions={[]}
+                shippingTimeOptions={[]}
                 brands={brands}
                 isOpen={isSidebarOpen}
                 onClose={() => setIsSidebarOpen(false)}
@@ -120,9 +115,12 @@ export default function CategoriesPage() {
                             src={category.image.src}
                             alt={decodeHtmlEntitiesServer(category.name)}
                             fill
-                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
+                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                             style={{ objectFit: 'cover' }}
                             className="group-hover:scale-110 transition-transform duration-700"
+                            loading="lazy"
+                            placeholder="blur"
+                            blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R//2Q=="
                           />
                         ) : (
                           <div className="absolute inset-0 bg-gradient-to-br from-bred-500 via-orange-500 to-red-500"></div>
