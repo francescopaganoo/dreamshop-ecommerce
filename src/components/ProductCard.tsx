@@ -140,7 +140,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   return (
     <motion.div 
       id={`product-card-${product.id}`} 
-      className="bg-white rounded-3xl shadow-sm flex flex-col h-full relative border border-gray-100 p-5"
+      className="md:bg-white md:rounded-3xl md:shadow-sm flex flex-col h-full relative md:border md:border-gray-100 p-2 md:p-5"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
@@ -166,8 +166,8 @@ export default function ProductCard({ product }: ProductCardProps) {
       )}
       
       {/* Immagine prodotto semplificata - stile minimalista */}
-      <Link href={`/prodotto/${product.slug}`} className="block mb-5">
-        <div className="relative h-52 w-full transition-all duration-300">
+      <Link href={`/prodotto/${product.slug}`} className="block mb-2 md:mb-5">
+        <div className="relative h-40 md:h-52 w-full transition-all duration-300">
           <Image
             src={imageUrl}
             alt={product.name}
@@ -180,9 +180,9 @@ export default function ProductCard({ product }: ProductCardProps) {
       </Link>
       
       {/* Contenuto testuale minimalista */}
-      <div className="flex flex-col flex-grow space-y-3">
+      <div className="flex flex-col flex-grow space-y-1 md:space-y-3">
         <Link href={`/prodotto/${product.slug}`} className="block">
-          <h3 className="text-xl font-medium text-gray-900 line-clamp-1">{product.name}</h3>
+          <h3 className="text-sm md:text-xl font-medium text-gray-900 line-clamp-2 md:line-clamp-1">{product.name}</h3>
         </Link>
         
         
@@ -191,19 +191,19 @@ export default function ProductCard({ product }: ProductCardProps) {
           {product.sale_price ? (
             <div className="flex items-center space-x-2">
               {formatPrice(product.sale_price) && (
-                <span className="text-xl font-medium text-gray-900">
+                <span className="text-base md:text-xl font-medium text-gray-900">
                   {formatPrice(product.sale_price)}
                 </span>
               )}
               {formatPrice(product.regular_price) && (
-                <span className="text-sm line-through text-gray-400">
+                <span className="text-xs md:text-sm line-through text-gray-400">
                   {formatPrice(product.regular_price)}
                 </span>
               )}
             </div>
           ) : (
             formatPrice(product.price || product.regular_price) && (
-              <span className="text-xl font-medium text-gray-900">
+              <span className="text-base md:text-xl font-medium text-gray-900">
                 {formatPrice(product.price || product.regular_price)}
               </span>
             )
@@ -217,17 +217,17 @@ export default function ProductCard({ product }: ProductCardProps) {
           )}*/}
         </div>
         
-        {/* Spazio extra tra prezzo e pulsante */}
-        <div className="pt-2"></div>
+        {/* Spazio extra tra prezzo e pulsante - ridotto su mobile */}
+        <div className="pt-1 md:pt-2"></div>
         
         {/* Spazio vuoto per pushare il pulsante in basso */}
         <div className="flex-grow"></div>
         
-        {/* Button con colore originale e cursor-pointer */}
+        {/* Button con colore originale e cursor-pointer - più compatto su mobile */}
         <motion.button
           onClick={handleButtonClick}
           disabled={isAddingToCart || (!isVariable && !isInStock)}
-          className={`w-full py-2.5 rounded-md font-medium flex items-center justify-center transition-colors ${
+          className={`w-full py-2 md:py-2.5 rounded-md text-xs md:text-base font-medium flex items-center justify-center transition-colors ${
             !isVariable && !isInStock
               ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
               : isVariable 
@@ -236,28 +236,40 @@ export default function ProductCard({ product }: ProductCardProps) {
           }`}
           whileTap={!isVariable && !isInStock ? {} : { scale: 0.98 }}
         >
-          <FaPlus className="mr-2" size={12} />
-          {isVariable 
-            ? "Seleziona Opzioni" 
-            : !isInStock
-              ? "Non disponibile"
-              : isPreOrder
-                ? "Pre-ordina ora"
-                : "Aggiungi al Carrello"
-          }
+          <FaPlus className="mr-1 md:mr-2" size={10} />
+          <span className="hidden md:inline">
+            {isVariable 
+              ? "Seleziona Opzioni" 
+              : !isInStock
+                ? "Non disponibile"
+                : isPreOrder
+                  ? "Pre-ordina ora"
+                  : "Aggiungi al Carrello"
+            }
+          </span>
+          <span className="md:hidden">
+            {isVariable 
+              ? "Opzioni" 
+              : !isInStock
+                ? "N/A"
+                : isPreOrder
+                  ? "Pre-ordina"
+                  : "Carrello"
+            }
+          </span>
         </motion.button>
         
-        {/* Wishlist Button riposizionato */}
-        <div className="absolute top-5 right-5">
+        {/* Wishlist Button riposizionato - più piccolo su mobile */}
+        <div className="absolute top-2 right-2 md:top-5 md:right-5">
           <WishlistButton productId={product.id} />
         </div>
         
-        {/* Badge offerta - se necessario */}
+        {/* Badge offerta - se necessario - più piccolo su mobile */}
         {product.sale_price && (
-          <div className="absolute top-5 left-5">
-            <div className="bg-green-500 text-white text-xs font-medium px-2 py-1 rounded-md">
+          <div className="absolute top-2 left-2 md:top-5 md:left-5">
+            <div className="bg-green-500 text-white text-xs font-medium px-1 py-1 md:px-2 md:py-1 rounded-md">
               {product.regular_price && product.sale_price 
-                ? `Offerta -${Math.ceil(((parseFloat(product.regular_price) - parseFloat(product.sale_price)) / parseFloat(product.regular_price)) * 100)}%`
+                ? `-${Math.ceil(((parseFloat(product.regular_price) - parseFloat(product.sale_price)) / parseFloat(product.regular_price)) * 100)}%`
                 : 'Offerta'}
             </div>
           </div>
