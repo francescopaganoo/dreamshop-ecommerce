@@ -11,7 +11,7 @@ export const paypalOptions = {
   // Locale Italia
   locale: 'it_IT',
   // Gestione errori migliorata
-  onError: (error: any) => {
+  onError: (error: Error | unknown) => {
     console.warn('PayPal SDK Error (handled):', error);
     // Non propagare l'errore per evitare unhandled exceptions
   },

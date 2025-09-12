@@ -179,7 +179,7 @@ export async function getProducts(page = 1, per_page = 10, orderby = 'date', ord
     });
     
     const products = response.data as Product[];
-    const total = parseInt((response.headers as any)['x-wp-total'] || '0', 10);
+    const total = parseInt((response.headers as Record<string, string>)['x-wp-total'] || '0', 10);
     const result = { products, total };
     
     // Salviamo i dati in cache (solo lato client)
@@ -448,7 +448,7 @@ export async function getProductsByBrandSlug(brandSlug: string, page = 1, per_pa
     });
     
     const products = response.data as Product[];
-    const total = parseInt((response.headers as any)['x-wp-total'] || '0', 10);
+    const total = parseInt((response.headers as Record<string, string>)['x-wp-total'] || '0', 10);
     
     return { products, total };
   } catch (error) {
