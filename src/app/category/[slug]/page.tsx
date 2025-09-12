@@ -1,6 +1,6 @@
 'use client';
 
-import { getProductsByCategorySlug, getCategoryBySlug, getMegaMenuCategories, getAvailabilityOptions, getShippingTimeOptions, Product, Category, ExtendedCategory, AttributeValue } from '../../../lib/api';
+import { getProductsByCategorySlug, getCategoryBySlug, getMegaMenuCategories, getAvailabilityOptions, getShippingTimeOptions, getBrands, Product, Category, ExtendedCategory, AttributeValue, Brand } from '../../../lib/api';
 import ProductCard from '../../../components/ProductCard';
 import CategorySidebar from '../../../components/CategorySidebar';
 import MobileFilterButton from '../../../components/MobileFilterButton';
@@ -22,6 +22,7 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
   const [categories, setCategories] = useState<ExtendedCategory[]>([]);
   const [availabilityOptions, setAvailabilityOptions] = useState<AttributeValue[]>([]);
   const [shippingTimeOptions, setShippingTimeOptions] = useState<AttributeValue[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
@@ -35,12 +36,13 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
   useEffect(() => {
     async function fetchData() {
       try {
-        const [categoryData, productsData, categoriesData, availabilityData, shippingData] = await Promise.all([
+        const [categoryData, productsData, categoriesData, availabilityData, shippingData, brandsData] = await Promise.all([
           getCategoryBySlug(categorySlug),
           getProductsByCategorySlug(categorySlug, page, perPage),
           getMegaMenuCategories(),
           getAvailabilityOptions(),
-          getShippingTimeOptions()
+          getShippingTimeOptions(),
+          getBrands()
         ]);
         
         setCategory(categoryData);
@@ -48,6 +50,7 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
         setCategories(categoriesData);
         setAvailabilityOptions(availabilityData);
         setShippingTimeOptions(shippingData);
+        setBrands(brandsData);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -104,6 +107,7 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
                 categories={categories} 
                 availabilityOptions={availabilityOptions}
                 shippingTimeOptions={shippingTimeOptions}
+                brands={brands}
                 currentCategorySlug={categorySlug}
                 isOpen={isSidebarOpen}
                 onClose={() => setIsSidebarOpen(false)}

@@ -367,7 +367,7 @@ export default function CartPage() {
               <h2 className="text-2xl font-semibold mb-4 text-gray-600">Il carrello è vuoto</h2>
               <p className="text-gray-600 mb-6">Sembra che non hai ancora aggiunto alcun prodotto al carrello</p>
               <Link 
-                href="/"
+                href="/products"
                 className="bg-bred-500 text-white px-6 py-3 rounded-md font-medium hover:bg-bred-700 transition-colors"
               >
                 Vai allo shop

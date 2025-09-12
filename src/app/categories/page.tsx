@@ -1,6 +1,6 @@
 'use client';
 
-import { getMegaMenuCategories, getAvailabilityOptions, getShippingTimeOptions, ExtendedCategory, AttributeValue } from '../../lib/api';
+import { getMegaMenuCategories, getAvailabilityOptions, getShippingTimeOptions, getBrands, ExtendedCategory, AttributeValue, Brand } from '../../lib/api';
 import CategorySidebar from '../../components/CategorySidebar';
 import MobileFilterButton from '../../components/MobileFilterButton';
 import Image from 'next/image';
@@ -23,21 +23,24 @@ export default function CategoriesPage() {
   const [megaMenuCategories, setMegaMenuCategories] = useState<ExtendedCategory[]>([]);
   const [availabilityOptions, setAvailabilityOptions] = useState<AttributeValue[]>([]);
   const [shippingTimeOptions, setShippingTimeOptions] = useState<AttributeValue[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
   useEffect(() => {
     async function fetchData() {
       try {
-        const [categoriesData, availabilityData, shippingData] = await Promise.all([
+        const [categoriesData, availabilityData, shippingData, brandsData] = await Promise.all([
           getMegaMenuCategories(),
           getAvailabilityOptions(),
-          getShippingTimeOptions()
+          getShippingTimeOptions(),
+          getBrands()
         ]);
         
         setMegaMenuCategories(categoriesData);
         setAvailabilityOptions(availabilityData);
         setShippingTimeOptions(shippingData);
+        setBrands(brandsData);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -92,6 +95,7 @@ export default function CategoriesPage() {
                 categories={megaMenuCategories} 
                 availabilityOptions={availabilityOptions}
                 shippingTimeOptions={shippingTimeOptions}
+                brands={brands}
                 isOpen={isSidebarOpen}
                 onClose={() => setIsSidebarOpen(false)}
                 showAllCategoriesActive={true}
