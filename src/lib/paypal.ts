@@ -9,7 +9,14 @@ export const paypalOptions = {
   // Solo componenti essenziali
   components: 'buttons,messages',
   // Locale Italia
-  locale: 'it_IT'
+  locale: 'it_IT',
+  // Gestione errori migliorata
+  onError: (error: any) => {
+    console.warn('PayPal SDK Error (handled):', error);
+    // Non propagare l'errore per evitare unhandled exceptions
+  },
+  // Riduci i log per evitare spam nella console
+  'data-sdk-integration-source': 'integrationbuilder_ac'
 };
 
 // Funzione per pulire l'importo (rimuove caratteri non numerici eccetto punto decimale)

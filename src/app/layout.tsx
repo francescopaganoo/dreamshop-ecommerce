@@ -38,6 +38,30 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="it">
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              // Gestore di errori globale per PayPal
+              window.addEventListener('error', function(e) {
+                if (e.error && e.error.toString && e.error.toString().includes('paypal')) {
+                  console.warn('PayPal error intercepted:', e.error);
+                  e.preventDefault();
+                  return false;
+                }
+              });
+              
+              window.addEventListener('unhandledrejection', function(e) {
+                if (e.reason && e.reason.toString && e.reason.toString().includes('paypal')) {
+                  console.warn('PayPal unhandled promise rejection intercepted:', e.reason);
+                  e.preventDefault();
+                  return false;
+                }
+              });
+            `,
+          }}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${bangers.variable} antialiased`}
       >

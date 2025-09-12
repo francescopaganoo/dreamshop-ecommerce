@@ -15,7 +15,10 @@ interface ClientProvidersProps {
 
 export default function ClientProviders({ children }: ClientProvidersProps) {
   return (
-    <PayPalScriptProvider options={paypalOptions}>
+    <PayPalScriptProvider 
+      options={paypalOptions}
+      deferLoading={true}
+    >
       <Elements stripe={getStripe()}>
         <AuthProvider>
           <CartProvider>
