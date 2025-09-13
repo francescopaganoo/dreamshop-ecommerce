@@ -42,12 +42,13 @@ const getProductSlug = (product: CartProduct): string => {
 };
 
 export default function CartPage() {
-  const { 
-    cart, 
-    removeFromCart, 
-    updateQuantity, 
-    clearCart, 
+  const {
+    cart,
+    removeFromCart,
+    updateQuantity,
+    clearCart,
     getCartTotal,
+    getSubtotal,
     coupon,
     couponCode,
     setCouponCode,
@@ -125,6 +126,21 @@ export default function CartPage() {
       return;
     }
     
+    // Calcola i punti massimi spendibili in base al subtotale (senza sconti)
+    // Ogni 100 punti = 1€, quindi per €40 = massimo 4000 punti
+    const subtotal = getSubtotal();
+    console.log('DEBUG: cartTotal =', cartTotal, 'subtotal =', subtotal, 'discount =', discount);
+    const maxPointsByCartValue = Math.floor(subtotal * 100);
+
+    // Verifica che non superi il valore del carrello
+    if (points > maxPointsByCartValue) {
+      setPointsErrorMessage(`Punti massimi spendibili per questo carrello: ${maxPointsByCartValue} (totale: ${formatPrice(subtotal)})`);
+      // Corregge automaticamente al massimo spendibile
+      setPointsToRedeem(Math.min(userPoints, maxPointsByCartValue));
+      setPointsInputValue(Math.min(userPoints, maxPointsByCartValue).toString());
+      return;
+    }
+
     // Verifica che non superi i punti disponibili
     if (points > userPoints) {
       setPointsErrorMessage(`Hai solo ${userPoints} punti disponibili`);
@@ -132,7 +148,7 @@ export default function CartPage() {
       setPointsToRedeem(userPoints);
       return;
     }
-    
+
     // Imposta i punti da riscattare
     setPointsToRedeem(points);
   };
@@ -643,38 +659,50 @@ export default function CartPage() {
                     />
                     
                     {/* Sezione per i punti */}
-                    {user && userPoints > 0 && (
-                      <div className="border-t pt-4 mt-4">
-                        <h3 className="text-lg font-semibold mb-2 text-gray-700">I tuoi punti</h3>
-                        <p className="text-sm text-gray-600 mb-2">
-                          Hai {pointsLabel} disponibili. Ogni 100 punti valgono 1€ di sconto.
-                        </p>
-                        <div className="flex items-center">
-                          <input
-                            type="number"
-                            min="0"
-                            max={userPoints}
-                            placeholder="Punti da utilizzare"
-                            className={`flex-grow px-3 py-2 border ${pointsErrorMessage ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none text-gray-600 focus:ring-2 focus:ring-bred-500`}
-                            value={pointsInputValue}
-                            onChange={handlePointsChange}
-                            disabled={isLoadingPoints}
-                          />
-                        </div>
-                        {pointsErrorMessage && (
-                          <p className="text-red-500 text-sm mt-1">{pointsErrorMessage}</p>
-                        )}
-                        {pointsToRedeem > 0 && (
-                          <div className="mt-2 flex justify-between text-sm">
-                            <span>Sconto punti:</span>
-                            <span className="text-green-600">-{formatPrice(pointsDiscount)}</span>
+                    {user && userPoints > 0 && (() => {
+                      // Calcola i punti massimi utilizzabili per questo carrello
+                      // Usiamo il subtotale (senza sconti) per il calcolo dei punti
+                      const subtotal = getSubtotal();
+                      const maxPointsByCartValue = Math.floor(subtotal * 100);
+                      const maxPointsAllowed = Math.min(userPoints, maxPointsByCartValue);
+
+                      return (
+                        <div className="border-t pt-4 mt-4">
+                          <h3 className="text-lg font-semibold mb-2 text-gray-700">I tuoi punti</h3>
+                          <p className="text-sm text-gray-600 mb-2">
+                            Hai {pointsLabel} disponibili. Ogni 100 punti valgono 1€ di sconto.
+                            <br />
+                            <span className="text-xs text-gray-500">
+                              Massimo spendibile per questo carrello: {maxPointsByCartValue} punti
+                            </span>
+                          </p>
+                          <div className="flex items-center">
+                            <input
+                              type="number"
+                              min="0"
+                              max={maxPointsAllowed}
+                              placeholder="Punti da utilizzare"
+                              className={`flex-grow px-3 py-2 border ${pointsErrorMessage ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none text-gray-600 focus:ring-2 focus:ring-bred-500`}
+                              value={pointsInputValue}
+                              onChange={handlePointsChange}
+                              disabled={isLoadingPoints}
+                            />
                           </div>
-                        )}
-                        {pointsError && (
-                          <p className="text-red-600 text-sm mt-1">{pointsError}</p>
-                        )}
-                      </div>
-                    )}
+                          {pointsErrorMessage && (
+                            <p className="text-red-500 text-sm mt-1">{pointsErrorMessage}</p>
+                          )}
+                          {pointsToRedeem > 0 && (
+                            <div className="mt-2 flex justify-between text-sm">
+                              <span>Sconto punti:</span>
+                              <span className="text-green-600">-{formatPrice(pointsDiscount)}</span>
+                            </div>
+                          )}
+                          {pointsError && (
+                            <p className="text-red-600 text-sm mt-1">{pointsError}</p>
+                          )}
+                        </div>
+                      );
+                    })()}
                     
                     {giftCardDiscount > 0 && (
                       <div className="flex justify-between text-green-600">
