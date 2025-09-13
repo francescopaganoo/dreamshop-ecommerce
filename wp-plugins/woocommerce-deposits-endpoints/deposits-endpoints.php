@@ -96,15 +96,14 @@ class DreamShop_Deposits_API {
         add_action('rest_api_init', array($this, 'register_endpoints'));
         
         // Hook per convertire gli articoli del carrello normali in articoli con acconto
-        add_filter('woocommerce_add_cart_item_data', array($this, 'process_deposit_meta'), 10, 3);
+        add_filter('woocommerce_add_cart_item_data', 'dreamshop_process_deposit_meta', 10, 3);
         
         // Hook per garantire che gli acconti vengano processati dopo la creazione dell'ordine tramite API
         add_action('woocommerce_checkout_order_processed', array($this, 'ensure_deposits_processing'), 10, 3);
         add_action('woocommerce_store_api_checkout_order_processed', array($this, 'ensure_deposits_processing'), 10, 1);
         add_action('woocommerce_rest_insert_shop_order_object', array($this, 'ensure_deposits_processing_api'), 10, 3);
         
-        // Log per debug
-        add_action('woocommerce_add_to_cart', array($this, 'log_cart_addition'), 10, 6);
+        // Log per debug - gestito in process-deposit-meta.php
         
         // Aggiungi script e stili nel frontend
         add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'));

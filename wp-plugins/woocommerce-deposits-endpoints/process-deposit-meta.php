@@ -239,19 +239,9 @@ function dreamshop_process_order_deposits($order) {
     }
 }
 
-/**
- * Log dell'aggiunta al carrello per debug
- */
-function dreamshop_log_cart_addition($cart_item_key, $product_id, $quantity, $variation_id, $variation, $cart_item_data) {
-    error_log("[DEBUG] Prodotto aggiunto al carrello - ID: {$product_id}, Quantità: {$quantity}, Variazione: {$variation_id}");
-    if (is_array($cart_item_data)) {
-        error_log("[DEBUG] Dati elemento carrello: " . json_encode($cart_item_data));
-    }
-}
 
 // Aggiungi i filtri e le azioni
 add_filter('woocommerce_add_cart_item_data', 'dreamshop_process_deposit_meta', 10, 3);
-add_action('woocommerce_add_to_cart', 'dreamshop_log_cart_addition', 10, 6);
 add_action('woocommerce_checkout_order_processed', 'dreamshop_process_order_deposits', 10, 1);
 add_action('woocommerce_rest_insert_shop_order_object', 'dreamshop_process_order_deposits', 10, 1);
 

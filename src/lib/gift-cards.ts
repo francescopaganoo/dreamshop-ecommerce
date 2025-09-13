@@ -42,7 +42,8 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_WP_API_URL || '';
 // Ottieni il saldo gift card dell'utente
 export async function getGiftCardBalance(userId: number, token: string): Promise<GiftCardBalance> {
   try {
-    const response = await fetch(`${API_BASE_URL}/gift-card/v1/balance/${userId}`, {
+    // Usa l'API Next.js invece di chiamare direttamente WordPress (come fanno gli altri endpoint)
+    const response = await fetch(`/api/gift-cards/balance`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -54,13 +55,18 @@ export async function getGiftCardBalance(userId: number, token: string): Promise
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    const result: GiftCardApiResponse<GiftCardBalance> = await response.json();
+    const result = await response.json();
     
-    if (!result.success || !result.data) {
+    if (!result.success && !result.user_id) {
       throw new Error(result.message || 'Errore nel recupero del saldo');
     }
 
-    return result.data;
+    // Formato compatibile con l'interfaccia esistente
+    return {
+      user_id: result.user_id,
+      balance: result.balance,
+      formatted_balance: result.formatted_balance
+    };
   } catch (error) {
     console.error('Errore nel recupero del saldo gift card:', error);
     throw error;
@@ -75,8 +81,9 @@ export async function getGiftCardTransactions(
   offset: number = 0
 ): Promise<{transactions: GiftCardTransaction[], has_more: boolean}> {
   try {
+    // Usa l'API Next.js invece di chiamare direttamente WordPress (come fanno gli altri endpoint)
     const response = await fetch(
-      `${API_BASE_URL}/gift-card/v1/transactions/${userId}?limit=${limit}&offset=${offset}`,
+      `/api/gift-cards/transactions?limit=${limit}&offset=${offset}`,
       {
         method: 'GET',
         headers: {
@@ -90,15 +97,15 @@ export async function getGiftCardTransactions(
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    const result: GiftCardApiResponse<{transactions: GiftCardTransaction[], pagination: {has_more: boolean}}> = await response.json();
+    const result = await response.json();
     
-    if (!result.success || !result.data) {
+    if (!result.success && !result.transactions) {
       throw new Error(result.message || 'Errore nel recupero delle transazioni');
     }
 
     return {
-      transactions: result.data.transactions,
-      has_more: result.data.pagination.has_more
+      transactions: result.transactions || [],
+      has_more: result.has_more || false
     };
   } catch (error) {
     console.error('Errore nel recupero delle transazioni gift card:', error);
@@ -113,7 +120,8 @@ export async function generateGiftCardCoupon(
   token: string
 ): Promise<{coupon_code: string, amount: number, formatted_amount: string, new_balance: number, formatted_new_balance: string}> {
   try {
-    const response = await fetch(`${API_BASE_URL}/gift-card/v1/generate-coupon`, {
+    // Usa l'API Next.js invece di chiamare direttamente WordPress (come fanno gli altri endpoint)
+    const response = await fetch(`/api/gift-cards/generate-coupon`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -129,19 +137,19 @@ export async function generateGiftCardCoupon(
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    const result: GiftCardApiResponse<{
-      coupon_code: string;
-      amount: number;
-      formatted_amount: string;
-      new_balance: number;
-      formatted_new_balance: string;
-    }> = await response.json();
+    const result = await response.json();
     
-    if (!result.success || !result.data) {
+    if (!result.success) {
       throw new Error(result.message || 'Errore nella generazione del coupon');
     }
 
-    return result.data;
+    return {
+      coupon_code: result.coupon_code,
+      amount: result.amount,
+      formatted_amount: result.formatted_amount,
+      new_balance: result.new_balance,
+      formatted_new_balance: result.formatted_new_balance
+    };
   } catch (error) {
     console.error('Errore nella generazione del coupon gift card:', error);
     throw error;
@@ -190,7 +198,8 @@ export async function validateGiftCardCoupon(
   message: string;
 }> {
   try {
-    const response = await fetch(`${API_BASE_URL}/gift-card/v1/validate-coupon`, {
+    // Usa l'API Next.js invece di chiamare direttamente WordPress (come fanno gli altri endpoint)
+    const response = await fetch(`/api/gift-cards/validate-coupon`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -202,7 +211,17 @@ export async function validateGiftCardCoupon(
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      console.error(`Errore nella validazione del coupon: ${response.status}`);
+      return {
+        valid: false,
+        coupon_code: couponCode,
+        coupon_amount: 0,
+        discount_amount: 0,
+        formatted_discount: '€0,00',
+        cart_total: cartTotal,
+        new_total: cartTotal,
+        message: `Errore del server: ${response.status}`
+      };
     }
 
     const result = await response.json();
@@ -221,8 +240,13 @@ export async function validateGiftCardCoupon(
     }
 
     return {
-      valid: result.valid,
-      ...result.data,
+      valid: result.valid || true,
+      coupon_code: couponCode,
+      coupon_amount: result.coupon_amount || 0,
+      discount_amount: result.discount_amount || 0,
+      formatted_discount: result.formatted_discount || '€0,00',
+      cart_total: cartTotal,
+      new_total: result.new_total || cartTotal,
       message: result.message || 'Coupon valido'
     };
   } catch (error) {

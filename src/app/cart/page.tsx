@@ -95,7 +95,6 @@ export default function CartPage() {
   const [pointsErrorMessage, setPointsErrorMessage] = useState<string | null>(null);
   
   // Stati per gift card
-  const [giftCardCouponCode, setGiftCardCouponCode] = useState<string>('');
   const [giftCardDiscount, setGiftCardDiscount] = useState<number>(0);
 
   // Gestisce il cambio del valore dei punti da riscattare
@@ -626,9 +625,20 @@ export default function CartPage() {
                     {/* Widget Gift Card */}
                     <GiftCardCartWidget 
                       cartTotal={cartTotal}
-                      onCouponGenerated={(couponCode, discount) => {
-                        setGiftCardCouponCode(couponCode);
+                      appliedCouponCode={coupon?.code || null}
+                      onCouponGenerated={async (couponCode, discount) => {
                         setGiftCardDiscount(discount);
+
+                        if (couponCode) {
+                          // Applica automaticamente il coupon al carrello
+                          setCouponCode(couponCode);
+                          await applyCouponCode();
+                        } else {
+                          // Rimuovi il coupon se il codice è vuoto
+                          if (coupon && coupon.code.startsWith('GC')) {
+                            await removeCoupon();
+                          }
+                        }
                       }}
                     />
                     

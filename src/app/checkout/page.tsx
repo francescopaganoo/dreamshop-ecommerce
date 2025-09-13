@@ -203,7 +203,71 @@ export default function CheckoutPage() {
   
   // Stato per il pagamento Stripe
   const [isStripeLoading, setIsStripeLoading] = useState(false);
-  
+
+  // Stati per la spedizione
+  const [shippingMethods, setShippingMethods] = useState<ShippingMethod[]>([]);
+  const [selectedShippingMethod, setSelectedShippingMethod] = useState<ShippingMethod | null>(null);
+  const [shippingCalculated, setShippingCalculated] = useState<boolean>(false);
+
+  // Funzione per calcolare i metodi di spedizione
+  const calculateShippingMethods = React.useCallback(async (addressData: typeof formData) => {
+    // Evita di calcolare la spedizione troppo frequentemente
+    if (shippingDebounceTimerRef.current) {
+      clearTimeout(shippingDebounceTimerRef.current);
+    }
+
+    shippingDebounceTimerRef.current = setTimeout(async () => {
+      try {
+        console.log(`Calcolo spedizione per ${addressData.country} su ${isIOS ? 'iOS' : 'altro dispositivo'}`);
+
+        // Prepara l'indirizzo di spedizione
+        const shippingAddress = {
+          first_name: addressData.firstName,
+          last_name: addressData.lastName,
+          country: addressData.country,
+          state: addressData.state,
+          postcode: addressData.postcode,
+          city: addressData.city,
+          address_1: addressData.address1,
+          address_2: addressData.address2
+        };
+
+        console.log(`Recupero metodi di spedizione per indirizzo: ${JSON.stringify(shippingAddress)}`);
+
+        // Calcola il totale del carrello senza spedizione per verificare la spedizione gratuita
+        const cartTotal = getSubtotal(); // Usa il totale del carrello
+
+        // Ottieni i metodi di spedizione disponibili
+        const availableMethods = await getShippingMethods(shippingAddress, cartTotal);
+        console.log(`Metodi di spedizione disponibili: ${availableMethods.length}`);
+
+        // Imposta i metodi di spedizione disponibili
+        setShippingMethods(availableMethods);
+
+        // Se non c'è un metodo selezionato, seleziona il primo disponibile
+        if (availableMethods.length > 0 && !selectedShippingMethod) {
+          setSelectedShippingMethod(availableMethods[0]);
+        }
+
+        setShippingCalculated(true);
+      } catch (error) {
+        console.error('Errore nel calcolo della spedizione:', error);
+        // Fallback con metodo di spedizione standard
+        console.error('Errore nel recupero dei metodi di spedizione:', error);
+        const defaultMethod = {
+          id: 'flat_rate',
+          title: 'Spedizione standard',
+          description: 'Spedizione standard 5-7 giorni',
+          cost: 7.00,
+          free_shipping: false
+        };
+        setShippingMethods([defaultMethod]);
+        setSelectedShippingMethod(defaultMethod);
+        setShippingCalculated(true);
+      }
+    }, 500); // Attendi 500ms prima di calcolare la spedizione
+  }, [getSubtotal, selectedShippingMethod, isIOS]);
+
   // Precompila il form se l'utente è autenticato
   useEffect(() => {
     const loadUserData = async () => {
@@ -297,6 +361,18 @@ export default function CheckoutPage() {
                 
                 return formUpdate;
               });
+
+              // Calcola i metodi di spedizione dopo aver precaricato i dati
+              setTimeout(() => {
+                // Ottieni i dati aggiornati dal form per il calcolo della spedizione
+                setFormData(currentFormData => {
+                  if (currentFormData.country && currentFormData.city && currentFormData.postcode && currentFormData.address1) {
+                    calculateShippingMethods(currentFormData);
+                  }
+                  return currentFormData; // Non modificare i dati, solo triggerare il calcolo
+                });
+              }, 200); // Delay per assicurarsi che lo stato sia aggiornato
+
             } else {
               // Se non ci sono indirizzi salvati, usa solo i dati base
               setFormData(prev => ({ ...prev, ...baseUserData }));
@@ -314,13 +390,10 @@ export default function CheckoutPage() {
     };
     
     loadUserData();
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, calculateShippingMethods]);
   
   // Calculate totals
   const subtotal = getSubtotal(); // Usa getSubtotal per ottenere il prezzo base senza sconti
-  const [shippingMethods, setShippingMethods] = useState<ShippingMethod[]>([]);
-  const [selectedShippingMethod, setSelectedShippingMethod] = useState<ShippingMethod | null>(null);
-  const [shippingCalculated, setShippingCalculated] = useState<boolean>(false);
   const shipping = selectedShippingMethod ? selectedShippingMethod.cost : 0;
   const total = (subtotal - discount - pointsDiscount) + shipping; // Sottraiamo gli sconti dal totale
   
@@ -329,6 +402,7 @@ export default function CheckoutPage() {
     return `€${price.toFixed(2)}`;
   };
   
+
   // Handle form input changes
   const handleInputChange = async (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -344,61 +418,8 @@ export default function CheckoutPage() {
         newFormData.city && 
         newFormData.address1) {
       
-      // Evita di calcolare la spedizione troppo frequentemente
-      // Utilizziamo un debounce per evitare troppe chiamate API
-      if (shippingDebounceTimerRef.current) {
-        clearTimeout(shippingDebounceTimerRef.current);
-      }
-      
-      shippingDebounceTimerRef.current = setTimeout(async () => {
-        try {
-          console.log(`Calcolo spedizione per ${newFormData.country} su ${isIOS ? 'iOS' : 'altro dispositivo'}`);
-          
-          // Prepara l'indirizzo di spedizione
-          const shippingAddress = {
-            first_name: newFormData.firstName,
-            last_name: newFormData.lastName,
-            address_1: newFormData.address1,
-            address_2: newFormData.address2 || '',
-            city: newFormData.city,
-            state: newFormData.state,
-            postcode: newFormData.postcode,
-            country: newFormData.country,
-          };
-          
-          console.log(`Recupero metodi di spedizione per indirizzo: ${JSON.stringify(shippingAddress)}`);
-          
-          // Calcola il totale del carrello senza spedizione per verificare la spedizione gratuita
-          const cartTotal = subtotal - discount;
-          
-          // Ottieni i metodi di spedizione disponibili
-          const availableMethods = await getShippingMethods(shippingAddress, cartTotal);
-          console.log(`Metodi di spedizione disponibili: ${availableMethods.length}`);
-          
-          // Imposta i metodi di spedizione disponibili
-          setShippingMethods(availableMethods);
-          
-          // Seleziona il primo metodo disponibile come predefinito
-          if (availableMethods.length > 0) {
-            setSelectedShippingMethod(availableMethods[0]);
-          }
-          
-          setShippingCalculated(true);
-        } catch (error) {
-          console.error('Errore nel calcolo della spedizione:', error);
-          // Fallback in caso di errore: imposta un metodo predefinito
-          console.error('Errore nel recupero dei metodi di spedizione:', error);
-          const defaultMethod = {
-            id: 'flat_rate',
-            title: 'Spedizione standard',
-            description: 'Consegna in 3-5 giorni lavorativi',
-            cost: 7.00
-          };
-          setShippingMethods([defaultMethod]);
-          setSelectedShippingMethod(defaultMethod);
-          setShippingCalculated(true);
-        }
-      }, 500); // Attendi 500ms prima di calcolare la spedizione
+      // Usa la nuova funzione per calcolare i metodi di spedizione
+      calculateShippingMethods(newFormData);
     }
   };
   

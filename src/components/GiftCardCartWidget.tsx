@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { 
   getGiftCardBalance, 
@@ -12,12 +12,14 @@ import {
 interface GiftCardCartWidgetProps {
   cartTotal: number;
   onCouponGenerated?: (couponCode: string, discount: number) => void;
+  appliedCouponCode?: string | null; // Coupon attualmente applicato dal sistema del carrello
   className?: string;
 }
 
 export default function GiftCardCartWidget({ 
   cartTotal, 
   onCouponGenerated,
+  appliedCouponCode,
   className = '' 
 }: GiftCardCartWidgetProps) {
   const { user } = useAuth();
@@ -31,18 +33,17 @@ export default function GiftCardCartWidget({
   const [generatedCoupon, setGeneratedCoupon] = useState<string | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
   
-  // Stati per coupon generato
-  const [appliedCouponCode, setAppliedCouponCode] = useState<string | null>(null);
-  const [appliedDiscount, setAppliedDiscount] = useState<number>(0);
+  // Note: appliedCouponCode e discount ora vengono gestiti dal componente padre (carrello)
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Carica saldo gift card
-  const loadBalance = async () => {
+  const loadBalance = useCallback(async () => {
     if (!user) return;
 
     try {
       setIsLoading(true);
       setError(null);
-      
+
       const token = localStorage.getItem('woocommerce_token');
       if (!token) {
         throw new Error('Token non trovato');
@@ -56,7 +57,7 @@ export default function GiftCardCartWidget({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user]);
 
   // Genera coupon per il carrello
   const handleGenerateCoupon = async (e: React.FormEvent) => {
@@ -97,8 +98,6 @@ export default function GiftCardCartWidget({
       const validation = await validateGiftCardCoupon(result.coupon_code, cartTotal);
       
       setGeneratedCoupon(result.coupon_code);
-      setAppliedCouponCode(result.coupon_code);
-      setAppliedDiscount(validation.discount_amount);
       setCouponAmount('');
       
       // Aggiorna il saldo
@@ -108,10 +107,13 @@ export default function GiftCardCartWidget({
         formatted_balance: result.formatted_new_balance
       } : null);
 
-      // Notifica il componente padre
+      // Notifica il componente padre che applicherà il coupon al carrello
       if (onCouponGenerated) {
         onCouponGenerated(result.coupon_code, validation.discount_amount);
       }
+      
+      // Il coupon sarà marcato come "applicato" solo dopo che il sistema del carrello lo conferma
+      // Per ora lo mostriamo solo come "generato"
     } catch (err) {
       console.error('Errore nella generazione del coupon:', err);
       setCouponError(err instanceof Error ? err.message : 'Errore nella generazione del coupon');
@@ -150,8 +152,6 @@ export default function GiftCardCartWidget({
       const validation = await validateGiftCardCoupon(result.coupon_code, cartTotal);
       
       setGeneratedCoupon(result.coupon_code);
-      setAppliedCouponCode(result.coupon_code);
-      setAppliedDiscount(validation.discount_amount);
       
       // Aggiorna il saldo
       setBalance(prev => prev ? {
@@ -171,15 +171,14 @@ export default function GiftCardCartWidget({
     }
   };
 
-  // Rimuovi coupon applicato
+  // Rimuovi coupon applicato (ora delegato al componente padre)
   const removeCoupon = () => {
     setGeneratedCoupon(null);
-    setAppliedCouponCode(null);
-    setAppliedDiscount(0);
     
     // Ricarica il saldo (potrebbe essere cambiato)
     loadBalance();
     
+    // Notifica il componente padre di rimuovere il coupon
     if (onCouponGenerated) {
       onCouponGenerated('', 0);
     }
@@ -190,71 +189,127 @@ export default function GiftCardCartWidget({
     if (user) {
       loadBalance();
     }
-  }, [user]);
+  }, [user, loadBalance]);
+
+  // Espandi automaticamente se c'è un coupon generato o un errore
+  useEffect(() => {
+    if (generatedCoupon || error || couponError) {
+      setIsExpanded(true);
+    }
+  }, [generatedCoupon, error, couponError]);
+
+  // Espandi automaticamente se c'è un coupon gift card applicato
+  useEffect(() => {
+    if (appliedCouponCode && appliedCouponCode.startsWith('GC')) {
+      setIsExpanded(false); // Chiudi dopo applicazione per non ingombrare
+    }
+  }, [appliedCouponCode]);
 
   // Non mostrare se utente non autenticato
   if (!user) {
     return null;
   }
 
-  // Non mostrare se nessun saldo
+  // Non mostrare se nessun saldo (loading iniziale ancora in corso è OK)
   if (balance && balance.balance <= 0) {
+    return null;
+  }
+
+  // Non mostrare se è ancora in caricamento e non abbiamo dati
+  if (isLoading && !balance) {
     return null;
   }
 
   return (
     <div className={`gift-card-cart-widget ${className}`}>
       <div className="border-t pt-4 mt-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold text-gray-700 flex items-center">
-            <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        {/* Header con toggle dropdown */}
+        <div 
+          className="flex items-center justify-between cursor-pointer hover:bg-gray-50 rounded-lg p-2 -m-2 transition-colors"
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
+          <div className="flex items-center">
+            <svg className="w-5 h-5 mr-2 text-bred-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"></path>
             </svg>
-            Gift Card
-          </h3>
-          <button
-            onClick={loadBalance}
-            disabled={isLoading}
-            className="text-blue-600 hover:text-blue-800 text-sm font-medium disabled:opacity-50"
-          >
-            {isLoading ? 'Aggiornamento...' : 'Aggiorna'}
-          </button>
+            <h3 className="text-lg font-semibold text-gray-700">Spendi la tua Gift Card</h3>
+            
+            {/* Badge con saldo */}
+            {balance && (
+              <span className="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-bred-100 text-bred-700">
+                {balance.formatted_balance}
+              </span>
+            )}
+            
+            {/* Badge coupon applicato */}
+            {appliedCouponCode && appliedCouponCode.startsWith('GC') && (
+              <span className="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                Applicato
+              </span>
+            )}
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                loadBalance();
+              }}
+              disabled={isLoading}
+              className="text-bred-500 hover:text-bred-700 text-sm font-medium disabled:opacity-50"
+            >
+              {isLoading ? 'Aggiornamento...' : 'Aggiorna'}
+            </button>
+            
+            {/* Icona dropdown */}
+            <svg
+              className={`w-5 h-5 text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+            </svg>
+          </div>
         </div>
 
-        {isLoading ? (
-          <div className="flex items-center justify-center py-4">
-            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-          </div>
-        ) : error ? (
-          <div className="text-red-600 text-center py-2 text-sm">
-            <p>{error}</p>
-            <button
-              onClick={loadBalance}
-              className="mt-1 text-blue-600 hover:text-blue-800 text-sm font-medium"
-            >
-              Riprova
-            </button>
-          </div>
-        ) : balance && balance.balance > 0 ? (
+        {/* Contenuto collassabile */}
+        {isExpanded && (
+          <div className="mt-4 space-y-4">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-bred-500"></div>
+              </div>
+            ) : error ? (
+              <div className="text-red-600 text-center py-2 text-sm">
+                <p>{error}</p>
+                <button
+                  onClick={loadBalance}
+                  className="mt-1 text-bred-500 hover:text-bred-700 text-sm font-medium"
+                >
+                  Riprova
+                </button>
+              </div>
+            ) : balance && balance.balance > 0 ? (
           <>
             {/* Saldo disponibile */}
-            <div className="bg-blue-50 rounded-lg p-3 mb-4">
+            <div className="bg-bred-50 rounded-lg p-3 mb-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-blue-700 font-medium">Saldo disponibile</p>
-                  <p className="text-lg font-bold text-blue-800">{balance.formatted_balance}</p>
+                  <p className="text-sm text-bred-700 font-medium">Saldo disponibile</p>
+                  <p className="text-lg font-bold text-bred-700">{balance.formatted_balance}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs text-blue-600">Massimo utilizzabile</p>
-                  <p className="text-sm font-semibold text-blue-700">
+                  <p className="text-xs text-bred-500">Massimo utilizzabile</p>
+                  <p className="text-sm font-semibold text-bred-700">
                     €{Math.min(balance.balance, cartTotal).toFixed(2)}
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Coupon applicato */}
-            {appliedCouponCode && appliedDiscount > 0 && (
+            {/* Coupon applicato dal sistema del carrello */}
+            {appliedCouponCode && appliedCouponCode.startsWith('GC') && (
               <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
                 <div className="flex items-center justify-between">
                   <div>
@@ -263,7 +318,7 @@ export default function GiftCardCartWidget({
                       {appliedCouponCode}
                     </code>
                     <p className="text-green-600 text-sm mt-1">
-                      Sconto: €{appliedDiscount.toFixed(2)}
+                      Coupon Gift Card applicato al carrello
                     </p>
                   </div>
                   <div className="flex space-x-2">
@@ -285,14 +340,14 @@ export default function GiftCardCartWidget({
             )}
 
             {/* Genera coupon se non ne hai già uno applicato */}
-            {!appliedCouponCode && (
+            {(!appliedCouponCode || !appliedCouponCode.startsWith('GC')) && (
               <>
                 {/* Pulsante veloce per coupon ottimale */}
                 <div className="mb-3">
                   <button
                     onClick={applyOptimalCoupon}
                     disabled={isGeneratingCoupon}
-                    className="w-full bg-blue-600 text-white py-2 px-3 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    className="w-full bg-bred-500 text-white py-2 px-3 rounded-md text-sm font-medium hover:bg-bred-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                   >
                     {isGeneratingCoupon ? (
                       <span className="flex items-center justify-center">
@@ -346,8 +401,8 @@ export default function GiftCardCartWidget({
               </>
             )}
 
-            {/* Coupon appena generato (se non applicato) */}
-            {generatedCoupon && !appliedCouponCode && (
+            {/* Coupon appena generato (se non ancora applicato dal sistema del carrello) */}
+            {generatedCoupon && (!appliedCouponCode || appliedCouponCode !== generatedCoupon) && (
               <div className="mt-3 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                 <div className="flex items-center justify-between">
                   <div>
@@ -378,6 +433,8 @@ export default function GiftCardCartWidget({
             )}
           </>
         ) : null}
+          </div>
+        )}
       </div>
     </div>
   );

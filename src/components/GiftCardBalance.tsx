@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { 
   getGiftCardBalance, 
@@ -30,13 +30,13 @@ export default function GiftCardBalance({ className = '' }: GiftCardBalanceProps
   const [couponError, setCouponError] = useState<string | null>(null);
 
   // Carica saldo gift card
-  const loadBalance = async () => {
+  const loadBalance = useCallback(async () => {
     if (!user) return;
 
     try {
       setIsLoading(true);
       setError(null);
-      
+
       const token = localStorage.getItem('woocommerce_token');
       if (!token) {
         throw new Error('Token non trovato');
@@ -50,15 +50,15 @@ export default function GiftCardBalance({ className = '' }: GiftCardBalanceProps
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user]);
 
   // Carica transazioni
-  const loadTransactions = async () => {
+  const loadTransactions = useCallback(async () => {
     if (!user || !showTransactions) return;
 
     try {
       setIsLoadingTransactions(true);
-      
+
       const token = localStorage.getItem('woocommerce_token');
       if (!token) {
         throw new Error('Token non trovato');
@@ -71,7 +71,7 @@ export default function GiftCardBalance({ className = '' }: GiftCardBalanceProps
     } finally {
       setIsLoadingTransactions(false);
     }
-  };
+  }, [user, showTransactions]);
 
   // Genera coupon
   const handleGenerateCoupon = async (e: React.FormEvent) => {
@@ -138,14 +138,14 @@ export default function GiftCardBalance({ className = '' }: GiftCardBalanceProps
     if (user) {
       loadBalance();
     }
-  }, [user]);
+  }, [user, loadBalance]);
 
   // Carica transazioni quando richieste
   useEffect(() => {
     if (showTransactions) {
       loadTransactions();
     }
-  }, [showTransactions, user]);
+  }, [showTransactions, loadTransactions]);
 
   if (!user) {
     return null;
@@ -156,13 +156,13 @@ export default function GiftCardBalance({ className = '' }: GiftCardBalanceProps
       <h2 className="text-xl font-semibold mb-4 text-gray-600">Le tue Gift Card</h2>
       
       {/* Saldo */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-6 mb-6 border border-blue-100">
+      <div className="bg-bred-50 rounded-lg p-6 mb-6 border border-bred-100">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-medium text-gray-700">Saldo disponibile</h3>
           <button
             onClick={loadBalance}
             disabled={isLoading}
-            className="text-blue-600 hover:text-blue-800 text-sm font-medium disabled:opacity-50"
+            className="text-bred-500 hover:text-bred-700 text-sm font-medium disabled:opacity-50"
           >
             {isLoading ? 'Aggiornamento...' : 'Aggiorna'}
           </button>
@@ -170,14 +170,14 @@ export default function GiftCardBalance({ className = '' }: GiftCardBalanceProps
         
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-bred-500"></div>
           </div>
         ) : error ? (
           <div className="text-red-600 text-center py-4">
             <p>{error}</p>
             <button
               onClick={loadBalance}
-              className="mt-2 text-blue-600 hover:text-blue-800 text-sm font-medium"
+              className="mt-2 text-bred-500 hover:text-bred-700 text-sm font-medium"
             >
               Riprova
             </button>
@@ -185,7 +185,7 @@ export default function GiftCardBalance({ className = '' }: GiftCardBalanceProps
         ) : balance ? (
           <>
             <div className="text-center">
-              <div className="text-4xl font-bold text-blue-600 mb-2">
+              <div className="text-4xl font-bold text-bred-500 mb-2">
                 {balance.formatted_balance}
               </div>
               <p className="text-gray-600 text-sm">
@@ -195,7 +195,7 @@ export default function GiftCardBalance({ className = '' }: GiftCardBalanceProps
             
             {/* Generazione coupon */}
             {balance.balance > 0 && (
-              <div className="mt-6 pt-6 border-t border-blue-200">
+              <div className="mt-6 pt-6 border-t border-bred-100">
                 <h4 className="text-md font-medium text-gray-700 mb-3">Genera Coupon</h4>
                 <form onSubmit={handleGenerateCoupon} className="space-y-3">
                   <div>
@@ -210,7 +210,7 @@ export default function GiftCardBalance({ className = '' }: GiftCardBalanceProps
                         setCouponAmount(e.target.value);
                         setCouponError(null);
                       }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bred-500"
                       disabled={isGeneratingCoupon}
                     />
                   </div>
@@ -222,7 +222,7 @@ export default function GiftCardBalance({ className = '' }: GiftCardBalanceProps
                   <button
                     type="submit"
                     disabled={isGeneratingCoupon || !couponAmount}
-                    className="w-full bg-blue-600 text-white py-2 px-4 rounded-md font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    className="w-full bg-bred-500 text-white py-2 px-4 rounded-md font-medium hover:bg-bred-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                   >
                     {isGeneratingCoupon ? (
                       <span className="flex items-center justify-center">
@@ -298,7 +298,7 @@ export default function GiftCardBalance({ className = '' }: GiftCardBalanceProps
           <div className="border-t">
             {isLoadingTransactions ? (
               <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-bred-500"></div>
               </div>
             ) : transactions.length > 0 ? (
               <div className="divide-y divide-gray-100">
