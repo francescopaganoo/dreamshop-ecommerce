@@ -287,15 +287,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                               console.error(`[POINTS API] Errore nel parsing della risposta JSON:`, e);
                               // Continuiamo comunque con la verifica dello status HTTP
                             }
-                            
-                            // Verifica la risposta
+
+                            // Verifica la risposta (usando il responseBody già definito sopra)
                             if (updateOrderResponse.ok) {
-                              await updateOrderResponse.json();
-                              console.log(`[POINTS API] Coupon ${couponCode} applicato con successo all'ordine ${orderId}`);
-                              couponApplied = true;
+                              try {
+                                JSON.parse(responseBody); // Verifica che sia JSON valido
+                                console.log(`[POINTS API] Coupon ${couponCode} applicato con successo all'ordine ${orderId}`);
+                                couponApplied = true;
+                              } catch {
+                                console.error(`[POINTS API] Risposta non JSON valido:`, responseBody.substring(0, 200));
+                              }
                             } else {
-                              const errorText = await updateOrderResponse.text();
-                              console.error(`[POINTS API] Errore nell'applicazione del coupon all'ordine:`, errorText);
+                              console.error(`[POINTS API] Errore nell'applicazione del coupon all'ordine:`, responseBody);
                             }
                           }
                         } catch (fallbackError) {

@@ -72,13 +72,7 @@ export default function AppleGooglePayCheckout({
       return;
     }
 
-    // Debug per sviluppo
-    console.log('🛒 Checkout Apple Pay Debug:');
-    console.log('- Items nel carrello:', cart.length);
-    console.log('- Totale carrello:', finalTotal);
-    console.log('- User Agent:', navigator.userAgent);
-    console.log('- Apple Pay disponibile:', typeof window.ApplePaySession !== 'undefined');
-    console.log('- Can make payments:', window.ApplePaySession?.canMakePayments?.());
+
 
     // Prepara gli item del carrello per il display
     const displayItems = cart.map(item => ({

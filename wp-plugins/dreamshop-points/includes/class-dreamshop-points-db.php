@@ -314,34 +314,64 @@ class DreamShop_Points_DB {
             error_log('DreamShop Points: calculate_order_points chiamato con un parametro non valido');
             return 0;
         }
-        
-        // Usa il totale dell'ordine senza le spese di spedizione e tasse
-        $total = $order->get_subtotal() - $order->get_total_discount();
-        
-        // Debug
+
+        // Inizia dal subtotale dei prodotti (senza spedizione e senza sconti)
+        $subtotal = $order->get_subtotal(); // €39.90
+
+        // Ottieni tutti i coupon applicati all'ordine
+        $coupons = $order->get_coupon_codes();
+        $non_points_discount = 0;
+
+        // Calcola solo gli sconti NON punti (es. coupon promozionali)
+        foreach ($coupons as $coupon_code) {
+            // Se non è un coupon punti (non inizia con POINTS_ o points_), conta lo sconto
+            if (strpos($coupon_code, 'POINTS_') !== 0 && strpos(strtolower($coupon_code), 'points_') !== 0) {
+                // Ottieni l'oggetto coupon per calcolare correttamente lo sconto
+                $coupon = new WC_Coupon($coupon_code);
+
+                // Calcola lo sconto effettivo di questo coupon specifico
+                $coupon_lines = $order->get_items('coupon');
+                foreach ($coupon_lines as $coupon_item) {
+                    if ($coupon_item->get_code() === $coupon_code) {
+                        $non_points_discount += abs($coupon_item->get_discount());
+                    }
+                }
+            }
+        }
+
+        // Calcolo corretto: Subtotale - Sconti promozionali = Valore per punti
+        // €39.90 (subtotale) - €5.00 (sconto coupon) = €34.90 → 34 punti
+        $points_eligible_amount = $subtotal - $non_points_discount;
+
+        // Non permettere mai valori negativi
+        $total = max(0, $points_eligible_amount);
+
+        // Log molto visibile per debug
+        error_log("=== DREAMSHOP POINTS DEBUG ===");
         error_log(sprintf(
-            'DreamShop Points: calcolo punti per ordine #%s - Subtotale: %s, Sconto: %s, Totale per punti: %s',
+            'DreamShop Points CORRETTO per ordine #%s - Subtotale: €%s, Sconti non-punti: €%s, Valore per punti: €%s',
             $order->get_id(),
-            $order->get_subtotal(),
-            $order->get_total_discount(),
-            $total
+            number_format($subtotal, 2),
+            number_format($non_points_discount, 2),
+            number_format($total, 2)
         ));
-        
+        error_log("=== FINE DEBUG ===");
+
         // Prendi il rapporto di punti dalle opzioni (default 1 punto per 1 euro)
         $points_ratio = floatval(get_option('dreamshop_points_earning_ratio', 1));
-        
+
         // Debug
         error_log(sprintf('DreamShop Points: rapporto punti: %s', $points_ratio));
-        
+
         // Calcola i punti (arrotondati per difetto)
         $points = floor($total * $points_ratio);
-        
+
         // Debug
         error_log(sprintf('DreamShop Points: punti calcolati: %s', $points));
-        
+
         // Applica un filtro per permettere modifiche al calcolo
         $points = apply_filters('dreamshop_points_calculated', $points, $order);
-        
+
         return max(0, (int)$points); // Assicurati che i punti siano un intero positivo
     }
     

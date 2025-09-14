@@ -355,10 +355,19 @@ class DreamShop_Points_Public {
         }
         
         $this->log_debug("Calcolo punti per ordine $order_id, utente $user_id");
-        
-        // Calcola i punti da assegnare
-        $points = $this->db->calculate_order_points($order);
-        
+
+        // Prima controlla se il frontend ha già calcolato i punti corretti
+        $frontend_points = $order->get_meta('_points_to_earn_frontend');
+
+        if ($frontend_points && is_numeric($frontend_points)) {
+            $points = intval($frontend_points);
+            $this->log_debug("Ordine $order_id: usando punti dal frontend: $points punti");
+        } else {
+            // Fallback al calcolo del plugin se i metadati non sono disponibili
+            $points = $this->db->calculate_order_points($order);
+            $this->log_debug("Ordine $order_id: usando calcolo plugin: $points punti");
+        }
+
         $this->log_debug("Ordine $order_id: $points punti da assegnare");
         
         if ($points > 0) {

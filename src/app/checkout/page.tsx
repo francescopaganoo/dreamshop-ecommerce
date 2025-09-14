@@ -1187,7 +1187,13 @@ export default function CheckoutPage() {
         if (isIOS) {
           console.log('[CHECKOUT iOS] Preparazione pagamento con carta su iOS');
         }
-        
+
+        // Calcola i punti che saranno assegnati per questo ordine
+        const couponDiscount = coupon ? discount : 0;
+        const subtotalForPoints = subtotal - couponDiscount - pointsDiscount; // Subtotale meno tutti gli sconti
+        const pointsToEarn = Math.floor(Math.max(0, subtotalForPoints)); // 1 euro = 1 punto
+        console.log(`[CHECKOUT] CALCOLO PUNTI - Subtotale: €${subtotal.toFixed(2)}, Sconto coupon: €${couponDiscount.toFixed(2)}, Sconto punti: €${pointsDiscount.toFixed(2)}, Valore per punti: €${subtotalForPoints.toFixed(2)} → ${pointsToEarn} punti verranno assegnati`);
+
         // Crea un ordine in stato pending
         const orderData = {
           payment_method: 'stripe',
@@ -1211,9 +1217,16 @@ export default function CheckoutPage() {
               code: coupon.code,
               discount: String(discount)
             }
-          ] : []
+          ] : [],
+          // Aggiungi metadati
+          meta_data: [
+            {
+              key: '_points_to_earn_frontend',
+              value: pointsToEarn.toString()
+            }
+          ]
         };
-        
+
         // Crea l'ordine in WooCommerce
         const order = await createOrder(orderData);
         
@@ -1464,8 +1477,14 @@ export default function CheckoutPage() {
       
       // Log esplicito dell'ID utente prima di creazione ordine
       console.log('CHECKOUT DEBUG - ID UTENTE IMPOSTATO ESPLICITAMENTE:', customerIdForOrder);
-      
-      // Create the order con customer_id come prima proprietà 
+
+      // Calcola i punti che saranno assegnati per questo ordine
+      const couponDiscount = coupon ? discount : 0;
+      const subtotalForPoints = subtotal - couponDiscount - pointsDiscount; // Subtotale meno tutti gli sconti
+      const pointsToEarn = Math.floor(Math.max(0, subtotalForPoints)); // 1 euro = 1 punto
+      console.log(`[CHECKOUT] CALCOLO PUNTI - Subtotale: €${subtotal.toFixed(2)}, Sconto coupon: €${couponDiscount.toFixed(2)}, Sconto punti: €${pointsDiscount.toFixed(2)}, Valore per punti: €${subtotalForPoints.toFixed(2)} → ${pointsToEarn} punti verranno assegnati`);
+
+      // Create the order con customer_id come prima proprietà
       const orderData = {
         // Metti customer_id come prima proprietà per assicurarti che sia incluso
         customer_id: customerIdForOrder,
@@ -1498,9 +1517,16 @@ export default function CheckoutPage() {
             tax_class: '',
             tax_status: 'none'
           }
-        ] : []
+        ] : [],
+        // Aggiungi metadati
+        meta_data: [
+          {
+            key: '_points_to_earn_frontend',
+            value: pointsToEarn.toString()
+          }
+        ]
       };
-      
+
       // Se l'utente ha selezionato di creare un account, registralo prima di creare l'ordine
       let userId = null;
       if (!isAuthenticated && formData.createAccount) {
@@ -1544,7 +1570,7 @@ export default function CheckoutPage() {
         payment_method: orderData.payment_method,
         email: orderData.billing?.email
       });
-      
+
       // Send the order to WooCommerce (l'ID utente viene recuperato direttamente nella funzione)
       const order = await createOrder(orderData);
       
@@ -2496,7 +2522,22 @@ export default function CheckoutPage() {
                           <span>-{formatPrice(pointsDiscount)}</span>
                         </div>
                       )}
-                      
+
+                      {/* Mostra i punti che saranno assegnati */}
+                      {isAuthenticated && user && (
+                        <div className="flex justify-between text-blue-600 bg-blue-50 p-2 rounded">
+                          <span className="flex items-center text-sm font-medium">
+                            <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                            Punti che guadagnerai
+                          </span>
+                          <span className="text-sm font-medium">
+                            {Math.floor(Math.max(0, subtotal - (coupon ? discount : 0) - pointsDiscount))} punti
+                          </span>
+                        </div>
+                      )}
+
                       <div className="flex justify-between">
                         <span className="text-gray-600">Spedizione</span>
                         {selectedShippingMethod ? (

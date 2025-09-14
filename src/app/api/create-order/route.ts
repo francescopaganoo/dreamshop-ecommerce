@@ -107,13 +107,13 @@ export async function POST(request: NextRequest) {
       billing: customerInfo,
       shipping: customerInfo,
       line_items: line_items.length > 0 ? line_items : [],
-      // Aggiungiamo metadati per prevenire duplicazione di punti
+      // Aggiungiamo metadati per calcolo punti e prevenire duplicazione
       meta_data: [
         {
           // Questo flag previene l'assegnazione duplicata dei punti
           key: '_dreamshop_points_assigned',
           value: 'yes'
-        }
+        },
       ]
     };
     

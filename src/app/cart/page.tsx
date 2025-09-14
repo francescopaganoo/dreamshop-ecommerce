@@ -283,8 +283,8 @@ export default function CartPage() {
     }
   };
   
-  const cartTotal = getCartTotal();
-  const orderTotal = cartTotal - pointsDiscount - giftCardDiscount; // Sottraiamo sconti punti e gift card
+  const cartTotal = getCartTotal(); // Già include lo sconto punti
+  const orderTotal = cartTotal - giftCardDiscount; // Sottraiamo solo gift card, i punti sono già inclusi in cartTotal
   
   return (
     <div className="min-h-screen flex flex-col">
