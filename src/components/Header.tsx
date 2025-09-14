@@ -235,12 +235,13 @@ export default function Header() {
             </span>
 
             {/* Logo con micro-tilt e scale su hover */}
-            <Image 
-              src="/images/logo.webp" 
-              alt="Logo DreamShop" 
-              width={160} 
-              height={40} 
-              priority 
+            <Image
+              src="/images/logo.webp"
+              alt="Logo DreamShop"
+              width={160}
+              height={40}
+              style={{ width: 'auto', height: 'auto' }}
+              priority
               className="w-auto h-auto transition duration-500 ease-out group-hover:scale-110 group-hover:rotate-2 drop-shadow-md group-hover:brightness-110 group-hover:contrast-110 group-hover:saturate-125"
             />
           </Link>
@@ -341,6 +342,7 @@ export default function Header() {
                                     alt={category.name}
                                     width={48}
                                     height={48}
+                                    style={{ width: 'auto', height: 'auto' }}
                                     className="w-full h-full object-cover group-hover:scale-110 transition-transform"
                                   />
                                 </div>
@@ -549,6 +551,7 @@ export default function Header() {
                                     alt={category.name}
                                     width={32}
                                     height={32}
+                                    style={{ width: 'auto', height: 'auto' }}
                                     className="w-full h-full object-cover"
                                   />
                                 </div>

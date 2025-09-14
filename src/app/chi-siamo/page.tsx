@@ -62,11 +62,12 @@ export default function ChiSiamo() {
               className="w-full md:w-1/2 rounded-lg overflow-hidden shadow-xl"
               variants={fadeIn}
             >
-              <Image 
-                src="/images/chi-siamo-1.webp" 
-                alt="La nostra collezione" 
-                width={600} 
-                height={400} 
+              <Image
+                src="/images/chi-siamo-1.webp"
+                alt="La nostra collezione"
+                width={600}
+                height={400}
+                style={{ width: 'auto', height: 'auto' }}
                 className="w-full h-auto object-cover"
               />
             </motion.div>
@@ -97,11 +98,12 @@ export default function ChiSiamo() {
               className="w-full md:w-1/2 rounded-lg overflow-hidden shadow-xl"
               variants={fadeIn}
             >
-              <Image 
-                src="/images/chi-siamo-2.webp" 
-                alt="I nostri prodotti" 
-                width={600} 
-                height={400} 
+              <Image
+                src="/images/chi-siamo-2.webp"
+                alt="I nostri prodotti"
+                width={600}
+                height={400}
+                style={{ width: 'auto', height: 'auto' }}
                 className="w-full h-auto object-cover"
               />
             </motion.div>
@@ -131,11 +133,12 @@ export default function ChiSiamo() {
               className="w-full md:w-1/2 rounded-lg overflow-hidden shadow-xl"
               variants={fadeIn}
             >
-              <Image 
-                src="/images/chi-siamo-3.webp" 
-                alt="Il nostro team" 
-                width={600} 
-                height={400} 
+              <Image
+                src="/images/chi-siamo-3.webp"
+                alt="Il nostro team"
+                width={600}
+                height={400}
+                style={{ width: 'auto', height: 'auto' }}
                 className="w-full h-auto object-cover"
               />
             </motion.div>

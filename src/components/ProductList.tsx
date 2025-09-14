@@ -12,8 +12,12 @@ export default function ProductList({ products }: ProductListProps) {
     <>
       {products.length > 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-          {products.map((product: Product) => (
-            <ProductCard key={product.id} product={product} />
+          {products.map((product: Product, index: number) => (
+            <ProductCard
+              key={product.id}
+              product={product}
+              priority={index < 6} // Priorità per i primi 6 prodotti (above the fold)
+            />
           ))}
         </div>
       ) : (

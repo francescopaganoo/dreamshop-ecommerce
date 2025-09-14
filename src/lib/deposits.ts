@@ -205,17 +205,14 @@ export const getProductDepositOptions = async (productId: number): Promise<Produ
     
     const data = await response.json();
     
-    // Log per debug (solo in sviluppo)
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`Risposta API deposit-options per prodotto ${productId}:`, data);
-    }
+
     
     // Verifica se la risposta è successful ma deposit_enabled è false
     // Questa è la nuova risposta formato per prodotti che non supportano acconti
     if (data.success && data.deposit_enabled === false) {
       // Non lanciare un errore, ma restituire l'oggetto così com'è
       // Sarà gestito dal componente ProductDepositOptions
-      console.log(`Prodotto ${productId} non supporta acconti`);
+      
       return data as ProductDepositOptions;
     }
     
@@ -312,7 +309,6 @@ export function getDepositInfo(product: ProductWithDeposit) {
   let depositType = 'percent';
   let paymentPlanId = ''; // Nuovo campo per l'ID del piano di pagamento
   
-  console.log('Analisi prodotto per acconto:', product);
   
   // Privilegia le proprietà dirette del prodotto
   if (product._wc_convert_to_deposit === 'yes') {
@@ -335,11 +331,9 @@ export function getDepositInfo(product: ProductWithDeposit) {
   }
   // Fallback ai meta_data solo se non abbiamo trovato informazioni nelle proprietà dirette
   else if (product.meta_data && Array.isArray(product.meta_data)) {
-    console.log('Meta_data disponibili:', product.meta_data);
     
     // Cerca _wc_convert_to_deposit
     const convertToDeposit = product.meta_data.find((meta: {key: string; value: string | number}) => meta.key === '_wc_convert_to_deposit');
-    console.log('_wc_convert_to_deposit trovato:', convertToDeposit);
     
     if (convertToDeposit && String(convertToDeposit.value) === 'yes') {
       hasDeposit = true;
@@ -367,16 +361,9 @@ export function getDepositInfo(product: ProductWithDeposit) {
         console.log('ID piano pagamento trovato nei metadati:', paymentPlanId);
       }
     }
-  } else {
-    console.log('Nessun meta_data disponibile nel prodotto');
   }
   
-  // Log delle proprietà dirette per debug
-  console.log('Proprietà dirette del prodotto:', {
-    _wc_convert_to_deposit: product._wc_convert_to_deposit,
-    _wc_deposit_type: product._wc_deposit_type,
-    _wc_deposit_amount: product._wc_deposit_amount
-  });
+
   
   // Assicurati che depositAmount sia un numero valido
   if (isNaN(depositAmount)) {
@@ -387,14 +374,7 @@ export function getDepositInfo(product: ProductWithDeposit) {
   const depositPercentage = depositType === 'percent' ? depositAmount / 100 : 0;
   const depositLabel = depositType === 'percent' ? `Acconto (${depositAmount}%)` : `Acconto (${depositAmount}€)`;
   
-  console.log('Risultato finale getDepositInfo:', {
-    hasDeposit,
-    depositAmount,
-    depositType,
-    depositPercentage,
-    depositLabel,
-    paymentPlanId
-  });
+
   
   return {
     hasDeposit,

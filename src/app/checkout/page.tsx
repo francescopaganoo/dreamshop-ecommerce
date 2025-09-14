@@ -123,13 +123,7 @@ export default function CheckoutPage() {
   
   // Log per debugging
   useEffect(() => {
-    console.log('Ambiente di esecuzione:', {
-      isIOS,
-      isSafari,
-      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'non disponibile',
-      stripeDisponibile: !!stripe,
-      elementsDisponibile: !!elements
-    });
+   
     
     // Configurazione specifica per iOS
     if (isIOS && stripe && elements) {
@@ -218,7 +212,6 @@ export default function CheckoutPage() {
 
     shippingDebounceTimerRef.current = setTimeout(async () => {
       try {
-        console.log(`Calcolo spedizione per ${addressData.country} su ${isIOS ? 'iOS' : 'altro dispositivo'}`);
 
         // Prepara l'indirizzo di spedizione
         const shippingAddress = {
@@ -232,14 +225,12 @@ export default function CheckoutPage() {
           address_2: addressData.address2
         };
 
-        console.log(`Recupero metodi di spedizione per indirizzo: ${JSON.stringify(shippingAddress)}`);
 
         // Calcola il totale del carrello senza spedizione per verificare la spedizione gratuita
         const cartTotal = getSubtotal(); // Usa il totale del carrello
 
         // Ottieni i metodi di spedizione disponibili
         const availableMethods = await getShippingMethods(shippingAddress, cartTotal);
-        console.log(`Metodi di spedizione disponibili: ${availableMethods.length}`);
 
         // Imposta i metodi di spedizione disponibili
         setShippingMethods(availableMethods);
@@ -266,7 +257,7 @@ export default function CheckoutPage() {
         setShippingCalculated(true);
       }
     }, 500); // Attendi 500ms prima di calcolare la spedizione
-  }, [getSubtotal, selectedShippingMethod, isIOS]);
+  }, [getSubtotal, selectedShippingMethod]);
 
   // Precompila il form se l'utente è autenticato
   useEffect(() => {
@@ -274,7 +265,6 @@ export default function CheckoutPage() {
       if (isAuthenticated && user) {
         // Ottieni l'ID numerico dell'utente
         const numericUserId = user.id ? parseInt(String(user.id), 10) : 0;
-        console.log('CHECKOUT: Impostato ID utente nel form:', numericUserId);
         
         // Carica i dati base dell'utente
         const baseUserData = {
@@ -288,12 +278,10 @@ export default function CheckoutPage() {
         try {
           const token = localStorage.getItem('woocommerce_token');
           if (token) {
-            console.log('CHECKOUT: Caricamento indirizzi salvati...');
             const addresses = await getUserAddresses(token);
             
             // Se esiste un indirizzo di fatturazione, precompila i campi
             if (addresses.billing) {
-              console.log('CHECKOUT: Indirizzo di fatturazione trovato, precompilazione...');
               
               setFormData(prev => {
                 // Prepara i dati base con fatturazione
@@ -335,7 +323,6 @@ export default function CheckoutPage() {
                     );
 
                     if (isDifferentAddress) {
-                      console.log('CHECKOUT: Indirizzo di spedizione significativo e diverso trovato, precompilazione...');
                       formUpdate.shipToDifferentAddress = true;
                       formUpdate.shippingFirstName = addresses.shipping.first_name || baseUserData.firstName;
                       formUpdate.shippingLastName = addresses.shipping.last_name || baseUserData.lastName;
@@ -346,16 +333,13 @@ export default function CheckoutPage() {
                       formUpdate.shippingPostcode = addresses.shipping.postcode || '';
                       formUpdate.shippingCountry = addresses.shipping.country || 'IT';
                     } else {
-                      console.log('CHECKOUT: Indirizzo di spedizione uguale a quello di fatturazione, checkbox non attivato');
                       formUpdate.shipToDifferentAddress = false;
                     }
                   } else {
-                    console.log('CHECKOUT: Indirizzo di spedizione senza dati significativi, checkbox non attivato');
                     formUpdate.shipToDifferentAddress = false;
                   }
                 } else {
                   // Se non c'è indirizzo di spedizione, assicurati che il checkbox sia false
-                  console.log('CHECKOUT: Nessun indirizzo di spedizione, checkbox non attivato');
                   formUpdate.shipToDifferentAddress = false;
                 }
                 
@@ -546,10 +530,7 @@ export default function CheckoutPage() {
         // Salva i dati di spedizione solo se sono veramente diversi
         if (isShippingDifferentFromBilling) {
           shippingData = shippingDataToCheck;
-          console.log('CHECKOUT: Indirizzo di spedizione diverso, sarà salvato');
-        } else {
-          console.log('CHECKOUT: Indirizzo di spedizione uguale a fatturazione, non sarà salvato');
-        }
+        } 
       }
 
       const addressDataToSave: {
@@ -2293,7 +2274,7 @@ export default function CheckoutPage() {
                                   });
                                 }}
                                 onReady={() => {
-                                  console.log('CardElement è pronto');
+
                                   setIsCardElementReady(true);
                                   
                                   // Su iOS, forziamo un reflow quando l'elemento è pronto

@@ -75,7 +75,6 @@ export async function POST(request: NextRequest) {
       });
     }
     
-    console.log(`API: Recupero metodi di spedizione per ${shipping_address.country}, totale carrello: ${cart_total}€`);
     
     try {
       // Ottieni le zone di spedizione
@@ -163,7 +162,6 @@ export async function POST(request: NextRequest) {
             };
           }).filter(Boolean) as ShippingMethodResponse[];
           
-          console.log(`API: Metodi di spedizione disponibili: ${shippingMethods.length}`);
           return NextResponse.json({ methods: shippingMethods });
         }
       }

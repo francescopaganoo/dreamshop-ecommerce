@@ -56,7 +56,6 @@ export async function POST(request: NextRequest) {
       });
     }
     
-    console.log(`API: Calcolo spedizione per ${shipping_address.country}`);
     
     try {
       // Ottieni le zone di spedizione

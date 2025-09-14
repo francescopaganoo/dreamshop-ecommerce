@@ -30,7 +30,6 @@ export interface PointsResponse {
  */
 export async function getUserPoints(userId: number, token: string): Promise<PointsResponse> {
   try {
-    console.log(`Richiedo punti per utente ${userId}`);
     
     // Usa l'API Next.js invece di chiamare direttamente WordPress
     const response = await fetch(`/api/points/user`, {
@@ -47,7 +46,6 @@ export async function getUserPoints(userId: number, token: string): Promise<Poin
     }
     
     const data = await response.json();
-    console.log('Punti recuperati:', data);
     return data;
   } catch (error) {
     console.error('Errore durante il recupero dei punti:', error);

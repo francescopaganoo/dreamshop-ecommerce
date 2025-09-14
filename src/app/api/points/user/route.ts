@@ -43,7 +43,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const decoded = jwt.verify(token, jwtSecret) as { id: number };
     
     const userId = decoded.id;
-    console.log(`API: Richiedo punti per utente ${userId}`);
     
     try {
       // Primo tentativo: usa l'endpoint nuovo che funziona correttamente

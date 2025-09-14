@@ -74,6 +74,7 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({ categories }) => {
                       src={category.image.src}
                       alt={category.name}
                       fill
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
                       className="object-cover"
                     />
                   ) : (

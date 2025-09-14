@@ -410,20 +410,17 @@ export default function CartPage() {
                     </thead>
                     <tbody className="divide-y divide-gray-200">
                       {cart.map(item => {
-                        console.log('Visualizzazione prodotto nel carrello:', item.product);
                         
                         // Otteniamo tutte le informazioni sull'acconto dal prodotto
                         const depositInfo = getDepositInfo(item.product as unknown as ProductWithDeposit);
                         const isDeposit = depositInfo.hasDeposit;
                         
-                        console.log('Info acconto estratte:', depositInfo);
                         
                         // Calcola il prezzo in base ai metadati dell'acconto
                         let itemPrice = parseFloat(item.product.price || item.product.regular_price || '0');
                         let priceLabel = '';
                         // const fullPrice = itemPrice; // Non utilizzato
                         
-                        console.log(`Prodotto ${item.product.name} - prezzo originale:`, itemPrice);
                         
                         // Se il prodotto ha l'acconto attivo, dobbiamo mostrare il prezzo dell'acconto
                         if (isDeposit) {

@@ -69,16 +69,10 @@ export default function PaymentRequestButton({
       console.log('HTTPS:', window.location.protocol === 'https:');
       
       if (result) {
-        console.log('✅ Payment Request disponibile:', result);
         setPaymentRequest(pr);
         setDebugInfo('Payment Request disponibile');
       } else {
-        console.log('❌ Payment Request NON disponibile');
-        console.log('Possibili cause:');
-        console.log('- Browser non supportato (serve Safari per Apple Pay, Chrome per Google Pay)');
-        console.log('- Nessuna carta salvata nel wallet');
-        console.log('- Dominio non HTTPS in produzione');
-        console.log('- Dominio non verificato per Apple Pay');
+
         
         const browserInfo = navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome') ? 'Safari' :
                            navigator.userAgent.includes('Chrome') ? 'Chrome' : 'Altri';

@@ -44,13 +44,6 @@ export default function AppleGooglePayButton({
       return;
     }
 
-    // Debug dettagliato per iPhone
-    console.log('🔍 iPhone Debug:');
-    console.log('- User Agent:', navigator.userAgent);
-    console.log('- Apple Pay Session disponibile:', typeof window.ApplePaySession !== 'undefined');
-    console.log('- Can make payments:', window.ApplePaySession?.canMakePayments?.());
-    console.log('- HTTPS:', window.location.protocol === 'https:');
-    console.log('- Stripe loaded:', !!stripe);
 
     // Calcola il prezzo totale
     const unitPrice = parseFloat(product.sale_price || product.price || '0');
@@ -79,12 +72,6 @@ export default function AppleGooglePayButton({
 
     // Controlla disponibilità con preferenza per Apple Pay
     pr.canMakePayment().then(result => {
-      console.log('Native Payment Request check:', result);
-      console.log('Result details:', {
-        applePay: result?.applePay,
-        googlePay: result?.googlePay,
-        link: result?.link
-      });
       
       if (result) {
         setPaymentRequest(pr);

@@ -12,9 +12,10 @@ import { FaPlus } from 'react-icons/fa';
 
 interface ProductCardProps {
   product: Product;
+  priority?: boolean;
 }
 
-export default function ProductCard({ product }: ProductCardProps) {
+export default function ProductCard({ product, priority = false }: ProductCardProps) {
   const { addToCart } = useCart();
   const router = useRouter();
   const pathname = usePathname();
@@ -77,9 +78,6 @@ export default function ProductCard({ product }: ProductCardProps) {
                 // memorizziamo solo l'intenzione di navigare a questa pagina
                 setPrefetched(true);
                 
-                // Non facciamo più il prefetch automatico per evitare il caricamento delle variazioni
-                // nella home page
-                console.log(`Product card visible: ${product.slug}`);
               }
             }
           });
@@ -175,6 +173,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             style={{ objectFit: 'contain' }}
             className="transition-transform duration-300 hover:scale-105"
+            priority={priority}
           />
         </div>
       </Link>

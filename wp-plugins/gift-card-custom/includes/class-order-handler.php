@@ -24,7 +24,6 @@ class GiftCard_Order_Handler {
         // Ottieni l'ID del prodotto gift card configurato
         $gift_card_product_id = get_option('gift_card_product_id');
         if (!$gift_card_product_id) {
-            error_log('[GIFT CARD] ID prodotto gift card non configurato nelle impostazioni');
             return;
         }
 

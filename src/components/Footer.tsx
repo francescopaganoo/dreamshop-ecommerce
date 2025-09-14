@@ -66,7 +66,7 @@ export default function Footer() {
           <div className="lg:col-span-4">
             <div className="mb-6">
             <Link href="/" className="text-2xl font-bold text-gray-800">
-              <Image src="/images/logo.webp" alt="WooStore Logo" width={200} height={50} priority />
+              <Image src="/images/logo.webp" alt="WooStore Logo" width={200} height={50} style={{ width: 'auto', height: 'auto' }} priority />
             </Link>
             </div>
             <p className="text-gray-300 text-lg leading-relaxed mb-6">
@@ -146,7 +146,7 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/gift-card" className="text-bred-300 hover:text-bred-100 transition-colors duration-300 flex items-center group font-semibold text-lg">
+                <Link href="/prodotto/gift-card" className="text-bred-300 hover:text-bred-100 transition-colors duration-300 flex items-center group font-semibold text-lg">
                   <span className="w-3 h-3 bg-yellow-400 rounded-full mr-3 group-hover:scale-125 transition-all duration-300"></span>
                   🎁 Gift Card
                 </Link>
@@ -272,11 +272,12 @@ export default function Footer() {
           </Link>
           </p>
           <div className="mt-4 flex justify-center">
-            <Image 
-              src="/images/payment-icon.webp" 
-              alt="Payment Methods" 
-              width={450} 
-              height={50} 
+            <Image
+              src="/images/payment-icon.webp"
+              alt="Payment Methods"
+              width={450}
+              height={50}
+              style={{ width: 'auto', height: 'auto' }}
               className="opacity-70 hover:opacity-100 transition-opacity"
             />
           </div>

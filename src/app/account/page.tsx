@@ -128,22 +128,19 @@ function AccountContent() {
         
         if (!response.ok) {
           const errorText = await response.text();
-          console.error('Risposta API non valida:', response.status, errorText);
-          throw new Error(`Errore nel caricamento degli ordini: ${response.status}`);
+          throw new Error(`Errore nel caricamento degli ordini: ${response.status}. ${errorText}`);
         }
         
         const data = await response.json();
         
         // NON filtriamo più gli ordini: mostriamo TUTTI gli ordini all'utente
-        // Questo permetterà di visualizzare tutti i tipi di ordini senza distinzioni
-        console.log('Mostro tutti gli ordini senza filtri:', data.length);
         
         // Conteggio per debug
         const orderStates = data.reduce((acc: Record<string, number>, order: Order) => {
           acc[order.status] = (acc[order.status] || 0) + 1;
           return acc;
         }, {});
-        console.log('Distribuzione stati ordini:', orderStates);
+
         
         // Memorizziamo tutti gli ordini per poterli filtrare successivamente
         setAllOrders(data);

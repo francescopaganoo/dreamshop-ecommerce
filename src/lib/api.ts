@@ -519,9 +519,7 @@ export async function getProductsOnSale(page = 1, per_page = 10, orderby = 'date
     const startIndex = (page - 1) * per_page;
     const endIndex = startIndex + per_page;
     const limitedSaleProducts = allSaleProducts.slice(startIndex, endIndex);
-    
-    console.log(`Pagina ${page}: ${allSaleProducts.length} prodotti totali in offerta, restituendo ${limitedSaleProducts.length} (${startIndex}-${endIndex-1})`);
-    
+        
     // Salviamo i dati in cache (solo lato client)
     if (typeof window !== 'undefined') {
       sessionStorage.setItem(cacheKey, JSON.stringify(limitedSaleProducts));
@@ -883,7 +881,6 @@ export async function getShippingMethods(shippingAddress: ShippingAddress, cartT
       }];
     }
     
-    console.log(`Recupero metodi di spedizione per paese: ${shippingAddress.country}`);
     
     try {
       // Aggiungiamo un timestamp per evitare problemi di cache
@@ -911,7 +908,6 @@ export async function getShippingMethods(shippingAddress: ShippingAddress, cartT
       const data = await response.json();
       
       if (data && Array.isArray(data.methods)) {
-        console.log(`Metodi di spedizione recuperati: ${data.methods.length}`);
         return data.methods;
       }
       
@@ -951,7 +947,6 @@ export async function calculateShipping(shippingAddress: ShippingAddress) {
       return 5.99; // Valore predefinito
     }
     
-    console.log(`Calcolo spedizione per paese: ${shippingAddress.country}`);
     
     // Utilizziamo il nuovo endpoint API dedicato che funziona in modo affidabile su iOS
     try {

@@ -118,7 +118,6 @@ export default function AppleGooglePayCheckout({
 
     // Controlla disponibilità
     pr.canMakePayment().then(result => {
-      console.log('Payment Request disponibilità:', result);
       
       if (result) {
         setPaymentRequest(pr);
