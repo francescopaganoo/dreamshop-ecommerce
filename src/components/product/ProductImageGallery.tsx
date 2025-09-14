@@ -40,7 +40,7 @@ export default function ProductImageGallery({ images, productName, isOnSale }: P
         />
         
         {isOnSale && (
-          <div className="absolute top-4 right-4 bg-red-500 text-white text-sm font-bold px-3 py-1 rounded-full">
+          <div className="absolute top-4 right-4 bg-green-500 text-white text-sm font-bold px-3 py-1 rounded-full">
             Offerta
           </div>
         )}

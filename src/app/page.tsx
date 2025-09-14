@@ -1,4 +1,4 @@
-import { getProducts, getCategories, getProductsByCategorySlug, getProductsOnSale, Product, Category } from "@/lib/api";
+import { getProducts, getCategories, getProductsByCategorySlug, getProductsOnSale, getProductsByBrandSlug, Product, Category } from "@/lib/api";
 import ProductList from "@/components/ProductList";
 import CategoryCarousel from "@/components/CategoryCarousel";
 import Link from "next/link";
@@ -78,6 +78,30 @@ async function getSaleProducts(): Promise<Product[]> {
   return products.filter(product => product.stock_status === 'instock').slice(0, 8);
 }
 
+async function getCardGameProducts(): Promise<Product[]> {
+  // Ottieni i prodotti della categoria Card Game
+  const products = await getProductsByCategorySlug('card-game', 1, 10, 'date', 'desc');
+  return products.filter(product => product.stock_status === 'instock').slice(0, 5);
+}
+
+async function getTsumeProducts(): Promise<Product[]> {
+  // Ottieni i prodotti della categoria Tsume
+  const products = await getProductsByCategorySlug('tsume', 1, 10, 'date', 'desc');
+  return products.filter(product => product.stock_status === 'instock').slice(0, 5);
+}
+
+async function getBanprestoProducts(): Promise<Product[]> {
+  // Ottieni i prodotti del brand Banpresto
+  const { products } = await getProductsByBrandSlug('banpresto', 1, 10);
+  return products.filter(product => product.stock_status === 'instock').slice(0, 5);
+}
+
+async function getGeneralProducts(): Promise<Product[]> {
+  // Ottieni i prodotti generali (tutti i prodotti)
+  const { products } = await getProducts(1, 10, 'date', 'desc');
+  return products.filter(product => product.stock_status === 'instock').slice(0, 5);
+}
+
 
 export default async function Home() {
   const [
@@ -88,7 +112,11 @@ export default async function Home() {
     shFiguartsProducts,
     rivisteProducts,
     pokemonProducts,
-    saleProducts
+    saleProducts,
+    cardGameProducts,
+    tsumeProducts,
+    banprestoProducts,
+    generalProducts
   ] = await Promise.all([
     getFeaturedProducts(),
     getProductCategories(),
@@ -97,7 +125,11 @@ export default async function Home() {
     getSHFiguartsProducts(),
     getRivisteProducts(),
     getPokemonProducts(),
-    getSaleProducts()
+    getSaleProducts(),
+    getCardGameProducts(),
+    getTsumeProducts(),
+    getBanprestoProducts(),
+    getGeneralProducts()
   ]);
   
   return (
@@ -499,6 +531,218 @@ export default async function Home() {
           </div>
         </section>
       )}
+
+      {/* 4 Columns Section */}
+      <section className="py-16 bg-white">
+        <div className="container mx-auto px-6">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Esplora per Categoria</h2>
+            <p className="text-gray-600 max-w-2xl mx-auto">Scopri i nostri prodotti organizzati per categoria e brand</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {/* Card Game Column */}
+            <div className="bg-gray-50 rounded-2xl p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">CG</span>
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg text-gray-800">Card Game</h3>
+                  <p className="text-gray-600 text-sm">Trading cards e giochi</p>
+                </div>
+              </div>
+
+              <div className="space-y-4 mb-6">
+                {cardGameProducts.slice(0, 5).map((product) => (
+                  <Link
+                    key={product.id}
+                    href={`/product/${product.slug}`}
+                    className="flex items-center gap-3 p-3 bg-white rounded-lg hover:shadow-md transition-all duration-300 group"
+                  >
+                    <div className="w-12 h-12 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
+                      {product.images && product.images.length > 0 ? (
+                        <Image
+                          src={product.images[0].src}
+                          alt={product.images[0].alt || product.name}
+                          width={48}
+                          height={48}
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gray-300"></div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-sm font-medium text-gray-800 truncate group-hover:text-bred-600 transition-colors">
+                        {product.name}
+                      </h4>
+                      <p className="text-xs text-gray-600">€{product.price}</p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+
+              <Link
+                href="/category/card-game"
+                className="block w-full text-center bg-bred-500 text-white py-2 rounded-lg font-medium hover:bg-bred-600 transition-colors"
+              >
+                Vedi Tutto
+              </Link>
+            </div>
+
+            {/* Tsume Column */}
+            <div className="bg-gray-50 rounded-2xl p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-gradient-to-r from-red-500 to-orange-500 rounded-xl flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">TS</span>
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg text-gray-800">Tsume</h3>
+                  <p className="text-gray-600 text-sm">Statue premium</p>
+                </div>
+              </div>
+
+              <div className="space-y-4 mb-6">
+                {tsumeProducts.slice(0, 5).map((product) => (
+                  <Link
+                    key={product.id}
+                    href={`/product/${product.slug}`}
+                    className="flex items-center gap-3 p-3 bg-white rounded-lg hover:shadow-md transition-all duration-300 group"
+                  >
+                    <div className="w-12 h-12 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
+                      {product.images && product.images.length > 0 ? (
+                        <Image
+                          src={product.images[0].src}
+                          alt={product.images[0].alt || product.name}
+                          width={48}
+                          height={48}
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gray-300"></div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-sm font-medium text-gray-800 truncate group-hover:text-bred-600 transition-colors">
+                        {product.name}
+                      </h4>
+                      <p className="text-xs text-gray-600">€{product.price}</p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+
+              <Link
+                href="/category/tsume"
+                className="block w-full text-center bg-bred-500 text-white py-2 rounded-lg font-medium hover:bg-bred-600 transition-colors"
+              >
+                Vedi Tutto
+              </Link>
+            </div>
+
+            {/* Banpresto Column */}
+            <div className="bg-gray-50 rounded-2xl p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-teal-500 rounded-xl flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">BP</span>
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg text-gray-800">Banpresto</h3>
+                  <p className="text-gray-600 text-sm">Figure di qualità</p>
+                </div>
+              </div>
+
+              <div className="space-y-4 mb-6">
+                {banprestoProducts.slice(0, 5).map((product) => (
+                  <Link
+                    key={product.id}
+                    href={`/product/${product.slug}`}
+                    className="flex items-center gap-3 p-3 bg-white rounded-lg hover:shadow-md transition-all duration-300 group"
+                  >
+                    <div className="w-12 h-12 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
+                      {product.images && product.images.length > 0 ? (
+                        <Image
+                          src={product.images[0].src}
+                          alt={product.images[0].alt || product.name}
+                          width={48}
+                          height={48}
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gray-300"></div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-sm font-medium text-gray-800 truncate group-hover:text-bred-600 transition-colors">
+                        {product.name}
+                      </h4>
+                      <p className="text-xs text-gray-600">€{product.price}</p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+
+              <Link
+                href="/products?brand=banpresto"
+                className="block w-full text-center bg-bred-500 text-white py-2 rounded-lg font-medium hover:bg-bred-600 transition-colors"
+              >
+                Vedi Tutto
+              </Link>
+            </div>
+
+            {/* General Products Column */}
+            <div className="bg-gray-50 rounded-2xl p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">ALL</span>
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg text-gray-800">Prodotti</h3>
+                  <p className="text-gray-600 text-sm">Tutte le categorie</p>
+                </div>
+              </div>
+
+              <div className="space-y-4 mb-6">
+                {generalProducts.slice(0, 5).map((product) => (
+                  <Link
+                    key={product.id}
+                    href={`/product/${product.slug}`}
+                    className="flex items-center gap-3 p-3 bg-white rounded-lg hover:shadow-md transition-all duration-300 group"
+                  >
+                    <div className="w-12 h-12 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
+                      {product.images && product.images.length > 0 ? (
+                        <Image
+                          src={product.images[0].src}
+                          alt={product.images[0].alt || product.name}
+                          width={48}
+                          height={48}
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gray-300"></div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-sm font-medium text-gray-800 truncate group-hover:text-bred-600 transition-colors">
+                        {product.name}
+                      </h4>
+                      <p className="text-xs text-gray-600">€{product.price}</p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+
+              <Link
+                href="/products"
+                className="block w-full text-center bg-bred-500 text-white py-2 rounded-lg font-medium hover:bg-bred-600 transition-colors"
+              >
+                Vedi Tutto
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Newsletter Section - Design Moderno */}
      {/* <section className="py-20 bg-gradient-to-b from-white to-gray-50">

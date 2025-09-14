@@ -407,7 +407,7 @@ export async function getBrandBySlug(slug: string): Promise<Brand | null> {
   try {
     const baseUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL?.replace(/\/$/, '') || '';
     const res = await fetch(`${baseUrl}/wp-json/wp/v2/product_brand?slug=${encodeURIComponent(slug)}&_fields=id,slug,name,count`, {
-      cache: 'no-store'
+      next: { revalidate: 300 }
     });
     if (!res.ok) throw new Error(`Failed to fetch brand ${slug}: ${res.status}`);
     const arr = (await res.json()) as Array<{ id: number; slug: string; name: string; count?: number }>;
