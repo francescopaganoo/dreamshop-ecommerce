@@ -144,7 +144,7 @@ export default async function Home() {
           </div>
 
           {/* Sfumatura in basso, aderente al bordo dell'immagine */}
-          <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-20 bg-gradient-to-t from-white to-transparent"></div>
+          <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-12 bg-gradient-to-t from-white to-transparent"></div>
         </div>
       </section>
 
