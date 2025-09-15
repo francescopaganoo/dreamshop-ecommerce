@@ -27,7 +27,7 @@ export default function SearchBar({ isMobile = false, onClose }: SearchBarProps)
         setIsLoading(true);
         try {
           const searchResults = await searchProducts(searchTerm, 1, 6);
-          setResults(searchResults);
+          setResults(searchResults.products);
           setShowResults(true);
         } catch (error) {
           console.error('Search error:', error);

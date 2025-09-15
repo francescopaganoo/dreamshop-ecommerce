@@ -1,4 +1,4 @@
-import { getProducts, getCategories, getProductsByCategorySlug, getProductsOnSale, getProductsByBrandSlug, Product, Category } from "@/lib/api";
+import { getProducts, getCategories, getProductsByCategorySlug, getProductsOnSale, getProductsByBrandSlug, getMostPopularProducts, Product, Category } from "@/lib/api";
 import ProductList from "@/components/ProductList";
 import CategoryCarousel from "@/components/CategoryCarousel";
 import Link from "next/link";
@@ -96,10 +96,9 @@ async function getBanprestoProducts(): Promise<Product[]> {
   return products.filter(product => product.stock_status === 'instock').slice(0, 5);
 }
 
-async function getGeneralProducts(): Promise<Product[]> {
-  // Ottieni i prodotti generali (tutti i prodotti)
-  const { products } = await getProducts(1, 10, 'date', 'desc');
-  return products.filter(product => product.stock_status === 'instock').slice(0, 5);
+async function getMostPopularProductsHome(): Promise<Product[]> {
+  // Ottieni i 5 prodotti più venduti
+  return await getMostPopularProducts(5);
 }
 
 
@@ -116,7 +115,7 @@ export default async function Home() {
     cardGameProducts,
     tsumeProducts,
     banprestoProducts,
-    generalProducts
+    popularProducts
   ] = await Promise.all([
     getFeaturedProducts(),
     getProductCategories(),
@@ -129,7 +128,7 @@ export default async function Home() {
     getCardGameProducts(),
     getTsumeProducts(),
     getBanprestoProducts(),
-    getGeneralProducts()
+    getMostPopularProductsHome()
   ]);
   
   return (
@@ -137,13 +136,23 @@ export default async function Home() {
       {/* Hero Section - Design Moderno */}
       <section className="relative text-white overflow-hidden -mt-px">
         <div className="relative w-full">
-          <Image 
-            src="/images/hero.webp" 
+          {/* Desktop Hero Image */}
+          <Image
+            src="/images/hero.webp"
             alt="DreamShop Hero"
             width={1920}
             height={800}
             priority
-            className="w-full h-auto object-contain"
+            className="w-full h-auto object-contain hidden md:block"
+          />
+          {/* Mobile Hero Image */}
+          <Image
+            src="/images/hero-mobile-.webp"
+            alt="DreamShop Hero Mobile"
+            width={768}
+            height={1024}
+            priority
+            className="w-full h-[82vh] object-cover  md:hidden"
           />
 
           {/* Overlay gradient sulla parte sinistra → destra */}
@@ -557,7 +566,7 @@ export default async function Home() {
                 {cardGameProducts.slice(0, 5).map((product) => (
                   <Link
                     key={product.id}
-                    href={`/product/${product.slug}`}
+                    href={`/prodotto/${product.slug}`}
                     className="flex items-center gap-3 p-3 bg-white rounded-lg hover:shadow-md transition-all duration-300 group"
                   >
                     <div className="w-12 h-12 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
@@ -607,7 +616,7 @@ export default async function Home() {
                 {tsumeProducts.slice(0, 5).map((product) => (
                   <Link
                     key={product.id}
-                    href={`/product/${product.slug}`}
+                    href={`/prodotto/${product.slug}`}
                     className="flex items-center gap-3 p-3 bg-white rounded-lg hover:shadow-md transition-all duration-300 group"
                   >
                     <div className="w-12 h-12 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
@@ -657,7 +666,7 @@ export default async function Home() {
                 {banprestoProducts.slice(0, 5).map((product) => (
                   <Link
                     key={product.id}
-                    href={`/product/${product.slug}`}
+                    href={`/prodotto/${product.slug}`}
                     className="flex items-center gap-3 p-3 bg-white rounded-lg hover:shadow-md transition-all duration-300 group"
                   >
                     <div className="w-12 h-12 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
@@ -691,23 +700,23 @@ export default async function Home() {
               </Link>
             </div>
 
-            {/* General Products Column */}
+            {/* Most Popular Products Column */}
             <div className="bg-gray-50 rounded-2xl p-6">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">ALL</span>
+                  <span className="text-white font-bold text-sm">★</span>
                 </div>
                 <div>
-                  <h3 className="font-bold text-lg text-gray-800">Prodotti</h3>
-                  <p className="text-gray-600 text-sm">Tutte le categorie</p>
+                  <h3 className="font-bold text-lg text-gray-800">Più Venduti</h3>
+                  <p className="text-gray-600 text-sm">I prodotti più popolari</p>
                 </div>
               </div>
 
               <div className="space-y-4 mb-6">
-                {generalProducts.slice(0, 5).map((product) => (
+                {popularProducts.slice(0, 5).map((product) => (
                   <Link
                     key={product.id}
-                    href={`/product/${product.slug}`}
+                    href={`/prodotto/${product.slug}`}
                     className="flex items-center gap-3 p-3 bg-white rounded-lg hover:shadow-md transition-all duration-300 group"
                   >
                     <div className="w-12 h-12 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
@@ -734,7 +743,7 @@ export default async function Home() {
               </div>
 
               <Link
-                href="/products"
+                href="/products?orderby=popularity"
                 className="block w-full text-center bg-bred-500 text-white py-2 rounded-lg font-medium hover:bg-bred-600 transition-colors"
               >
                 Vedi Tutto

@@ -46,6 +46,11 @@ export interface ProductACF {
   spedizione_in_60_giorni?: string;
 }
 
+export interface TopSellerReportItem {
+  product_id: number;
+  quantity: number;
+}
+
 export interface Product {
   id: number;
   name: string;
@@ -458,30 +463,29 @@ export async function getProductsByBrandSlug(brandSlug: string, page = 1, per_pa
 }
 
 // Search products (only in product titles)
-export async function searchProducts(searchTerm: string, page = 1, per_page = 10): Promise<Product[]> {
+export async function searchProducts(searchTerm: string, page = 1, per_page = 10): Promise<{ products: Product[], total: number }> {
   try {
-    // Otteniamo più prodotti per compensare il filtraggio lato client
-    const { data } = await api.get('products', {
+    const { data, headers } = await api.get('products', {
       search: searchTerm,
-      per_page: Math.max(100, per_page * 5), // Prendiamo più prodotti per compensare il filtraggio
-      page: 1, // Sempre dalla prima pagina
+      per_page: per_page,
+      page: page,
       status: 'publish', // Include solo i prodotti pubblicati, esclude privati e bozze
     });
-    
+
+    const totalProducts = parseInt((headers as Record<string, string>)['x-wp-total']) || (data as Product[]).length;
+
     // Filtriamo solo i prodotti il cui nome contiene il termine di ricerca
-    const filteredProducts = (data as Product[]).filter(product => 
+    const filteredProducts = (data as Product[]).filter(product =>
       product.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
-    
-    // Implementa paginazione manuale
-    const startIndex = (page - 1) * per_page;
-    const endIndex = startIndex + per_page;
-    const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
-    
-    return paginatedProducts;
+
+    return {
+      products: filteredProducts,
+      total: totalProducts
+    };
   } catch (error) {
     console.error(`Error searching products with term "${searchTerm}":`, error);
-    return [];
+    return { products: [], total: 0 };
   }
 }
 
@@ -1463,6 +1467,58 @@ export async function getShippingTimeOptions(): Promise<AttributeValue[]> {
     return filteredOptions;
   } catch (error) {
     console.error('Error fetching shipping time options:', error);
+    return [];
+  }
+}
+
+// Get most popular/best selling products using reports endpoint (more accurate)
+export async function getMostPopularProducts(per_page = 5): Promise<Product[]> {
+  try {
+    // First, try to get top sellers from reports endpoint
+    try {
+      const topSellersResponse = await api.get('reports/top_sellers', {
+        period: 'year', // Same as the WP admin report
+        per_page: per_page * 2 // Get more to filter available ones
+      });
+
+      if (topSellersResponse.data && Array.isArray(topSellersResponse.data)) {
+        // Get the product IDs from top sellers report
+        const topSellerIds = topSellersResponse.data.map((item: TopSellerReportItem) => item.product_id);
+
+        // Fetch full product details for these IDs
+        const productPromises = topSellerIds.slice(0, per_page * 2).map((id: number) =>
+          api.get(`products/${id}`).catch(() => null)
+        );
+
+        const productResponses = await Promise.all(productPromises);
+        const products = productResponses
+          .filter(response => response?.data)
+          .map(response => response!.data as Product)
+          .filter(product => product.stock_status === 'instock')
+          .slice(0, per_page);
+
+        if (products.length > 0) {
+          console.log('Using top sellers report data:', products.slice(0, 2).map(p => ({ name: p.name, id: p.id })));
+          return products;
+        }
+      }
+    } catch {
+      console.log('Reports endpoint failed, falling back to popularity ordering');
+    }
+
+    // Fallback to popularity ordering
+    const response = await api.get('products', {
+      orderby: 'popularity',
+      order: 'desc',
+      per_page: per_page * 2,
+      status: 'publish'
+    });
+
+    const products = (response.data as Product[]).filter(product => product.stock_status === 'instock').slice(0, per_page);
+    console.log('Using popularity ordering fallback:', products.slice(0, 2).map(p => ({ name: p.name, id: p.id })));
+    return products;
+  } catch (error) {
+    console.error('Error fetching most popular products:', error);
     return [];
   }
 }

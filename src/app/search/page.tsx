@@ -25,9 +25,12 @@ export default async function SearchPage({ searchParams }: any) {
   const perPage = 12;
   
   // If no search query is provided, we'll show an empty state
-  const products: Product[] = searchQuery 
+  const searchResult = searchQuery
     ? await searchProducts(searchQuery, page, perPage)
-    : [];
+    : { products: [], total: 0 };
+
+  const products = searchResult.products;
+  const totalProducts = searchResult.total;
   
   return (
     <div className="min-h-screen flex flex-col">
@@ -95,24 +98,102 @@ export default async function SearchPage({ searchParams }: any) {
               )}
               
               {/* Pagination */}
-              {products.length === perPage && (
+              {totalProducts > perPage && (
                 <div className="mt-12 flex justify-center">
-                  <div className="flex space-x-2">
+                  <div className="flex items-center space-x-1">
+                    {/* Precedente */}
                     {page > 1 && (
-                      <Link 
+                      <Link
                         href={`/search?q=${encodeURIComponent(searchQuery)}&page=${page - 1}`}
-                        className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100"
+                        className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 mr-2"
                       >
-                        Indietro
+                        Precedente
                       </Link>
                     )}
-                    
-                    <Link 
-                      href={`/search?q=${encodeURIComponent(searchQuery)}&page=${page + 1}`}
-                      className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100"
-                    >
-                      Avanti
-                    </Link>
+
+                    {/* Numeri pagina */}
+                    {(() => {
+                      const pageNumbers = [];
+                      const maxVisible = 7;
+                      const maxPage = Math.ceil(totalProducts / perPage);
+
+                      const start = Math.max(1, page - Math.floor(maxVisible / 2));
+                      const end = Math.min(maxPage, start + maxVisible - 1);
+
+                      // Aggiungi prima pagina se non è visibile
+                      if (start > 1) {
+                        pageNumbers.push(
+                          <Link
+                            key={1}
+                            href={`/search?q=${encodeURIComponent(searchQuery)}&page=1`}
+                            className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100"
+                          >
+                            1
+                          </Link>
+                        );
+
+                        if (start > 2) {
+                          pageNumbers.push(
+                            <span key="dots1" className="px-2 py-2 text-gray-500">...</span>
+                          );
+                        }
+                      }
+
+                      // Pagine centrali
+                      for (let i = start; i <= end; i++) {
+                        if (i === page) {
+                          pageNumbers.push(
+                            <span
+                              key={i}
+                              className="px-3 py-2 bg-gray-200 text-gray-700 rounded-md font-medium cursor-not-allowed"
+                            >
+                              {i}
+                            </span>
+                          );
+                        } else if (i <= maxPage) {
+                          pageNumbers.push(
+                            <Link
+                              key={i}
+                              href={`/search?q=${encodeURIComponent(searchQuery)}&page=${i}`}
+                              className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100"
+                            >
+                              {i}
+                            </Link>
+                          );
+                        }
+                      }
+
+                      // Aggiungi ultima pagina se non è visibile
+                      if (end < maxPage) {
+                        if (end < maxPage - 1) {
+                          pageNumbers.push(
+                            <span key="dots2" className="px-2 py-2 text-gray-500">...</span>
+                          );
+                        }
+
+                        pageNumbers.push(
+                          <Link
+                            key={maxPage}
+                            href={`/search?q=${encodeURIComponent(searchQuery)}&page=${maxPage}`}
+                            className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100"
+                          >
+                            {maxPage}
+                          </Link>
+                        );
+                      }
+
+                      return pageNumbers;
+                    })()}
+
+                    {/* Successivo */}
+                    {page < Math.ceil(totalProducts / perPage) && (
+                      <Link
+                        href={`/search?q=${encodeURIComponent(searchQuery)}&page=${page + 1}`}
+                        className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 ml-2"
+                      >
+                        Successivo
+                      </Link>
+                    )}
                   </div>
                 </div>
               )}
