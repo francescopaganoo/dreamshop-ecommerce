@@ -1,6 +1,6 @@
 'use client';
 
-import { getProductsByCategorySlug, getCategoryBySlug, getMegaMenuCategories, getBrands, Product, Category, ExtendedCategory, Brand } from '../../../lib/api';
+import { getProductsByCategorySlug, getCategoryBySlug, getMegaMenuCategories, getBrandsByCategorySlug, Product, Category, ExtendedCategory, Brand } from '../../../lib/api';
 import ProductCard from '../../../components/ProductCard';
 import CategorySidebar from '../../../components/CategorySidebar';
 import MobileFilterButton from '../../../components/MobileFilterButton';
@@ -30,6 +30,15 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
   const categorySlug = resolvedParams.slug;
   const page = typeof resolvedSearchParams?.page === 'string' ? parseInt(resolvedSearchParams.page, 10) : 1;
   const perPage = 12;
+
+  // Handle brand selection change - redirect to products page with filters
+  const handleBrandSelectionChange = (selectedBrands: string[]) => {
+    if (selectedBrands.length > 0) {
+      const brandsParam = selectedBrands.join(',');
+      const url = `/products?category=${encodeURIComponent(categorySlug)}&brands=${encodeURIComponent(brandsParam)}`;
+      window.location.href = url;
+    }
+  };
   
   useEffect(() => {
     async function fetchData() {
@@ -38,9 +47,9 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
           getCategoryBySlug(categorySlug),
           getProductsByCategorySlug(categorySlug, page, perPage),
           getMegaMenuCategories(),
-          getBrands()
+          getBrandsByCategorySlug(categorySlug)
         ]);
-        
+
         setCategory(categoryData);
         setProducts(productsData);
         setCategories(categoriesData);
@@ -51,7 +60,7 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
         setLoading(false);
       }
     }
-    
+
     fetchData();
   }, [categorySlug, page, perPage]);
   
@@ -97,12 +106,14 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
           <div className="flex flex-col lg:flex-row gap-8">
             {/* Sidebar */}
             <div className="lg:order-first">
-              <CategorySidebar 
-                categories={categories} 
+              <CategorySidebar
+                categories={categories}
                 availabilityOptions={[]}
                 shippingTimeOptions={[]}
                 brands={brands}
                 currentCategorySlug={categorySlug}
+                selectedBrandSlugs={[]}
+                onBrandSelectionChange={handleBrandSelectionChange}
                 isOpen={isSidebarOpen}
                 onClose={() => setIsSidebarOpen(false)}
               />

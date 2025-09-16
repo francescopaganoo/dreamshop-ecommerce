@@ -1,12 +1,12 @@
 'use client';
 
-import { getProducts, getMegaMenuCategories, getAvailabilityOptions, getShippingTimeOptions, getBrands, getProductsByBrandSlug, Product, ExtendedCategory, AttributeValue, Brand } from '../../lib/api';
+import { getProducts, getMegaMenuCategories, getAvailabilityOptions, getShippingTimeOptions, getBrands, getProductsByBrandSlugs, getProductsByCategorySlugAndBrandSlugs, getProductsByCategorySlug, getBrandsByCategorySlug, Product, ExtendedCategory, AttributeValue, Brand } from '../../lib/api';
 import ProductCard from '../../components/ProductCard';
 import CategorySidebar from '../../components/CategorySidebar';
 import MobileFilterButton from '../../components/MobileFilterButton';
 import Link from 'next/link';
 import { FaArrowRight, FaBox, FaEye, FaStar } from 'react-icons/fa';
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 function ProductsPageContent() {
@@ -16,30 +16,85 @@ function ProductsPageContent() {
   const [availabilityOptions, setAvailabilityOptions] = useState<AttributeValue[]>([]);
   const [shippingTimeOptions, setShippingTimeOptions] = useState<AttributeValue[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
+  const [selectedBrandSlugs, setSelectedBrandSlugs] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  
+
   const searchParams = useSearchParams();
   const page = parseInt(searchParams.get('page') || '1', 10);
   const brandSlug = searchParams.get('brand') || '';
+  const brandsParam = searchParams.get('brands') || '';
+  const categorySlug = searchParams.get('category') || '';
   const perPage = 12;
-  
+
+  // Parse multiple brands from URL
+  const brandSlugsFromUrl = useMemo(() => {
+    return brandsParam ? brandsParam.split(',') : (brandSlug ? [brandSlug] : []);
+  }, [brandsParam, brandSlug]);
+
+  // Update selected brands when URL changes
+  useEffect(() => {
+    setSelectedBrandSlugs(brandSlugsFromUrl);
+  }, [brandSlugsFromUrl]);
+
+  // Handle brand selection change
+  const handleBrandSelectionChange = (selectedBrands: string[]) => {
+    setSelectedBrandSlugs(selectedBrands);
+
+    // Update URL
+    const newSearchParams = new URLSearchParams(searchParams.toString());
+
+    if (selectedBrands.length > 0) {
+      newSearchParams.set('brands', selectedBrands.join(','));
+      newSearchParams.delete('brand'); // Remove old single brand param
+    } else {
+      newSearchParams.delete('brands');
+      newSearchParams.delete('brand');
+    }
+
+    newSearchParams.delete('page'); // Reset to first page when changing filters
+
+    const newUrl = `/products?${newSearchParams.toString()}`;
+    window.history.pushState({}, '', newUrl);
+  };
+
   useEffect(() => {
     async function fetchData() {
       try {
-        const [categoriesData, availabilityData, shippingData, brandsData] = await Promise.all([
+        // Get categories, availability and shipping data
+        const [categoriesData, availabilityData, shippingData] = await Promise.all([
           getMegaMenuCategories(),
           getAvailabilityOptions(),
-          getShippingTimeOptions(),
-          getBrands()
+          getShippingTimeOptions()
         ]);
-        let productsResponse: { products: Product[], total: number };
-        if (brandSlug) {
-          productsResponse = await getProductsByBrandSlug(brandSlug, page, perPage);
+
+        // Get brands based on whether we have a category filter
+        let brandsData: Brand[];
+        if (categorySlug) {
+          brandsData = await getBrandsByCategorySlug(categorySlug);
         } else {
+          brandsData = await getBrands();
+        }
+
+        // Get products based on filters
+        let productsResponse: { products: Product[], total: number };
+        const currentBrandSlugs = selectedBrandSlugs.length > 0 ? selectedBrandSlugs : brandSlugsFromUrl;
+
+        if (categorySlug && currentBrandSlugs.length > 0) {
+          // Both category and brand filters
+          productsResponse = await getProductsByCategorySlugAndBrandSlugs(categorySlug, currentBrandSlugs, page, perPage);
+        } else if (categorySlug) {
+          // Only category filter
+          const products = await getProductsByCategorySlug(categorySlug, page, perPage);
+          productsResponse = { products, total: products.length };
+        } else if (currentBrandSlugs.length > 0) {
+          // Only brand filters
+          productsResponse = await getProductsByBrandSlugs(currentBrandSlugs, page, perPage);
+        } else {
+          // No filters
           productsResponse = await getProducts(page, perPage);
         }
-        
+
         setCategories(categoriesData);
         setAvailabilityOptions(availabilityData);
         setShippingTimeOptions(shippingData);
@@ -52,9 +107,9 @@ function ProductsPageContent() {
         setLoading(false);
       }
     }
-    
+
     fetchData();
-  }, [page, perPage, brandSlug]);
+  }, [page, perPage, selectedBrandSlugs, categorySlug, brandSlugsFromUrl]);
   
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Caricamento...</div>;
@@ -105,12 +160,15 @@ function ProductsPageContent() {
           <div className="flex flex-col lg:flex-row gap-8">
             {/* Sidebar */}
             <div className="lg:order-first">
-              <CategorySidebar 
-                categories={categories} 
+              <CategorySidebar
+                categories={categories}
                 availabilityOptions={availabilityOptions}
                 shippingTimeOptions={shippingTimeOptions}
                 brands={brands}
+                currentCategorySlug={categorySlug || undefined}
                 currentBrandSlug={brandSlug || undefined}
+                selectedBrandSlugs={selectedBrandSlugs}
+                onBrandSelectionChange={handleBrandSelectionChange}
                 isOpen={isSidebarOpen}
                 onClose={() => setIsSidebarOpen(false)}
               />

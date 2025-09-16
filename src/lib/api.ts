@@ -424,6 +424,68 @@ export async function getBrandBySlug(slug: string): Promise<Brand | null> {
   }
 }
 
+// Fetch brands that have products in a specific category
+export async function getBrandsByCategory(categoryId: number): Promise<Brand[]> {
+  try {
+    const cacheKey = `brands_category_${categoryId}_${Math.floor(Date.now() / (1000 * 300))}`;
+    if (typeof window !== 'undefined') {
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) return JSON.parse(cached) as Brand[];
+    }
+
+    // Get all brands and filter based on products
+    const allBrands = await getBrands();
+    const brandsWithProducts: Brand[] = [];
+
+    // For each brand, check if it has products in this category
+    for (const brand of allBrands) {
+      try {
+        const { data: brandProducts } = await api.get('products', {
+          category: categoryId,
+          brand: brand.id,
+          per_page: 1,
+          status: 'publish',
+        });
+
+        if (brandProducts && (brandProducts as Product[]).length > 0) {
+          brandsWithProducts.push(brand);
+        }
+      } catch (error) {
+        // Skip brands that cause errors
+        console.warn(`Error checking brand ${brand.name}:`, error);
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem(cacheKey, JSON.stringify(brandsWithProducts));
+    }
+
+    return brandsWithProducts;
+  } catch (error) {
+    console.error('Error fetching brands by category:', error);
+    return [];
+  }
+}
+
+// Fetch brands that have products in a specific category by slug
+export async function getBrandsByCategorySlug(categorySlug: string): Promise<Brand[]> {
+  try {
+    // First get the category by slug
+    const category = await getCategoryBySlug(categorySlug);
+
+    if (!category) {
+      console.error(`Category with slug ${categorySlug} not found`);
+      return [];
+    }
+
+    // Then get brands for that category
+    return await getBrandsByCategory(category.id);
+  } catch (error) {
+    console.error(`Error fetching brands for category slug ${categorySlug}:`, error);
+    return [];
+  }
+}
+
 // Fetch products filtered by brand id (product_brand term)
 export async function getProductsByBrand(brandId: number, page = 1, per_page = 10): Promise<Product[]> {
   try {
@@ -437,6 +499,149 @@ export async function getProductsByBrand(brandId: number, page = 1, per_page = 1
   } catch (error) {
     console.error(`Error fetching products for brand ${brandId}:`, error);
     return [];
+  }
+}
+
+// Fetch products filtered by both category and brand
+export async function getProductsByCategoryAndBrand(categoryId: number, brandId: number, page = 1, per_page = 10): Promise<{ products: Product[], total: number }> {
+  try {
+    const response = await api.get('products', {
+      category: categoryId,
+      brand: brandId,
+      per_page,
+      page,
+      status: 'publish',
+    });
+
+    const products = response.data as Product[];
+    const total = parseInt((response.headers as Record<string, string>)['x-wp-total'] || '0', 10);
+
+    return { products, total };
+  } catch (error) {
+    console.error(`Error fetching products for category ${categoryId} and brand ${brandId}:`, error);
+    return { products: [], total: 0 };
+  }
+}
+
+// Fetch products filtered by both category slug and brand slug
+export async function getProductsByCategorySlugAndBrandSlug(categorySlug: string, brandSlug: string, page = 1, per_page = 10): Promise<{ products: Product[], total: number }> {
+  try {
+    const [category, brand] = await Promise.all([
+      getCategoryBySlug(categorySlug),
+      getBrandBySlug(brandSlug)
+    ]);
+
+    if (!category) {
+      console.error(`Category with slug ${categorySlug} not found`);
+      return { products: [], total: 0 };
+    }
+
+    if (!brand) {
+      console.error(`Brand with slug ${brandSlug} not found`);
+      return { products: [], total: 0 };
+    }
+
+    return await getProductsByCategoryAndBrand(category.id, brand.id, page, per_page);
+  } catch (error) {
+    console.error(`Error fetching products for category slug ${categorySlug} and brand slug ${brandSlug}:`, error);
+    return { products: [], total: 0 };
+  }
+}
+
+// Fetch products filtered by category slug and multiple brand slugs
+export async function getProductsByCategorySlugAndBrandSlugs(categorySlug: string, brandSlugs: string[], page = 1, per_page = 10): Promise<{ products: Product[], total: number }> {
+  try {
+    if (brandSlugs.length === 0) {
+      // If no brands selected, return products from category only
+      const products = await getProductsByCategorySlug(categorySlug, page, per_page);
+      return { products, total: products.length };
+    }
+
+    // Get category and all brands
+    const category = await getCategoryBySlug(categorySlug);
+    if (!category) {
+      console.error(`Category with slug ${categorySlug} not found`);
+      return { products: [], total: 0 };
+    }
+
+    const brands = await Promise.all(
+      brandSlugs.map(slug => getBrandBySlug(slug))
+    );
+
+    const validBrands = brands.filter(brand => brand !== null) as Brand[];
+    if (validBrands.length === 0) {
+      console.error('No valid brands found');
+      return { products: [], total: 0 };
+    }
+
+    // Get products for each brand in the category and merge them
+    const allProducts: Product[] = [];
+    const productIds = new Set<number>();
+
+    for (const brand of validBrands) {
+      const { products } = await getProductsByCategoryAndBrand(category.id, brand.id, 1, 100);
+      products.forEach(product => {
+        if (!productIds.has(product.id)) {
+          productIds.add(product.id);
+          allProducts.push(product);
+        }
+      });
+    }
+
+    // Apply pagination
+    const startIndex = (page - 1) * per_page;
+    const endIndex = startIndex + per_page;
+    const paginatedProducts = allProducts.slice(startIndex, endIndex);
+
+    return { products: paginatedProducts, total: allProducts.length };
+  } catch (error) {
+    console.error(`Error fetching products for category slug ${categorySlug} and brand slugs ${brandSlugs.join(', ')}:`, error);
+    return { products: [], total: 0 };
+  }
+}
+
+// Fetch products filtered by multiple brand slugs only
+export async function getProductsByBrandSlugs(brandSlugs: string[], page = 1, per_page = 10): Promise<{ products: Product[], total: number }> {
+  try {
+    if (brandSlugs.length === 0) {
+      // If no brands selected, return all products
+      return await getProducts(page, per_page);
+    }
+
+    // Get all brands
+    const brands = await Promise.all(
+      brandSlugs.map(slug => getBrandBySlug(slug))
+    );
+
+    const validBrands = brands.filter(brand => brand !== null) as Brand[];
+    if (validBrands.length === 0) {
+      console.error('No valid brands found');
+      return { products: [], total: 0 };
+    }
+
+    // Get products for each brand and merge them
+    const allProducts: Product[] = [];
+    const productIds = new Set<number>();
+
+    for (const brand of validBrands) {
+      const { products } = await getProductsByBrandSlug(brand.slug, 1, 100);
+      products.forEach(product => {
+        if (!productIds.has(product.id)) {
+          productIds.add(product.id);
+          allProducts.push(product);
+        }
+      });
+    }
+
+    // Apply pagination
+    const startIndex = (page - 1) * per_page;
+    const endIndex = startIndex + per_page;
+    const paginatedProducts = allProducts.slice(startIndex, endIndex);
+
+    return { products: paginatedProducts, total: allProducts.length };
+  } catch (error) {
+    console.error(`Error fetching products for brand slugs ${brandSlugs.join(', ')}:`, error);
+    return { products: [], total: 0 };
   }
 }
 

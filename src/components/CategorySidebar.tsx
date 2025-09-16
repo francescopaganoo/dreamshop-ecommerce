@@ -23,21 +23,24 @@ interface CategorySidebarProps {
   currentCategorySlug?: string;
   brands?: Brand[];
   currentBrandSlug?: string;
+  selectedBrandSlugs?: string[];
+  onBrandSelectionChange?: (selectedBrands: string[]) => void;
   isOpen?: boolean;
   onClose?: () => void;
   showAllCategoriesActive?: boolean;
 }
 
-export default function CategorySidebar({ 
-  categories, 
-  availabilityOptions = [], 
-  shippingTimeOptions = [], 
-  currentCategorySlug, 
+export default function CategorySidebar({
+  categories,
+  availabilityOptions = [],
+  shippingTimeOptions = [],
+  currentCategorySlug,
   brands = [],
-  currentBrandSlug,
-  isOpen = false, 
-  onClose, 
-  showAllCategoriesActive = false 
+  selectedBrandSlugs = [],
+  onBrandSelectionChange,
+  isOpen = false,
+  onClose,
+  showAllCategoriesActive = false
 }: CategorySidebarProps) {
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [showAllAvailability, setShowAllAvailability] = useState(false);
@@ -48,6 +51,18 @@ export default function CategorySidebar({
   const displayedAvailability = showAllAvailability ? availabilityOptions : availabilityOptions.slice(0, 6);
   const displayedShipping = showAllShipping ? shippingTimeOptions : shippingTimeOptions.slice(0, 6);
   const displayedBrands = showAllBrands ? brands : brands.slice(0, 8);
+
+  const handleBrandChange = (brandSlug: string, checked: boolean) => {
+    if (!onBrandSelectionChange) return;
+
+    let newSelectedBrands: string[];
+    if (checked) {
+      newSelectedBrands = [...selectedBrandSlugs, brandSlug];
+    } else {
+      newSelectedBrands = selectedBrandSlugs.filter(slug => slug !== brandSlug);
+    }
+    onBrandSelectionChange(newSelectedBrands);
+  };
 
   return (
     <>
@@ -203,22 +218,24 @@ export default function CategorySidebar({
           <h3 className="text-lg font-bold text-gray-900 mb-4 border-b border-gray-100 pb-2">
             Marchi
           </h3>
-          <ul className="space-y-2">
+          <div className="space-y-2">
             {displayedBrands.map((brand) => (
-              <li key={brand.id}>
-                <Link
-                  href={`/products?brand=${encodeURIComponent(brand.slug)}`}
-                  className={`block py-2 px-3 rounded-md text-sm font-medium transition-colors ${
-                    currentBrandSlug === brand.slug
-                      ? 'bg-bred-500 text-white'
-                      : 'text-gray-700 hover:bg-gray-100 hover:text-bred-600'
-                  }`}
-                >
+              <label
+                key={brand.id}
+                className="flex items-center py-2 px-3 rounded-md text-sm cursor-pointer transition-colors hover:bg-gray-50"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedBrandSlugs.includes(brand.slug)}
+                  onChange={(e) => handleBrandChange(brand.slug, e.target.checked)}
+                  className="mr-3 h-4 w-4 text-bred-500 border-gray-300 rounded focus:ring-bred-500 focus:ring-2"
+                />
+                <span className="text-gray-700 font-medium">
                   {decodeHtmlEntities(brand.name)}
-                </Link>
-              </li>
+                </span>
+              </label>
             ))}
-          </ul>
+          </div>
           {brands.length > 8 && (
             <button
               onClick={() => setShowAllBrands(!showAllBrands)}

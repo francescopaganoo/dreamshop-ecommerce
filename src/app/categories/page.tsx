@@ -24,7 +24,16 @@ export default function CategoriesPage() {
   const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  
+
+  // Handle brand selection change - redirect to products page with brand filters
+  const handleBrandSelectionChange = (selectedBrands: string[]) => {
+    if (selectedBrands.length > 0) {
+      const brandsParam = selectedBrands.join(',');
+      const url = `/products?brands=${encodeURIComponent(brandsParam)}`;
+      window.location.href = url;
+    }
+  };
+
   useEffect(() => {
     async function fetchData() {
       try {
@@ -86,11 +95,13 @@ export default function CategoriesPage() {
           <div className="flex flex-col lg:flex-row gap-8">
             {/* Sidebar */}
             <div className="lg:order-first">
-              <CategorySidebar 
-                categories={megaMenuCategories} 
+              <CategorySidebar
+                categories={megaMenuCategories}
                 availabilityOptions={[]}
                 shippingTimeOptions={[]}
                 brands={brands}
+                selectedBrandSlugs={[]}
+                onBrandSelectionChange={handleBrandSelectionChange}
                 isOpen={isSidebarOpen}
                 onClose={() => setIsSidebarOpen(false)}
                 showAllCategoriesActive={true}

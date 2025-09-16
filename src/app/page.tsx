@@ -152,7 +152,7 @@ export default async function Home() {
             width={768}
             height={1024}
             priority
-            className="w-full h-[82vh] object-cover  md:hidden"
+            className="w-full  object-contain object-center md:hidden"
           />
 
           {/* Overlay gradient sulla parte sinistra → destra */}
@@ -160,7 +160,7 @@ export default async function Home() {
 
           {/* Testi sovrapposti */}
           <div className="absolute inset-0">
-            <div className="container mx-auto px-6 h-full flex flex-col justify-center z-10">
+            <div className="container mx-auto px-6 h-full flex flex-col justify-end pb-16 md:justify-center md:pb-0 z-10">
               <div className="max-w-2xl transform transition-all duration-700 translate-y-0 hover:translate-y-[-10px]">
                 {/*<span className="bg-bred-600 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-6 animate-pulse">Collezione 2025</span>*/}
                 <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">Benvenuti su <span className="text-bred-500">DreamShop</span></h1>
