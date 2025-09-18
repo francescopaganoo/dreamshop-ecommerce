@@ -1676,6 +1676,61 @@ export async function getShippingTimeOptions(): Promise<AttributeValue[]> {
   }
 }
 
+// Calculate price range from products array
+export function calculatePriceRange(products: Product[]): { min: number; max: number } {
+  if (products.length === 0) {
+    return { min: 0, max: 100 };
+  }
+
+  let minPrice = Infinity;
+  let maxPrice = 0;
+
+  products.forEach(product => {
+    // Use sale price if available, otherwise regular price
+    let price = 0;
+    if (product.sale_price && parseFloat(product.sale_price) > 0) {
+      price = parseFloat(product.sale_price);
+    } else if (product.regular_price && parseFloat(product.regular_price) > 0) {
+      price = parseFloat(product.regular_price);
+    } else if (product.price && parseFloat(product.price) > 0) {
+      price = parseFloat(product.price);
+    }
+
+    if (price > 0) {
+      minPrice = Math.min(minPrice, price);
+      maxPrice = Math.max(maxPrice, price);
+    }
+  });
+
+  // If no valid prices found, return default range
+  if (minPrice === Infinity) {
+    return { min: 0, max: 100 };
+  }
+
+  // Round to nearest integers
+  return {
+    min: Math.floor(minPrice),
+    max: Math.ceil(maxPrice)
+  };
+}
+
+// Filter products by price range
+export function filterProductsByPrice(products: Product[], priceRange: { min: number; max: number }): Product[] {
+  return products.filter(product => {
+    // Use sale price if available, otherwise regular price
+    let price = 0;
+    if (product.sale_price && parseFloat(product.sale_price) > 0) {
+      price = parseFloat(product.sale_price);
+    } else if (product.regular_price && parseFloat(product.regular_price) > 0) {
+      price = parseFloat(product.regular_price);
+    } else if (product.price && parseFloat(product.price) > 0) {
+      price = parseFloat(product.price);
+    }
+
+    return price >= priceRange.min && price <= priceRange.max;
+  });
+}
+
 // Get most popular/best selling products using reports endpoint (more accurate)
 export async function getMostPopularProducts(per_page = 5): Promise<Product[]> {
   try {

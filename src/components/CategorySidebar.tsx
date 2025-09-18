@@ -25,6 +25,9 @@ interface CategorySidebarProps {
   currentBrandSlug?: string;
   selectedBrandSlugs?: string[];
   onBrandSelectionChange?: (selectedBrands: string[]) => void;
+  priceRange?: { min: number; max: number };
+  selectedPriceRange?: { min: number; max: number };
+  onPriceRangeChange?: (range: { min: number; max: number }) => void;
   isOpen?: boolean;
   onClose?: () => void;
   showAllCategoriesActive?: boolean;
@@ -38,6 +41,9 @@ export default function CategorySidebar({
   brands = [],
   selectedBrandSlugs = [],
   onBrandSelectionChange,
+  priceRange,
+  selectedPriceRange,
+  onPriceRangeChange,
   isOpen = false,
   onClose,
   showAllCategoriesActive = false
@@ -290,6 +296,58 @@ export default function CategorySidebar({
               )}
             </button>
           )}
+        </div>
+      )}
+
+      {/* Price Range Section */}
+      {priceRange && onPriceRangeChange && (
+        <div className="mb-8">
+          <h3 className="text-lg font-bold text-gray-900 mb-4 border-b border-gray-100 pb-2">
+            Prezzo
+          </h3>
+          <div className="px-3">
+            <div className="mb-4">
+              <div className="flex justify-between text-sm text-gray-600 mb-2">
+                <span>€{selectedPriceRange?.min || priceRange.min}</span>
+                <span>€{selectedPriceRange?.max || priceRange.max}</span>
+              </div>
+              <div className="relative">
+                <div className="slider-track"></div>
+                <input
+                  type="range"
+                  min={priceRange.min}
+                  max={priceRange.max}
+                  value={selectedPriceRange?.min || priceRange.min}
+                  onChange={(e) => {
+                    const newMin = parseInt(e.target.value);
+                    const currentMax = selectedPriceRange?.max || priceRange.max;
+                    if (newMin <= currentMax) {
+                      onPriceRangeChange({ min: newMin, max: currentMax });
+                    }
+                  }}
+                  className="slider-thumb-bred slider-min"
+                />
+                <input
+                  type="range"
+                  min={priceRange.min}
+                  max={priceRange.max}
+                  value={selectedPriceRange?.max || priceRange.max}
+                  onChange={(e) => {
+                    const newMax = parseInt(e.target.value);
+                    const currentMin = selectedPriceRange?.min || priceRange.min;
+                    if (newMax >= currentMin) {
+                      onPriceRangeChange({ min: currentMin, max: newMax });
+                    }
+                  }}
+                  className="slider-thumb-bred slider-max"
+                />
+              </div>
+            </div>
+            <div className="flex items-center justify-between text-xs text-gray-500">
+              <span>€{priceRange.min}</span>
+              <span>€{priceRange.max}</span>
+            </div>
+          </div>
         </div>
       )}
       </div>

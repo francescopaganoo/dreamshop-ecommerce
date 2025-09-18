@@ -55,3 +55,71 @@ body {
 .animate-spin-slow {
   animation: spin-slow 3s linear infinite;
 }
+
+/* Range Slider Styles */
+.slider-thumb-bred {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  outline: none;
+  position: relative;
+  pointer-events: none;
+}
+
+.slider-track {
+  position: relative;
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  margin: 10px 0;
+  z-index: 0;
+}
+
+.slider-thumb-bred::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  background: #A01710;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  pointer-events: all;
+  position: relative;
+  z-index: 2;
+}
+
+.slider-thumb-bred::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  background: #A01710;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  pointer-events: all;
+  position: relative;
+  z-index: 2;
+}
+
+/* Stili specifici per min e max slider */
+.slider-min {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: transparent;
+  z-index: 3;
+}
+
+.slider-max {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: transparent;
+  z-index: 4;
+}

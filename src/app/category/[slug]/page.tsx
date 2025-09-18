@@ -114,6 +114,9 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
                 currentCategorySlug={categorySlug}
                 selectedBrandSlugs={[]}
                 onBrandSelectionChange={handleBrandSelectionChange}
+                priceRange={undefined}
+                selectedPriceRange={undefined}
+                onPriceRangeChange={undefined}
                 isOpen={isSidebarOpen}
                 onClose={() => setIsSidebarOpen(false)}
               />

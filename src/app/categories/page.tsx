@@ -102,6 +102,9 @@ export default function CategoriesPage() {
                 brands={brands}
                 selectedBrandSlugs={[]}
                 onBrandSelectionChange={handleBrandSelectionChange}
+                priceRange={undefined}
+                selectedPriceRange={undefined}
+                onPriceRangeChange={undefined}
                 isOpen={isSidebarOpen}
                 onClose={() => setIsSidebarOpen(false)}
                 showAllCategoriesActive={true}

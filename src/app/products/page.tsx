@@ -1,6 +1,6 @@
 'use client';
 
-import { getProducts, getMegaMenuCategories, getAvailabilityOptions, getShippingTimeOptions, getBrands, getProductsByBrandSlugs, getProductsByCategorySlugAndBrandSlugs, getProductsByCategorySlug, getBrandsByCategorySlug, Product, ExtendedCategory, AttributeValue, Brand } from '../../lib/api';
+import { getProducts, getMegaMenuCategories, getAvailabilityOptions, getShippingTimeOptions, getBrands, getProductsByBrandSlugs, getProductsByCategorySlugAndBrandSlugs, getProductsByCategorySlug, getBrandsByCategorySlug, calculatePriceRange, filterProductsByPrice, Product, ExtendedCategory, AttributeValue, Brand } from '../../lib/api';
 import ProductCard from '../../components/ProductCard';
 import CategorySidebar from '../../components/CategorySidebar';
 import MobileFilterButton from '../../components/MobileFilterButton';
@@ -17,6 +17,8 @@ function ProductsPageContent() {
   const [shippingTimeOptions, setShippingTimeOptions] = useState<AttributeValue[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [selectedBrandSlugs, setSelectedBrandSlugs] = useState<string[]>([]);
+  const [priceRange, setPriceRange] = useState<{ min: number; max: number }>({ min: 0, max: 100 });
+  const [selectedPriceRange, setSelectedPriceRange] = useState<{ min: number; max: number } | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -25,6 +27,8 @@ function ProductsPageContent() {
   const brandSlug = searchParams.get('brand') || '';
   const brandsParam = searchParams.get('brands') || '';
   const categorySlug = searchParams.get('category') || '';
+  const minPriceParam = searchParams.get('minPrice');
+  const maxPriceParam = searchParams.get('maxPrice');
   const perPage = 12;
 
   // Parse multiple brands from URL
@@ -32,10 +36,28 @@ function ProductsPageContent() {
     return brandsParam ? brandsParam.split(',') : (brandSlug ? [brandSlug] : []);
   }, [brandsParam, brandSlug]);
 
+  // Parse price range from URL
+  const priceRangeFromUrl = useMemo(() => {
+    if (minPriceParam && maxPriceParam) {
+      return {
+        min: parseInt(minPriceParam, 10),
+        max: parseInt(maxPriceParam, 10)
+      };
+    }
+    return undefined;
+  }, [minPriceParam, maxPriceParam]);
+
   // Update selected brands when URL changes
   useEffect(() => {
     setSelectedBrandSlugs(brandSlugsFromUrl);
   }, [brandSlugsFromUrl]);
+
+  // Update selected price range when URL changes
+  useEffect(() => {
+    if (priceRangeFromUrl) {
+      setSelectedPriceRange(priceRangeFromUrl);
+    }
+  }, [priceRangeFromUrl]);
 
   // Handle brand selection change
   const handleBrandSelectionChange = (selectedBrands: string[]) => {
@@ -52,6 +74,21 @@ function ProductsPageContent() {
       newSearchParams.delete('brand');
     }
 
+    newSearchParams.delete('page'); // Reset to first page when changing filters
+
+    const newUrl = `/products?${newSearchParams.toString()}`;
+    window.history.pushState({}, '', newUrl);
+  };
+
+  // Handle price range change
+  const handlePriceRangeChange = (range: { min: number; max: number }) => {
+    setSelectedPriceRange(range);
+
+    // Update URL
+    const newSearchParams = new URLSearchParams(searchParams.toString());
+
+    newSearchParams.set('minPrice', range.min.toString());
+    newSearchParams.set('maxPrice', range.max.toString());
     newSearchParams.delete('page'); // Reset to first page when changing filters
 
     const newUrl = `/products?${newSearchParams.toString()}`;
@@ -95,12 +132,25 @@ function ProductsPageContent() {
           productsResponse = await getProducts(page, perPage);
         }
 
+        // Store all products for price calculation and filtering
+        const allProductsForFiltering = productsResponse.products;
+
+        // Calculate price range from all products
+        const calculatedPriceRange = calculatePriceRange(allProductsForFiltering);
+        setPriceRange(calculatedPriceRange);
+
+        // Apply price filter if selected
+        let finalProducts = allProductsForFiltering;
+        if (selectedPriceRange) {
+          finalProducts = filterProductsByPrice(allProductsForFiltering, selectedPriceRange);
+        }
+
         setCategories(categoriesData);
         setAvailabilityOptions(availabilityData);
         setShippingTimeOptions(shippingData);
         setBrands(brandsData);
-        setProducts(productsResponse.products);
-        setTotalProducts(productsResponse.total);
+        setProducts(finalProducts);
+        setTotalProducts(finalProducts.length);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -109,7 +159,7 @@ function ProductsPageContent() {
     }
 
     fetchData();
-  }, [page, perPage, selectedBrandSlugs, categorySlug, brandSlugsFromUrl]);
+  }, [page, perPage, selectedBrandSlugs, categorySlug, brandSlugsFromUrl, selectedPriceRange]);
   
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Caricamento...</div>;
@@ -169,6 +219,9 @@ function ProductsPageContent() {
                 currentBrandSlug={brandSlug || undefined}
                 selectedBrandSlugs={selectedBrandSlugs}
                 onBrandSelectionChange={handleBrandSelectionChange}
+                priceRange={priceRange}
+                selectedPriceRange={selectedPriceRange}
+                onPriceRangeChange={handlePriceRangeChange}
                 isOpen={isSidebarOpen}
                 onClose={() => setIsSidebarOpen(false)}
               />
@@ -296,8 +349,8 @@ function ProductsPageContent() {
                   <div className="w-16 h-16 bg-bred-500/10 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:bg-bred-500/20 transition-colors">
                     <FaBox className="text-bred-500 text-2xl" />
                   </div>
-                  <h3 className="text-2xl font-bold text-gray-900 mb-2">{products.length}+</h3>
-                  <p className="text-gray-600">Prodotti Disponibili</p>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-2">5000+</h3>
+                  <p className="text-gray-600">Prodotti disponibili</p>
                 </div>
                 
                 <div className="group">
