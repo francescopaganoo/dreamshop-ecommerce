@@ -141,8 +141,12 @@ function ProductsPageContent() {
 
         // Apply price filter if selected
         let finalProducts = allProductsForFiltering;
-        if (selectedPriceRange) {
-          finalProducts = filterProductsByPrice(allProductsForFiltering, selectedPriceRange);
+        if (minPriceParam && maxPriceParam) {
+          const priceRangeFromUrl = {
+            min: parseInt(minPriceParam, 10),
+            max: parseInt(maxPriceParam, 10)
+          };
+          finalProducts = filterProductsByPrice(allProductsForFiltering, priceRangeFromUrl);
         }
 
         setCategories(categoriesData);
@@ -159,7 +163,7 @@ function ProductsPageContent() {
     }
 
     fetchData();
-  }, [page, perPage, selectedBrandSlugs, categorySlug, brandSlugsFromUrl, selectedPriceRange]);
+  }, [page, perPage, selectedBrandSlugs, categorySlug, brandSlugsFromUrl, minPriceParam, maxPriceParam]);
   
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Caricamento...</div>;
