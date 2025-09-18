@@ -1,5 +1,24 @@
 import api from './woocommerce';
 
+// Utility function to manage cache size
+function cleanupProductCache() {
+  if (typeof window === 'undefined') return;
+
+  try {
+    const keys = Object.keys(sessionStorage);
+    const productKeys = keys.filter(key => key.startsWith('products_')).sort();
+
+    // Se abbiamo più di 20 cache entries, rimuovi quelle più vecchie
+    if (productKeys.length > 20) {
+      const keysToRemove = productKeys.slice(0, productKeys.length - 15);
+      keysToRemove.forEach(key => sessionStorage.removeItem(key));
+      console.log(`Cleaned up ${keysToRemove.length} old cache entries`);
+    }
+  } catch (error) {
+    console.warn('Error during cache cleanup:', error);
+  }
+}
+
 // Types
 export interface ProductAttribute {
   id: number;
@@ -161,35 +180,67 @@ export interface ShippingMethod {
 }
 
 // Fetch all products
-export async function getProducts(page = 1, per_page = 10, orderby = 'date', order = 'desc'): Promise<{ products: Product[], total: number }> {
+export async function getProducts(page = 1, per_page = 10, orderby = 'date', order = 'desc', min_price?: number, max_price?: number): Promise<{ products: Product[], total: number }> {
   try {
-    // Utilizziamo un timestamp per generare una chiave di cache che include i parametri di ordinamento
-    const cacheKey = `products_${page}_${per_page}_${orderby}_${order}_${Math.floor(Date.now() / (1000 * 300))}`;
-    
-    // Verifichiamo se abbiamo i dati in cache (solo lato client)
-    if (typeof window !== 'undefined') {
-      const cachedData = sessionStorage.getItem(cacheKey);
-      if (cachedData) {
-        return JSON.parse(cachedData) as { products: Product[], total: number };
+    // Cache solo per chiamate senza filtri prezzo
+    let cacheKey = '';
+    let shouldCache = false;
+
+    if (!min_price && !max_price) {
+      // Utilizziamo un timestamp per generare una chiave di cache per le chiamate base
+      cacheKey = `products_${page}_${per_page}_${orderby}_${order}_${Math.floor(Date.now() / (1000 * 300))}`;
+      shouldCache = true;
+
+      // Verifichiamo se abbiamo i dati in cache (solo lato client)
+      if (typeof window !== 'undefined') {
+        const cachedData = sessionStorage.getItem(cacheKey);
+        if (cachedData) {
+          return JSON.parse(cachedData) as { products: Product[], total: number };
+        }
       }
     }
-    
-    // Se non abbiamo dati in cache, facciamo la chiamata API
-    const response = await api.get('products', {
+
+    // Prepariamo i parametri per la chiamata API
+    const params: any = {
       per_page,
       page,
       status: 'publish', // Include solo i prodotti pubblicati, esclude le bozze
       orderby, // Ordina per: date, title, price, popularity, rating, etc.
       order, // asc o desc
-    });
+    };
+
+    // Aggiungi filtri prezzo se specificati
+    if (min_price !== undefined) {
+      params.min_price = min_price;
+    }
+    if (max_price !== undefined) {
+      params.max_price = max_price;
+    }
+
+    // Se non abbiamo dati in cache, facciamo la chiamata API
+    const response = await api.get('products', params);
     
     const products = response.data as Product[];
     const total = parseInt((response.headers as Record<string, string>)['x-wp-total'] || '0', 10);
     const result = { products, total };
     
-    // Salviamo i dati in cache (solo lato client)
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem(cacheKey, JSON.stringify(result));
+    // Salviamo i dati in cache solo se abilitato
+    if (shouldCache && typeof window !== 'undefined') {
+      // Pulisci la cache periodicamente
+      cleanupProductCache();
+
+      try {
+        sessionStorage.setItem(cacheKey, JSON.stringify(result));
+      } catch (error) {
+        // Se la quota è piena, forza la pulizia e riprova
+        console.warn('Cache quota exceeded, forcing cleanup');
+        try {
+          sessionStorage.clear(); // Rimuovi tutto per risolvere definitivamente
+          sessionStorage.setItem(cacheKey, JSON.stringify(result));
+        } catch (e) {
+          console.warn('Unable to cache even after clearing storage');
+        }
+      }
     }
     
     return result;
@@ -326,12 +377,12 @@ export async function getProductsByCategorySlug(categorySlug: string, page = 1, 
   try {
     // Prima ottieni la categoria tramite slug
     const category = await getCategoryBySlug(categorySlug);
-    
+
     if (!category) {
       console.error(`Category with slug ${categorySlug} not found`);
       return [];
     }
-    
+
     // Poi ottieni i prodotti di quella categoria
     const { data } = await api.get('products', {
       category: category.id,
@@ -341,10 +392,95 @@ export async function getProductsByCategorySlug(categorySlug: string, page = 1, 
       orderby,
       order,
     });
-    
+
     return data as Product[];
   } catch (error) {
     console.error(`Error fetching products for category slug ${categorySlug}:`, error);
+    return [];
+  }
+}
+
+// Fetch products by category slug with total count
+export async function getProductsByCategorySlugWithTotal(categorySlug: string, page = 1, per_page = 10, orderby = 'date', order = 'desc', min_price?: number, max_price?: number): Promise<{ products: Product[], total: number }> {
+  try {
+    // Prima ottieni la categoria tramite slug
+    const category = await getCategoryBySlug(categorySlug);
+
+    if (!category) {
+      console.error(`Category with slug ${categorySlug} not found`);
+      return { products: [], total: 0 };
+    }
+
+    // Prepariamo i parametri per la chiamata API
+    const params: any = {
+      category: category.id,
+      per_page,
+      page,
+      status: 'publish',
+      orderby,
+      order,
+    };
+
+    // Aggiungi filtri prezzo se specificati
+    if (min_price !== undefined) {
+      params.min_price = min_price;
+    }
+    if (max_price !== undefined) {
+      params.max_price = max_price;
+    }
+
+    // Poi ottieni i prodotti di quella categoria
+    const response = await api.get('products', params);
+
+    const products = response.data as Product[];
+    const total = parseInt((response.headers as Record<string, string>)['x-wp-total'] || '0', 10);
+
+    return { products, total };
+  } catch (error) {
+    console.error(`Error fetching products for category slug ${categorySlug}:`, error);
+    return { products: [], total: 0 };
+  }
+}
+
+// Fetch ALL products by category slug (for filtering and price calculation)
+export async function getAllProductsByCategorySlug(categorySlug: string): Promise<Product[]> {
+  try {
+    // Prima ottieni la categoria tramite slug
+    const category = await getCategoryBySlug(categorySlug);
+
+    if (!category) {
+      console.error(`Category with slug ${categorySlug} not found`);
+      return [];
+    }
+
+    let allProducts: Product[] = [];
+    let page = 1;
+    const perPage = 100; // Maximum allowed by WooCommerce
+
+    while (true) {
+      const { data } = await api.get('products', {
+        category: category.id,
+        per_page: perPage,
+        page,
+        status: 'publish',
+      });
+
+      if (!data || data.length === 0) {
+        break; // No more products
+      }
+
+      allProducts = [...allProducts, ...data];
+
+      if (data.length < perPage) {
+        break; // Last page
+      }
+
+      page++;
+    }
+
+    return allProducts;
+  } catch (error) {
+    console.error(`Error fetching all products for category slug ${categorySlug}:`, error);
     return [];
   }
 }
@@ -1714,7 +1850,7 @@ export function calculatePriceRange(products: Product[]): { min: number; max: nu
   };
 }
 
-// Filter products by price range
+// Filter products by price range (kept for compatibility)
 export function filterProductsByPrice(products: Product[], priceRange: { min: number; max: number }): Product[] {
   return products.filter(product => {
     // Use sale price if available, otherwise regular price
@@ -1729,6 +1865,65 @@ export function filterProductsByPrice(products: Product[], priceRange: { min: nu
 
     return price >= priceRange.min && price <= priceRange.max;
   });
+}
+
+// Get price range from server (more efficient than client-side calculation)
+export async function getPriceRange(): Promise<{ min: number; max: number }> {
+  try {
+    // Get lowest price product
+    const lowestPriceResponse = await api.get('products', {
+      per_page: 1,
+      page: 1,
+      status: 'publish',
+      orderby: 'price',
+      order: 'asc'
+    });
+
+    // Get highest price product
+    const highestPriceResponse = await api.get('products', {
+      per_page: 1,
+      page: 1,
+      status: 'publish',
+      orderby: 'price',
+      order: 'desc'
+    });
+
+    const lowestProduct = lowestPriceResponse.data[0] as Product;
+    const highestProduct = highestPriceResponse.data[0] as Product;
+
+    let minPrice = 0;
+    let maxPrice = 100;
+
+    // Get minimum price
+    if (lowestProduct) {
+      if (lowestProduct.sale_price && parseFloat(lowestProduct.sale_price) > 0) {
+        minPrice = parseFloat(lowestProduct.sale_price);
+      } else if (lowestProduct.regular_price && parseFloat(lowestProduct.regular_price) > 0) {
+        minPrice = parseFloat(lowestProduct.regular_price);
+      } else if (lowestProduct.price && parseFloat(lowestProduct.price) > 0) {
+        minPrice = parseFloat(lowestProduct.price);
+      }
+    }
+
+    // Get maximum price
+    if (highestProduct) {
+      if (highestProduct.sale_price && parseFloat(highestProduct.sale_price) > 0) {
+        maxPrice = parseFloat(highestProduct.sale_price);
+      } else if (highestProduct.regular_price && parseFloat(highestProduct.regular_price) > 0) {
+        maxPrice = parseFloat(highestProduct.regular_price);
+      } else if (highestProduct.price && parseFloat(highestProduct.price) > 0) {
+        maxPrice = parseFloat(highestProduct.price);
+      }
+    }
+
+    return {
+      min: Math.floor(minPrice),
+      max: Math.ceil(maxPrice)
+    };
+  } catch (error) {
+    console.error('Error fetching price range:', error);
+    return { min: 0, max: 100 };
+  }
 }
 
 // Get most popular/best selling products using reports endpoint (more accurate)

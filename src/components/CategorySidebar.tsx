@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { ExtendedCategory, AttributeValue, Brand } from '@/lib/api';
-import { useState } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { FaChevronDown, FaChevronUp, FaTimes, FaHome } from 'react-icons/fa';
 
 // Funzione per decodificare le entità HTML
@@ -52,6 +52,8 @@ export default function CategorySidebar({
   const [showAllAvailability, setShowAllAvailability] = useState(false);
   const [showAllShipping, setShowAllShipping] = useState(false);
   const [showAllBrands, setShowAllBrands] = useState(false);
+  const [localPriceRange, setLocalPriceRange] = useState(selectedPriceRange);
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const displayedCategories = showAllCategories ? categories : categories.slice(0, 8);
   const displayedAvailability = showAllAvailability ? availabilityOptions : availabilityOptions.slice(0, 6);
@@ -69,6 +71,30 @@ export default function CategorySidebar({
     }
     onBrandSelectionChange(newSelectedBrands);
   };
+
+  // Debounced price range change handler
+  const debouncedPriceRangeChange = useCallback((range: { min: number; max: number }) => {
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+
+    debounceTimeoutRef.current = setTimeout(() => {
+      if (onPriceRangeChange) {
+        onPriceRangeChange(range);
+      }
+    }, 500); // Wait 500ms after user stops dragging
+  }, [onPriceRangeChange]);
+
+  // Handle local price range change (immediate UI update)
+  const handleLocalPriceRangeChange = (range: { min: number; max: number }) => {
+    setLocalPriceRange(range);
+    debouncedPriceRangeChange(range);
+  };
+
+  // Update local state when selectedPriceRange prop changes
+  useEffect(() => {
+    setLocalPriceRange(selectedPriceRange);
+  }, [selectedPriceRange]);
 
   return (
     <>
@@ -308,8 +334,8 @@ export default function CategorySidebar({
           <div className="px-3">
             <div className="mb-4">
               <div className="flex justify-between text-sm text-gray-600 mb-2">
-                <span>€{selectedPriceRange?.min || priceRange.min}</span>
-                <span>€{selectedPriceRange?.max || priceRange.max}</span>
+                <span>€{localPriceRange?.min || priceRange.min}</span>
+                <span>€{localPriceRange?.max || priceRange.max}</span>
               </div>
               <div className="relative">
                 <div className="slider-track"></div>
@@ -317,12 +343,12 @@ export default function CategorySidebar({
                   type="range"
                   min={priceRange.min}
                   max={priceRange.max}
-                  value={selectedPriceRange?.min || priceRange.min}
+                  value={localPriceRange?.min || priceRange.min}
                   onChange={(e) => {
                     const newMin = parseInt(e.target.value);
-                    const currentMax = selectedPriceRange?.max || priceRange.max;
+                    const currentMax = localPriceRange?.max || priceRange.max;
                     if (newMin <= currentMax) {
-                      onPriceRangeChange({ min: newMin, max: currentMax });
+                      handleLocalPriceRangeChange({ min: newMin, max: currentMax });
                     }
                   }}
                   className="slider-thumb-bred slider-min"
@@ -331,12 +357,12 @@ export default function CategorySidebar({
                   type="range"
                   min={priceRange.min}
                   max={priceRange.max}
-                  value={selectedPriceRange?.max || priceRange.max}
+                  value={localPriceRange?.max || priceRange.max}
                   onChange={(e) => {
                     const newMax = parseInt(e.target.value);
-                    const currentMin = selectedPriceRange?.min || priceRange.min;
+                    const currentMin = localPriceRange?.min || priceRange.min;
                     if (newMax >= currentMin) {
-                      onPriceRangeChange({ min: currentMin, max: newMax });
+                      handleLocalPriceRangeChange({ min: currentMin, max: newMax });
                     }
                   }}
                   className="slider-thumb-bred slider-max"

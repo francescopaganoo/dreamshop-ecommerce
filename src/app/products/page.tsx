@@ -1,13 +1,13 @@
 'use client';
 
-import { getProducts, getMegaMenuCategories, getAvailabilityOptions, getShippingTimeOptions, getBrands, getProductsByBrandSlugs, getProductsByCategorySlugAndBrandSlugs, getProductsByCategorySlug, getBrandsByCategorySlug, calculatePriceRange, filterProductsByPrice, Product, ExtendedCategory, AttributeValue, Brand } from '../../lib/api';
+import { getProducts, getMegaMenuCategories, getAvailabilityOptions, getShippingTimeOptions, getBrands, getProductsByBrandSlugs, getProductsByCategorySlugAndBrandSlugs, getProductsByCategorySlugWithTotal, getBrandsByCategorySlug, getPriceRange, Product, ExtendedCategory, AttributeValue, Brand } from '../../lib/api';
 import ProductCard from '../../components/ProductCard';
 import CategorySidebar from '../../components/CategorySidebar';
 import MobileFilterButton from '../../components/MobileFilterButton';
 import Link from 'next/link';
 import { FaArrowRight, FaBox, FaEye, FaStar } from 'react-icons/fa';
 import { useState, useEffect, useMemo, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 
 function ProductsPageContent() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -20,9 +20,11 @@ function ProductsPageContent() {
   const [priceRange, setPriceRange] = useState<{ min: number; max: number }>({ min: 0, max: 100 });
   const [selectedPriceRange, setSelectedPriceRange] = useState<{ min: number; max: number } | undefined>(undefined);
   const [loading, setLoading] = useState(true);
+  const [filterLoading, setFilterLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const searchParams = useSearchParams();
+  const router = useRouter();
   const page = parseInt(searchParams.get('page') || '1', 10);
   const brandSlug = searchParams.get('brand') || '';
   const brandsParam = searchParams.get('brands') || '';
@@ -54,16 +56,16 @@ function ProductsPageContent() {
 
   // Update selected price range when URL changes
   useEffect(() => {
-    if (priceRangeFromUrl) {
-      setSelectedPriceRange(priceRangeFromUrl);
-    }
+    setSelectedPriceRange(priceRangeFromUrl);
   }, [priceRangeFromUrl]);
+
 
   // Handle brand selection change
   const handleBrandSelectionChange = (selectedBrands: string[]) => {
+    console.log('handleBrandSelectionChange called with:', selectedBrands);
     setSelectedBrandSlugs(selectedBrands);
 
-    // Update URL
+    // Update URL using router.push for consistency
     const newSearchParams = new URLSearchParams(searchParams.toString());
 
     if (selectedBrands.length > 0) {
@@ -77,14 +79,18 @@ function ProductsPageContent() {
     newSearchParams.delete('page'); // Reset to first page when changing filters
 
     const newUrl = `/products?${newSearchParams.toString()}`;
-    window.history.pushState({}, '', newUrl);
+    console.log('Brand filter navigating to:', newUrl);
+    router.push(newUrl);
   };
 
   // Handle price range change
   const handlePriceRangeChange = (range: { min: number; max: number }) => {
+    console.log('handlePriceRangeChange called with:', range);
     setSelectedPriceRange(range);
+    setFilterLoading(true); // Start filter loading
+    setProducts([]); // Clear products immediately to avoid flash
 
-    // Update URL
+    // Update URL using router.push for better reactivity
     const newSearchParams = new URLSearchParams(searchParams.toString());
 
     newSearchParams.set('minPrice', range.min.toString());
@@ -92,18 +98,31 @@ function ProductsPageContent() {
     newSearchParams.delete('page'); // Reset to first page when changing filters
 
     const newUrl = `/products?${newSearchParams.toString()}`;
-    window.history.pushState({}, '', newUrl);
+    console.log('Navigating to:', newUrl);
+    router.push(newUrl);
   };
 
   useEffect(() => {
     async function fetchData() {
       try {
-        // Get categories, availability and shipping data
-        const [categoriesData, availabilityData, shippingData] = await Promise.all([
+        console.log('useEffect fetchData triggered with:', {
+          page,
+          minPriceParam,
+          maxPriceParam,
+          categorySlug,
+          brandSlugsFromUrl
+        });
+
+        // Get categories, availability and shipping data, and price range
+        const [categoriesData, availabilityData, shippingData, globalPriceRange] = await Promise.all([
           getMegaMenuCategories(),
           getAvailabilityOptions(),
-          getShippingTimeOptions()
+          getShippingTimeOptions(),
+          getPriceRange()
         ]);
+
+        // Set price range from server
+        setPriceRange(globalPriceRange);
 
         // Get brands based on whether we have a category filter
         let brandsData: Brand[];
@@ -113,52 +132,49 @@ function ProductsPageContent() {
           brandsData = await getBrands();
         }
 
-        // Get products based on filters
+        // Parse price filters from URL
+        const minPrice = minPriceParam ? parseInt(minPriceParam, 10) : undefined;
+        const maxPrice = maxPriceParam ? parseInt(maxPriceParam, 10) : undefined;
+
+        console.log('Parsed price filters:', { minPrice, maxPrice });
+
+        // Get products based on filters with server-side pagination and price filtering
         let productsResponse: { products: Product[], total: number };
         const currentBrandSlugs = selectedBrandSlugs.length > 0 ? selectedBrandSlugs : brandSlugsFromUrl;
 
         if (categorySlug && currentBrandSlugs.length > 0) {
           // Both category and brand filters
+          console.log('Fetching with category + brands');
           productsResponse = await getProductsByCategorySlugAndBrandSlugs(categorySlug, currentBrandSlugs, page, perPage);
         } else if (categorySlug) {
           // Only category filter
-          const products = await getProductsByCategorySlug(categorySlug, page, perPage);
-          productsResponse = { products, total: products.length };
+          console.log('Fetching with category + price:', { categorySlug, minPrice, maxPrice });
+          productsResponse = await getProductsByCategorySlugWithTotal(categorySlug, page, perPage, 'date', 'desc', minPrice, maxPrice);
         } else if (currentBrandSlugs.length > 0) {
           // Only brand filters
+          console.log('Fetching with brands only');
           productsResponse = await getProductsByBrandSlugs(currentBrandSlugs, page, perPage);
         } else {
-          // No filters
-          productsResponse = await getProducts(page, perPage);
+          // No filters or price filter only - show all products with server-side pagination and price filtering
+          console.log('Fetching all products with price filter:', { minPrice, maxPrice });
+          productsResponse = await getProducts(page, perPage, 'date', 'desc', minPrice, maxPrice);
         }
 
-        // Store all products for price calculation and filtering
-        const allProductsForFiltering = productsResponse.products;
+        console.log('API response:', { productsCount: productsResponse.products.length, total: productsResponse.total });
 
-        // Calculate price range from all products
-        const calculatedPriceRange = calculatePriceRange(allProductsForFiltering);
-        setPriceRange(calculatedPriceRange);
 
-        // Apply price filter if selected
-        let finalProducts = allProductsForFiltering;
-        if (minPriceParam && maxPriceParam) {
-          const priceRangeFromUrl = {
-            min: parseInt(minPriceParam, 10),
-            max: parseInt(maxPriceParam, 10)
-          };
-          finalProducts = filterProductsByPrice(allProductsForFiltering, priceRangeFromUrl);
-        }
 
         setCategories(categoriesData);
         setAvailabilityOptions(availabilityData);
         setShippingTimeOptions(shippingData);
         setBrands(brandsData);
-        setProducts(finalProducts);
-        setTotalProducts(finalProducts.length);
+        setProducts(productsResponse.products);
+        setTotalProducts(productsResponse.total);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
         setLoading(false);
+        setFilterLoading(false); // End filter loading
       }
     }
 
@@ -233,7 +249,14 @@ function ProductsPageContent() {
             
             {/* Products Grid */}
             <div className="flex-1">
-              {products.length > 0 ? (
+              {filterLoading || (products.length === 0 && (minPriceParam || maxPriceParam)) ? (
+                <div className="flex items-center justify-center py-20">
+                  <div className="text-center">
+                    <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-bred-600 mb-4"></div>
+                    <p className="text-gray-600">Applicazione filtro prezzo...</p>
+                  </div>
+                </div>
+              ) : products.length > 0 ? (
                 <>
                   <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
                     {products.map((product: Product, index: number) => (
@@ -249,14 +272,18 @@ function ProductsPageContent() {
                   <div className="mt-12 flex justify-center">
                     <div className="flex items-center space-x-1">
                       {/* Precedente */}
-                      {page > 1 && (
-                        <Link 
-                          href={`/products?page=${page - 1}${brandSlug ? `&brand=${encodeURIComponent(brandSlug)}` : ''}`}
-                          className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 mr-2"
-                        >
-                          Precedente
-                        </Link>
-                      )}
+                      {page > 1 && (() => {
+                        const prevSearchParams = new URLSearchParams(searchParams.toString());
+                        prevSearchParams.set('page', (page - 1).toString());
+                        return (
+                          <Link
+                            href={`/products?${prevSearchParams.toString()}`}
+                            className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 mr-2"
+                          >
+                            Precedente
+                          </Link>
+                        );
+                      })()}
                       
                       {/* Numeri pagina */}
                       {(() => {
@@ -269,10 +296,12 @@ function ProductsPageContent() {
                         
                         // Aggiungi prima pagina se non è visibile
                         if (start > 1) {
+                          const firstPageParams = new URLSearchParams(searchParams.toString());
+                          firstPageParams.set('page', '1');
                           pageNumbers.push(
-                            <Link 
+                            <Link
                               key={1}
-                              href={`/products?page=1${brandSlug ? `&brand=${encodeURIComponent(brandSlug)}` : ''}`}
+                              href={`/products?${firstPageParams.toString()}`}
                               className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100"
                             >
                               1
@@ -298,10 +327,12 @@ function ProductsPageContent() {
                               </span>
                             );
                           } else if (i <= maxPage) {
+                            const pageParams = new URLSearchParams(searchParams.toString());
+                            pageParams.set('page', i.toString());
                             pageNumbers.push(
-                              <Link 
+                              <Link
                                 key={i}
-                                href={`/products?page=${i}${brandSlug ? `&brand=${encodeURIComponent(brandSlug)}` : ''}`}
+                                href={`/products?${pageParams.toString()}`}
                                 className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100"
                               >
                                 {i}
@@ -314,14 +345,18 @@ function ProductsPageContent() {
                       })()}
                       
                       {/* Successivo */}
-                      {page < Math.ceil(totalProducts / perPage) && (
-                        <Link 
-                          href={`/products?page=${page + 1}${brandSlug ? `&brand=${encodeURIComponent(brandSlug)}` : ''}`}
-                          className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 ml-2"
-                        >
-                          Successivo
-                        </Link>
-                      )}
+                      {page < Math.ceil(totalProducts / perPage) && (() => {
+                        const nextSearchParams = new URLSearchParams(searchParams.toString());
+                        nextSearchParams.set('page', (page + 1).toString());
+                        return (
+                          <Link
+                            href={`/products?${nextSearchParams.toString()}`}
+                            className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 ml-2"
+                          >
+                            Successivo
+                          </Link>
+                        );
+                      })()}
                     </div>
                   </div>
                 </>
