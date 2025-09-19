@@ -379,7 +379,15 @@ export default function CheckoutPage() {
   // Calculate totals
   const subtotal = getSubtotal(); // Usa getSubtotal per ottenere il prezzo base senza sconti
   const shipping = selectedShippingMethod ? selectedShippingMethod.cost : 0;
-  const total = (subtotal - discount - pointsDiscount) + shipping; // Sottraiamo gli sconti dal totale
+
+  // Calcola il totale base (prodotti + spedizione - sconti)
+  const baseTotal = (subtotal - discount - pointsDiscount) + shipping;
+
+  // Calcola la commissione PayPal del 3% se PayPal è selezionato
+  const paypalFee = formData.paymentMethod === 'paypal' ? baseTotal * 0.03 : 0;
+
+  // Totale finale includendo eventuale commissione PayPal
+  const total = baseTotal + paypalFee;
   
   // Format price with currency symbol
   const formatPrice = (price: number) => {
@@ -706,15 +714,23 @@ export default function CheckoutPage() {
               discount: String(discount)
             }
           ] : [],
-          // Aggiungi lo sconto punti se presente
-          fee_lines: pointsDiscount > 0 ? [
-            {
+          // Aggiungi le fee lines (sconto punti e commissione PayPal)
+          fee_lines: [
+            // Sconto punti se presente
+            ...(pointsDiscount > 0 ? [{
               name: `Sconto punti (${pointsToRedeem} punti)`,
               total: String(-pointsDiscount),
               tax_class: '',
               tax_status: 'none'
-            }
-          ] : []
+            }] : []),
+            // Commissione PayPal se presente
+            ...(paypalFee > 0 ? [{
+              name: 'Commissione PayPal (3%)',
+              total: String(paypalFee),
+              tax_class: '',
+              tax_status: 'none'
+            }] : [])
+          ]
         };
         
         console.log(`PayPal DEBUG: Dati ordine completi:`, JSON.stringify(orderData, null, 2));
@@ -989,7 +1005,7 @@ export default function CheckoutPage() {
               },
               body: JSON.stringify({
                 paymentMethodId: paymentMethod.id,
-                amount: Math.round((subtotal - discount - pointsDiscount + (shipping || 0)) * 100),
+                amount: Math.round(total * 100),
                 customerInfo: {  // Usa direttamente le informazioni dal formData
                   first_name: formData.firstName,
                   last_name: formData.lastName,
@@ -1227,7 +1243,7 @@ export default function CheckoutPage() {
         }
         
         // Calcola il totale dell'ordine includendo lo sconto punti
-        const amount = Math.round((subtotal - discount - pointsDiscount + (shipping || 0)) * 100); // in centesimi
+        const amount = Math.round(total * 100); // in centesimi (include commissione PayPal se applicabile)
         
         // Crea un payment intent con configurazione standard
         const response = await fetch('/api/stripe/payment-intent', {
@@ -1490,15 +1506,23 @@ export default function CheckoutPage() {
             discount: String(discount)
           }
         ] : [],
-        // Aggiungi lo sconto punti se presente
-        fee_lines: pointsDiscount > 0 ? [
-          {
+        // Aggiungi le fee lines (sconto punti e commissione PayPal)
+        fee_lines: [
+          // Sconto punti se presente
+          ...(pointsDiscount > 0 ? [{
             name: `Sconto punti (${pointsToRedeem} punti)`,
             total: String(-pointsDiscount),
             tax_class: '',
             tax_status: 'none'
-          }
-        ] : [],
+          }] : []),
+          // Commissione PayPal se presente (nota: per Stripe non dovrebbe mai essere aggiunta)
+          ...(paypalFee > 0 && formData.paymentMethod === 'paypal' ? [{
+            name: 'Commissione PayPal (3%)',
+            total: String(paypalFee),
+            tax_class: '',
+            tax_status: 'none'
+          }] : [])
+        ],
         // Aggiungi metadati
         meta_data: [
           {
@@ -2506,7 +2530,7 @@ export default function CheckoutPage() {
 
                       {/* Mostra i punti che saranno assegnati */}
                       {isAuthenticated && user && (
-                        <div className="flex justify-between text-blue-600 bg-blue-50 p-2 rounded">
+                        <div className="flex justify-between text-bred-500 bg-bred-50 p-2 rounded">
                           <span className="flex items-center text-sm font-medium">
                             <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                               <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
@@ -2531,7 +2555,20 @@ export default function CheckoutPage() {
                           </span>
                         )}
                       </div>
-                      
+
+                      {/* Commissione PayPal se selezionato */}
+                      {formData.paymentMethod === 'paypal' && paypalFee > 0 && (
+                        <div className="flex justify-between text-bred-600">
+                          <span className="flex items-center">
+                            <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                            </svg>
+                            Commissione PayPal (3%)
+                          </span>
+                          <span>{formatPrice(paypalFee)}</span>
+                        </div>
+                      )}
+
                       <div className="flex justify-between font-bold text-lg pt-2 border-t text-gray-700">
                         <span>Totale</span>
                         <span>{formatPrice(total)}</span>
