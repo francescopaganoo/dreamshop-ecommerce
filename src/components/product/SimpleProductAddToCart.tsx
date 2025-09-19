@@ -291,23 +291,23 @@ export default function SimpleProductAddToCart({ product }: SimpleProductAddToCa
       )}
       
       {/* Express Checkout Options - Sopra il pulsante aggiungi al carrello */}
-      {isInStock && hasValidPrice && (
-        <div className="space-y-3">
-          {/* Apple Pay / Google Pay */}
-          <AppleGooglePayButton 
-            product={product} 
-            quantity={quantity} 
+      <div className="space-y-3">
+        {/* Apple Pay / Google Pay */}
+        {isInStock && hasValidPrice && (
+          <AppleGooglePayButton
+            product={product}
+            quantity={quantity}
             enableDeposit={enableDeposit}
           />
-          
-          {/* PayPal Express */}
-          <PayPalExpressButton 
-            product={product} 
-            quantity={quantity} 
-            enableDeposit={enableDeposit}
-          />
-        </div>
-      )}
+        )}
+
+        {/* PayPal Express - Gestisce internamente le condizioni di visibilità */}
+        <PayPalExpressButton
+          product={product}
+          quantity={quantity}
+          enableDeposit={enableDeposit}
+        />
+      </div>
       
       {/* Form notifica se prodotto non disponibile */}
       {!isInStock && (

@@ -12,10 +12,10 @@ interface PayPalExpressButtonProps {
   enableDeposit?: 'yes' | 'no';
 }
 
-export default function PayPalExpressButton({ 
-  product, 
-  quantity, 
-  enableDeposit = 'no' 
+export default function PayPalExpressButton({
+  product,
+  quantity,
+  enableDeposit = 'no'
 }: PayPalExpressButtonProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -125,7 +125,7 @@ export default function PayPalExpressButton({
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const onError = (err: any) => {
-    console.error('Errore PayPal:', err);
+    console.warn('PayPal Error (handled):', err);
     setError('Errore durante il processo di pagamento PayPal');
     setIsProcessing(false);
   };
