@@ -1,6 +1,6 @@
 'use client';
 
-import { getProductsByCategorySlugWithTotal, getCategoryBySlug, getMegaMenuCategories, getBrandsByCategorySlug, getPriceRangeByCategory, Product, Category, ExtendedCategory, Brand } from '../../../lib/api';
+import { getProductsByCategorySlugWithTotal, getProductsByCategorySlugAndBrandsWithTotal, getCategoryBySlug, getMegaMenuCategories, getBrandsByCategorySlug, getPriceRangeByCategory, getPriceRangeByCategoryAndBrands, Product, Category, ExtendedCategory, Brand } from '../../../lib/api';
 import ProductCard from '../../../components/ProductCard';
 import CategorySidebar from '../../../components/CategorySidebar';
 import MobileFilterButton from '../../../components/MobileFilterButton';
@@ -14,7 +14,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 
 interface CategoryPageProps {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ page?: string; minPrice?: string; maxPrice?: string }>;
+  searchParams: Promise<{ page?: string; minPrice?: string; maxPrice?: string; brands?: string }>;
 }
 
 export default function CategoryPage({ params, searchParams }: CategoryPageProps) {
@@ -24,22 +24,24 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
   const [brands, setBrands] = useState<Brand[]>([]);
   const [priceRange, setPriceRange] = useState<{ min: number; max: number }>({ min: 0, max: 100 });
   const [selectedPriceRange, setSelectedPriceRange] = useState<{ min: number; max: number } | undefined>(undefined);
+  const [selectedBrandSlugs, setSelectedBrandSlugs] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterLoading, setFilterLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
   const resolvedParams = use(params) as { slug: string };
-  const resolvedSearchParams = use(searchParams) as { page?: string; minPrice?: string; maxPrice?: string };
+  const resolvedSearchParams = use(searchParams) as { page?: string; minPrice?: string; maxPrice?: string; brands?: string };
 
   const categorySlug = resolvedParams.slug;
   const page = typeof resolvedSearchParams?.page === 'string' ? parseInt(resolvedSearchParams.page, 10) : 1;
   const perPage = 12;
 
-  // URL search params for price filter
+  // URL search params for price filter and brands
   const searchParamsFromHook = useSearchParams();
   const router = useRouter();
   const minPriceParam = searchParamsFromHook.get('minPrice');
   const maxPriceParam = searchParamsFromHook.get('maxPrice');
+  const brandsParam = searchParamsFromHook.get('brands');
 
   // Create selected price range from URL params
   const getSelectedPriceRangeFromUrl = useCallback(() => {
@@ -56,13 +58,34 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
     setSelectedPriceRange(getSelectedPriceRangeFromUrl());
   }, [minPriceParam, maxPriceParam, getSelectedPriceRangeFromUrl]);
 
-  // Handle brand selection change - redirect to products page with filters
-  const handleBrandSelectionChange = (selectedBrands: string[]) => {
-    if (selectedBrands.length > 0) {
-      const brandsParam = selectedBrands.join(',');
-      const url = `/products?category=${encodeURIComponent(categorySlug)}&brands=${encodeURIComponent(brandsParam)}`;
-      window.location.href = url;
+  // Update selected brands from URL
+  useEffect(() => {
+    if (brandsParam) {
+      setSelectedBrandSlugs(brandsParam.split(','));
+    } else {
+      setSelectedBrandSlugs([]);
     }
+  }, [brandsParam]);
+
+  // Handle brand selection change
+  const handleBrandSelectionChange = (selectedBrands: string[]) => {
+    console.log('handleBrandSelectionChange called with:', selectedBrands);
+    setSelectedBrandSlugs(selectedBrands);
+
+    // Update URL using router.push
+    const newSearchParams = new URLSearchParams(window.location.search);
+
+    if (selectedBrands.length > 0) {
+      newSearchParams.set('brands', selectedBrands.join(','));
+    } else {
+      newSearchParams.delete('brands');
+    }
+
+    newSearchParams.delete('page'); // Reset to first page when changing filters
+
+    const newUrl = `/category/${categorySlug}?${newSearchParams.toString()}`;
+    console.log('Brand filter navigating to:', newUrl);
+    router.push(newUrl);
   };
 
   // Handle price range change
@@ -87,31 +110,57 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
   useEffect(() => {
     async function fetchData() {
       try {
-        // Get category data, categories, brands, and category-specific price range
-        const [categoryData, categoriesData, brandsData, categoryPriceRange] = await Promise.all([
+        // Get category data, categories, and brands first
+        const [categoryData, categoriesData, brandsData] = await Promise.all([
           getCategoryBySlug(categorySlug),
           getMegaMenuCategories(),
-          getBrandsByCategorySlug(categorySlug),
-          getPriceRangeByCategory(categorySlug)
+          getBrandsByCategorySlug(categorySlug)
         ]);
 
-        // Set price range from server (category-specific)
-        setPriceRange(categoryPriceRange);
+        // Get price range based on selected brands (category + brands if brands are selected)
+        let priceRangeData;
+        if (selectedBrandSlugs.length > 0) {
+          priceRangeData = await getPriceRangeByCategoryAndBrands(categorySlug, selectedBrandSlugs);
+          console.log(`Using category + brands price range for ${selectedBrandSlugs.length} brands`);
+        } else {
+          priceRangeData = await getPriceRangeByCategory(categorySlug);
+          console.log('Using category-only price range');
+        }
+
+        // Set price range from server (category-specific or category+brands)
+        setPriceRange(priceRangeData);
 
         // Parse price filters from URL
         const minPrice = minPriceParam ? parseInt(minPriceParam, 10) : undefined;
         const maxPrice = maxPriceParam ? parseInt(maxPriceParam, 10) : undefined;
 
         // Get products for this category with server-side pagination and price filtering
-        const productsResponse = await getProductsByCategorySlugWithTotal(
-          categorySlug,
-          page,
-          perPage,
-          'date',
-          'desc',
-          minPrice,
-          maxPrice
-        );
+        // Use brand-aware function if brands are selected
+        let productsResponse;
+        if (selectedBrandSlugs.length > 0) {
+          console.log(`Fetching products with brands: ${selectedBrandSlugs.join(', ')}`);
+          productsResponse = await getProductsByCategorySlugAndBrandsWithTotal(
+            categorySlug,
+            selectedBrandSlugs,
+            page,
+            perPage,
+            'date',
+            'desc',
+            minPrice,
+            maxPrice
+          );
+        } else {
+          console.log('Fetching products without brand filter');
+          productsResponse = await getProductsByCategorySlugWithTotal(
+            categorySlug,
+            page,
+            perPage,
+            'date',
+            'desc',
+            minPrice,
+            maxPrice
+          );
+        }
 
         setCategory(categoryData);
         setProducts(productsResponse.products);
@@ -126,7 +175,7 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
     }
 
     fetchData();
-  }, [categorySlug, page, perPage, minPriceParam, maxPriceParam]);
+  }, [categorySlug, page, perPage, minPriceParam, maxPriceParam, selectedBrandSlugs]);
   
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Caricamento...</div>;
@@ -176,7 +225,7 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
                 shippingTimeOptions={[]}
                 brands={brands}
                 currentCategorySlug={categorySlug}
-                selectedBrandSlugs={[]}
+                selectedBrandSlugs={selectedBrandSlugs}
                 onBrandSelectionChange={handleBrandSelectionChange}
                 priceRange={priceRange}
                 selectedPriceRange={selectedPriceRange}

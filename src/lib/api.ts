@@ -111,6 +111,7 @@ export interface Product {
     name: string;
     option: string;
   }>;
+  acf?: ProductACF; // Advanced Custom Fields
 }
 
 export interface Category {
@@ -2003,6 +2004,220 @@ export async function getPriceRangeByCategory(categorySlug: string): Promise<{ m
   } catch (error) {
     console.error(`Error fetching price range for category ${categorySlug}:`, error);
     return { min: 0, max: 100 };
+  }
+}
+
+// Get price range for a specific category and brand combination
+export async function getPriceRangeByCategoryAndBrands(categorySlug: string, brandSlugs: string[]): Promise<{ min: number; max: number }> {
+  try {
+    // If no brands selected, use category-only range
+    if (brandSlugs.length === 0) {
+      return await getPriceRangeByCategory(categorySlug);
+    }
+
+    // Get category ID
+    const category = await getCategoryBySlug(categorySlug);
+    if (!category) {
+      console.error(`Category not found for slug: ${categorySlug}`);
+      return { min: 0, max: 100 };
+    }
+
+    // Get brand IDs
+    const brands = await Promise.all(
+      brandSlugs.map(slug => getBrandBySlug(slug))
+    );
+    const validBrands = brands.filter(brand => brand !== null) as Brand[];
+
+    if (validBrands.length === 0) {
+      console.error('No valid brands found');
+      return await getPriceRangeByCategory(categorySlug);
+    }
+
+    // Get all products for this category and brands combination
+    let allProducts: Product[] = [];
+    let page = 1;
+    const perPage = 100;
+    let hasMore = true;
+
+    while (hasMore) {
+      const response = await api.get('products', {
+        per_page: perPage,
+        page: page,
+        status: 'publish',
+        category: category.id
+      });
+
+      const products = response.data as Product[];
+
+      // Filter products by selected brands (client-side filtering)
+      const filteredProducts = products.filter(product => {
+        // First try to get brand from meta_data with key 'brand'
+        const productBrand = product.meta_data?.find(meta => meta.key === 'brand')?.value;
+
+        if (!productBrand) return false;
+
+        // Convert brand name to slug format for comparison
+        const productBrandSlug = productBrand.toLowerCase()
+          .trim()                   // Remove leading/trailing spaces first
+          .replace(/[^\w\s-]/g, '') // Remove special characters
+          .replace(/\s+/g, '-')     // Replace spaces with hyphens
+          .replace(/--+/g, '-')     // Replace multiple hyphens with single
+          .replace(/^-+|-+$/g, ''); // Remove leading and trailing hyphens
+
+        const isIncluded = brandSlugs.includes(productBrandSlug);
+        console.log(`Product: ${product.name}, Brand: "${productBrand}", Slug: "${productBrandSlug}", Selected: [${brandSlugs.join(', ')}], Included: ${isIncluded}`);
+
+        return isIncluded;
+      });
+
+      allProducts = [...allProducts, ...filteredProducts];
+
+      // Check if there are more pages
+      hasMore = products.length === perPage;
+      page++;
+
+      // Safety limit to prevent infinite loops
+      if (page > 20) break;
+    }
+
+    if (allProducts.length === 0) {
+      console.log(`No products found for category ${categorySlug} with brands ${brandSlugs.join(', ')}`);
+      return { min: 0, max: 100 };
+    }
+
+    // Calculate min and max prices client-side
+    const prices: number[] = [];
+
+    allProducts.forEach(product => {
+      let productPrice = 0;
+
+      // Use the most appropriate price (sale price if available, otherwise regular price, otherwise price)
+      if (product.sale_price && parseFloat(product.sale_price) > 0) {
+        productPrice = parseFloat(product.sale_price);
+      } else if (product.regular_price && parseFloat(product.regular_price) > 0) {
+        productPrice = parseFloat(product.regular_price);
+      } else if (product.price && parseFloat(product.price) > 0) {
+        productPrice = parseFloat(product.price);
+      }
+
+      if (productPrice > 0) {
+        prices.push(productPrice);
+      }
+    });
+
+    if (prices.length === 0) {
+      return { min: 0, max: 100 };
+    }
+
+    const minPrice = Math.min(...prices);
+    const maxPrice = Math.max(...prices);
+
+    console.log(`Price range for category ${categorySlug} + brands [${brandSlugs.join(', ')}]: €${minPrice} - €${maxPrice} (${prices.length} products)`);
+
+    return {
+      min: Math.floor(minPrice),
+      max: Math.ceil(maxPrice)
+    };
+  } catch (error) {
+    console.error(`Error fetching price range for category ${categorySlug} and brands ${brandSlugs.join(', ')}:`, error);
+    return { min: 0, max: 100 };
+  }
+}
+
+// Get products for a specific category and brand combination with pagination
+export async function getProductsByCategorySlugAndBrandsWithTotal(
+  categorySlug: string,
+  brandSlugs: string[],
+  page = 1,
+  per_page = 10,
+  orderby = 'date',
+  order = 'desc',
+  min_price?: number,
+  max_price?: number
+): Promise<{ products: Product[], total: number }> {
+  try {
+    // If no brands selected, use category-only query
+    if (brandSlugs.length === 0) {
+      return await getProductsByCategorySlugWithTotal(categorySlug, page, per_page, orderby, order, min_price, max_price);
+    }
+
+    // Get category ID
+    const category = await getCategoryBySlug(categorySlug);
+    if (!category) {
+      console.error(`Category not found for slug: ${categorySlug}`);
+      return { products: [], total: 0 };
+    }
+
+    // Get all products for this category (we need all to filter by brands)
+    let allProducts: Product[] = [];
+    let apiPage = 1;
+    const apiPerPage = 100;
+    let hasMore = true;
+
+    while (hasMore) {
+      const response = await api.get('products', {
+        per_page: apiPerPage,
+        page: apiPage,
+        status: 'publish',
+        category: category.id
+      });
+
+      const products = response.data as Product[];
+
+      // Filter products by selected brands (client-side filtering)
+      const filteredProducts = products.filter(product => {
+        // First try to get brand from meta_data with key 'brand'
+        const productBrand = product.meta_data?.find(meta => meta.key === 'brand')?.value;
+
+        if (!productBrand) return false;
+
+        // Convert brand name to slug format for comparison
+        const productBrandSlug = productBrand.toLowerCase()
+          .trim()                   // Remove leading/trailing spaces first
+          .replace(/[^\w\s-]/g, '') // Remove special characters
+          .replace(/\s+/g, '-')     // Replace spaces with hyphens
+          .replace(/--+/g, '-')     // Replace multiple hyphens with single
+          .replace(/^-+|-+$/g, ''); // Remove leading and trailing hyphens
+
+        return brandSlugs.includes(productBrandSlug);
+      });
+
+      allProducts = [...allProducts, ...filteredProducts];
+
+      // Check if there are more pages
+      hasMore = products.length === apiPerPage;
+      apiPage++;
+
+      // Safety limit to prevent infinite loops
+      if (apiPage > 20) break;
+    }
+
+    // Apply price filtering if specified
+    if (min_price !== undefined || max_price !== undefined) {
+      allProducts = allProducts.filter(product => {
+        const productPrice = parseFloat(product.price) || 0;
+
+        if (min_price !== undefined && productPrice < min_price) return false;
+        if (max_price !== undefined && productPrice > max_price) return false;
+
+        return true;
+      });
+    }
+
+    console.log(`Found ${allProducts.length} products for category ${categorySlug} + brands [${brandSlugs.join(', ')}]${min_price || max_price ? ` + price filter €${min_price || 0}-€${max_price || '∞'}` : ''}`);
+
+    // Apply pagination to filtered results
+    const startIndex = (page - 1) * per_page;
+    const endIndex = startIndex + per_page;
+    const paginatedProducts = allProducts.slice(startIndex, endIndex);
+
+    return {
+      products: paginatedProducts,
+      total: allProducts.length
+    };
+  } catch (error) {
+    console.error(`Error fetching products for category ${categorySlug} and brands ${brandSlugs.join(', ')}:`, error);
+    return { products: [], total: 0 };
   }
 }
 
