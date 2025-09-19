@@ -30,6 +30,21 @@ export default function PayPalExpressButton({
     return null;
   }
 
+  // Calcola il totale con commissione PayPal del 3%
+  const calculatePayPalTotal = () => {
+    const unitPrice = parseFloat(product.sale_price || product.price || '0');
+    const subtotal = unitPrice * quantity;
+    const paypalFee = subtotal * 0.03; // 3% di commissione
+    const totalWithFee = subtotal + paypalFee;
+    return {
+      subtotal: subtotal.toFixed(2),
+      fee: paypalFee.toFixed(2),
+      total: totalWithFee.toFixed(2)
+    };
+  };
+
+  const { subtotal, fee, total } = calculatePayPalTotal();
+
   // Crea l'ordine PayPal diretto
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const createPayPalOrder = async (_data: any, actions: any) => {
@@ -37,9 +52,8 @@ export default function PayPalExpressButton({
       setIsProcessing(true);
       setError(null);
 
-      // Calcola il prezzo totale
-      const unitPrice = parseFloat(product.sale_price || product.price || '0');
-      const totalAmount = (unitPrice * quantity).toFixed(2);
+      // Usa il totale con commissione PayPal
+      const totalAmount = total;
 
       // Crea ordine PayPal usando actions.order.create
       return actions.order.create({
@@ -50,8 +64,8 @@ export default function PayPalExpressButton({
               currency_code: 'EUR',
               value: totalAmount,
             },
-            description: `${product.name} x${quantity}`,
-            custom_id: `product_${product.id}_qty_${quantity}_deposit_${enableDeposit}`,
+            description: `${product.name} x${quantity} (incl. commissione PayPal 3%)`,
+            custom_id: `product_${product.id}_qty_${quantity}_deposit_${enableDeposit}_paypal_fee`,
           },
         ],
         application_context: {
@@ -142,6 +156,21 @@ export default function PayPalExpressButton({
             <p className="text-red-700 text-sm">{error}</p>
           </div>
         )}
+
+        {/* Messaggio informativo sulla commissione PayPal */}
+        <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
+          <div className="flex items-center text-sm text-blue-800">
+            <svg className="w-4 h-4 mr-2 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            </svg>
+            <div>
+              <p className="font-medium">Pagamento PayPal</p>
+              <p className="text-xs mt-1">
+                Subtotale: €{subtotal} + Commissione PayPal (3%): €{fee} = <strong>Totale: €{total}</strong>
+              </p>
+            </div>
+          </div>
+        </div>
         
         {/* PayPal Standard */}
         <div className="mb-3">
@@ -164,7 +193,7 @@ export default function PayPalExpressButton({
         {/* Banner PayPal Pay Later */}
         <div className="mb-3">
           <PayPalMessages
-            amount={parseFloat(product.sale_price || product.price || '0') * quantity}
+            amount={parseFloat(total)}
             placement="product"
             style={{
               layout: 'text',

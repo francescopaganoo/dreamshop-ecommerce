@@ -4,19 +4,34 @@ import api from '../../../../lib/woocommerce';
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json();
-    const { 
-      paypalOrderId,  
-      productId, 
-      quantity, 
-      userId, 
+    const {
+      paypalOrderId,
+      productId,
+      quantity,
+      userId,
       enableDeposit = 'no',
-      billingData 
+      billingData,
+      paypalOrderDetails
     } = data;
     
     console.log('PayPal Express Complete: Dati ricevuti per ordine completato');
     console.log('PayPal Order ID:', paypalOrderId);
     console.log('Billing Data:', billingData);
-    
+
+    // Calcola la commissione PayPal del 3%
+    const getPurchaseUnitAmount = () => {
+      if (paypalOrderDetails?.purchase_units?.[0]?.amount?.value) {
+        return parseFloat(paypalOrderDetails.purchase_units[0].amount.value);
+      }
+      return 0;
+    };
+
+    const totalAmountPaid = getPurchaseUnitAmount();
+    const subtotalWithoutFee = totalAmountPaid / 1.03; // Calcola il subtotale senza commissione
+    const paypalFee = totalAmountPaid - subtotalWithoutFee;
+
+    console.log(`Totale pagato: €${totalAmountPaid.toFixed(2)}, Commissione PayPal: €${paypalFee.toFixed(2)}`);
+
     // Prepara i line items
     const lineItems = [
       {
@@ -67,6 +82,13 @@ export async function POST(request: NextRequest) {
           method_id: 'flat_rate',
           method_title: 'Spedizione standard',
           total: '0.00'
+        }
+      ],
+      fee_lines: [
+        {
+          name: 'Commissione PayPal (3%)',
+          total: paypalFee.toFixed(2),
+          tax_status: 'none'
         }
       ],
       meta_data: [
