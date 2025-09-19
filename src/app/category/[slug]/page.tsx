@@ -1,12 +1,12 @@
 'use client';
 
-import { getProductsByCategorySlugWithTotal, getCategoryBySlug, getMegaMenuCategories, getBrandsByCategorySlug, getPriceRange, Product, Category, ExtendedCategory, Brand } from '../../../lib/api';
+import { getProductsByCategorySlugWithTotal, getCategoryBySlug, getMegaMenuCategories, getBrandsByCategorySlug, getPriceRangeByCategory, Product, Category, ExtendedCategory, Brand } from '../../../lib/api';
 import ProductCard from '../../../components/ProductCard';
 import CategorySidebar from '../../../components/CategorySidebar';
 import MobileFilterButton from '../../../components/MobileFilterButton';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect, use, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 
 // Next.js 15 has a known issue with TypeScript definitions for page components
@@ -42,7 +42,7 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
   const maxPriceParam = searchParamsFromHook.get('maxPrice');
 
   // Create selected price range from URL params
-  const getSelectedPriceRangeFromUrl = () => {
+  const getSelectedPriceRangeFromUrl = useCallback(() => {
     if (minPriceParam && maxPriceParam) {
       return {
         min: parseInt(minPriceParam, 10),
@@ -50,11 +50,11 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
       };
     }
     return undefined;
-  };
+  }, [minPriceParam, maxPriceParam]);
 
   useEffect(() => {
     setSelectedPriceRange(getSelectedPriceRangeFromUrl());
-  }, [minPriceParam, maxPriceParam]);
+  }, [minPriceParam, maxPriceParam, getSelectedPriceRangeFromUrl]);
 
   // Handle brand selection change - redirect to products page with filters
   const handleBrandSelectionChange = (selectedBrands: string[]) => {
@@ -87,16 +87,16 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
   useEffect(() => {
     async function fetchData() {
       try {
-        // Get category data, categories, brands, and price range
-        const [categoryData, categoriesData, brandsData, globalPriceRange] = await Promise.all([
+        // Get category data, categories, brands, and category-specific price range
+        const [categoryData, categoriesData, brandsData, categoryPriceRange] = await Promise.all([
           getCategoryBySlug(categorySlug),
           getMegaMenuCategories(),
           getBrandsByCategorySlug(categorySlug),
-          getPriceRange()
+          getPriceRangeByCategory(categorySlug)
         ]);
 
-        // Set price range from server
-        setPriceRange(globalPriceRange);
+        // Set price range from server (category-specific)
+        setPriceRange(categoryPriceRange);
 
         // Parse price filters from URL
         const minPrice = minPriceParam ? parseInt(minPriceParam, 10) : undefined;

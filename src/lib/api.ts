@@ -201,7 +201,7 @@ export async function getProducts(page = 1, per_page = 10, orderby = 'date', ord
     }
 
     // Prepariamo i parametri per la chiamata API
-    const params: any = {
+    const params: Record<string, string | number> = {
       per_page,
       page,
       status: 'publish', // Include solo i prodotti pubblicati, esclude le bozze
@@ -231,13 +231,13 @@ export async function getProducts(page = 1, per_page = 10, orderby = 'date', ord
 
       try {
         sessionStorage.setItem(cacheKey, JSON.stringify(result));
-      } catch (error) {
+      } catch {
         // Se la quota è piena, forza la pulizia e riprova
         console.warn('Cache quota exceeded, forcing cleanup');
         try {
           sessionStorage.clear(); // Rimuovi tutto per risolvere definitivamente
           sessionStorage.setItem(cacheKey, JSON.stringify(result));
-        } catch (e) {
+        } catch {
           console.warn('Unable to cache even after clearing storage');
         }
       }
@@ -412,7 +412,7 @@ export async function getProductsByCategorySlugWithTotal(categorySlug: string, p
     }
 
     // Prepariamo i parametri per la chiamata API
-    const params: any = {
+    const params: Record<string, string | number> = {
       category: category.id,
       per_page,
       page,
@@ -465,13 +465,14 @@ export async function getAllProductsByCategorySlug(categorySlug: string): Promis
         status: 'publish',
       });
 
-      if (!data || data.length === 0) {
+      const products = data as Product[];
+      if (!products || products.length === 0) {
         break; // No more products
       }
 
-      allProducts = [...allProducts, ...data];
+      allProducts = [...allProducts, ...products];
 
-      if (data.length < perPage) {
+      if (products.length < perPage) {
         break; // Last page
       }
 
@@ -1888,8 +1889,8 @@ export async function getPriceRange(): Promise<{ min: number; max: number }> {
       order: 'desc'
     });
 
-    const lowestProduct = lowestPriceResponse.data[0] as Product;
-    const highestProduct = highestPriceResponse.data[0] as Product;
+    const lowestProduct = (lowestPriceResponse.data as Product[])[0];
+    const highestProduct = (highestPriceResponse.data as Product[])[0];
 
     let minPrice = 0;
     let maxPrice = 100;
@@ -1922,6 +1923,85 @@ export async function getPriceRange(): Promise<{ min: number; max: number }> {
     };
   } catch (error) {
     console.error('Error fetching price range:', error);
+    return { min: 0, max: 100 };
+  }
+}
+
+// Get price range for a specific category by slug
+export async function getPriceRangeByCategory(categorySlug: string): Promise<{ min: number; max: number }> {
+  try {
+    // First get the category ID
+    const category = await getCategoryBySlug(categorySlug);
+    if (!category) {
+      console.error(`Category not found for slug: ${categorySlug}`);
+      return { min: 0, max: 100 };
+    }
+
+    // Get all products in this category (we need to fetch them all to get accurate price range)
+    // Since WooCommerce's price ordering is unreliable, we'll get all products and calculate client-side
+    let allProducts: Product[] = [];
+    let page = 1;
+    const perPage = 100;
+    let hasMore = true;
+
+    while (hasMore) {
+      const response = await api.get('products', {
+        per_page: perPage,
+        page: page,
+        status: 'publish',
+        category: category.id
+      });
+
+      const products = response.data as Product[];
+      allProducts = [...allProducts, ...products];
+
+      // Check if there are more pages
+      hasMore = products.length === perPage;
+      page++;
+
+      // Safety limit to prevent infinite loops
+      if (page > 20) break;
+    }
+
+    if (allProducts.length === 0) {
+      return { min: 0, max: 100 };
+    }
+
+    // Calculate min and max prices client-side
+    const prices: number[] = [];
+
+    allProducts.forEach(product => {
+      let productPrice = 0;
+
+      // Use the most appropriate price (sale price if available, otherwise regular price, otherwise price)
+      if (product.sale_price && parseFloat(product.sale_price) > 0) {
+        productPrice = parseFloat(product.sale_price);
+      } else if (product.regular_price && parseFloat(product.regular_price) > 0) {
+        productPrice = parseFloat(product.regular_price);
+      } else if (product.price && parseFloat(product.price) > 0) {
+        productPrice = parseFloat(product.price);
+      }
+
+      if (productPrice > 0) {
+        prices.push(productPrice);
+      }
+    });
+
+    if (prices.length === 0) {
+      return { min: 0, max: 100 };
+    }
+
+    const minPrice = Math.min(...prices);
+    const maxPrice = Math.max(...prices);
+
+    console.log(`Price range for category ${categorySlug}: €${minPrice} - €${maxPrice} (${prices.length} products)`);
+
+    return {
+      min: Math.floor(minPrice),
+      max: Math.ceil(maxPrice)
+    };
+  } catch (error) {
+    console.error(`Error fetching price range for category ${categorySlug}:`, error);
     return { min: 0, max: 100 };
   }
 }
