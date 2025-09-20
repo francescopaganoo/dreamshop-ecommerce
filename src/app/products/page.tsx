@@ -152,8 +152,8 @@ function ProductsPageContent() {
           productsResponse = await getProductsByCategorySlugWithTotal(categorySlug, page, perPage, 'date', 'desc', minPrice, maxPrice);
         } else if (currentBrandSlugs.length > 0) {
           // Only brand filters
-          console.log('Fetching with brands only');
-          productsResponse = await getProductsByBrandSlugs(currentBrandSlugs, page, perPage);
+          console.log('Fetching with brands + price:', { brandSlugs: currentBrandSlugs, minPrice, maxPrice });
+          productsResponse = await getProductsByBrandSlugs(currentBrandSlugs, page, perPage, 'date', 'desc', minPrice, maxPrice);
         } else {
           // No filters or price filter only - show all products with server-side pagination and price filtering
           console.log('Fetching all products with price filter:', { minPrice, maxPrice });

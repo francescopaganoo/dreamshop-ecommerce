@@ -743,50 +743,6 @@ export async function getProductsByCategorySlugAndBrandSlugs(categorySlug: strin
   }
 }
 
-// Fetch products filtered by multiple brand slugs only
-export async function getProductsByBrandSlugs(brandSlugs: string[], page = 1, per_page = 10): Promise<{ products: Product[], total: number }> {
-  try {
-    if (brandSlugs.length === 0) {
-      // If no brands selected, return all products
-      return await getProducts(page, per_page);
-    }
-
-    // Get all brands
-    const brands = await Promise.all(
-      brandSlugs.map(slug => getBrandBySlug(slug))
-    );
-
-    const validBrands = brands.filter(brand => brand !== null) as Brand[];
-    if (validBrands.length === 0) {
-      console.error('No valid brands found');
-      return { products: [], total: 0 };
-    }
-
-    // Get products for each brand and merge them
-    const allProducts: Product[] = [];
-    const productIds = new Set<number>();
-
-    for (const brand of validBrands) {
-      const { products } = await getProductsByBrandSlug(brand.slug, 1, 100);
-      products.forEach(product => {
-        if (!productIds.has(product.id)) {
-          productIds.add(product.id);
-          allProducts.push(product);
-        }
-      });
-    }
-
-    // Apply pagination
-    const startIndex = (page - 1) * per_page;
-    const endIndex = startIndex + per_page;
-    const paginatedProducts = allProducts.slice(startIndex, endIndex);
-
-    return { products: paginatedProducts, total: allProducts.length };
-  } catch (error) {
-    console.error(`Error fetching products for brand slugs ${brandSlugs.join(', ')}:`, error);
-    return { products: [], total: 0 };
-  }
-}
 
 export async function getProductsByBrandSlug(brandSlug: string, page = 1, per_page = 10): Promise<{ products: Product[], total: number }> {
   try {
@@ -2211,6 +2167,90 @@ export async function getProductsByCategorySlugAndBrandsWithTotal(
     };
   } catch (error) {
     console.error(`Error fetching products for category ${categorySlug} and brands ${brandSlugs.join(', ')}:`, error);
+    return { products: [], total: 0 };
+  }
+}
+
+// Get products filtered by multiple brand slugs only (with price filtering support)
+export async function getProductsByBrandSlugs(
+  brandSlugs: string[],
+  page = 1,
+  per_page = 10,
+  orderby = 'date',
+  order = 'desc',
+  min_price?: number,
+  max_price?: number
+): Promise<{ products: Product[], total: number }> {
+  try {
+    if (brandSlugs.length === 0) {
+      // If no brands selected, return all products with price filter
+      return await getProducts(page, per_page, orderby, order, min_price, max_price);
+    }
+
+    // Get all products (we need all to filter by brands)
+    let allProducts: Product[] = [];
+    let apiPage = 1;
+    const apiPerPage = 100;
+    let hasMore = true;
+
+    while (hasMore) {
+      const response = await api.get('products', {
+        per_page: apiPerPage,
+        page: apiPage,
+        status: 'publish'
+      });
+
+      const products = response.data as Product[];
+
+      // Filter products by selected brands (client-side filtering using taxonomy brands)
+      const filteredProducts = products.filter(product => {
+        // Use taxonomy brands from API instead of meta_data
+        if (!product.brands || product.brands.length === 0) return false;
+
+        // Check if any of the product's brands match the selected brand slugs
+        const productBrandSlugs = product.brands.map(brand => brand.slug);
+        const hasMatchingBrand = productBrandSlugs.some(slug => brandSlugs.includes(slug));
+
+        console.log(`[BRAND ONLY] Product: ${product.name}, Brands: [${productBrandSlugs.join(', ')}], Selected: [${brandSlugs.join(', ')}], Included: ${hasMatchingBrand}`);
+
+        return hasMatchingBrand;
+      });
+
+      allProducts = [...allProducts, ...filteredProducts];
+
+      // Check if there are more pages
+      hasMore = products.length === apiPerPage;
+      apiPage++;
+
+      // Safety limit to prevent infinite loops
+      if (apiPage > 20) break;
+    }
+
+    // Apply price filtering if specified
+    if (min_price !== undefined || max_price !== undefined) {
+      allProducts = allProducts.filter(product => {
+        const productPrice = parseFloat(product.price) || 0;
+
+        if (min_price !== undefined && productPrice < min_price) return false;
+        if (max_price !== undefined && productPrice > max_price) return false;
+
+        return true;
+      });
+    }
+
+    console.log(`Found ${allProducts.length} products for brands [${brandSlugs.join(', ')}]${min_price || max_price ? ` + price filter €${min_price || 0}-€${max_price || '∞'}` : ''}`);
+
+    // Apply pagination to filtered results
+    const startIndex = (page - 1) * per_page;
+    const endIndex = startIndex + per_page;
+    const paginatedProducts = allProducts.slice(startIndex, endIndex);
+
+    return {
+      products: paginatedProducts,
+      total: allProducts.length
+    };
+  } catch (error) {
+    console.error(`Error fetching products for brands ${brandSlugs.join(', ')}:`, error);
     return { products: [], total: 0 };
   }
 }
