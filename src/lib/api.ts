@@ -111,7 +111,12 @@ export interface Product {
     name: string;
     option: string;
   }>;
-  acf?: ProductACF; // Advanced Custom Fields
+  // acf?: ProductACF; // Advanced Custom Fields (rimosso per evitare conflitti con meta_data brand)
+  brands?: Array<{
+    id: number;
+    name: string;
+    slug: string;
+  }>; // WordPress taxonomy brands
 }
 
 export interface Category {
@@ -2049,25 +2054,18 @@ export async function getPriceRangeByCategoryAndBrands(categorySlug: string, bra
 
       const products = response.data as Product[];
 
-      // Filter products by selected brands (client-side filtering)
+      // Filter products by selected brands (client-side filtering using taxonomy brands)
       const filteredProducts = products.filter(product => {
-        // First try to get brand from meta_data with key 'brand'
-        const productBrand = product.meta_data?.find(meta => meta.key === 'brand')?.value;
+        // Use taxonomy brands from API instead of meta_data
+        if (!product.brands || product.brands.length === 0) return false;
 
-        if (!productBrand) return false;
+        // Check if any of the product's brands match the selected brand slugs
+        const productBrandSlugs = product.brands.map(brand => brand.slug);
+        const hasMatchingBrand = productBrandSlugs.some(slug => brandSlugs.includes(slug));
 
-        // Convert brand name to slug format for comparison
-        const productBrandSlug = productBrand.toLowerCase()
-          .trim()                   // Remove leading/trailing spaces first
-          .replace(/[^\w\s-]/g, '') // Remove special characters
-          .replace(/\s+/g, '-')     // Replace spaces with hyphens
-          .replace(/--+/g, '-')     // Replace multiple hyphens with single
-          .replace(/^-+|-+$/g, ''); // Remove leading and trailing hyphens
+        console.log(`Product: ${product.name}, Brands: [${productBrandSlugs.join(', ')}], Selected: [${brandSlugs.join(', ')}], Included: ${hasMatchingBrand}`);
 
-        const isIncluded = brandSlugs.includes(productBrandSlug);
-        console.log(`Product: ${product.name}, Brand: "${productBrand}", Slug: "${productBrandSlug}", Selected: [${brandSlugs.join(', ')}], Included: ${isIncluded}`);
-
-        return isIncluded;
+        return hasMatchingBrand;
       });
 
       allProducts = [...allProducts, ...filteredProducts];
@@ -2164,22 +2162,18 @@ export async function getProductsByCategorySlugAndBrandsWithTotal(
 
       const products = response.data as Product[];
 
-      // Filter products by selected brands (client-side filtering)
+      // Filter products by selected brands (client-side filtering using taxonomy brands)
       const filteredProducts = products.filter(product => {
-        // First try to get brand from meta_data with key 'brand'
-        const productBrand = product.meta_data?.find(meta => meta.key === 'brand')?.value;
+        // Use taxonomy brands from API instead of meta_data
+        if (!product.brands || product.brands.length === 0) return false;
 
-        if (!productBrand) return false;
+        // Check if any of the product's brands match the selected brand slugs
+        const productBrandSlugs = product.brands.map(brand => brand.slug);
+        const hasMatchingBrand = productBrandSlugs.some(slug => brandSlugs.includes(slug));
 
-        // Convert brand name to slug format for comparison
-        const productBrandSlug = productBrand.toLowerCase()
-          .trim()                   // Remove leading/trailing spaces first
-          .replace(/[^\w\s-]/g, '') // Remove special characters
-          .replace(/\s+/g, '-')     // Replace spaces with hyphens
-          .replace(/--+/g, '-')     // Replace multiple hyphens with single
-          .replace(/^-+|-+$/g, ''); // Remove leading and trailing hyphens
+        console.log(`[PRODUCTS] Product: ${product.name}, Brands: [${productBrandSlugs.join(', ')}], Selected: [${brandSlugs.join(', ')}], Included: ${hasMatchingBrand}`);
 
-        return brandSlugs.includes(productBrandSlug);
+        return hasMatchingBrand;
       });
 
       allProducts = [...allProducts, ...filteredProducts];
