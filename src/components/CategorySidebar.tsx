@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import { ExtendedCategory, AttributeValue, Brand } from '@/lib/api';
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { FaChevronDown, FaChevronUp, FaTimes, FaHome } from 'react-icons/fa';
+import { useState, useEffect } from 'react';
+import { FaChevronDown, FaChevronUp, FaTimes, FaHome, FaSpinner } from 'react-icons/fa';
 
 // Funzione per decodificare le entità HTML
 function decodeHtmlEntities(text: string): string {
@@ -24,10 +24,14 @@ interface CategorySidebarProps {
   brands?: Brand[];
   currentBrandSlug?: string;
   selectedBrandSlugs?: string[];
-  onBrandSelectionChange?: (selectedBrands: string[]) => void;
   priceRange?: { min: number; max: number };
   selectedPriceRange?: { min: number; max: number };
   onPriceRangeChange?: (range: { min: number; max: number }) => void;
+  onApplyFilters?: (filters: {
+    brandSlugs: string[];
+    priceRange: { min: number; max: number };
+  }) => void;
+  isApplyingFilters?: boolean;
   isOpen?: boolean;
   onClose?: () => void;
   showAllCategoriesActive?: boolean;
@@ -40,10 +44,11 @@ export default function CategorySidebar({
   currentCategorySlug,
   brands = [],
   selectedBrandSlugs = [],
-  onBrandSelectionChange,
   priceRange,
   selectedPriceRange,
   onPriceRangeChange,
+  onApplyFilters,
+  isApplyingFilters = false,
   isOpen = false,
   onClose,
   showAllCategoriesActive = false
@@ -52,8 +57,19 @@ export default function CategorySidebar({
   const [showAllAvailability, setShowAllAvailability] = useState(false);
   const [showAllShipping, setShowAllShipping] = useState(false);
   const [showAllBrands, setShowAllBrands] = useState(false);
+
+  // Local states for temporary filter values (until user clicks Apply)
+  const [localBrandSlugs, setLocalBrandSlugs] = useState(selectedBrandSlugs);
   const [localPriceRange, setLocalPriceRange] = useState(selectedPriceRange);
-  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Sync local states when props change
+  useEffect(() => {
+    setLocalBrandSlugs(selectedBrandSlugs);
+  }, [selectedBrandSlugs]);
+
+  useEffect(() => {
+    setLocalPriceRange(selectedPriceRange);
+  }, [selectedPriceRange]);
 
   const displayedCategories = showAllCategories ? categories : categories.slice(0, 8);
   const displayedAvailability = showAllAvailability ? availabilityOptions : availabilityOptions.slice(0, 6);
@@ -61,34 +77,35 @@ export default function CategorySidebar({
   const displayedBrands = showAllBrands ? brands : brands.slice(0, 8);
 
   const handleBrandChange = (brandSlug: string, checked: boolean) => {
-    if (!onBrandSelectionChange) return;
-
     let newSelectedBrands: string[];
     if (checked) {
-      newSelectedBrands = [...selectedBrandSlugs, brandSlug];
+      newSelectedBrands = [...localBrandSlugs, brandSlug];
     } else {
-      newSelectedBrands = selectedBrandSlugs.filter(slug => slug !== brandSlug);
+      newSelectedBrands = localBrandSlugs.filter(slug => slug !== brandSlug);
     }
-    onBrandSelectionChange(newSelectedBrands);
+    setLocalBrandSlugs(newSelectedBrands);
   };
 
-  // Debounced price range change handler
-  const debouncedPriceRangeChange = useCallback((range: { min: number; max: number }) => {
-    if (debounceTimeoutRef.current) {
-      clearTimeout(debounceTimeoutRef.current);
-    }
-
-    debounceTimeoutRef.current = setTimeout(() => {
-      if (onPriceRangeChange) {
-        onPriceRangeChange(range);
-      }
-    }, 500); // Wait 500ms after user stops dragging
-  }, [onPriceRangeChange]);
-
-  // Handle local price range change (immediate UI update)
+  // Handle local price range change (immediate UI update only, no automatic API calls)
   const handleLocalPriceRangeChange = (range: { min: number; max: number }) => {
     setLocalPriceRange(range);
-    debouncedPriceRangeChange(range);
+  };
+
+  // Apply all filters at once
+  const handleApplyFilters = () => {
+    if (onApplyFilters && priceRange) {
+      onApplyFilters({
+        brandSlugs: localBrandSlugs,
+        priceRange: localPriceRange || { min: priceRange.min, max: priceRange.max }
+      });
+    }
+  };
+
+  // Check if there are changes to show Apply button
+  const hasChanges = () => {
+    const brandsChanged = JSON.stringify(localBrandSlugs.sort()) !== JSON.stringify(selectedBrandSlugs.sort());
+    const priceChanged = JSON.stringify(localPriceRange) !== JSON.stringify(selectedPriceRange);
+    return brandsChanged || priceChanged;
   };
 
   // Update local state when selectedPriceRange prop changes
@@ -258,7 +275,7 @@ export default function CategorySidebar({
               >
                 <input
                   type="checkbox"
-                  checked={selectedBrandSlugs.includes(brand.slug)}
+                  checked={localBrandSlugs.includes(brand.slug)}
                   onChange={(e) => handleBrandChange(brand.slug, e.target.checked)}
                   className="mr-3 h-4 w-4 text-bred-500 border-gray-300 rounded focus:ring-bred-500 focus:ring-2"
                 />
@@ -376,6 +393,21 @@ export default function CategorySidebar({
           </div>
         </div>
       )}
+
+      {/* Apply Filters Button */}
+      {hasChanges() && (
+        <div className="mt-6 pt-4 border-t border-gray-200">
+          <button
+            onClick={handleApplyFilters}
+            disabled={isApplyingFilters}
+            className="w-full bg-bred-500 text-white py-2 px-4 rounded-md font-medium hover:bg-bred-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {isApplyingFilters && <FaSpinner className="animate-spin" />}
+            {isApplyingFilters ? 'Applicando...' : 'Applica Filtri'}
+          </button>
+        </div>
+      )}
+
       </div>
     </>
   );

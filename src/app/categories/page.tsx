@@ -25,14 +25,6 @@ export default function CategoriesPage() {
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // Handle brand selection change - redirect to products page with brand filters
-  const handleBrandSelectionChange = (selectedBrands: string[]) => {
-    if (selectedBrands.length > 0) {
-      const brandsParam = selectedBrands.join(',');
-      const url = `/products?brands=${encodeURIComponent(brandsParam)}`;
-      window.location.href = url;
-    }
-  };
 
   useEffect(() => {
     async function fetchData() {
@@ -101,10 +93,8 @@ export default function CategoriesPage() {
                 shippingTimeOptions={[]}
                 brands={brands}
                 selectedBrandSlugs={[]}
-                onBrandSelectionChange={handleBrandSelectionChange}
                 priceRange={undefined}
                 selectedPriceRange={undefined}
-                onPriceRangeChange={undefined}
                 isOpen={isSidebarOpen}
                 onClose={() => setIsSidebarOpen(false)}
                 showAllCategoriesActive={true}

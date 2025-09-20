@@ -1,4 +1,410 @@
 import api from './woocommerce';
+import axios from 'axios';
+
+// Cache for preventing duplicate requests
+const requestCache = new Map<string, Promise<{ products: Product[], total: number }>>();
+
+// Optimized function for proper pagination with price filters
+export async function getProductsByBrandSlugsOptimized(
+  brandSlugs: string[],
+  page = 1,
+  per_page = 10,
+  orderby = 'date',
+  order = 'desc',
+  min_price?: number,
+  max_price?: number
+): Promise<{ products: Product[], total: number }> {
+  const requestId = Math.random().toString(36).substr(2, 9);
+  console.log(`🚀 [${requestId}] OPTIMIZED BRAND FILTER:`, { brandSlugs, page, per_page, min_price, max_price });
+
+  try {
+    if (brandSlugs.length === 0) {
+      return await getProducts(page, per_page, orderby, order, min_price, max_price);
+    }
+
+    // Step 1: Get brand IDs
+    const brandIds: number[] = [];
+    for (const brandSlug of brandSlugs) {
+      try {
+        const wpBrandResponse = await wpApi.get(`product_brand?slug=${brandSlug}&_fields=id,name`);
+        if (wpBrandResponse.data.length > 0) {
+          brandIds.push(wpBrandResponse.data[0].id);
+        }
+      } catch (error) {
+        console.error(`Error fetching brand ${brandSlug}:`, error);
+      }
+    }
+
+    if (brandIds.length === 0) {
+      return { products: [], total: 0 };
+    }
+
+    // Step 2: Get ALL product IDs matching brands (no pagination yet)
+    console.log(`🔍 [${requestId}] Getting all products for brands:`, brandIds);
+    const allProductIds: number[] = [];
+    let wpPage = 1;
+    const wpPerPage = 100;
+
+    while (true) {
+      const wpResponse = await wpApi.get('product', {
+        params: {
+          product_brand: brandIds.join(','),
+          per_page: wpPerPage,
+          page: wpPage,
+          _fields: 'id'
+        }
+      });
+
+      const products = wpResponse.data as Array<{ id: number }>;
+      if (products.length === 0) break;
+
+      allProductIds.push(...products.map(p => p.id));
+      if (products.length < wpPerPage) break;
+      wpPage++;
+      if (wpPage > 10) break; // Safety limit
+    }
+
+    console.log(`📊 [${requestId}] Found ${allProductIds.length} products matching brands`);
+
+    // Step 3: Apply price filter to get filtered product IDs
+    let filteredProductIds = allProductIds;
+
+    if (min_price !== undefined || max_price !== undefined) {
+      console.log(`🔍 [${requestId}] Applying price filter to all products...`);
+
+      const filteredIds: number[] = [];
+      const batchSize = 100;
+
+      for (let i = 0; i < allProductIds.length; i += batchSize) {
+        const batchIds = allProductIds.slice(i, i + batchSize);
+
+        const batchResponse = await api.get('products', {
+          include: batchIds.join(','),
+          per_page: batchSize,
+          status: 'publish',
+          _fields: 'id,price'
+        });
+
+        const batchProducts = batchResponse.data as Array<{ id: number; price: string }>;
+
+        const validIds = batchProducts
+          .filter(product => {
+            const productPrice = parseFloat(product.price) || 0;
+            if (min_price !== undefined && productPrice < min_price) return false;
+            if (max_price !== undefined && productPrice > max_price) return false;
+            return true;
+          })
+          .map(product => product.id);
+
+        filteredIds.push(...validIds);
+      }
+
+      filteredProductIds = filteredIds;
+      console.log(`✅ [${requestId}] Price filter: ${filteredProductIds.length}/${allProductIds.length} products passed`);
+    }
+
+    // Step 4: Apply pagination to filtered IDs
+    const total = filteredProductIds.length;
+    const startIndex = (page - 1) * per_page;
+    const endIndex = startIndex + per_page;
+    const paginatedIds = filteredProductIds.slice(startIndex, endIndex);
+
+    console.log(`🎯 [${requestId}] Page ${page}: showing products ${startIndex + 1}-${Math.min(endIndex, total)} of ${total}`);
+
+    if (paginatedIds.length === 0) {
+      return { products: [], total };
+    }
+
+    // Step 5: Get full product data for paginated IDs
+    const response = await api.get('products', {
+      include: paginatedIds.join(','),
+      per_page: paginatedIds.length,
+      orderby,
+      order,
+      status: 'publish'
+    });
+
+    const products = response.data as Product[];
+
+    console.log(`✅ [${requestId}] SUCCESS: ${products.length} products returned, total: ${total}`);
+
+    return { products, total };
+
+  } catch (error) {
+    console.error(`❌ [${requestId}] Error:`, error);
+    return { products: [], total: 0 };
+  }
+}
+
+// Optimized function for category with price filtering
+export async function getProductsByCategorySlugWithTotalOptimized(
+  categorySlug: string,
+  page = 1,
+  per_page = 10,
+  orderby = 'date',
+  order = 'desc',
+  min_price?: number,
+  max_price?: number
+): Promise<{ products: Product[], total: number }> {
+  const requestId = Math.random().toString(36).substr(2, 9);
+  console.log(`🚀 [${requestId}] OPTIMIZED CATEGORY FILTER:`, { categorySlug, page, per_page, min_price, max_price });
+
+  try {
+    // Step 1: Get category ID
+    const categoryResponse = await wpApi.get(`product_cat?slug=${categorySlug}&_fields=id,name`);
+
+    if (!categoryResponse.data || categoryResponse.data.length === 0) {
+      console.error(`Category not found: ${categorySlug}`);
+      return { products: [], total: 0 };
+    }
+
+    const categoryId = categoryResponse.data[0].id;
+    console.log(`🔍 [${requestId}] Category ID: ${categoryId}`);
+
+    // Step 2: Get ALL product IDs in category
+    const allProductIds: number[] = [];
+    let wpPage = 1;
+    const wpPerPage = 100;
+
+    while (true) {
+      const wpResponse = await wpApi.get('product', {
+        params: {
+          product_cat: categoryId,
+          per_page: wpPerPage,
+          page: wpPage,
+          _fields: 'id'
+        }
+      });
+
+      const products = wpResponse.data as Array<{ id: number }>;
+      if (products.length === 0) break;
+
+      allProductIds.push(...products.map(p => p.id));
+      if (products.length < wpPerPage) break;
+      wpPage++;
+      if (wpPage > 10) break; // Safety limit
+    }
+
+    console.log(`📊 [${requestId}] Found ${allProductIds.length} products in category`);
+
+    // Step 3: Apply price filter to get filtered product IDs
+    let filteredProductIds = allProductIds;
+
+    if (min_price !== undefined || max_price !== undefined) {
+      console.log(`🔍 [${requestId}] Applying price filter to all products...`);
+
+      const filteredIds: number[] = [];
+      const batchSize = 100;
+
+      for (let i = 0; i < allProductIds.length; i += batchSize) {
+        const batchIds = allProductIds.slice(i, i + batchSize);
+
+        const batchResponse = await api.get('products', {
+          include: batchIds.join(','),
+          per_page: batchSize,
+          status: 'publish',
+          _fields: 'id,price'
+        });
+
+        const batchProducts = batchResponse.data as Array<{ id: number; price: string }>;
+
+        const validIds = batchProducts
+          .filter(product => {
+            const productPrice = parseFloat(product.price) || 0;
+            if (min_price !== undefined && productPrice < min_price) return false;
+            if (max_price !== undefined && productPrice > max_price) return false;
+            return true;
+          })
+          .map(product => product.id);
+
+        filteredIds.push(...validIds);
+      }
+
+      filteredProductIds = filteredIds;
+      console.log(`✅ [${requestId}] Price filter: ${filteredProductIds.length}/${allProductIds.length} products passed`);
+    }
+
+    // Step 4: Apply pagination to filtered IDs
+    const total = filteredProductIds.length;
+    const startIndex = (page - 1) * per_page;
+    const endIndex = startIndex + per_page;
+    const paginatedIds = filteredProductIds.slice(startIndex, endIndex);
+
+    console.log(`🎯 [${requestId}] Page ${page}: showing products ${startIndex + 1}-${Math.min(endIndex, total)} of ${total}`);
+
+    if (paginatedIds.length === 0) {
+      return { products: [], total };
+    }
+
+    // Step 5: Get full product data for paginated IDs
+    const response = await api.get('products', {
+      include: paginatedIds.join(','),
+      per_page: paginatedIds.length,
+      orderby,
+      order,
+      status: 'publish'
+    });
+
+    const products = response.data as Product[];
+
+    console.log(`✅ [${requestId}] SUCCESS: ${products.length} products returned, total: ${total}`);
+
+    return { products, total };
+
+  } catch (error) {
+    console.error(`❌ [${requestId}] Error:`, error);
+    return { products: [], total: 0 };
+  }
+}
+
+// Optimized function for category + brands with price filtering
+export async function getProductsByCategorySlugAndBrandSlugsOptimized(
+  categorySlug: string,
+  brandSlugs: string[],
+  page = 1,
+  per_page = 10,
+  orderby = 'date',
+  order = 'desc',
+  min_price?: number,
+  max_price?: number
+): Promise<{ products: Product[], total: number }> {
+  const requestId = Math.random().toString(36).substr(2, 9);
+  console.log(`🚀 [${requestId}] OPTIMIZED CATEGORY+BRANDS FILTER:`, { categorySlug, brandSlugs, page, per_page, min_price, max_price });
+
+  try {
+    // Step 1: Get category ID
+    const categoryResponse = await wpApi.get(`product_cat?slug=${categorySlug}&_fields=id,name`);
+    if (!categoryResponse.data || categoryResponse.data.length === 0) {
+      console.error(`Category not found: ${categorySlug}`);
+      return { products: [], total: 0 };
+    }
+    const categoryId = categoryResponse.data[0].id;
+
+    // Step 2: Get brand IDs
+    const brandIds: number[] = [];
+    for (const brandSlug of brandSlugs) {
+      try {
+        const wpBrandResponse = await wpApi.get(`product_brand?slug=${brandSlug}&_fields=id,name`);
+        if (wpBrandResponse.data.length > 0) {
+          brandIds.push(wpBrandResponse.data[0].id);
+        }
+      } catch (error) {
+        console.error(`Error fetching brand ${brandSlug}:`, error);
+      }
+    }
+
+    if (brandIds.length === 0) {
+      return { products: [], total: 0 };
+    }
+
+    console.log(`🔍 [${requestId}] Category ID: ${categoryId}, Brand IDs: [${brandIds.join(', ')}]`);
+
+    // Step 3: Get ALL product IDs matching category AND brands
+    const allProductIds: number[] = [];
+    let wpPage = 1;
+    const wpPerPage = 100;
+
+    while (true) {
+      const wpResponse = await wpApi.get('product', {
+        params: {
+          product_cat: categoryId,
+          product_brand: brandIds.join(','),
+          per_page: wpPerPage,
+          page: wpPage,
+          _fields: 'id'
+        }
+      });
+
+      const products = wpResponse.data as Array<{ id: number }>;
+      if (products.length === 0) break;
+
+      allProductIds.push(...products.map(p => p.id));
+      if (products.length < wpPerPage) break;
+      wpPage++;
+      if (wpPage > 10) break; // Safety limit
+    }
+
+    console.log(`📊 [${requestId}] Found ${allProductIds.length} products matching category + brands`);
+
+    // Step 4: Apply price filter to get filtered product IDs
+    let filteredProductIds = allProductIds;
+
+    if (min_price !== undefined || max_price !== undefined) {
+      console.log(`🔍 [${requestId}] Applying price filter to all products...`);
+
+      const filteredIds: number[] = [];
+      const batchSize = 100;
+
+      for (let i = 0; i < allProductIds.length; i += batchSize) {
+        const batchIds = allProductIds.slice(i, i + batchSize);
+
+        const batchResponse = await api.get('products', {
+          include: batchIds.join(','),
+          per_page: batchSize,
+          status: 'publish',
+          _fields: 'id,price'
+        });
+
+        const batchProducts = batchResponse.data as Array<{ id: number; price: string }>;
+
+        const validIds = batchProducts
+          .filter(product => {
+            const productPrice = parseFloat(product.price) || 0;
+            if (min_price !== undefined && productPrice < min_price) return false;
+            if (max_price !== undefined && productPrice > max_price) return false;
+            return true;
+          })
+          .map(product => product.id);
+
+        filteredIds.push(...validIds);
+      }
+
+      filteredProductIds = filteredIds;
+      console.log(`✅ [${requestId}] Price filter: ${filteredProductIds.length}/${allProductIds.length} products passed`);
+    }
+
+    // Step 5: Apply pagination to filtered IDs
+    const total = filteredProductIds.length;
+    const startIndex = (page - 1) * per_page;
+    const endIndex = startIndex + per_page;
+    const paginatedIds = filteredProductIds.slice(startIndex, endIndex);
+
+    console.log(`🎯 [${requestId}] Page ${page}: showing products ${startIndex + 1}-${Math.min(endIndex, total)} of ${total}`);
+
+    if (paginatedIds.length === 0) {
+      return { products: [], total };
+    }
+
+    // Step 6: Get full product data for paginated IDs
+    const response = await api.get('products', {
+      include: paginatedIds.join(','),
+      per_page: paginatedIds.length,
+      orderby,
+      order,
+      status: 'publish'
+    });
+
+    const products = response.data as Product[];
+
+    console.log(`✅ [${requestId}] SUCCESS: ${products.length} products returned, total: ${total}`);
+
+    return { products, total };
+
+  } catch (error) {
+    console.error(`❌ [${requestId}] Error:`, error);
+    return { products: [], total: 0 };
+  }
+}
+
+// WordPress API client for taxonomy filtering
+const wpApi = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_WORDPRESS_URL + '/wp-json/wp/v2/',
+  timeout: 10000, // 10 second timeout
+  auth: {
+    username: process.env.NEXT_PUBLIC_WC_CONSUMER_KEY!,
+    password: process.env.NEXT_PUBLIC_WC_CONSUMER_SECRET!
+  }
+});
 
 // Utility function to manage cache size
 function cleanupProductCache() {
@@ -1830,6 +2236,108 @@ export function filterProductsByPrice(products: Product[], priceRange: { min: nu
   });
 }
 
+// Get price range for specific brands
+export async function getPriceRangeByBrands(brandSlugs: string[]): Promise<{ min: number, max: number }> {
+  try {
+    if (brandSlugs.length === 0) {
+      return await getPriceRange(); // Fallback to global range
+    }
+
+    console.log('🔍 Calculating price range for brands:', brandSlugs);
+
+    // Get brand IDs
+    const brandIds: number[] = [];
+    for (const slug of brandSlugs) {
+      const brand = await getBrandBySlug(slug);
+      if (brand) {
+        brandIds.push(brand.id);
+      }
+    }
+
+    if (brandIds.length === 0) {
+      return { min: 0, max: 1000 }; // Default range if no brands found
+    }
+
+    // Use WordPress API to get ALL product IDs for these brands
+    const allProductIds: number[] = [];
+    let wpPage = 1;
+
+    while (true) {
+      try {
+        const wpResponse = await wpApi.get('product', {
+          params: {
+            product_brand: brandIds.join(','),
+            per_page: 100,
+            page: wpPage,
+            _fields: 'id'
+          }
+        });
+
+        const products = wpResponse.data as Array<{ id: number }>;
+        if (products.length === 0) break;
+
+        allProductIds.push(...products.map(p => p.id));
+        if (products.length < 100) break;
+        wpPage++;
+
+        // Safety limit
+        if (wpPage > 20) break;
+      } catch (error) {
+        console.error('WordPress API failed for price range, using fallback:', error);
+        return await getPriceRange();
+      }
+    }
+
+    if (allProductIds.length === 0) {
+      return { min: 0, max: 1000 };
+    }
+
+    console.log(`📊 Found ${allProductIds.length} products for price range calculation`);
+
+    // Get actual products in batches to calculate price range
+    let minPrice = Infinity;
+    let maxPrice = 0;
+    const batchSize = 100;
+
+    for (let i = 0; i < allProductIds.length; i += batchSize) {
+      const batchIds = allProductIds.slice(i, i + batchSize);
+
+      const response = await api.get('products', {
+        include: batchIds.join(','),
+        per_page: batchSize,
+        status: 'publish'
+      });
+
+      const products = response.data as Array<{ price: string }>;
+
+      products.forEach(product => {
+        const price = parseFloat(product.price) || 0;
+        if (price > 0) {
+          minPrice = Math.min(minPrice, price);
+          maxPrice = Math.max(maxPrice, price);
+        }
+      });
+    }
+
+    // If no valid prices found, return default
+    if (minPrice === Infinity) {
+      return { min: 0, max: 1000 };
+    }
+
+    const result = {
+      min: Math.floor(minPrice),
+      max: Math.ceil(maxPrice)
+    };
+
+    console.log(`💰 Price range for brands [${brandSlugs.join(', ')}]:`, result);
+    return result;
+
+  } catch (error) {
+    console.error('Error calculating price range for brands:', error);
+    return await getPriceRange(); // Fallback to global range
+  }
+}
+
 // Get price range from server (more efficient than client-side calculation)
 export async function getPriceRange(): Promise<{ min: number; max: number }> {
   try {
@@ -2181,79 +2689,310 @@ export async function getProductsByBrandSlugs(
   min_price?: number,
   max_price?: number
 ): Promise<{ products: Product[], total: number }> {
+  // Create cache key for deduplication
+  const cacheKey = JSON.stringify({ brandSlugs: brandSlugs.sort(), page, per_page, orderby, order, min_price, max_price });
+
+  // Check if we already have this request in progress
+  if (requestCache.has(cacheKey)) {
+    console.log(`🔄 Using cached request for brands filter`);
+    return requestCache.get(cacheKey)!;
+  }
+
+  const requestId = Math.random().toString(36).substr(2, 9);
+  console.log(`🚀 [${requestId}] BRAND FILTER REQUEST:`, { brandSlugs, page, per_page, min_price, max_price });
+
+  // Create the promise and cache it
+  const requestPromise = (async (): Promise<{ products: Product[], total: number }> => {
   try {
     if (brandSlugs.length === 0) {
+      console.log(`🔄 [${requestId}] No brands selected, using getProducts`);
       // If no brands selected, return all products with price filter
       return await getProducts(page, per_page, orderby, order, min_price, max_price);
     }
 
-    // Get all products (we need all to filter by brands)
-    let allProducts: Product[] = [];
-    let apiPage = 1;
-    const apiPerPage = 100;
-    let hasMore = true;
+    console.log(`🚀 [${requestId}] HYBRID APPROACH: Using WordPress API for brand filtering + WooCommerce for product data`);
 
-    while (hasMore) {
-      const response = await api.get('products', {
-        per_page: apiPerPage,
-        page: apiPage,
-        status: 'publish'
-      });
-
-      const products = response.data as Product[];
-
-      // Filter products by selected brands (client-side filtering using taxonomy brands)
-      const filteredProducts = products.filter(product => {
-        // Use taxonomy brands from API instead of meta_data
-        if (!product.brands || product.brands.length === 0) return false;
-
-        // Check if any of the product's brands match the selected brand slugs
-        const productBrandSlugs = product.brands.map(brand => brand.slug);
-        const hasMatchingBrand = productBrandSlugs.some(slug => brandSlugs.includes(slug));
-
-        console.log(`[BRAND ONLY] Product: ${product.name}, Brands: [${productBrandSlugs.join(', ')}], Selected: [${brandSlugs.join(', ')}], Included: ${hasMatchingBrand}`);
-
-        return hasMatchingBrand;
-      });
-
-      allProducts = [...allProducts, ...filteredProducts];
-
-      // Check if there are more pages
-      hasMore = products.length === apiPerPage;
-      apiPage++;
-
-      // Safety limit to prevent infinite loops
-      if (apiPage > 20) break;
+    // Step 1: Get brand IDs from slugs
+    const brandIds: number[] = [];
+    for (const slug of brandSlugs) {
+      const brand = await getBrandBySlug(slug);
+      if (brand) {
+        brandIds.push(brand.id);
+      }
     }
 
-    // Apply price filtering if specified
-    if (min_price !== undefined || max_price !== undefined) {
-      allProducts = allProducts.filter(product => {
-        const productPrice = parseFloat(product.price) || 0;
-
-        if (min_price !== undefined && productPrice < min_price) return false;
-        if (max_price !== undefined && productPrice > max_price) return false;
-
-        return true;
-      });
+    if (brandIds.length === 0) {
+      console.log('❌ No valid brands found');
+      return { products: [], total: 0 };
     }
 
-    console.log(`Found ${allProducts.length} products for brands [${brandSlugs.join(', ')}]${min_price || max_price ? ` + price filter €${min_price || 0}-€${max_price || '∞'}` : ''}`);
+    console.log('📋 Brand IDs:', brandIds);
 
-    // Apply pagination to filtered results
+    // Step 2: Use WordPress API to get product IDs filtered by brands
+    const allProductIds: number[] = [];
+
+    try {
+      let wpPage = 1;
+      const wpPerPage = 100; // Get more IDs per request
+
+      while (true) {
+        const wpResponse = await wpApi.get('product', {
+          params: {
+            product_brand: brandIds.join(','),
+            per_page: wpPerPage,
+            page: wpPage,
+            _fields: 'id' // Only get IDs to save bandwidth
+          }
+        });
+
+        const products = wpResponse.data as Array<{ id: number }>;
+
+        if (products.length === 0) break;
+
+        allProductIds.push(...products.map(p => p.id));
+
+        if (products.length < wpPerPage) break; // Last page
+        wpPage++;
+
+        // Safety limit
+        if (wpPage > 10) break;
+      }
+    } catch (wpError) {
+      console.error('❌ WordPress API failed:', wpError);
+      console.log('🔄 Falling back to WooCommerce manual filtering...');
+
+      // Fallback to simple WooCommerce filtering with limited pages
+      return await getProductsManuallyFilteredByBrand(brandSlugs, page, per_page, min_price, max_price);
+    }
+
+    console.log(`📊 Found ${allProductIds.length} products matching brands [${brandSlugs.join(', ')}]`);
+
+    if (allProductIds.length === 0) {
+      return { products: [], total: 0 };
+    }
+
+    // Step 3: Apply pagination to product IDs
     const startIndex = (page - 1) * per_page;
     const endIndex = startIndex + per_page;
-    const paginatedProducts = allProducts.slice(startIndex, endIndex);
+    const paginatedIds = allProductIds.slice(startIndex, endIndex);
+
+    console.log(`🎯 Getting products ${startIndex + 1}-${Math.min(endIndex, allProductIds.length)} of ${allProductIds.length}`);
+
+    // Step 4: Get actual product data from WooCommerce API
+    // IMPORTANT: Don't add price filters here if we have them, because it breaks pagination
+    const params: {
+      include: string;
+      per_page: number;
+      orderby: string;
+      order: string;
+      status: string;
+    } = {
+      include: paginatedIds.join(','),
+      per_page,
+      orderby,
+      order,
+      status: 'publish'
+    };
+
+    const response = await api.get('products', params);
+    let products = response.data as Product[];
+
+    // Step 5: Smart price filtering with pagination recovery
+    if (min_price !== undefined || max_price !== undefined) {
+      console.log(`🔍 [${requestId}] Applying smart price filter: €${min_price || 0}-€${max_price || '∞'}`);
+
+      const beforeFilter = products.length;
+      products = products.filter(product => {
+        const productPrice = parseFloat(product.price) || 0;
+        if (min_price !== undefined && productPrice < min_price) return false;
+        if (max_price !== undefined && productPrice > max_price) return false;
+        return true;
+      });
+
+      console.log(`📊 [${requestId}] Price filter: ${products.length}/${beforeFilter} products passed`);
+
+      // If we got 0 products, try to search more aggressively
+      if (products.length === 0 && allProductIds.length > endIndex) {
+        console.log(`🔄 [${requestId}] No products in range, searching more aggressively...`);
+
+        let searchOffset = endIndex;
+        const maxSearchAttempts = 3;
+        let attemptCount = 0;
+
+        while (products.length === 0 && attemptCount < maxSearchAttempts && searchOffset < allProductIds.length) {
+          attemptCount++;
+          const batchSize = Math.min(50, allProductIds.length - searchOffset);
+          const searchIds = allProductIds.slice(searchOffset, searchOffset + batchSize);
+
+          if (searchIds.length === 0) break;
+
+          console.log(`🔍 [${requestId}] Attempt ${attemptCount}: Searching products ${searchOffset + 1}-${searchOffset + batchSize} of ${allProductIds.length}`);
+
+          const searchParams = {
+            include: searchIds.join(','),
+            per_page: batchSize,
+            orderby,
+            order,
+            status: 'publish'
+          };
+
+          const searchResponse = await api.get('products', searchParams);
+          const candidateProducts = (searchResponse.data as Product[]).filter(product => {
+            const productPrice = parseFloat(product.price) || 0;
+            if (min_price !== undefined && productPrice < min_price) return false;
+            if (max_price !== undefined && productPrice > max_price) return false;
+            return true;
+          });
+
+          if (candidateProducts.length > 0) {
+            products = candidateProducts.slice(0, per_page);
+            console.log(`✅ [${requestId}] Found ${products.length} products in price range (attempt ${attemptCount})`);
+            break;
+          }
+
+          searchOffset += batchSize;
+          console.log(`❌ [${requestId}] Attempt ${attemptCount}: No products found, continuing search...`);
+        }
+
+        // If still no products after aggressive search
+        if (products.length === 0) {
+          console.log(`⚠️ [${requestId}] No products found in price range €${min_price}-€${max_price} for brands [${brandSlugs.join(', ')}] after searching ${Math.min(searchOffset, allProductIds.length)} products`);
+        }
+      }
+    }
+
+    // Calculate accurate total when price filters are applied
+    let finalTotal = allProductIds.length; // Default: use total from brand filtering
+
+    if (min_price !== undefined || max_price !== undefined) {
+      console.log(`🔢 [${requestId}] Calculating accurate total with price filter...`);
+
+      // Calculate accurate total using batching approach
+
+      try {
+        let allFilteredProducts = 0;
+        let batchStart = 0;
+        const batchSize = 100;
+
+        while (batchStart < allProductIds.length) {
+          const batchIds = allProductIds.slice(batchStart, batchStart + batchSize);
+          const batchParams = {
+            include: batchIds.join(','),
+            per_page: batchSize,
+            status: 'publish'
+          };
+
+          const batchResponse = await api.get('products', batchParams);
+          const batchProducts = batchResponse.data as Product[];
+
+          const filteredCount = batchProducts.filter(product => {
+            const productPrice = parseFloat(product.price) || 0;
+            if (min_price !== undefined && productPrice < min_price) return false;
+            if (max_price !== undefined && productPrice > max_price) return false;
+            return true;
+          }).length;
+
+          console.log(`📊 [${requestId}] Batch ${Math.floor(batchStart / batchSize) + 1}: ${filteredCount}/${batchProducts.length} products passed price filter`);
+
+          allFilteredProducts += filteredCount;
+          batchStart += batchSize;
+        }
+
+        finalTotal = allFilteredProducts;
+        console.log(`✅ [${requestId}] Accurate total calculated: ${finalTotal} products pass all filters (from ${allProductIds.length} brand-matched products)`);
+      } catch (error) {
+        console.error(`⚠️ [${requestId}] Error calculating accurate total, using brand total:`, error);
+        finalTotal = allProductIds.length;
+      }
+    }
+
+    console.log(`✅ [${requestId}] HYBRID SUCCESS: ${products.length} products returned (estimated total: ${finalTotal})`);
 
     return {
-      products: paginatedProducts,
-      total: allProducts.length
+      products,
+      total: finalTotal
     };
+
   } catch (error) {
-    console.error(`Error fetching products for brands ${brandSlugs.join(', ')}:`, error);
+    console.error(`❌ [${requestId}] Error fetching products for brands ${brandSlugs.join(', ')}:`, error);
     return { products: [], total: 0 };
   }
+  })();
+
+  // Cache the request
+  requestCache.set(cacheKey, requestPromise);
+
+  // Clear cache after request completes (success or failure)
+  requestPromise.finally(() => {
+    setTimeout(() => requestCache.delete(cacheKey), 1000); // Keep cache for 1 second
+  });
+
+  return requestPromise;
 }
+
+// Simple fallback function for when WordPress API fails
+async function getProductsManuallyFilteredByBrand(
+  brandSlugs: string[],
+  page: number,
+  per_page: number,
+  min_price?: number,
+  max_price?: number
+): Promise<{ products: Product[], total: number }> {
+  console.log('🔧 Manual brand filtering (fallback mode)');
+
+  // Get a reasonable number of products and filter manually
+  const maxPages = 3; // Limit to prevent timeout
+  const allMatchingProducts: Product[] = [];
+
+  for (let currentPage = 1; currentPage <= maxPages; currentPage++) {
+    const params: {
+      per_page: number;
+      page: number;
+      status: string;
+      min_price?: number;
+      max_price?: number;
+    } = {
+      per_page: 50,
+      page: currentPage,
+      status: 'publish'
+    };
+
+    // Add price filters to reduce server load
+    if (min_price !== undefined) params.min_price = min_price;
+    if (max_price !== undefined) params.max_price = max_price;
+
+    const response = await api.get('products', params);
+    const products = response.data as Product[];
+
+    if (products.length === 0) break;
+
+    // Filter by brands client-side
+    const matchingProducts = products.filter(product => {
+      const productBrandSlugs = product.brands?.map(brand => brand.slug) || [];
+      return productBrandSlugs.some(slug => brandSlugs.includes(slug));
+    });
+
+    allMatchingProducts.push(...matchingProducts);
+
+    console.log(`📄 Fallback page ${currentPage}: ${matchingProducts.length}/${products.length} products match`);
+
+    // Stop early if we have enough results
+    if (allMatchingProducts.length >= page * per_page) break;
+  }
+
+  // Apply pagination
+  const startIndex = (page - 1) * per_page;
+  const endIndex = startIndex + per_page;
+  const paginatedProducts = allMatchingProducts.slice(startIndex, endIndex);
+
+  console.log(`🎯 Fallback result: ${paginatedProducts.length} products (total found: ${allMatchingProducts.length})`);
+
+  return {
+    products: paginatedProducts,
+    total: allMatchingProducts.length
+  };
+}
+
 
 // Get most popular/best selling products using reports endpoint (more accurate)
 export async function getMostPopularProducts(per_page = 5): Promise<Product[]> {

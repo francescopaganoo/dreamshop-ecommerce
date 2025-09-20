@@ -1,6 +1,6 @@
 'use client';
 
-import { getProducts, getMegaMenuCategories, getAvailabilityOptions, getShippingTimeOptions, getBrands, getProductsByBrandSlugs, getProductsByCategorySlugAndBrandSlugs, getProductsByCategorySlugWithTotal, getBrandsByCategorySlug, getPriceRange, Product, ExtendedCategory, AttributeValue, Brand } from '../../lib/api';
+import { getProducts, getMegaMenuCategories, getAvailabilityOptions, getShippingTimeOptions, getBrands, getProductsByBrandSlugsOptimized, getProductsByCategorySlugAndBrandSlugsOptimized, getProductsByCategorySlugWithTotalOptimized, getBrandsByCategorySlug, getPriceRange, getPriceRangeByBrands, Product, ExtendedCategory, AttributeValue, Brand } from '../../lib/api';
 import ProductCard from '../../components/ProductCard';
 import CategorySidebar from '../../components/CategorySidebar';
 import MobileFilterButton from '../../components/MobileFilterButton';
@@ -21,6 +21,7 @@ function ProductsPageContent() {
   const [selectedPriceRange, setSelectedPriceRange] = useState<{ min: number; max: number } | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [filterLoading, setFilterLoading] = useState(false);
+  const [isApplyingFilters, setIsApplyingFilters] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const searchParams = useSearchParams();
@@ -60,47 +61,67 @@ function ProductsPageContent() {
   }, [priceRangeFromUrl]);
 
 
-  // Handle brand selection change
-  const handleBrandSelectionChange = (selectedBrands: string[]) => {
-    console.log('handleBrandSelectionChange called with:', selectedBrands);
-    setSelectedBrandSlugs(selectedBrands);
 
-    // Update URL using router.push for consistency
-    const newSearchParams = new URLSearchParams(searchParams.toString());
 
-    if (selectedBrands.length > 0) {
-      newSearchParams.set('brands', selectedBrands.join(','));
-      newSearchParams.delete('brand'); // Remove old single brand param
-    } else {
-      newSearchParams.delete('brands');
-      newSearchParams.delete('brand');
+  // Handle apply filters (new unified approach)
+  const handleApplyFilters = async (filters: {
+    brandSlugs: string[];
+    priceRange: { min: number; max: number };
+  }) => {
+    console.log('🎯 Applying filters:', filters);
+
+    // Start loading state
+    setIsApplyingFilters(true);
+
+    try {
+      // Update price range first if brands changed
+      let newPriceRange = priceRange;
+      try {
+        if (filters.brandSlugs.length > 0) {
+          console.log('🔄 Calculating price range for selected brands:', filters.brandSlugs);
+          newPriceRange = await getPriceRangeByBrands(filters.brandSlugs);
+          setPriceRange(newPriceRange);
+          console.log('💰 New price range:', newPriceRange);
+        } else {
+          // No brands selected, use global range
+          newPriceRange = await getPriceRange();
+          setPriceRange(newPriceRange);
+        }
+      } catch (error) {
+        console.error('Error calculating price range:', error);
+      }
+
+      // Update states
+      setSelectedBrandSlugs(filters.brandSlugs);
+      setSelectedPriceRange(filters.priceRange);
+
+      // Build new URL with all filters
+      const newSearchParams = new URLSearchParams();
+
+      if (filters.brandSlugs.length > 0) {
+        newSearchParams.set('brands', filters.brandSlugs.join(','));
+      }
+
+      if (filters.priceRange.min > newPriceRange.min || filters.priceRange.max < newPriceRange.max) {
+        newSearchParams.set('minPrice', filters.priceRange.min.toString());
+        newSearchParams.set('maxPrice', filters.priceRange.max.toString());
+      }
+
+      // Reset to first page
+      newSearchParams.delete('page');
+
+      const newUrl = `/products?${newSearchParams.toString()}`;
+      console.log('🚀 Applying filters, navigating to:', newUrl);
+      router.push(newUrl);
+    } finally {
+      // Stop loading states after a short delay to prevent flashing
+      setTimeout(() => {
+        setIsApplyingFilters(false);
+        setFilterLoading(false);
+      }, 500);
     }
-
-    newSearchParams.delete('page'); // Reset to first page when changing filters
-
-    const newUrl = `/products?${newSearchParams.toString()}`;
-    console.log('Brand filter navigating to:', newUrl);
-    router.push(newUrl);
   };
 
-  // Handle price range change
-  const handlePriceRangeChange = (range: { min: number; max: number }) => {
-    console.log('handlePriceRangeChange called with:', range);
-    setSelectedPriceRange(range);
-    setFilterLoading(true); // Start filter loading
-    setProducts([]); // Clear products immediately to avoid flash
-
-    // Update URL using router.push for better reactivity
-    const newSearchParams = new URLSearchParams(searchParams.toString());
-
-    newSearchParams.set('minPrice', range.min.toString());
-    newSearchParams.set('maxPrice', range.max.toString());
-    newSearchParams.delete('page'); // Reset to first page when changing filters
-
-    const newUrl = `/products?${newSearchParams.toString()}`;
-    console.log('Navigating to:', newUrl);
-    router.push(newUrl);
-  };
 
   useEffect(() => {
     async function fetchData() {
@@ -144,16 +165,16 @@ function ProductsPageContent() {
 
         if (categorySlug && currentBrandSlugs.length > 0) {
           // Both category and brand filters
-          console.log('Fetching with category + brands');
-          productsResponse = await getProductsByCategorySlugAndBrandSlugs(categorySlug, currentBrandSlugs, page, perPage);
+          console.log('Fetching with category + brands (OPTIMIZED):', { categorySlug, brandSlugs: currentBrandSlugs, minPrice, maxPrice });
+          productsResponse = await getProductsByCategorySlugAndBrandSlugsOptimized(categorySlug, currentBrandSlugs, page, perPage, 'date', 'desc', minPrice, maxPrice);
         } else if (categorySlug) {
           // Only category filter
-          console.log('Fetching with category + price:', { categorySlug, minPrice, maxPrice });
-          productsResponse = await getProductsByCategorySlugWithTotal(categorySlug, page, perPage, 'date', 'desc', minPrice, maxPrice);
+          console.log('Fetching with category + price (OPTIMIZED):', { categorySlug, minPrice, maxPrice });
+          productsResponse = await getProductsByCategorySlugWithTotalOptimized(categorySlug, page, perPage, 'date', 'desc', minPrice, maxPrice);
         } else if (currentBrandSlugs.length > 0) {
           // Only brand filters
-          console.log('Fetching with brands + price:', { brandSlugs: currentBrandSlugs, minPrice, maxPrice });
-          productsResponse = await getProductsByBrandSlugs(currentBrandSlugs, page, perPage, 'date', 'desc', minPrice, maxPrice);
+          console.log('Fetching with brands + price (OPTIMIZED):', { brandSlugs: currentBrandSlugs, minPrice, maxPrice });
+          productsResponse = await getProductsByBrandSlugsOptimized(currentBrandSlugs, page, perPage, 'date', 'desc', minPrice, maxPrice);
         } else {
           // No filters or price filter only - show all products with server-side pagination and price filtering
           console.log('Fetching all products with price filter:', { minPrice, maxPrice });
@@ -238,10 +259,10 @@ function ProductsPageContent() {
                 currentCategorySlug={categorySlug || undefined}
                 currentBrandSlug={brandSlug || undefined}
                 selectedBrandSlugs={selectedBrandSlugs}
-                onBrandSelectionChange={handleBrandSelectionChange}
                 priceRange={priceRange}
                 selectedPriceRange={selectedPriceRange}
-                onPriceRangeChange={handlePriceRangeChange}
+                onApplyFilters={handleApplyFilters}
+                isApplyingFilters={isApplyingFilters}
                 isOpen={isSidebarOpen}
                 onClose={() => setIsSidebarOpen(false)}
               />
@@ -249,7 +270,7 @@ function ProductsPageContent() {
             
             {/* Products Grid */}
             <div className="flex-1">
-              {filterLoading || (products.length === 0 && (minPriceParam || maxPriceParam)) ? (
+              {filterLoading ? (
                 <div className="flex items-center justify-center py-20">
                   <div className="text-center">
                     <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-bred-600 mb-4"></div>

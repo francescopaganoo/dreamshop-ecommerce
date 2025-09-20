@@ -1,6 +1,6 @@
 'use client';
 
-import { getProductsByCategorySlugWithTotal, getProductsByCategorySlugAndBrandsWithTotal, getCategoryBySlug, getMegaMenuCategories, getBrandsByCategorySlug, getPriceRangeByCategory, getPriceRangeByCategoryAndBrands, Product, Category, ExtendedCategory, Brand } from '../../../lib/api';
+import { getProductsByCategorySlugWithTotalOptimized, getProductsByCategorySlugAndBrandSlugsOptimized, getCategoryBySlug, getMegaMenuCategories, getBrandsByCategorySlug, getPriceRangeByCategory, getPriceRangeByCategoryAndBrands, Product, Category, ExtendedCategory, Brand } from '../../../lib/api';
 import ProductCard from '../../../components/ProductCard';
 import CategorySidebar from '../../../components/CategorySidebar';
 import MobileFilterButton from '../../../components/MobileFilterButton';
@@ -27,6 +27,7 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
   const [selectedBrandSlugs, setSelectedBrandSlugs] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterLoading, setFilterLoading] = useState(false);
+  const [isApplyingFilters, setIsApplyingFilters] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
   const resolvedParams = use(params) as { slug: string };
@@ -67,44 +68,64 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
     }
   }, [brandsParam]);
 
-  // Handle brand selection change
-  const handleBrandSelectionChange = (selectedBrands: string[]) => {
-    console.log('handleBrandSelectionChange called with:', selectedBrands);
-    setSelectedBrandSlugs(selectedBrands);
 
-    // Update URL using router.push
-    const newSearchParams = new URLSearchParams(window.location.search);
+  // Apply all filters at once
+  const handleApplyFilters = async (filters: {
+    brandSlugs: string[];
+    priceRange: { min: number; max: number };
+  }) => {
+    console.log('🎯 Category applying filters:', filters);
 
-    if (selectedBrands.length > 0) {
-      newSearchParams.set('brands', selectedBrands.join(','));
-    } else {
-      newSearchParams.delete('brands');
+    // Start loading state
+    setIsApplyingFilters(true);
+
+    try {
+      // Update price range first if brands changed
+      let newPriceRange = priceRange;
+      try {
+        if (filters.brandSlugs.length > 0) {
+          console.log('🔄 Calculating price range for category + brands:', filters.brandSlugs);
+          newPriceRange = await getPriceRangeByCategoryAndBrands(categorySlug, filters.brandSlugs);
+          setPriceRange(newPriceRange);
+          console.log('💰 New price range:', newPriceRange);
+        } else {
+          // No brands selected, use category range
+          newPriceRange = await getPriceRangeByCategory(categorySlug);
+          setPriceRange(newPriceRange);
+        }
+      } catch (error) {
+        console.error('Error calculating price range:', error);
+      }
+
+      // Update states
+      setSelectedBrandSlugs(filters.brandSlugs);
+      setSelectedPriceRange(filters.priceRange);
+
+      // Build new URL with all filters
+      const newSearchParams = new URLSearchParams();
+
+      if (filters.brandSlugs.length > 0) {
+        newSearchParams.set('brands', filters.brandSlugs.join(','));
+      }
+
+      if (filters.priceRange.min > newPriceRange.min || filters.priceRange.max < newPriceRange.max) {
+        newSearchParams.set('minPrice', filters.priceRange.min.toString());
+        newSearchParams.set('maxPrice', filters.priceRange.max.toString());
+      }
+
+      // Reset to first page
+      newSearchParams.delete('page');
+
+      const newUrl = `/category/${categorySlug}?${newSearchParams.toString()}`;
+      console.log('🚀 Category applying filters, navigating to:', newUrl);
+      router.push(newUrl);
+    } finally {
+      // Stop loading states after a short delay to prevent flashing
+      setTimeout(() => {
+        setIsApplyingFilters(false);
+        setFilterLoading(false);
+      }, 500);
     }
-
-    newSearchParams.delete('page'); // Reset to first page when changing filters
-
-    const newUrl = `/category/${categorySlug}?${newSearchParams.toString()}`;
-    console.log('Brand filter navigating to:', newUrl);
-    router.push(newUrl);
-  };
-
-  // Handle price range change
-  const handlePriceRangeChange = (range: { min: number; max: number }) => {
-    console.log('handlePriceRangeChange called with:', range);
-    setSelectedPriceRange(range);
-    setFilterLoading(true); // Start filter loading
-    setProducts([]); // Clear products immediately to avoid flash
-
-    // Update URL using router.push for better reactivity
-    const newSearchParams = new URLSearchParams(window.location.search);
-
-    newSearchParams.set('minPrice', range.min.toString());
-    newSearchParams.set('maxPrice', range.max.toString());
-    newSearchParams.delete('page'); // Reset to first page when changing filters
-
-    const newUrl = `/category/${categorySlug}?${newSearchParams.toString()}`;
-    console.log('Category price filter navigating to:', newUrl);
-    router.push(newUrl);
   };
   
   useEffect(() => {
@@ -138,8 +159,8 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
         // Use brand-aware function if brands are selected
         let productsResponse;
         if (selectedBrandSlugs.length > 0) {
-          console.log(`Fetching products with brands: ${selectedBrandSlugs.join(', ')}`);
-          productsResponse = await getProductsByCategorySlugAndBrandsWithTotal(
+          console.log(`Fetching products with brands (OPTIMIZED): ${selectedBrandSlugs.join(', ')}`);
+          productsResponse = await getProductsByCategorySlugAndBrandSlugsOptimized(
             categorySlug,
             selectedBrandSlugs,
             page,
@@ -150,8 +171,8 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
             maxPrice
           );
         } else {
-          console.log('Fetching products without brand filter');
-          productsResponse = await getProductsByCategorySlugWithTotal(
+          console.log('Fetching products without brand filter (OPTIMIZED)');
+          productsResponse = await getProductsByCategorySlugWithTotalOptimized(
             categorySlug,
             page,
             perPage,
@@ -226,10 +247,10 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
                 brands={brands}
                 currentCategorySlug={categorySlug}
                 selectedBrandSlugs={selectedBrandSlugs}
-                onBrandSelectionChange={handleBrandSelectionChange}
                 priceRange={priceRange}
                 selectedPriceRange={selectedPriceRange}
-                onPriceRangeChange={handlePriceRangeChange}
+                onApplyFilters={handleApplyFilters}
+                isApplyingFilters={isApplyingFilters}
                 isOpen={isSidebarOpen}
                 onClose={() => setIsSidebarOpen(false)}
               />
@@ -238,7 +259,7 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
             {/* Products Section */}
             <div className="flex-1">
               {/* Products Grid */}
-              {filterLoading || (products.length === 0 && (minPriceParam || maxPriceParam)) ? (
+              {filterLoading ? (
                 <div className="flex items-center justify-center py-20">
                   <div className="text-center">
                     <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-bred-600 mb-4"></div>
