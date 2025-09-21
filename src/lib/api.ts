@@ -435,6 +435,20 @@ export interface ProductAttribute {
   options: string[];
 }
 
+export interface PluginProductAttribute {
+  name: string;
+  slug: string;
+  options: Array<{
+    id: number;
+    name: string;
+    slug: string;
+  }>;
+  position: number;
+  visible: boolean;
+  variation: boolean;
+  is_taxonomy: boolean;
+}
+
 export interface ProductVariation {
   id: number;
   price: string;
@@ -506,7 +520,7 @@ export interface Product {
   permalink: string;
   slug: string;
   type: string; // 'simple', 'variable', etc.
-  attributes?: ProductAttribute[];
+  attributes?: ProductAttribute[] | PluginProductAttribute[];
   variations?: number[];
   date_on_sale_from?: string; // Data di inizio offerta ISO 8601
   date_on_sale_to?: string; // Data di fine offerta ISO 8601
@@ -3155,6 +3169,7 @@ export async function getFilteredProductsPlugin(filters: {
       images: Array<{ id: string; src: string; src_large: string; alt: string }>;
       permalink: string;
       short_description: string;
+      attributes: PluginProductAttribute[];
     }) => ({
       id: parseInt(product.id),
       name: product.name,
@@ -3171,7 +3186,7 @@ export async function getFilteredProductsPlugin(filters: {
       description: '',
       categories: [],
       tags: [],
-      attributes: [],
+      attributes: product.attributes || [],
       variations: [],
       meta_data: []
     }));

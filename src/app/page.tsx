@@ -1,4 +1,4 @@
-import { getProducts, getCategories, getProductsByCategorySlug, getProductsOnSale, getProductsByBrandSlug, getMostPopularProducts, Product, Category } from "@/lib/api";
+import { getFilteredProductsPlugin, getCategories, getProductsOnSale, getProductsByBrandSlug, getMostPopularProducts, Product, Category } from "@/lib/api";
 import ProductList from "@/components/ProductList";
 import CategoryCarousel from "@/components/CategoryCarousel";
 import Link from "next/link";
@@ -11,8 +11,13 @@ import {FaArrowRight } from "react-icons/fa";
 export const revalidate = 300;
 
 async function getFeaturedProducts(): Promise<Product[]> {
-  const { products } = await getProducts(1, 20, 'date', 'desc');
-  return products.filter(product => product.stock_status === 'instock').slice(0, 8);
+  const response = await getFilteredProductsPlugin({
+    page: 1,
+    per_page: 20,
+    orderby: 'date',
+    order: 'desc'
+  });
+  return response.products.filter(product => product.stock_status === 'instock').slice(0, 8);
 }
 
 async function getProductCategories(): Promise<Category[]> {
@@ -43,33 +48,63 @@ async function getProductCategories(): Promise<Category[]> {
 }
 
 async function getIchibanKujiProducts(): Promise<Product[]> {
-  // Ottieni i prodotti della categoria Ichiban Kuji
-  const products = await getProductsByCategorySlug('ichiban-kuji', 1, 20, 'date', 'desc');
-  return products.filter(product => product.stock_status === 'instock').slice(0, 8);
+  // Ottieni i prodotti della categoria Ichiban Kuji usando il plugin
+  const response = await getFilteredProductsPlugin({
+    category: 'ichiban-kuji',
+    page: 1,
+    per_page: 20,
+    orderby: 'date',
+    order: 'desc'
+  });
+  return response.products.filter(product => product.stock_status === 'instock').slice(0, 8);
 }
 
 async function getResineProducts(): Promise<Product[]> {
-  // Ottieni i prodotti della categoria Resine
-  const products = await getProductsByCategorySlug('resine', 1, 20, 'date', 'desc');
-  return products.filter(product => product.stock_status === 'instock').slice(0, 8);
+  // Ottieni i prodotti della categoria Resine usando il plugin
+  const response = await getFilteredProductsPlugin({
+    category: 'resine',
+    page: 1,
+    per_page: 20,
+    orderby: 'date',
+    order: 'desc'
+  });
+  return response.products.filter(product => product.stock_status === 'instock').slice(0, 8);
 }
 
 async function getSHFiguartsProducts(): Promise<Product[]> {
-  // Ottieni i prodotti della categoria S.H.Figuarts
-  const products = await getProductsByCategorySlug('s-h-figuarts', 1, 20, 'date', 'desc');
-  return products.filter(product => product.stock_status === 'instock').slice(0, 8);
+  // Ottieni i prodotti della categoria S.H.Figuarts usando il plugin
+  const response = await getFilteredProductsPlugin({
+    category: 's-h-figuarts',
+    page: 1,
+    per_page: 20,
+    orderby: 'date',
+    order: 'desc'
+  });
+  return response.products.filter(product => product.stock_status === 'instock').slice(0, 8);
 }
 
 async function getRivisteProducts(): Promise<Product[]> {
-  // Ottieni i prodotti della categoria Editoria
-  const products = await getProductsByCategorySlug('editoria', 1, 20, 'date', 'desc');
-  return products.filter(product => product.stock_status === 'instock').slice(0, 8);
+  // Ottieni i prodotti della categoria Editoria usando il plugin
+  const response = await getFilteredProductsPlugin({
+    category: 'editoria',
+    page: 1,
+    per_page: 20,
+    orderby: 'date',
+    order: 'desc'
+  });
+  return response.products.filter(product => product.stock_status === 'instock').slice(0, 8);
 }
 
 async function getPokemonProducts(): Promise<Product[]> {
-  // Ottieni i prodotti della categoria Pokemon
-  const products = await getProductsByCategorySlug('pokemon', 1, 20, 'date', 'desc');
-  return products.filter(product => product.stock_status === 'instock').slice(0, 8);
+  // Ottieni i prodotti della categoria Pokemon usando il plugin
+  const response = await getFilteredProductsPlugin({
+    category: 'pokemon',
+    page: 1,
+    per_page: 20,
+    orderby: 'date',
+    order: 'desc'
+  });
+  return response.products.filter(product => product.stock_status === 'instock').slice(0, 8);
 }
 
 async function getSaleProducts(): Promise<Product[]> {
@@ -79,15 +114,27 @@ async function getSaleProducts(): Promise<Product[]> {
 }
 
 async function getCardGameProducts(): Promise<Product[]> {
-  // Ottieni i prodotti della categoria Card Game
-  const products = await getProductsByCategorySlug('card-game', 1, 10, 'date', 'desc');
-  return products.filter(product => product.stock_status === 'instock').slice(0, 5);
+  // Ottieni i prodotti della categoria Card Game usando il plugin
+  const response = await getFilteredProductsPlugin({
+    category: 'card-game',
+    page: 1,
+    per_page: 10,
+    orderby: 'date',
+    order: 'desc'
+  });
+  return response.products.filter(product => product.stock_status === 'instock').slice(0, 5);
 }
 
 async function getTsumeProducts(): Promise<Product[]> {
-  // Ottieni i prodotti della categoria Tsume
-  const products = await getProductsByCategorySlug('tsume', 1, 10, 'date', 'desc');
-  return products.filter(product => product.stock_status === 'instock').slice(0, 5);
+  // Ottieni i prodotti della categoria Tsume usando il plugin
+  const response = await getFilteredProductsPlugin({
+    category: 'tsume',
+    page: 1,
+    per_page: 10,
+    orderby: 'date',
+    order: 'desc'
+  });
+  return response.products.filter(product => product.stock_status === 'instock').slice(0, 5);
 }
 
 async function getBanprestoProducts(): Promise<Product[]> {

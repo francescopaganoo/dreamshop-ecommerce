@@ -237,13 +237,38 @@ async function ProductDetails({ slug }: { slug: string }) {
           {(() => {
             // Cerca negli attributi WooCommerce
             const getAttribute = (name: string) => {
-              return product.attributes?.find(attr => attr.name === name)?.options?.[0];
+              if (!product.attributes) return undefined;
+
+              const attr = product.attributes.find(attr => {
+                // Check if it's a PluginProductAttribute (has slug property)
+                if ('slug' in attr) {
+                  return attr.name === name || attr.slug === name;
+                }
+                // Otherwise it's a ProductAttribute (no slug property)
+                return attr.name === name;
+              });
+
+              if (!attr) return undefined;
+
+              // Return the first option, handling both attribute types
+              if ('slug' in attr && Array.isArray(attr.options) && attr.options.length > 0) {
+                // PluginProductAttribute - options are objects
+                return attr.options[0];
+              } else if (Array.isArray(attr.options) && attr.options.length > 0) {
+                // ProductAttribute - options are strings
+                const firstOption = attr.options[0];
+                if (typeof firstOption === 'string') {
+                  return { name: firstOption, slug: firstOption.toLowerCase().replace(/\s+/g, '-') };
+                }
+              }
+
+              return undefined;
             };
-            
-            const disponibilita = getAttribute('Disponibilità');
-            const spedizioneDallOriente = getAttribute("Spedizione dall'Oriente");
-            const spedizioneDallItalia = getAttribute("Spedizione dall'Italia");
-            const spedizioneIn60Giorni = getAttribute("Spedizione in 60 giorni");
+
+            const disponibilita = getAttribute('pa_disponibilita');
+            const spedizioneDallOriente = getAttribute("pa_spedizione-dalloriente");
+            const spedizioneDallItalia = getAttribute("pa_spedizione-dallitalia");
+            const spedizioneIn60Giorni = getAttribute("pa_spedizione-in-60-giorni");
             
             const hasAnyShipping = spedizioneDallOriente || spedizioneDallItalia || spedizioneIn60Giorni;
             
@@ -253,7 +278,7 @@ async function ProductDetails({ slug }: { slug: string }) {
                   <div className="flex items-center">
                     <span className="font-medium text-gray-900 mr-2">Disponibilità:</span>
                     <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                      {disponibilita}
+                      {typeof disponibilita === 'string' ? disponibilita : disponibilita?.name}
                     </span>
                   </div>
                 )}
@@ -262,7 +287,10 @@ async function ProductDetails({ slug }: { slug: string }) {
                   <div className="flex items-center">
                     <span className="font-medium text-gray-900 mr-2">Spedizione:</span>
                     <span className="text-gray-600">
-                      {spedizioneDallItalia || spedizioneDallOriente || spedizioneIn60Giorni}
+                      {(() => {
+                        const shipping = spedizioneDallItalia || spedizioneDallOriente || spedizioneIn60Giorni;
+                        return typeof shipping === 'string' ? shipping : shipping?.name;
+                      })()}
                     </span>
                   </div>
                 )}
@@ -277,7 +305,31 @@ async function ProductDetails({ slug }: { slug: string }) {
           <div className="mb-8">
             {product.type === 'variable' && product.variations && product.variations.length > 0 ? (
               <Suspense fallback={<div className="h-40 bg-gray-100 animate-pulse rounded-lg"></div>}>
-                <ProductVariationsLoader productId={product.id} attributes={product.attributes || []} productName={product.name} />
+                <ProductVariationsLoader
+                  productId={product.id}
+                  attributes={(() => {
+                    if (!product.attributes) return [];
+
+                    // Convert attributes to the expected format
+                    return product.attributes.map((attr, index) => {
+                      if ('slug' in attr) {
+                        // PluginProductAttribute - convert to ProductAttribute format
+                        return {
+                          id: index, // Use index as ID since PluginProductAttribute doesn't have id
+                          name: attr.name,
+                          position: attr.position,
+                          visible: attr.visible,
+                          variation: attr.variation,
+                          options: attr.options.map(opt => opt.name) // Convert objects to strings
+                        };
+                      } else {
+                        // Already ProductAttribute format
+                        return attr;
+                      }
+                    });
+                  })()}
+                  productName={product.name}
+                />
               </Suspense>
             ) : (
               <SimpleProductAddToCart product={product} />

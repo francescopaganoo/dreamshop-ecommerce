@@ -8,11 +8,16 @@ interface ProductListProps {
 }
 
 export default function ProductList({ products }: ProductListProps) {
+  // Deduplica i prodotti basandosi sull'ID per evitare chiavi duplicate
+  const uniqueProducts = products.filter((product, index, array) =>
+    array.findIndex(p => p.id === product.id) === index
+  );
+
   return (
     <>
-      {products.length > 0 ? (
+      {uniqueProducts.length > 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-          {products.map((product: Product, index: number) => (
+          {uniqueProducts.map((product: Product, index: number) => (
             <ProductCard
               key={product.id}
               product={product}

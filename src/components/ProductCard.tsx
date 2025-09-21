@@ -24,13 +24,42 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
   const [message, setMessage] = useState('');
   const [prefetched, setPrefetched] = useState(false);
   
-  // Controlla se il prodotto è in pre-order basandosi sull'attributo Disponibilità
+  // Controlla se il prodotto è in pre-order basandosi sull'attributo pa_disponibilita
   const getAttribute = (name: string) => {
-    return product.attributes?.find(attr => attr.name === name)?.options?.[0];
+    if (!product.attributes) return undefined;
+
+    const attr = product.attributes.find(attr => {
+      // Check if it's a PluginProductAttribute (has slug property)
+      if ('slug' in attr) {
+        return attr.name === name || attr.slug === name;
+      }
+      // Otherwise it's a ProductAttribute (no slug property)
+      return attr.name === name;
+    });
+
+    if (!attr) return undefined;
+
+    // Return the first option, handling both attribute types
+    if ('slug' in attr && Array.isArray(attr.options) && attr.options.length > 0) {
+      // PluginProductAttribute - options are objects
+      return attr.options[0];
+    } else if (Array.isArray(attr.options) && attr.options.length > 0) {
+      // ProductAttribute - options are strings
+      const firstOption = attr.options[0];
+      if (typeof firstOption === 'string') {
+        return { name: firstOption, slug: firstOption.toLowerCase().replace(/\s+/g, '-') };
+      }
+    }
+
+    return undefined;
   };
-  
-  const disponibilita = getAttribute('Disponibilità');
-  const isPreOrder = disponibilita?.toLowerCase().includes('pre-order') || disponibilita?.toLowerCase().includes('preorder');
+
+  const disponibilita = getAttribute('pa_disponibilita');
+  const isPreOrder = disponibilita?.name?.toLowerCase().includes('pre-order') ||
+                     disponibilita?.slug?.toLowerCase().includes('pre-order') ||
+                     disponibilita?.name?.toLowerCase().includes('preorder') ||
+                     disponibilita?.slug?.toLowerCase().includes('preorder');
+
   
   // Get the product image or use a placeholder
   const imageUrl = product.images && product.images.length > 0

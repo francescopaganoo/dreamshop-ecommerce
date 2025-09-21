@@ -259,7 +259,8 @@ class DreamShop_Filters_Product_Query {
                     'stock_status' => $product->get_stock_status(),
                     'images' => $this->get_product_images($product),
                     'permalink' => get_permalink($product_id),
-                    'short_description' => $result['post_excerpt']
+                    'short_description' => $result['post_excerpt'],
+                    'attributes' => $this->get_product_attributes($product)
                 ];
             }
         }
@@ -285,6 +286,52 @@ class DreamShop_Filters_Product_Query {
         }
 
         return $images;
+    }
+
+    /**
+     * Get product attributes
+     */
+    private function get_product_attributes($product) {
+        $attributes = [];
+        $product_attributes = $product->get_attributes();
+
+        foreach ($product_attributes as $attribute_name => $attribute) {
+            $attribute_data = [
+                'name' => $attribute_name,
+                'slug' => $attribute_name,
+                'options' => [],
+                'position' => $attribute->get_position(),
+                'visible' => $attribute->get_visible(),
+                'variation' => $attribute->get_variation(),
+                'is_taxonomy' => $attribute->is_taxonomy()
+            ];
+
+            // Get attribute options
+            if ($attribute->is_taxonomy()) {
+                $terms = wp_get_post_terms($product->get_id(), $attribute->get_name());
+                foreach ($terms as $term) {
+                    if (!is_wp_error($term)) {
+                        $attribute_data['options'][] = [
+                            'id' => $term->term_id,
+                            'name' => $term->name,
+                            'slug' => $term->slug
+                        ];
+                    }
+                }
+            } else {
+                $options = $attribute->get_options();
+                foreach ($options as $option) {
+                    $attribute_data['options'][] = [
+                        'name' => $option,
+                        'slug' => sanitize_title($option)
+                    ];
+                }
+            }
+
+            $attributes[] = $attribute_data;
+        }
+
+        return $attributes;
     }
 
     /**
