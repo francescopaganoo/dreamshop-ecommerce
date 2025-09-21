@@ -89,7 +89,7 @@ async function ProductDetails({ slug }: { slug: string }) {
                   href={`/category/${primaryCategory.slug}`} 
                   className="text-gray-500 hover:text-bred-500"
                 >
-                  {primaryCategory.name}
+                  <span dangerouslySetInnerHTML={{ __html: primaryCategory.name }} />
                 </Link>
               </li>
               <li className="text-gray-500">/</li>
