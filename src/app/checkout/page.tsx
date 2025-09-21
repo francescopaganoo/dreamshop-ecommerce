@@ -11,6 +11,7 @@ import AppleGooglePayCheckout from '@/components/checkout/AppleGooglePayCheckout
 
 import { createOrder, createCustomer, getShippingMethods, ShippingMethod, getUserAddresses, saveUserAddresses } from '../../lib/api';
 import { redeemPoints } from '../../lib/points';
+import { getAvailableCountries, CountryOption } from '../../lib/countries';
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -114,7 +115,32 @@ export default function CheckoutPage() {
       }
     }
   }, []);
-  
+
+  // Carica i paesi disponibili dalle zone WooCommerce
+  useEffect(() => {
+    const loadCountries = async () => {
+      try {
+        setCountriesLoading(true);
+        const countries = await getAvailableCountries();
+        setAvailableCountries(countries);
+      } catch (error) {
+        console.error('Errore nel caricamento dei paesi:', error);
+        // Fallback con paesi principali
+        setAvailableCountries([
+          { code: 'IT', name: 'Italia', zone: 'Italia' },
+          { code: 'FR', name: 'Francia', zone: 'Europa' },
+          { code: 'DE', name: 'Germania', zone: 'Europa' },
+          { code: 'ES', name: 'Spagna', zone: 'Europa' },
+          { code: 'GB', name: 'Regno Unito', zone: 'Europa Extra' }
+        ]);
+      } finally {
+        setCountriesLoading(false);
+      }
+    };
+
+    loadCountries();
+  }, []);
+
   // Stato per tenere traccia del processo di pagamento
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   
@@ -194,7 +220,11 @@ export default function CheckoutPage() {
     shippingCountry: 'IT',
     shippingPhone: ''
   });
-  
+
+  // Stato per i paesi disponibili
+  const [availableCountries, setAvailableCountries] = useState<CountryOption[]>([]);
+  const [countriesLoading, setCountriesLoading] = useState(true);
+
   // Stato per il pagamento Stripe
   const [isStripeLoading, setIsStripeLoading] = useState(false);
 
@@ -213,24 +243,32 @@ export default function CheckoutPage() {
     shippingDebounceTimerRef.current = setTimeout(async () => {
       try {
 
-        // Prepara l'indirizzo di spedizione
+        // Prepara l'indirizzo di spedizione (usa indirizzo di spedizione se diverso, altrimenti fatturazione)
         const shippingAddress = {
-          first_name: addressData.firstName,
-          last_name: addressData.lastName,
-          country: addressData.country,
-          state: addressData.state,
-          postcode: addressData.postcode,
-          city: addressData.city,
-          address_1: addressData.address1,
-          address_2: addressData.address2
+          first_name: addressData.shipToDifferentAddress ? addressData.shippingFirstName : addressData.firstName,
+          last_name: addressData.shipToDifferentAddress ? addressData.shippingLastName : addressData.lastName,
+          country: addressData.shipToDifferentAddress ? addressData.shippingCountry : addressData.country,
+          state: addressData.shipToDifferentAddress ? addressData.shippingState : addressData.state,
+          postcode: addressData.shipToDifferentAddress ? addressData.shippingPostcode : addressData.postcode,
+          city: addressData.shipToDifferentAddress ? addressData.shippingCity : addressData.city,
+          address_1: addressData.shipToDifferentAddress ? addressData.shippingAddress1 : addressData.address1,
+          address_2: addressData.shipToDifferentAddress ? addressData.shippingAddress2 : addressData.address2
         };
 
 
         // Calcola il totale del carrello senza spedizione per verificare la spedizione gratuita
         const cartTotal = getSubtotal(); // Usa il totale del carrello
 
+        // Prepara i dati del carrello per il calcolo della spedizione
+        const cartItems = cart.map(item => ({
+          product_id: item.product.id,
+          quantity: item.quantity,
+          variation_id: item.variation_id,
+          shipping_class_id: item.product.shipping_class_id || 0
+        }));
+
         // Ottieni i metodi di spedizione disponibili
-        const availableMethods = await getShippingMethods(shippingAddress, cartTotal);
+        const availableMethods = await getShippingMethods(shippingAddress, cartTotal, cartItems);
 
         // Imposta i metodi di spedizione disponibili
         setShippingMethods(availableMethods);
@@ -257,7 +295,7 @@ export default function CheckoutPage() {
         setShippingCalculated(true);
       }
     }, 500); // Attendi 500ms prima di calcolare la spedizione
-  }, [getSubtotal, selectedShippingMethod]);
+  }, [getSubtotal, selectedShippingMethod, cart]);
 
   // Precompila il form se l'utente è autenticato
   useEffect(() => {
@@ -400,18 +438,27 @@ export default function CheckoutPage() {
     const { name, value } = e.target;
     const newFormData = { ...formData, [name]: value };
     setFormData(newFormData);
-    
+
     // Calcola il costo di spedizione quando vengono modificati i campi dell'indirizzo
-    const addressFields = ['country', 'state', 'postcode', 'city', 'address1', 'address2'];
-    if (addressFields.includes(name) && 
-        newFormData.country && 
-        newFormData.state && 
-        newFormData.postcode && 
-        newFormData.city && 
-        newFormData.address1) {
-      
-      // Usa la nuova funzione per calcolare i metodi di spedizione
-      calculateShippingMethods(newFormData);
+    const addressFields = ['country', 'state', 'postcode', 'city', 'address1', 'address2', 'shippingCountry', 'shippingState', 'shippingPostcode', 'shippingCity', 'shippingAddress1', 'shippingAddress2'];
+    // Determina quale paese usare per la spedizione
+    const shippingCountry = newFormData.shipToDifferentAddress ? newFormData.shippingCountry : newFormData.country;
+
+    if (addressFields.includes(name) && shippingCountry) {
+      // Per il calcolo della spedizione è sufficiente avere almeno il paese
+      // Altri campi opzionali: città e codice postale migliorano la precisione
+      const hasMinimumAddressData = shippingCountry && (
+        // Per il ricalcolo immediato quando cambia il paese
+        name === 'country' || name === 'shippingCountry' ||
+        // Per il ricalcolo completo quando abbiamo più dati
+        (!newFormData.shipToDifferentAddress && newFormData.city && newFormData.postcode) ||
+        (newFormData.shipToDifferentAddress && newFormData.shippingCity && newFormData.shippingPostcode)
+      );
+
+      if (hasMinimumAddressData) {
+        // Usa la nuova funzione per calcolare i metodi di spedizione
+        calculateShippingMethods(newFormData);
+      }
     }
   };
   
@@ -1814,13 +1861,19 @@ export default function CheckoutPage() {
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bred-500"
                     required
+                    disabled={countriesLoading}
                   >
-                    <option value="IT">Italia</option>
-                    <option value="US">Stati Uniti</option>
-                    <option value="GB">Regno Unito</option>
-                    <option value="FR">Francia</option>
-                    <option value="DE">Germania</option>
-                    <option value="ES">Spagna</option>
+                    {countriesLoading ? (
+                      <option value="">Caricamento paesi...</option>
+                    ) : availableCountries.length > 0 ? (
+                      availableCountries.map((country) => (
+                        <option key={country.code} value={country.code}>
+                          {country.name}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="IT">Italia</option>
+                    )}
                   </select>
                 </div>
                 
@@ -1983,13 +2036,19 @@ export default function CheckoutPage() {
                         onChange={handleInputChange}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bred-500"
                         required={formData.shipToDifferentAddress}
+                        disabled={countriesLoading}
                       >
-                        <option value="IT">Italia</option>
-                        <option value="US">Stati Uniti</option>
-                        <option value="GB">Regno Unito</option>
-                        <option value="FR">Francia</option>
-                        <option value="DE">Germania</option>
-                        <option value="ES">Spagna</option>
+                        {countriesLoading ? (
+                          <option value="">Caricamento paesi...</option>
+                        ) : availableCountries.length > 0 ? (
+                          availableCountries.map((country) => (
+                            <option key={country.code} value={country.code}>
+                              {country.name}
+                            </option>
+                          ))
+                        ) : (
+                          <option value="IT">Italia</option>
+                        )}
                       </select>
                     </div>
                     

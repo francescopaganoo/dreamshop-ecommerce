@@ -21,6 +21,13 @@ type ShippingAddressType = {
   country: string;
 };
 
+interface CartItem {
+  product_id: number;
+  quantity: number;
+  variation_id?: number;
+  shipping_class_id?: number;
+}
+
 interface ShippingZone {
   id: number;
   name: string;
@@ -47,7 +54,15 @@ interface ShippingMethod {
     min_amount?: {
       value: string;
     };
-    [key: string]: unknown;
+    type?: {
+      value: string;
+    };
+    no_class_cost?: {
+      value: string;
+    };
+    [key: string]: {
+      value: string;
+    } | unknown;
   };
 }
 
@@ -60,12 +75,92 @@ interface ShippingMethodResponse {
   free_shipping?: boolean;
 }
 
+// Funzione per calcolare il costo di spedizione basato sulle classi
+function calculateShippingCost(method: ShippingMethod, cartItems: CartItem[]): number {
+  const baseCost = method.settings.cost ? parseFloat(method.settings.cost.value || '0') : 0;
+  const calculationType = method.settings.type ? method.settings.type.value : 'class';
+
+  // Se non ci sono prodotti nel carrello, usa il costo base
+  if (!cartItems || cartItems.length === 0) {
+    return baseCost;
+  }
+
+  // Se il tipo è 'class', calcola per ogni classe individualmente
+  if (calculationType === 'class') {
+    let totalCost = 0;
+
+    for (const item of cartItems) {
+      const shippingClassId = item.shipping_class_id || 0;
+      let classCost = baseCost;
+
+      // Cerca il costo specifico per questa classe
+      if (shippingClassId > 0) {
+        const classKey = `class_cost_${shippingClassId}`;
+        const classSetting = method.settings[classKey] as { value: string } | undefined;
+        if (classSetting && classSetting.value) {
+          const classValue = classSetting.value;
+          if (classValue && classValue !== '' && classValue !== 'N/A') {
+            classCost = parseFloat(classValue);
+          }
+        }
+      } else {
+        // Usa il costo per "Nessuna classe di spedizione"
+        if (method.settings.no_class_cost && method.settings.no_class_cost.value) {
+          const noClassValue = method.settings.no_class_cost.value;
+          if (noClassValue && noClassValue !== '' && noClassValue !== 'N/A') {
+            classCost = parseFloat(noClassValue);
+          }
+        }
+      }
+
+      totalCost += classCost * item.quantity;
+    }
+
+    return totalCost;
+  }
+
+  // Se il tipo è 'order', trova la classe più costosa e applica una sola volta
+  if (calculationType === 'order') {
+    let maxCost = baseCost;
+
+    for (const item of cartItems) {
+      const shippingClassId = item.shipping_class_id || 0;
+      let classCost = baseCost;
+
+      if (shippingClassId > 0) {
+        const classKey = `class_cost_${shippingClassId}`;
+        const classSetting = method.settings[classKey] as { value: string } | undefined;
+        if (classSetting && classSetting.value) {
+          const classValue = classSetting.value;
+          if (classValue && classValue !== '' && classValue !== 'N/A') {
+            classCost = parseFloat(classValue);
+          }
+        }
+      } else {
+        if (method.settings.no_class_cost && method.settings.no_class_cost.value) {
+          const noClassValue = method.settings.no_class_cost.value;
+          if (noClassValue && noClassValue !== '' && noClassValue !== 'N/A') {
+            classCost = parseFloat(noClassValue);
+          }
+        }
+      }
+
+      maxCost = Math.max(maxCost, classCost);
+    }
+
+    return maxCost;
+  }
+
+  return baseCost;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json();
-    const { shipping_address, cart_total = 0 } = data as { 
+    const { shipping_address, cart_total = 0, cart_items = [] } = data as {
       shipping_address: ShippingAddressType,
-      cart_total: number
+      cart_total: number,
+      cart_items?: CartItem[]
     };
     
     if (!shipping_address || !shipping_address.country) {
@@ -112,12 +207,19 @@ export async function POST(request: NextRequest) {
           const locationsResponse = await api.get(`shipping/zones/${zone.id}/locations`);
           const locations = locationsResponse.data as ShippingLocation[];
           
-          const matchesCountry = locations.some((loc) => 
+          const matchesCountry = locations.some((loc) =>
             loc.type === 'country' && loc.code === shipping_address.country
           ) as boolean;
-          
-          if (matchesCountry) {
+
+          // Per il continente Asia, controlla se il paese è asiatico
+          const matchesContinent = locations.some((loc) =>
+            loc.type === 'continent' && loc.code === 'AS' &&
+            ['CN', 'JP', 'KR', 'SG', 'HK', 'TW', 'TH', 'MY', 'VN', 'PH', 'ID', 'IN'].includes(shipping_address.country)
+          ) as boolean;
+
+          if (matchesCountry || matchesContinent) {
             matchingZone = { zone, methods };
+            console.log(`API: Zona trovata per ${shipping_address.country}: ${zone.name} (ID: ${zone.id})`);
             break;
           }
         }
@@ -132,7 +234,8 @@ export async function POST(request: NextRequest) {
         
         if (activeMethods.length > 0) {
           const shippingMethods: ShippingMethodResponse[] = activeMethods.map(method => {
-            const cost = method.settings.cost ? parseFloat(method.settings.cost.value || '0') : 0;
+            // Calcola il costo basato sulle classi di spedizione
+            const cost = calculateShippingCost(method, cart_items);
             const minAmount = method.settings.min_amount ? parseFloat(method.settings.min_amount.value || '0') : 0;
             const requires = method.settings.requires ? method.settings.requires.value : '';
             
@@ -141,8 +244,11 @@ export async function POST(request: NextRequest) {
             let isAvailable = true;
             
             // Controlla i requisiti per la spedizione gratuita
-            if (isFreeShipping && requires === 'min_amount' && cart_total < minAmount) {
-              isAvailable = false;
+            if (isFreeShipping) {
+              if (requires === 'min_amount' && cart_total < minAmount) {
+                isAvailable = false;
+              }
+              // Se requires è vuoto o diverso da 'min_amount', la spedizione gratuita è sempre disponibile
             }
             
             // Se il metodo non è disponibile, non includerlo
@@ -165,39 +271,19 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ methods: shippingMethods });
         }
       }
-      
-      // Fallback: restituisci un metodo di spedizione standard
-      const fallbackRates: Record<string, number> = {
-        'IT': 7.00,  // Italia
-        'FR': 12.50, // Francia
-        'DE': 12.50, // Germania
-        'ES': 12.50, // Spagna
-        'GB': 15.00  // Regno Unito
-      };
-      
-      const countryCode = shipping_address.country;
-      const fallbackCost = fallbackRates[countryCode] || 5.99;
-      
-      console.log(`API: Utilizzo metodo di fallback per ${countryCode}: ${fallbackCost}€`);
-      return NextResponse.json({ 
-        methods: [{
-          id: 'flat_rate',
-          title: 'Spedizione standard',
-          description: 'Consegna in 3-5 giorni lavorativi',
-          cost: fallbackCost
-        }] 
+
+      // Se non è stata trovata nessuna zona, il paese non è supportato
+      console.log(`API: Paese ${shipping_address.country} non supportato nelle zone di spedizione`);
+      return NextResponse.json({
+        error: `Spedizione non disponibile per ${shipping_address.country}`,
+        methods: []
       });
       
     } catch (error) {
       console.error('API: Errore nel recupero dei metodi di spedizione:', error);
-      return NextResponse.json({ 
+      return NextResponse.json({
         error: 'Errore nel recupero dei metodi di spedizione',
-        methods: [{
-          id: 'flat_rate',
-          title: 'Spedizione standard',
-          description: 'Consegna in 3-5 giorni lavorativi',
-          cost: 5.99
-        }]
+        methods: []
       });
     }
     

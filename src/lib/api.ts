@@ -537,6 +537,7 @@ export interface Product {
     name: string;
     slug: string;
   }>; // WordPress taxonomy brands
+  shipping_class_id?: number; // ID della classe di spedizione
 }
 
 export interface Category {
@@ -1590,13 +1591,22 @@ export interface BillingAddress {
   phone?: string;
 }
 
+// Interfaccia per gli elementi del carrello per il calcolo della spedizione
+interface CartItemForShipping {
+  product_id: number;
+  quantity: number;
+  variation_id?: number;
+  shipping_class_id?: number;
+}
+
 /**
  * Recupera i metodi di spedizione disponibili per un indirizzo e un totale carrello
  * @param {ShippingAddress} shippingAddress - Indirizzo di spedizione
  * @param {number} cartTotal - Totale del carrello
+ * @param {CartItemForShipping[]} cartItems - Prodotti nel carrello (opzionale)
  * @returns {Promise<ShippingMethod[]>} - Lista dei metodi di spedizione disponibili
  */
-export async function getShippingMethods(shippingAddress: ShippingAddress, cartTotal: number): Promise<ShippingMethod[]> {
+export async function getShippingMethods(shippingAddress: ShippingAddress, cartTotal: number, cartItems?: CartItemForShipping[]): Promise<ShippingMethod[]> {
   try {
     // Verifica che l'indirizzo sia valido
     if (!shippingAddress || !shippingAddress.country) {
@@ -1625,6 +1635,7 @@ export async function getShippingMethods(shippingAddress: ShippingAddress, cartT
         body: JSON.stringify({
           shipping_address: shippingAddress,
           cart_total: cartTotal,
+          cart_items: cartItems || [],
           _timestamp: timestamp
         })
       });
