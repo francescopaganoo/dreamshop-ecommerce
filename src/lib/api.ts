@@ -1187,6 +1187,23 @@ export async function getProductsByBrandSlug(brandSlug: string, page = 1, per_pa
   }
 }
 
+// Funzione per normalizzare caratteri accentati per la ricerca
+function normalizeSearchTerm(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize('NFD') // Decompone i caratteri accentati
+    .replace(/[\u0300-\u036f]/g, '') // Rimuove i segni diacritici
+    .replace(/[àáâãäå]/g, 'a')
+    .replace(/[èéêë]/g, 'e')
+    .replace(/[ìíîï]/g, 'i')
+    .replace(/[òóôõö]/g, 'o')
+    .replace(/[ùúûü]/g, 'u')
+    .replace(/[ýÿ]/g, 'y')
+    .replace(/[ñ]/g, 'n')
+    .replace(/[ç]/g, 'c')
+    .trim();
+}
+
 // Search products (only in product titles)
 export async function searchProducts(searchTerm: string, page = 1, per_page = 10): Promise<{ products: Product[], total: number }> {
   try {
@@ -1199,10 +1216,14 @@ export async function searchProducts(searchTerm: string, page = 1, per_page = 10
 
     const totalProducts = parseInt((headers as Record<string, string>)['x-wp-total']) || (data as Product[]).length;
 
-    // Filtriamo solo i prodotti il cui nome contiene il termine di ricerca
-    const filteredProducts = (data as Product[]).filter(product =>
-      product.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    // Normalizza il termine di ricerca
+    const normalizedSearchTerm = normalizeSearchTerm(searchTerm);
+
+    // Filtriamo solo i prodotti il cui nome contiene il termine di ricerca (con normalizzazione)
+    const filteredProducts = (data as Product[]).filter(product => {
+      const normalizedProductName = normalizeSearchTerm(product.name);
+      return normalizedProductName.includes(normalizedSearchTerm);
+    });
 
     return {
       products: filteredProducts,
