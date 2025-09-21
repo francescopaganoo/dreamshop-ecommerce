@@ -28,11 +28,13 @@ interface CategorySidebarProps {
   selectedShippingTimeSlugs?: string[];
   priceRange?: { min: number; max: number };
   selectedPriceRange?: { min: number; max: number };
+  excludeSoldOut?: boolean;
   onApplyFilters?: (filters: {
     brandSlugs: string[];
     availabilitySlugs: string[];
     shippingTimeSlugs: string[];
     priceRange: { min: number; max: number };
+    excludeSoldOut: boolean;
   }) => void;
   isApplyingFilters?: boolean;
   isOpen?: boolean;
@@ -51,6 +53,7 @@ export default function CategorySidebar({
   selectedShippingTimeSlugs = [],
   priceRange,
   selectedPriceRange,
+  excludeSoldOut = false,
   onApplyFilters,
   isApplyingFilters = false,
   isOpen = false,
@@ -68,6 +71,7 @@ export default function CategorySidebar({
   const [localAvailabilitySlugs, setLocalAvailabilitySlugs] = useState(selectedAvailabilitySlugs);
   const [localShippingTimeSlugs, setLocalShippingTimeSlugs] = useState(selectedShippingTimeSlugs);
   const [localPriceRange, setLocalPriceRange] = useState(selectedPriceRange);
+  const [localExcludeSoldOut, setLocalExcludeSoldOut] = useState(excludeSoldOut);
 
   // Reset local states when component mounts or when we need to sync
   const resetLocalStates = useCallback(() => {
@@ -75,7 +79,8 @@ export default function CategorySidebar({
     setLocalAvailabilitySlugs(selectedAvailabilitySlugs);
     setLocalShippingTimeSlugs(selectedShippingTimeSlugs);
     setLocalPriceRange(selectedPriceRange);
-  }, [selectedBrandSlugs, selectedAvailabilitySlugs, selectedShippingTimeSlugs, selectedPriceRange]);
+    setLocalExcludeSoldOut(excludeSoldOut);
+  }, [selectedBrandSlugs, selectedAvailabilitySlugs, selectedShippingTimeSlugs, selectedPriceRange, excludeSoldOut]);
 
   // Only sync on mount and when filters are actually applied (not on every prop change)
   useEffect(() => {
@@ -129,7 +134,8 @@ export default function CategorySidebar({
         brandSlugs: localBrandSlugs,
         availabilitySlugs: localAvailabilitySlugs,
         shippingTimeSlugs: localShippingTimeSlugs,
-        priceRange: localPriceRange || { min: priceRange.min, max: priceRange.max }
+        priceRange: localPriceRange || { min: priceRange.min, max: priceRange.max },
+        excludeSoldOut: localExcludeSoldOut
       });
     }
   };
@@ -140,7 +146,8 @@ export default function CategorySidebar({
     const availabilityChanged = JSON.stringify(localAvailabilitySlugs.sort()) !== JSON.stringify(selectedAvailabilitySlugs.sort());
     const shippingChanged = JSON.stringify(localShippingTimeSlugs.sort()) !== JSON.stringify(selectedShippingTimeSlugs.sort());
     const priceChanged = JSON.stringify(localPriceRange) !== JSON.stringify(selectedPriceRange);
-    return brandsChanged || availabilityChanged || shippingChanged || priceChanged;
+    const soldOutChanged = localExcludeSoldOut !== excludeSoldOut;
+    return brandsChanged || availabilityChanged || shippingChanged || priceChanged || soldOutChanged;
   };
 
   return (
@@ -296,6 +303,26 @@ export default function CategorySidebar({
           )}
         </div>
       )}
+
+      {/* Exclude Sold Out Section */}
+      <div className="mb-8">
+        <h3 className="text-lg font-bold text-gray-900 mb-4 border-b border-gray-100 pb-2">
+          Filtra per disponibilità
+        </h3>
+        <div className="space-y-2">
+          <label className="flex items-center py-2 px-3 rounded-md text-sm cursor-pointer transition-colors hover:bg-gray-50">
+            <input
+              type="checkbox"
+              checked={localExcludeSoldOut}
+              onChange={(e) => setLocalExcludeSoldOut(e.target.checked)}
+              className="mr-3 h-4 w-4 text-bred-500 border-gray-300 rounded focus:ring-bred-500 focus:ring-2"
+            />
+            <span className="text-gray-700 font-medium">
+              Escludi articoli Sold out
+            </span>
+          </label>
+        </div>
+      </div>
 
       {/* Shipping Time Section */}
       {shippingTimeOptions.length > 0 && (

@@ -21,6 +21,7 @@ function ProductsPageContent() {
   const [selectedShippingTimeSlugs, setSelectedShippingTimeSlugs] = useState<string[]>([]);
   const [priceRange, setPriceRange] = useState<{ min: number; max: number }>({ min: 0, max: 100 });
   const [selectedPriceRange, setSelectedPriceRange] = useState<{ min: number; max: number } | undefined>(undefined);
+  const [excludeSoldOut, setExcludeSoldOut] = useState(false);
   const [loading, setLoading] = useState(true);
   const [filterLoading, setFilterLoading] = useState(false);
   const [isApplyingFilters, setIsApplyingFilters] = useState(false);
@@ -36,6 +37,7 @@ function ProductsPageContent() {
   const shippingParam = searchParams.get('shipping') || '';
   const minPriceParam = searchParams.get('minPrice');
   const maxPriceParam = searchParams.get('maxPrice');
+  const excludeSoldOutParam = searchParams.get('excludeSoldOut') === 'true';
   const perPage = 12;
 
   // Parse multiple brands from URL
@@ -70,7 +72,8 @@ function ProductsPageContent() {
     setSelectedAvailabilitySlugs(availabilitySlugsFromUrl);
     setSelectedShippingTimeSlugs(shippingSlugsFromUrl);
     setSelectedPriceRange(priceRangeFromUrl);
-  }, [brandSlugsFromUrl, availabilitySlugsFromUrl, shippingSlugsFromUrl, priceRangeFromUrl]);
+    setExcludeSoldOut(excludeSoldOutParam);
+  }, [brandSlugsFromUrl, availabilitySlugsFromUrl, shippingSlugsFromUrl, priceRangeFromUrl, excludeSoldOutParam]);
 
 
 
@@ -81,6 +84,7 @@ function ProductsPageContent() {
     availabilitySlugs: string[];
     shippingTimeSlugs: string[];
     priceRange: { min: number; max: number };
+    excludeSoldOut: boolean;
   }) => {
     console.log('🎯 Applying filters with plugin:', filters);
 
@@ -93,6 +97,7 @@ function ProductsPageContent() {
       setSelectedAvailabilitySlugs(filters.availabilitySlugs);
       setSelectedShippingTimeSlugs(filters.shippingTimeSlugs);
       setSelectedPriceRange(filters.priceRange);
+      setExcludeSoldOut(filters.excludeSoldOut);
 
       // Build new URL with all filters
       const newSearchParams = new URLSearchParams();
@@ -116,6 +121,10 @@ function ProductsPageContent() {
       if (filters.priceRange.min > priceRange.min || filters.priceRange.max < priceRange.max) {
         newSearchParams.set('minPrice', filters.priceRange.min.toString());
         newSearchParams.set('maxPrice', filters.priceRange.max.toString());
+      }
+
+      if (filters.excludeSoldOut) {
+        newSearchParams.set('excludeSoldOut', 'true');
       }
 
       // Reset to first page
@@ -176,6 +185,7 @@ function ProductsPageContent() {
           shipping: currentShippingSlugs.length > 0 ? currentShippingSlugs : undefined,
           min_price: minPrice,
           max_price: maxPrice,
+          exclude_sold_out: excludeSoldOut,
           page,
           per_page: perPage,
           orderby: 'date',
@@ -205,7 +215,7 @@ function ProductsPageContent() {
     }
 
     fetchData();
-  }, [page, perPage, selectedBrandSlugs, selectedAvailabilitySlugs, selectedShippingTimeSlugs, categorySlug, brandSlugsFromUrl, availabilitySlugsFromUrl, shippingSlugsFromUrl, minPriceParam, maxPriceParam]);
+  }, [page, perPage, selectedBrandSlugs, selectedAvailabilitySlugs, selectedShippingTimeSlugs, excludeSoldOut, categorySlug, brandSlugsFromUrl, availabilitySlugsFromUrl, shippingSlugsFromUrl, minPriceParam, maxPriceParam, excludeSoldOutParam]);
   
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Caricamento...</div>;
@@ -268,6 +278,7 @@ function ProductsPageContent() {
                 selectedShippingTimeSlugs={selectedShippingTimeSlugs}
                 priceRange={priceRange}
                 selectedPriceRange={selectedPriceRange}
+                excludeSoldOut={excludeSoldOut}
                 onApplyFilters={handleApplyFilters}
                 isApplyingFilters={isApplyingFilters}
                 isOpen={isSidebarOpen}

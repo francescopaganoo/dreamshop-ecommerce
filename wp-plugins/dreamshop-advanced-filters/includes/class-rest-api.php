@@ -94,7 +94,8 @@ class DreamShop_Filters_REST_API {
                 'availability_slugs' => $this->parse_array_param($request->get_param('availability')),
                 'shipping_time_slugs' => $this->parse_array_param($request->get_param('shipping')),
                 'min_price' => $request->get_param('min_price'),
-                'max_price' => $request->get_param('max_price')
+                'max_price' => $request->get_param('max_price'),
+                'exclude_sold_out' => $request->get_param('exclude_sold_out') === 'true' || $request->get_param('exclude_sold_out') === true
             ];
 
             $page = (int) $request->get_param('page') ?: 1;
@@ -373,6 +374,11 @@ class DreamShop_Filters_REST_API {
                 'type' => 'string',
                 'enum' => ['ASC', 'DESC'],
                 'default' => 'DESC'
+            ],
+            'exclude_sold_out' => [
+                'description' => 'Exclude sold out products',
+                'type' => 'boolean',
+                'default' => false
             ]
         ];
     }

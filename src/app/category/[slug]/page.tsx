@@ -30,13 +30,14 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
   const [selectedBrandSlugs, setSelectedBrandSlugs] = useState<string[]>([]);
   const [selectedAvailabilitySlugs, setSelectedAvailabilitySlugs] = useState<string[]>([]);
   const [selectedShippingTimeSlugs, setSelectedShippingTimeSlugs] = useState<string[]>([]);
+  const [excludeSoldOut, setExcludeSoldOut] = useState(false);
   const [loading, setLoading] = useState(true);
   const [filterLoading, setFilterLoading] = useState(false);
   const [isApplyingFilters, setIsApplyingFilters] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
   const resolvedParams = use(params) as { slug: string };
-  const resolvedSearchParams = use(searchParams) as { page?: string; minPrice?: string; maxPrice?: string; brands?: string; availability?: string; shipping?: string };
+  const resolvedSearchParams = use(searchParams) as { page?: string; minPrice?: string; maxPrice?: string; brands?: string; availability?: string; shipping?: string; excludeSoldOut?: string };
 
   const categorySlug = resolvedParams.slug;
   const page = typeof resolvedSearchParams?.page === 'string' ? parseInt(resolvedSearchParams.page, 10) : 1;
@@ -50,6 +51,7 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
   const brandsParam = searchParamsFromHook.get('brands');
   const availabilityParam = searchParamsFromHook.get('availability');
   const shippingParam = searchParamsFromHook.get('shipping');
+  const excludeSoldOutParam = searchParamsFromHook.get('excludeSoldOut') === 'true';
 
   // Create selected price range from URL params
   const getSelectedPriceRangeFromUrl = useCallback(() => {
@@ -85,7 +87,9 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
     } else {
       setSelectedShippingTimeSlugs([]);
     }
-  }, [brandsParam, availabilityParam, shippingParam]);
+
+    setExcludeSoldOut(excludeSoldOutParam);
+  }, [brandsParam, availabilityParam, shippingParam, excludeSoldOutParam]);
 
 
   // Apply all filters at once (plugin approach)
@@ -94,6 +98,7 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
     availabilitySlugs: string[];
     shippingTimeSlugs: string[];
     priceRange: { min: number; max: number };
+    excludeSoldOut: boolean;
   }) => {
     console.log('🎯 Category applying filters with plugin:', filters);
 
@@ -106,6 +111,7 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
       setSelectedAvailabilitySlugs(filters.availabilitySlugs);
       setSelectedShippingTimeSlugs(filters.shippingTimeSlugs);
       setSelectedPriceRange(filters.priceRange);
+      setExcludeSoldOut(filters.excludeSoldOut);
 
       // Build new URL with all filters
       const newSearchParams = new URLSearchParams();
@@ -125,6 +131,10 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
       if (filters.priceRange.min > priceRange.min || filters.priceRange.max < priceRange.max) {
         newSearchParams.set('minPrice', filters.priceRange.min.toString());
         newSearchParams.set('maxPrice', filters.priceRange.max.toString());
+      }
+
+      if (filters.excludeSoldOut) {
+        newSearchParams.set('excludeSoldOut', 'true');
       }
 
       // Reset to first page
@@ -180,6 +190,7 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
           shipping: selectedShippingTimeSlugs.length > 0 ? selectedShippingTimeSlugs : undefined,
           min_price: minPrice,
           max_price: maxPrice,
+          exclude_sold_out: excludeSoldOut,
           page,
           per_page: perPage,
           orderby: 'date',
@@ -187,6 +198,9 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
         };
 
         console.log('Fetching category products with plugin filters:', filters);
+        console.log('🔍 DEBUG - excludeSoldOut state:', excludeSoldOut);
+        console.log('🔍 DEBUG - excludeSoldOutParam from URL:', excludeSoldOutParam);
+        console.log('🔍 DEBUG - filters.exclude_sold_out:', filters.exclude_sold_out);
 
         // Get products using plugin
         const productsResponse = await getFilteredProductsPlugin(filters);
@@ -210,7 +224,7 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
     }
 
     fetchData();
-  }, [categorySlug, page, perPage, selectedBrandSlugs, selectedAvailabilitySlugs, selectedShippingTimeSlugs, minPriceParam, maxPriceParam]);
+  }, [categorySlug, page, perPage, selectedBrandSlugs, selectedAvailabilitySlugs, selectedShippingTimeSlugs, excludeSoldOut, minPriceParam, maxPriceParam, excludeSoldOutParam]);
   
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Caricamento...</div>;
@@ -265,6 +279,7 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
                 selectedShippingTimeSlugs={selectedShippingTimeSlugs}
                 priceRange={priceRange}
                 selectedPriceRange={selectedPriceRange}
+                excludeSoldOut={excludeSoldOut}
                 onApplyFilters={handleApplyFilters}
                 isApplyingFilters={isApplyingFilters}
                 isOpen={isSidebarOpen}

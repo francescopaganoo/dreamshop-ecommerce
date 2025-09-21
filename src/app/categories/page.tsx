@@ -49,6 +49,7 @@ export default function CategoriesPage() {
   const [availabilityOptions, setAvailabilityOptions] = useState<AttributeValue[]>([]);
   const [shippingTimeOptions, setShippingTimeOptions] = useState<AttributeValue[]>([]);
   const [priceRange, setPriceRange] = useState<{ min: number; max: number } | undefined>(undefined);
+  const [excludeSoldOut] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const router = useRouter();
@@ -59,6 +60,7 @@ export default function CategoriesPage() {
     availabilitySlugs: string[];
     shippingTimeSlugs: string[];
     priceRange: { min: number; max: number };
+    excludeSoldOut: boolean;
   }) => {
     // Build search params for the products page
     const searchParams = new URLSearchParams();
@@ -78,6 +80,10 @@ export default function CategoriesPage() {
     if (priceRange && (filters.priceRange.min > priceRange.min || filters.priceRange.max < priceRange.max)) {
       searchParams.set('minPrice', filters.priceRange.min.toString());
       searchParams.set('maxPrice', filters.priceRange.max.toString());
+    }
+
+    if (filters.excludeSoldOut) {
+      searchParams.set('excludeSoldOut', 'true');
     }
 
     // Navigate to products page with filters
@@ -160,6 +166,7 @@ export default function CategoriesPage() {
                 selectedShippingTimeSlugs={[]}
                 priceRange={priceRange}
                 selectedPriceRange={priceRange}
+                excludeSoldOut={excludeSoldOut}
                 onApplyFilters={handleApplyFilters}
                 isOpen={isSidebarOpen}
                 onClose={() => setIsSidebarOpen(false)}

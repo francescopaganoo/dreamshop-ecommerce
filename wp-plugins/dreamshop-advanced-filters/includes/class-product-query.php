@@ -101,6 +101,12 @@ class DreamShop_Filters_Product_Query {
             $where_conditions[] = "CAST(pm_price.meta_value AS DECIMAL(10,2)) <= " . floatval($filters['max_price']);
         }
 
+        // Exclude sold out products filter
+        if (!empty($filters['exclude_sold_out']) && $filters['exclude_sold_out']) {
+            $joins[] = "LEFT JOIN {$this->wpdb->postmeta} pm_stock ON p.ID = pm_stock.post_id AND pm_stock.meta_key = '_stock_status'";
+            $where_conditions[] = "(pm_stock.meta_value IS NULL OR pm_stock.meta_value != 'outofstock')";
+        }
+
         // Attribute filters (availability and shipping)
         $attribute_conditions = $this->build_attribute_conditions($filters);
         if (!empty($attribute_conditions)) {
@@ -214,10 +220,79 @@ class DreamShop_Filters_Product_Query {
         ";
 
         // Apply same filters as main query (without pagination)
-        // This is a simplified version - in production you'd want to reuse the logic
+        $joins = [];
         $where_conditions = ["p.post_type = 'product'", "p.post_status = 'publish'"];
 
-        return $query . " WHERE " . implode(" AND ", $where_conditions);
+        // Category filter
+        if (!empty($filters['category_slug'])) {
+            $joins[] = "INNER JOIN {$this->wpdb->term_relationships} tr_cat ON p.ID = tr_cat.object_id";
+            $joins[] = "INNER JOIN {$this->wpdb->term_taxonomy} tt_cat ON tr_cat.term_taxonomy_id = tt_cat.term_taxonomy_id AND tt_cat.taxonomy = 'product_cat'";
+            $joins[] = "INNER JOIN {$this->wpdb->terms} t_cat ON tt_cat.term_id = t_cat.term_id";
+            $where_conditions[] = $this->wpdb->prepare("t_cat.slug = %s", $filters['category_slug']);
+        }
+
+        // Brand filter
+        if (!empty($filters['brand_slugs']) && is_array($filters['brand_slugs'])) {
+            $brand_placeholders = implode(',', array_fill(0, count($filters['brand_slugs']), '%s'));
+            $joins[] = "INNER JOIN {$this->wpdb->term_relationships} tr_brand ON p.ID = tr_brand.object_id";
+            $joins[] = "INNER JOIN {$this->wpdb->term_taxonomy} tt_brand ON tr_brand.term_taxonomy_id = tt_brand.term_taxonomy_id AND tt_brand.taxonomy = 'product_brand'";
+            $joins[] = "INNER JOIN {$this->wpdb->terms} t_brand ON tt_brand.term_id = t_brand.term_id";
+            $where_conditions[] = "t_brand.slug IN ($brand_placeholders)";
+        }
+
+        // Price filter
+        if (!empty($filters['min_price']) && $filters['min_price'] > 0) {
+            $where_conditions[] = "CAST(pm_price.meta_value AS DECIMAL(10,2)) >= " . floatval($filters['min_price']);
+        }
+        if (!empty($filters['max_price']) && $filters['max_price'] > 0) {
+            $where_conditions[] = "CAST(pm_price.meta_value AS DECIMAL(10,2)) <= " . floatval($filters['max_price']);
+        }
+
+        // Exclude sold out products filter
+        if (!empty($filters['exclude_sold_out']) && $filters['exclude_sold_out']) {
+            $joins[] = "LEFT JOIN {$this->wpdb->postmeta} pm_stock ON p.ID = pm_stock.post_id AND pm_stock.meta_key = '_stock_status'";
+            $where_conditions[] = "(pm_stock.meta_value IS NULL OR pm_stock.meta_value != 'outofstock')";
+        }
+
+        // Attribute filters
+        $attribute_conditions = $this->build_attribute_conditions($filters);
+        if (!empty($attribute_conditions)) {
+            $joins = array_merge($joins, $attribute_conditions['joins']);
+            $where_conditions = array_merge($where_conditions, $attribute_conditions['conditions']);
+        }
+
+        // Add joins to query
+        if (!empty($joins)) {
+            $query .= " " . implode(" ", array_unique($joins));
+        }
+
+        // Add WHERE conditions
+        $query .= " WHERE " . implode(" AND ", $where_conditions);
+
+        // Prepare query with parameters
+        $params = [];
+
+        // Collect brand parameters
+        if (!empty($filters['brand_slugs']) && is_array($filters['brand_slugs'])) {
+            $params = array_merge($params, $filters['brand_slugs']);
+        }
+
+        // Collect availability parameters
+        if (!empty($filters['availability_slugs']) && is_array($filters['availability_slugs'])) {
+            $params = array_merge($params, $filters['availability_slugs']);
+        }
+
+        // Collect shipping parameters
+        if (!empty($filters['shipping_time_slugs']) && is_array($filters['shipping_time_slugs'])) {
+            $params = array_merge($params, $filters['shipping_time_slugs']);
+        }
+
+        // Apply parameters if any exist
+        if (!empty($params)) {
+            $query = $this->wpdb->prepare($query, ...$params);
+        }
+
+        return $query;
     }
 
     /**
