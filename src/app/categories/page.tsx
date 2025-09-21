@@ -9,6 +9,23 @@ import { FaArrowRight, FaTags, FaEye, FaStar } from 'react-icons/fa';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
+// Mapping dei loghi per le categorie specifiche
+const CATEGORY_LOGOS: Record<string, string> = {
+  'Bleach': '/images/logos/bleach-logo.webp',
+  'Demon Slayer': '/images/logos/demon-slayer-logo.webp',
+  'Dragon Ball': '/images/logos/dragon-ball-z-logo.webp',
+  'Dragon Ball Z': '/images/logos/dragon-ball-z-logo.webp', // Caso alternativo
+  'S.H. Figuarts': '/images/logos/figuarts-logo.webp',
+  'Ichiban Kuji': '/images/logos/ichiban-kuji-logo.webp',
+  'Jujutsu Kaisen': '/images/logos/jujutsu-kaisen-logo.webp',
+  'My Hero Academia': '/images/logos/my-hero-academia-logo.webp',
+  'Naruto': '/images/logos/naruto-logo.webp',
+  'One Piece': '/images/logos/one-piece-logo.webp',
+  'Pokemon': '/images/logos/pokemon-logo.webp',
+  'Pokémon': '/images/logos/pokemon-logo.webp', // Caso con accento
+  'Tokyo Revengers': '/images/logos/tokyo-revengers-logo.webp'
+};
+
 // Funzione per decodificare le entità HTML lato server
 function decodeHtmlEntitiesServer(text: string): string {
   return text
@@ -18,6 +35,12 @@ function decodeHtmlEntitiesServer(text: string): string {
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
     .replace(/&nbsp;/g, ' ');
+}
+
+// Funzione per ottenere il logo di una categoria se disponibile
+function getCategoryLogo(categoryName: string): string | null {
+  const decodedName = decodeHtmlEntitiesServer(categoryName);
+  return CATEGORY_LOGOS[decodedName] || null;
 }
 
 export default function CategoriesPage() {
@@ -185,9 +208,26 @@ export default function CategoriesPage() {
                       {/* Category Info */}
                       <div className="p-6 flex flex-col justify-between h-32">
                         <div>
-                          <h2 className="text-l font-bold text-gray-900 mb-2 group-hover:text-bred-600 transition-colors duration-300">
-                            {decodeHtmlEntitiesServer(category.name)}
-                          </h2>
+                          {(() => {
+                            const categoryLogo = getCategoryLogo(category.name);
+                            return categoryLogo ? (
+                              <div className="flex items-center justify-center h-12 mb-2">
+                                <Image
+                                  src={categoryLogo}
+                                  alt={decodeHtmlEntitiesServer(category.name)}
+                                  width={120}
+                                  height={40}
+                                  style={{ objectFit: 'contain', maxHeight: '40px' }}
+                                  className="group-hover:brightness-75 transition-all duration-300"
+                                  loading="lazy"
+                                />
+                              </div>
+                            ) : (
+                              <h2 className="text-l font-bold text-gray-900 mb-2 group-hover:text-bred-600 transition-colors duration-300">
+                                {decodeHtmlEntitiesServer(category.name)}
+                              </h2>
+                            );
+                          })()}
                         </div>
                         
                         {/* Action Button */}
