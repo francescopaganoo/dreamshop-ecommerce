@@ -1,12 +1,13 @@
 'use client';
 
-import { getMegaMenuCategories, getBrands, ExtendedCategory, Brand } from '../../lib/api';
+import { getMegaMenuCategories, getFilterOptionsPlugin, ExtendedCategory, Brand, AttributeValue } from '../../lib/api';
 import CategorySidebar from '../../components/CategorySidebar';
 import MobileFilterButton from '../../components/MobileFilterButton';
 import Image from 'next/image';
 import Link from 'next/link';
 import { FaArrowRight, FaTags, FaEye, FaStar } from 'react-icons/fa';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 // Funzione per decodificare le entità HTML lato server
 function decodeHtmlEntitiesServer(text: string): string {
@@ -22,28 +23,67 @@ function decodeHtmlEntitiesServer(text: string): string {
 export default function CategoriesPage() {
   const [megaMenuCategories, setMegaMenuCategories] = useState<ExtendedCategory[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
+  const [availabilityOptions, setAvailabilityOptions] = useState<AttributeValue[]>([]);
+  const [shippingTimeOptions, setShippingTimeOptions] = useState<AttributeValue[]>([]);
+  const [priceRange, setPriceRange] = useState<{ min: number; max: number } | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const router = useRouter();
+
+  // Handle filter application - redirect to products page with filters
+  const handleApplyFilters = (filters: {
+    brandSlugs: string[];
+    availabilitySlugs: string[];
+    shippingTimeSlugs: string[];
+    priceRange: { min: number; max: number };
+  }) => {
+    // Build search params for the products page
+    const searchParams = new URLSearchParams();
+
+    if (filters.brandSlugs.length > 0) {
+      searchParams.set('brands', filters.brandSlugs.join(','));
+    }
+
+    if (filters.availabilitySlugs.length > 0) {
+      searchParams.set('availability', filters.availabilitySlugs.join(','));
+    }
+
+    if (filters.shippingTimeSlugs.length > 0) {
+      searchParams.set('shipping', filters.shippingTimeSlugs.join(','));
+    }
+
+    if (priceRange && (filters.priceRange.min > priceRange.min || filters.priceRange.max < priceRange.max)) {
+      searchParams.set('minPrice', filters.priceRange.min.toString());
+      searchParams.set('maxPrice', filters.priceRange.max.toString());
+    }
+
+    // Navigate to products page with filters
+    const url = `/products${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    router.push(url);
+  };
 
 
   useEffect(() => {
     async function fetchData() {
       try {
-        // Carica categorie e marchi (ottimizzato: solo 2 chiamate invece di 4)
-        const [categoriesData, brandsData] = await Promise.all([
+        // Carica categorie e filtri dal plugin ottimizzato
+        const [categoriesData, filterOptions] = await Promise.all([
           getMegaMenuCategories(),
-          getBrands()
+          getFilterOptionsPlugin()
         ]);
-        
+
         setMegaMenuCategories(categoriesData);
-        setBrands(brandsData);
+        setBrands(filterOptions.brands);
+        setAvailabilityOptions(filterOptions.availability);
+        setShippingTimeOptions(filterOptions.shipping_times);
+        setPriceRange(filterOptions.price_range);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
         setLoading(false);
       }
     }
-    
+
     fetchData();
   }, []);
   
@@ -89,12 +129,15 @@ export default function CategoriesPage() {
             <div className="lg:order-first">
               <CategorySidebar
                 categories={megaMenuCategories}
-                availabilityOptions={[]}
-                shippingTimeOptions={[]}
+                availabilityOptions={availabilityOptions}
+                shippingTimeOptions={shippingTimeOptions}
                 brands={brands}
                 selectedBrandSlugs={[]}
-                priceRange={undefined}
-                selectedPriceRange={undefined}
+                selectedAvailabilitySlugs={[]}
+                selectedShippingTimeSlugs={[]}
+                priceRange={priceRange}
+                selectedPriceRange={priceRange}
+                onApplyFilters={handleApplyFilters}
                 isOpen={isSidebarOpen}
                 onClose={() => setIsSidebarOpen(false)}
                 showAllCategoriesActive={true}

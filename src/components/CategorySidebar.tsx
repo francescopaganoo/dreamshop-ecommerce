@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { ExtendedCategory, AttributeValue, Brand } from '@/lib/api';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { FaChevronDown, FaChevronUp, FaTimes, FaHome, FaSpinner } from 'react-icons/fa';
 
 // Funzione per decodificare le entità HTML
@@ -63,27 +63,24 @@ export default function CategorySidebar({
   const [showAllBrands, setShowAllBrands] = useState(false);
 
   // Local states for temporary filter values (until user clicks Apply)
+  // Initialize with current selected values and update only when Apply is clicked
   const [localBrandSlugs, setLocalBrandSlugs] = useState(selectedBrandSlugs);
   const [localAvailabilitySlugs, setLocalAvailabilitySlugs] = useState(selectedAvailabilitySlugs);
   const [localShippingTimeSlugs, setLocalShippingTimeSlugs] = useState(selectedShippingTimeSlugs);
   const [localPriceRange, setLocalPriceRange] = useState(selectedPriceRange);
 
-  // Sync local states when props change
-  useEffect(() => {
+  // Reset local states when component mounts or when we need to sync
+  const resetLocalStates = useCallback(() => {
     setLocalBrandSlugs(selectedBrandSlugs);
-  }, [selectedBrandSlugs]);
-
-  useEffect(() => {
     setLocalAvailabilitySlugs(selectedAvailabilitySlugs);
-  }, [selectedAvailabilitySlugs]);
-
-  useEffect(() => {
     setLocalShippingTimeSlugs(selectedShippingTimeSlugs);
-  }, [selectedShippingTimeSlugs]);
-
-  useEffect(() => {
     setLocalPriceRange(selectedPriceRange);
-  }, [selectedPriceRange]);
+  }, [selectedBrandSlugs, selectedAvailabilitySlugs, selectedShippingTimeSlugs, selectedPriceRange]);
+
+  // Only sync on mount and when filters are actually applied (not on every prop change)
+  useEffect(() => {
+    resetLocalStates();
+  }, [resetLocalStates]);
 
   const displayedCategories = showAllCategories ? categories : categories.slice(0, 8);
   const displayedAvailability = showAllAvailability ? availabilityOptions : availabilityOptions.slice(0, 6);
@@ -145,11 +142,6 @@ export default function CategorySidebar({
     const priceChanged = JSON.stringify(localPriceRange) !== JSON.stringify(selectedPriceRange);
     return brandsChanged || availabilityChanged || shippingChanged || priceChanged;
   };
-
-  // Update local state when selectedPriceRange prop changes
-  useEffect(() => {
-    setLocalPriceRange(selectedPriceRange);
-  }, [selectedPriceRange]);
 
   return (
     <>
