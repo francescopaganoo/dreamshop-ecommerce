@@ -394,43 +394,6 @@ export default function CategorySidebar({
         </div>
       )}
 
-      {/* Shipping Times Section */}
-      {shippingTimeOptions.length > 0 && (
-        <div>
-          <h3 className="text-lg font-bold text-gray-900 mb-4 border-b border-gray-100 pb-2">
-            Tempistiche di Spedizione
-          </h3>
-          <ul className="space-y-2">
-            {displayedShipping.map((shipping) => (
-              <li key={shipping.slug}>
-                <Link
-                  href={`/shipping/${shipping.slug}`}
-                  className="block py-2 px-3 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-bred-600 transition-colors"
-                >
-                  {decodeHtmlEntities(shipping.name)}
-                </Link>
-              </li>
-            ))}
-          </ul>
-          
-          {shippingTimeOptions.length > 6 && (
-            <button
-              onClick={() => setShowAllShipping(!showAllShipping)}
-              className="mt-3 text-sm text-bred-600 hover:text-bred-700 flex items-center gap-1"
-            >
-              {showAllShipping ? (
-                <>
-                  Mostra meno <FaChevronUp className="text-xs" />
-                </>
-              ) : (
-                <>
-                  Mostra tutte ({shippingTimeOptions.length - 6} in più) <FaChevronDown className="text-xs" />
-                </>
-              )}
-            </button>
-          )}
-        </div>
-      )}
 
       {/* Price Range Section */}
       {priceRange && onPriceRangeChange && (
