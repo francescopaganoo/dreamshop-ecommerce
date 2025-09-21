@@ -24,11 +24,15 @@ interface CategorySidebarProps {
   brands?: Brand[];
   currentBrandSlug?: string;
   selectedBrandSlugs?: string[];
+  selectedAvailabilitySlugs?: string[];
+  selectedShippingTimeSlugs?: string[];
   priceRange?: { min: number; max: number };
   selectedPriceRange?: { min: number; max: number };
   onPriceRangeChange?: (range: { min: number; max: number }) => void;
   onApplyFilters?: (filters: {
     brandSlugs: string[];
+    availabilitySlugs: string[];
+    shippingTimeSlugs: string[];
     priceRange: { min: number; max: number };
   }) => void;
   isApplyingFilters?: boolean;
@@ -44,6 +48,8 @@ export default function CategorySidebar({
   currentCategorySlug,
   brands = [],
   selectedBrandSlugs = [],
+  selectedAvailabilitySlugs = [],
+  selectedShippingTimeSlugs = [],
   priceRange,
   selectedPriceRange,
   onPriceRangeChange,
@@ -60,12 +66,22 @@ export default function CategorySidebar({
 
   // Local states for temporary filter values (until user clicks Apply)
   const [localBrandSlugs, setLocalBrandSlugs] = useState(selectedBrandSlugs);
+  const [localAvailabilitySlugs, setLocalAvailabilitySlugs] = useState(selectedAvailabilitySlugs);
+  const [localShippingTimeSlugs, setLocalShippingTimeSlugs] = useState(selectedShippingTimeSlugs);
   const [localPriceRange, setLocalPriceRange] = useState(selectedPriceRange);
 
   // Sync local states when props change
   useEffect(() => {
     setLocalBrandSlugs(selectedBrandSlugs);
   }, [selectedBrandSlugs]);
+
+  useEffect(() => {
+    setLocalAvailabilitySlugs(selectedAvailabilitySlugs);
+  }, [selectedAvailabilitySlugs]);
+
+  useEffect(() => {
+    setLocalShippingTimeSlugs(selectedShippingTimeSlugs);
+  }, [selectedShippingTimeSlugs]);
 
   useEffect(() => {
     setLocalPriceRange(selectedPriceRange);
@@ -86,6 +102,26 @@ export default function CategorySidebar({
     setLocalBrandSlugs(newSelectedBrands);
   };
 
+  const handleAvailabilityChange = (availabilitySlug: string, checked: boolean) => {
+    let newSelectedAvailability: string[];
+    if (checked) {
+      newSelectedAvailability = [...localAvailabilitySlugs, availabilitySlug];
+    } else {
+      newSelectedAvailability = localAvailabilitySlugs.filter(slug => slug !== availabilitySlug);
+    }
+    setLocalAvailabilitySlugs(newSelectedAvailability);
+  };
+
+  const handleShippingTimeChange = (shippingSlug: string, checked: boolean) => {
+    let newSelectedShipping: string[];
+    if (checked) {
+      newSelectedShipping = [...localShippingTimeSlugs, shippingSlug];
+    } else {
+      newSelectedShipping = localShippingTimeSlugs.filter(slug => slug !== shippingSlug);
+    }
+    setLocalShippingTimeSlugs(newSelectedShipping);
+  };
+
   // Handle local price range change (immediate UI update only, no automatic API calls)
   const handleLocalPriceRangeChange = (range: { min: number; max: number }) => {
     setLocalPriceRange(range);
@@ -96,6 +132,8 @@ export default function CategorySidebar({
     if (onApplyFilters && priceRange) {
       onApplyFilters({
         brandSlugs: localBrandSlugs,
+        availabilitySlugs: localAvailabilitySlugs,
+        shippingTimeSlugs: localShippingTimeSlugs,
         priceRange: localPriceRange || { min: priceRange.min, max: priceRange.max }
       });
     }
@@ -104,8 +142,10 @@ export default function CategorySidebar({
   // Check if there are changes to show Apply button
   const hasChanges = () => {
     const brandsChanged = JSON.stringify(localBrandSlugs.sort()) !== JSON.stringify(selectedBrandSlugs.sort());
+    const availabilityChanged = JSON.stringify(localAvailabilitySlugs.sort()) !== JSON.stringify(selectedAvailabilitySlugs.sort());
+    const shippingChanged = JSON.stringify(localShippingTimeSlugs.sort()) !== JSON.stringify(selectedShippingTimeSlugs.sort());
     const priceChanged = JSON.stringify(localPriceRange) !== JSON.stringify(selectedPriceRange);
-    return brandsChanged || priceChanged;
+    return brandsChanged || availabilityChanged || shippingChanged || priceChanged;
   };
 
   // Update local state when selectedPriceRange prop changes
@@ -229,18 +269,24 @@ export default function CategorySidebar({
           <h3 className="text-lg font-bold text-gray-900 mb-4 border-b border-gray-100 pb-2">
             Disponibilità
           </h3>
-          <ul className="space-y-2">
+          <div className="space-y-2">
             {displayedAvailability.map((availability) => (
-              <li key={availability.slug}>
-                <Link
-                  href={`/availability/${availability.slug}`}
-                  className="block py-2 px-3 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-bred-600 transition-colors"
-                >
+              <label
+                key={availability.slug}
+                className="flex items-center py-2 px-3 rounded-md text-sm cursor-pointer transition-colors hover:bg-gray-50"
+              >
+                <input
+                  type="checkbox"
+                  checked={localAvailabilitySlugs.includes(availability.slug)}
+                  onChange={(e) => handleAvailabilityChange(availability.slug, e.target.checked)}
+                  className="mr-3 h-4 w-4 text-bred-500 border-gray-300 rounded focus:ring-bred-500 focus:ring-2"
+                />
+                <span className="text-gray-700 font-medium">
                   {decodeHtmlEntities(availability.name)}
-                </Link>
-              </li>
+                </span>
+              </label>
             ))}
-          </ul>
+          </div>
           
           {availabilityOptions.length > 6 && (
             <button
@@ -254,6 +300,50 @@ export default function CategorySidebar({
               ) : (
                 <>
                   Mostra tutte ({availabilityOptions.length - 6} in più) <FaChevronDown className="text-xs" />
+                </>
+              )}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Shipping Time Section */}
+      {shippingTimeOptions.length > 0 && (
+        <div className="mb-8">
+          <h3 className="text-lg font-bold text-gray-900 mb-4 border-b border-gray-100 pb-2">
+            Tempistiche di spedizione
+          </h3>
+          <div className="space-y-2">
+            {displayedShipping.map((shipping) => (
+              <label
+                key={shipping.slug}
+                className="flex items-center py-2 px-3 rounded-md text-sm cursor-pointer transition-colors hover:bg-gray-50"
+              >
+                <input
+                  type="checkbox"
+                  checked={localShippingTimeSlugs.includes(shipping.slug)}
+                  onChange={(e) => handleShippingTimeChange(shipping.slug, e.target.checked)}
+                  className="mr-3 h-4 w-4 text-bred-500 border-gray-300 rounded focus:ring-bred-500 focus:ring-2"
+                />
+                <span className="text-gray-700 font-medium">
+                  {decodeHtmlEntities(shipping.name)}
+                </span>
+              </label>
+            ))}
+          </div>
+
+          {shippingTimeOptions.length > 6 && (
+            <button
+              onClick={() => setShowAllShipping(!showAllShipping)}
+              className="mt-3 text-sm text-bred-600 hover:text-bred-700 flex items-center gap-1"
+            >
+              {showAllShipping ? (
+                <>
+                  Mostra meno <FaChevronUp className="text-xs" />
+                </>
+              ) : (
+                <>
+                  Mostra tutte ({shippingTimeOptions.length - 6} in più) <FaChevronDown className="text-xs" />
                 </>
               )}
             </button>

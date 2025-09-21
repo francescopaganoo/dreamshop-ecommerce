@@ -1,6 +1,6 @@
 'use client';
 
-import { getProducts, getMegaMenuCategories, getAvailabilityOptions, getShippingTimeOptions, getBrands, getProductsByBrandSlugsOptimized, getProductsByCategorySlugAndBrandSlugsOptimized, getProductsByCategorySlugWithTotalOptimized, getBrandsByCategorySlug, getPriceRange, getPriceRangeByBrands, Product, ExtendedCategory, AttributeValue, Brand } from '../../lib/api';
+import { getMegaMenuCategories, getFilteredProductsPlugin, getFilterOptionsPlugin, Product, ExtendedCategory, AttributeValue, Brand } from '../../lib/api';
 import ProductCard from '../../components/ProductCard';
 import CategorySidebar from '../../components/CategorySidebar';
 import MobileFilterButton from '../../components/MobileFilterButton';
@@ -17,6 +17,8 @@ function ProductsPageContent() {
   const [shippingTimeOptions, setShippingTimeOptions] = useState<AttributeValue[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [selectedBrandSlugs, setSelectedBrandSlugs] = useState<string[]>([]);
+  const [selectedAvailabilitySlugs, setSelectedAvailabilitySlugs] = useState<string[]>([]);
+  const [selectedShippingTimeSlugs, setSelectedShippingTimeSlugs] = useState<string[]>([]);
   const [priceRange, setPriceRange] = useState<{ min: number; max: number }>({ min: 0, max: 100 });
   const [selectedPriceRange, setSelectedPriceRange] = useState<{ min: number; max: number } | undefined>(undefined);
   const [loading, setLoading] = useState(true);
@@ -30,6 +32,8 @@ function ProductsPageContent() {
   const brandSlug = searchParams.get('brand') || '';
   const brandsParam = searchParams.get('brands') || '';
   const categorySlug = searchParams.get('category') || '';
+  const availabilityParam = searchParams.get('availability') || '';
+  const shippingParam = searchParams.get('shipping') || '';
   const minPriceParam = searchParams.get('minPrice');
   const maxPriceParam = searchParams.get('maxPrice');
   const perPage = 12;
@@ -38,6 +42,16 @@ function ProductsPageContent() {
   const brandSlugsFromUrl = useMemo(() => {
     return brandsParam ? brandsParam.split(',') : (brandSlug ? [brandSlug] : []);
   }, [brandsParam, brandSlug]);
+
+  // Parse availability from URL
+  const availabilitySlugsFromUrl = useMemo(() => {
+    return availabilityParam ? availabilityParam.split(',') : [];
+  }, [availabilityParam]);
+
+  // Parse shipping from URL
+  const shippingSlugsFromUrl = useMemo(() => {
+    return shippingParam ? shippingParam.split(',') : [];
+  }, [shippingParam]);
 
   // Parse price range from URL
   const priceRangeFromUrl = useMemo(() => {
@@ -50,59 +64,56 @@ function ProductsPageContent() {
     return undefined;
   }, [minPriceParam, maxPriceParam]);
 
-  // Update selected brands when URL changes
+  // Update selected filters when URL changes
   useEffect(() => {
     setSelectedBrandSlugs(brandSlugsFromUrl);
-  }, [brandSlugsFromUrl]);
-
-  // Update selected price range when URL changes
-  useEffect(() => {
+    setSelectedAvailabilitySlugs(availabilitySlugsFromUrl);
+    setSelectedShippingTimeSlugs(shippingSlugsFromUrl);
     setSelectedPriceRange(priceRangeFromUrl);
-  }, [priceRangeFromUrl]);
+  }, [brandSlugsFromUrl, availabilitySlugsFromUrl, shippingSlugsFromUrl, priceRangeFromUrl]);
 
 
 
 
-  // Handle apply filters (new unified approach)
+  // Handle apply filters (new plugin approach)
   const handleApplyFilters = async (filters: {
     brandSlugs: string[];
+    availabilitySlugs: string[];
+    shippingTimeSlugs: string[];
     priceRange: { min: number; max: number };
   }) => {
-    console.log('🎯 Applying filters:', filters);
+    console.log('🎯 Applying filters with plugin:', filters);
 
     // Start loading state
     setIsApplyingFilters(true);
 
     try {
-      // Update price range first if brands changed
-      let newPriceRange = priceRange;
-      try {
-        if (filters.brandSlugs.length > 0) {
-          console.log('🔄 Calculating price range for selected brands:', filters.brandSlugs);
-          newPriceRange = await getPriceRangeByBrands(filters.brandSlugs);
-          setPriceRange(newPriceRange);
-          console.log('💰 New price range:', newPriceRange);
-        } else {
-          // No brands selected, use global range
-          newPriceRange = await getPriceRange();
-          setPriceRange(newPriceRange);
-        }
-      } catch (error) {
-        console.error('Error calculating price range:', error);
-      }
-
       // Update states
       setSelectedBrandSlugs(filters.brandSlugs);
+      setSelectedAvailabilitySlugs(filters.availabilitySlugs);
+      setSelectedShippingTimeSlugs(filters.shippingTimeSlugs);
       setSelectedPriceRange(filters.priceRange);
 
       // Build new URL with all filters
       const newSearchParams = new URLSearchParams();
 
+      if (categorySlug) {
+        newSearchParams.set('category', categorySlug);
+      }
+
       if (filters.brandSlugs.length > 0) {
         newSearchParams.set('brands', filters.brandSlugs.join(','));
       }
 
-      if (filters.priceRange.min > newPriceRange.min || filters.priceRange.max < newPriceRange.max) {
+      if (filters.availabilitySlugs.length > 0) {
+        newSearchParams.set('availability', filters.availabilitySlugs.join(','));
+      }
+
+      if (filters.shippingTimeSlugs.length > 0) {
+        newSearchParams.set('shipping', filters.shippingTimeSlugs.join(','));
+      }
+
+      if (filters.priceRange.min > priceRange.min || filters.priceRange.max < priceRange.max) {
         newSearchParams.set('minPrice', filters.priceRange.min.toString());
         newSearchParams.set('maxPrice', filters.priceRange.max.toString());
       }
@@ -126,81 +137,75 @@ function ProductsPageContent() {
   useEffect(() => {
     async function fetchData() {
       try {
-        console.log('useEffect fetchData triggered with:', {
+        console.log('useEffect fetchData triggered with plugin approach:', {
           page,
-          minPriceParam,
-          maxPriceParam,
           categorySlug,
-          brandSlugsFromUrl
+          brandSlugsFromUrl,
+          availabilitySlugsFromUrl,
+          shippingSlugsFromUrl,
+          minPriceParam,
+          maxPriceParam
         });
 
-        // Get categories, availability and shipping data, and price range
-        const [categoriesData, availabilityData, shippingData, globalPriceRange] = await Promise.all([
-          getMegaMenuCategories(),
-          getAvailabilityOptions(),
-          getShippingTimeOptions(),
-          getPriceRange()
+        // Get filter options and categories using plugin
+        const [filterOptions, categoriesData] = await Promise.all([
+          getFilterOptionsPlugin(),
+          getMegaMenuCategories()
         ]);
 
-        // Set price range from server
-        setPriceRange(globalPriceRange);
-
-        // Get brands based on whether we have a category filter
-        let brandsData: Brand[];
-        if (categorySlug) {
-          brandsData = await getBrandsByCategorySlug(categorySlug);
-        } else {
-          brandsData = await getBrands();
-        }
+        // Set filter options from plugin
+        setAvailabilityOptions(filterOptions.availability);
+        setShippingTimeOptions(filterOptions.shipping_times);
+        setBrands(filterOptions.brands);
+        setPriceRange(filterOptions.price_range);
 
         // Parse price filters from URL
         const minPrice = minPriceParam ? parseInt(minPriceParam, 10) : undefined;
         const maxPrice = maxPriceParam ? parseInt(maxPriceParam, 10) : undefined;
 
-        console.log('Parsed price filters:', { minPrice, maxPrice });
-
-        // Get products based on filters with server-side pagination and price filtering
-        let productsResponse: { products: Product[], total: number };
+        // Get current filter values
         const currentBrandSlugs = selectedBrandSlugs.length > 0 ? selectedBrandSlugs : brandSlugsFromUrl;
+        const currentAvailabilitySlugs = selectedAvailabilitySlugs.length > 0 ? selectedAvailabilitySlugs : availabilitySlugsFromUrl;
+        const currentShippingSlugs = selectedShippingTimeSlugs.length > 0 ? selectedShippingTimeSlugs : shippingSlugsFromUrl;
 
-        if (categorySlug && currentBrandSlugs.length > 0) {
-          // Both category and brand filters
-          console.log('Fetching with category + brands (OPTIMIZED):', { categorySlug, brandSlugs: currentBrandSlugs, minPrice, maxPrice });
-          productsResponse = await getProductsByCategorySlugAndBrandSlugsOptimized(categorySlug, currentBrandSlugs, page, perPage, 'date', 'desc', minPrice, maxPrice);
-        } else if (categorySlug) {
-          // Only category filter
-          console.log('Fetching with category + price (OPTIMIZED):', { categorySlug, minPrice, maxPrice });
-          productsResponse = await getProductsByCategorySlugWithTotalOptimized(categorySlug, page, perPage, 'date', 'desc', minPrice, maxPrice);
-        } else if (currentBrandSlugs.length > 0) {
-          // Only brand filters
-          console.log('Fetching with brands + price (OPTIMIZED):', { brandSlugs: currentBrandSlugs, minPrice, maxPrice });
-          productsResponse = await getProductsByBrandSlugsOptimized(currentBrandSlugs, page, perPage, 'date', 'desc', minPrice, maxPrice);
-        } else {
-          // No filters or price filter only - show all products with server-side pagination and price filtering
-          console.log('Fetching all products with price filter:', { minPrice, maxPrice });
-          productsResponse = await getProducts(page, perPage, 'date', 'desc', minPrice, maxPrice);
-        }
+        // Build filters object for plugin
+        const filters = {
+          category: categorySlug || undefined,
+          brands: currentBrandSlugs.length > 0 ? currentBrandSlugs : undefined,
+          availability: currentAvailabilitySlugs.length > 0 ? currentAvailabilitySlugs : undefined,
+          shipping: currentShippingSlugs.length > 0 ? currentShippingSlugs : undefined,
+          min_price: minPrice,
+          max_price: maxPrice,
+          page,
+          per_page: perPage,
+          orderby: 'date',
+          order: 'desc'
+        };
 
-        console.log('API response:', { productsCount: productsResponse.products.length, total: productsResponse.total });
+        console.log('Fetching products with plugin filters:', filters);
 
+        // Get products using plugin
+        const productsResponse = await getFilteredProductsPlugin(filters);
 
+        console.log('Plugin API response:', {
+          productsCount: productsResponse.products.length,
+          total: productsResponse.total,
+          total_pages: productsResponse.total_pages
+        });
 
         setCategories(categoriesData);
-        setAvailabilityOptions(availabilityData);
-        setShippingTimeOptions(shippingData);
-        setBrands(brandsData);
         setProducts(productsResponse.products);
         setTotalProducts(productsResponse.total);
       } catch (error) {
-        console.error('Error fetching data:', error);
+        console.error('Error fetching data with plugin:', error);
       } finally {
         setLoading(false);
-        setFilterLoading(false); // End filter loading
+        setFilterLoading(false);
       }
     }
 
     fetchData();
-  }, [page, perPage, selectedBrandSlugs, categorySlug, brandSlugsFromUrl, minPriceParam, maxPriceParam]);
+  }, [page, perPage, selectedBrandSlugs, selectedAvailabilitySlugs, selectedShippingTimeSlugs, categorySlug, brandSlugsFromUrl, availabilitySlugsFromUrl, shippingSlugsFromUrl, minPriceParam, maxPriceParam]);
   
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Caricamento...</div>;
@@ -259,6 +264,8 @@ function ProductsPageContent() {
                 currentCategorySlug={categorySlug || undefined}
                 currentBrandSlug={brandSlug || undefined}
                 selectedBrandSlugs={selectedBrandSlugs}
+                selectedAvailabilitySlugs={selectedAvailabilitySlugs}
+                selectedShippingTimeSlugs={selectedShippingTimeSlugs}
                 priceRange={priceRange}
                 selectedPriceRange={selectedPriceRange}
                 onApplyFilters={handleApplyFilters}
@@ -280,13 +287,17 @@ function ProductsPageContent() {
               ) : products.length > 0 ? (
                 <>
                   <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-                    {products.map((product: Product, index: number) => (
-                      <ProductCard
-                        key={product.id}
-                        product={product}
-                        priority={index < 6} // Priorità per i primi 6 prodotti (above the fold)
-                      />
-                    ))}
+                    {products
+                      .filter((product, index, self) =>
+                        index === self.findIndex(p => p.id === product.id)
+                      )
+                      .map((product: Product, index: number) => (
+                        <ProductCard
+                          key={`${product.id}-${index}`}
+                          product={product}
+                          priority={index < 6} // Priorità per i primi 6 prodotti (above the fold)
+                        />
+                      ))}
                   </div>
                   
                   {/* Pagination */}

@@ -2143,10 +2143,11 @@ export async function getShippingTimeOptions(): Promise<AttributeValue[]> {
       }
     }
     
+    // Shipping options based on separate WooCommerce attributes (not options within attributes)
     const shippingOptions = [
-      { name: 'Spedizione dall\'Italia', slug: 'spedizione-dallitalia', count: 0 },
-      { name: 'Spedizione dall\'Oriente', slug: 'spedizione-dalloriente', count: 0 },
-      { name: 'Spedizione in 60 giorni', slug: 'spedizione-in-60-giorni', count: 0 }
+      { id: 1, name: 'Spedizione dall\'Italia in 4 giorni', slug: 'spedizione-in-4-giorni', count: 800 },
+      { id: 2, name: 'Spedizione dall\'Oriente in 15 giorni', slug: 'spedizione-in-15-giorni', count: 1200 },
+      { id: 3, name: 'Spedizione in 60 giorni', slug: 'spedizione-in-60-giorni', count: 300 }
     ];
     
     const { data } = await api.get('products', {
@@ -3043,5 +3044,271 @@ export async function getMostPopularProducts(per_page = 5): Promise<Product[]> {
   } catch (error) {
     console.error('Error fetching most popular products:', error);
     return [];
+  }
+}
+
+/**
+ * Test the new plugin debug endpoint
+ */
+export async function testPluginDebugEndpoint(productId: number) {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL?.replace(/\/$/, '') || '';
+    const debugUrl = `${baseUrl}/wp-json/dreamshop/v1/debug/product/${productId}`;
+
+    console.log('🔍 Testing debug endpoint:', debugUrl);
+
+    const response = await fetch(debugUrl, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('🎉 Debug endpoint response:', data);
+
+    return data;
+  } catch (error) {
+    console.error('❌ Debug endpoint error:', error);
+    throw error;
+  }
+}
+
+interface PluginFilterParams {
+  category?: string;
+  brands?: string;
+  availability?: string;
+  shipping?: string;
+  min_price?: number;
+  max_price?: number;
+  page?: number;
+  per_page?: number;
+}
+
+/**
+ * NEW PLUGIN API - Get filtered products using the advanced filters plugin
+ */
+export async function getFilteredProductsPlugin(filters: {
+  category?: string;
+  brands?: string[];
+  availability?: string[];
+  shipping?: string[];
+  min_price?: number;
+  max_price?: number;
+  page?: number;
+  per_page?: number;
+  orderby?: string;
+  order?: string;
+}): Promise<{ products: Product[], total: number, total_pages: number }> {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL?.replace(/\/$/, '') || '';
+
+    // Build query parameters
+    const params = new URLSearchParams();
+    if (filters.category) params.append('category', filters.category);
+    if (filters.brands && filters.brands.length > 0) params.append('brands', filters.brands.join(','));
+    if (filters.availability && filters.availability.length > 0) params.append('availability', filters.availability.join(','));
+    if (filters.shipping && filters.shipping.length > 0) params.append('shipping', filters.shipping.join(','));
+    if (filters.min_price !== undefined) params.append('min_price', filters.min_price.toString());
+    if (filters.max_price !== undefined) params.append('max_price', filters.max_price.toString());
+    if (filters.page) params.append('page', filters.page.toString());
+    if (filters.per_page) params.append('per_page', filters.per_page.toString());
+    if (filters.orderby) params.append('orderby', filters.orderby);
+    if (filters.order) params.append('order', filters.order.toUpperCase()); // Plugin expects uppercase
+
+    const filterUrl = `${baseUrl}/wp-json/dreamshop/v1/products/filter?${params.toString()}`;
+
+    const response = await fetch(filterUrl, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Plugin API error! status: ${response.status}. Response: ${errorText}`);
+    }
+
+    const data = await response.json();
+
+    if (!data.success) {
+      throw new Error(data.message || 'Plugin API returned error');
+    }
+
+    // Convert plugin format to expected format
+    const products: Product[] = data.data.products.map((product: {
+      id: string;
+      name: string;
+      slug: string;
+      price: string;
+      regular_price: string;
+      sale_price: string;
+      on_sale: boolean;
+      stock_status: string;
+      images: Array<{ id: string; src: string; src_large: string; alt: string }>;
+      permalink: string;
+      short_description: string;
+    }) => ({
+      id: parseInt(product.id),
+      name: product.name,
+      slug: product.slug,
+      price: product.price,
+      regular_price: product.regular_price,
+      sale_price: product.sale_price,
+      on_sale: product.on_sale,
+      stock_status: product.stock_status,
+      images: product.images,
+      permalink: product.permalink,
+      short_description: product.short_description,
+      // Add any missing fields with defaults
+      description: '',
+      categories: [],
+      tags: [],
+      attributes: [],
+      variations: [],
+      meta_data: []
+    }));
+
+    return {
+      products,
+      total: data.data.total,
+      total_pages: data.data.total_pages
+    };
+
+  } catch (error) {
+    console.error('❌ Plugin API error:', error);
+    throw error;
+  }
+}
+
+/**
+ * NEW PLUGIN API - Get filter options (brands, categories, availability, shipping, price range)
+ */
+export async function getFilterOptionsPlugin(): Promise<{
+  brands: Brand[];
+  categories: ExtendedCategory[];
+  availability: AttributeValue[];
+  shipping_times: AttributeValue[];
+  price_range: { min: number; max: number };
+}> {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL?.replace(/\/$/, '') || '';
+    const optionsUrl = `${baseUrl}/wp-json/dreamshop/v1/filter-options`;
+
+    console.log('🚀 Getting filter options from plugin:', optionsUrl);
+
+    const response = await fetch(optionsUrl, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Plugin API error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    if (!data.success) {
+      throw new Error(data.message || 'Plugin API returned error');
+    }
+
+    // Convert plugin format to expected format
+    const brands: Brand[] = data.data.brands.map((brand: { id: number; name: string; slug: string; count: number }) => ({
+      id: brand.id,
+      name: brand.name,
+      slug: brand.slug,
+      count: brand.count
+    }));
+
+    const categories: ExtendedCategory[] = data.data.categories.map((category: { id: number; name: string; slug: string; count: number }) => ({
+      id: category.id,
+      name: category.name,
+      slug: category.slug,
+      count: category.count,
+      parent: 0,
+      image: null,
+      menu_order: 0,
+      description: ''
+    }));
+
+    const availability: AttributeValue[] = data.data.availability.map((item: { id: number; name: string; slug: string; count: number }) => ({
+      id: item.id,
+      name: item.name,
+      slug: item.slug,
+      count: item.count
+    }));
+
+    const shipping_times: AttributeValue[] = data.data.shipping_times.map((item: { id: number; name: string; slug: string; count: number }) => ({
+      id: item.id,
+      name: item.name,
+      slug: item.slug,
+      count: item.count
+    }));
+
+    return {
+      brands,
+      categories,
+      availability,
+      shipping_times,
+      price_range: data.data.price_range
+    };
+
+  } catch (error) {
+    console.error('❌ Plugin filter options error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Test the new plugin filter endpoint
+ */
+export async function testPluginFilterEndpoint(filters: PluginFilterParams = {}) {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL?.replace(/\/$/, '') || '';
+
+    // Build query parameters
+    const params = new URLSearchParams();
+    if (filters.category) params.append('category', filters.category);
+    if (filters.brands) params.append('brands', filters.brands);
+    if (filters.availability) params.append('availability', filters.availability);
+    if (filters.shipping) params.append('shipping', filters.shipping);
+    if (filters.min_price) params.append('min_price', filters.min_price.toString());
+    if (filters.max_price) params.append('max_price', filters.max_price.toString());
+    if (filters.page) params.append('page', filters.page.toString());
+    if (filters.per_page) params.append('per_page', filters.per_page.toString());
+
+    const filterUrl = `${baseUrl}/wp-json/dreamshop/v1/products/filter?${params.toString()}`;
+
+    console.log('🔍 Testing filter endpoint:', filterUrl);
+
+    const response = await fetch(filterUrl, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('🎉 Filter endpoint response:', data);
+
+    return data;
+  } catch (error) {
+    console.error('❌ Filter endpoint error:', error);
+    throw error;
   }
 }
