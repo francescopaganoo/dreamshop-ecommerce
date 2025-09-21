@@ -1,6 +1,6 @@
 'use client';
 
-import { getCategoryBySlug, getMegaMenuCategories, getFilteredProductsPlugin, getFilterOptionsPlugin, Product, Category, ExtendedCategory, Brand, AttributeValue } from '../../../lib/api';
+import { getCategoryBySlug, getMegaMenuCategories, getFilteredProductsPlugin, getCategoryFilterOptionsPlugin, Product, Category, ExtendedCategory, Brand, AttributeValue } from '../../../lib/api';
 import ProductCard from '../../../components/ProductCard';
 import CategorySidebar from '../../../components/CategorySidebar';
 import MobileFilterButton from '../../../components/MobileFilterButton';
@@ -158,7 +158,7 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
         // Get category data, filter options, and categories
         const [categoryData, filterOptions, categoriesData] = await Promise.all([
           getCategoryBySlug(categorySlug),
-          getFilterOptionsPlugin(),
+          getCategoryFilterOptionsPlugin(categorySlug),
           getMegaMenuCategories()
         ]);
 

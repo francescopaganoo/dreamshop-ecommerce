@@ -3270,6 +3270,93 @@ export async function getFilterOptionsPlugin(): Promise<{
 }
 
 /**
+ * NEW PLUGIN API - Get filter options for specific category
+ */
+export async function getCategoryFilterOptionsPlugin(categorySlug: string): Promise<{
+  brands: Brand[];
+  categories: ExtendedCategory[];
+  availability: AttributeValue[];
+  shipping_times: AttributeValue[];
+  price_range: { min: number; max: number };
+}> {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL?.replace(/\/$/, '') || '';
+    const optionsUrl = `${baseUrl}/wp-json/dreamshop/v1/filter-options/${categorySlug}`;
+
+    console.log('🚀 Getting category filter options from plugin:', optionsUrl);
+
+    const response = await fetch(optionsUrl, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Plugin API error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    if (!data.success) {
+      throw new Error(data.message || 'Plugin API returned error');
+    }
+
+    // Convert plugin format to expected format
+    const brands: Brand[] = data.data.brands.map((brand: { id: number; name: string; slug: string; count: number }) => ({
+      id: brand.id,
+      name: brand.name,
+      slug: brand.slug,
+      count: brand.count
+    }));
+
+    const categories: ExtendedCategory[] = data.data.categories.map((category: { id: number; name: string; slug: string; count: number }) => ({
+      id: category.id,
+      name: category.name,
+      slug: category.slug,
+      count: category.count,
+      parent: 0,
+      image: null,
+      children: [],
+      menu_order: 0,
+      description: ''
+    }));
+
+    const availability: AttributeValue[] = data.data.availability.map((item: { id: number; name: string; slug: string; count: number }) => ({
+      id: item.id,
+      name: item.name,
+      slug: item.slug,
+      count: item.count
+    }));
+
+    const shipping_times: AttributeValue[] = data.data.shipping_times.map((item: { id: number; name: string; slug: string; count: number }) => ({
+      id: item.id,
+      name: item.name,
+      slug: item.slug,
+      count: item.count
+    }));
+
+    console.log('Plugin category filter options response:', data);
+
+    return {
+      brands,
+      categories,
+      availability,
+      shipping_times,
+      price_range: data.data.price_range
+    };
+
+  } catch (error) {
+    console.error('❌ Error getting category filter options from plugin:', error);
+
+    // Fallback to general filter options
+    console.log('🔄 Falling back to general filter options...');
+    return await getFilterOptionsPlugin();
+  }
+}
+
+/**
  * Test the new plugin filter endpoint
  */
 export async function testPluginFilterEndpoint(filters: PluginFilterParams = {}) {

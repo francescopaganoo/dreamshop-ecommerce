@@ -319,6 +319,29 @@ class DreamShop_Filters_Product_Query {
     }
 
     /**
+     * Get filter options for specific category
+     */
+    public function get_category_filter_options($category_slug) {
+        $cache_key = 'dreamshop_category_filter_options_' . $category_slug;
+        $cached_result = $this->cache_manager->get($cache_key);
+
+        if ($cached_result !== false) {
+            return $cached_result;
+        }
+
+        $options = [
+            'brands' => $this->get_brands_by_category($category_slug),
+            'categories' => $this->get_categories(),
+            'availability' => $this->get_availability_options_by_category($category_slug),
+            'shipping_times' => $this->get_shipping_time_options_by_category($category_slug),
+            'price_range' => $this->get_price_range_by_category($category_slug)
+        ];
+
+        $this->cache_manager->set($cache_key, $options, 900); // 15 minutes cache
+        return $options;
+    }
+
+    /**
      * Get all brands
      */
     private function get_brands() {
@@ -336,6 +359,41 @@ class DreamShop_Filters_Product_Query {
                 'name' => $term->name,
                 'slug' => $term->slug,
                 'count' => $term->count
+            ];
+        }
+
+        return $brands;
+    }
+
+    /**
+     * Get brands for specific category
+     */
+    private function get_brands_by_category($category_slug) {
+        $query = "
+            SELECT DISTINCT t_brand.term_id, t_brand.name, t_brand.slug, COUNT(DISTINCT p.ID) as count
+            FROM {$this->wpdb->posts} p
+            INNER JOIN {$this->wpdb->term_relationships} tr_cat ON p.ID = tr_cat.object_id
+            INNER JOIN {$this->wpdb->term_taxonomy} tt_cat ON tr_cat.term_taxonomy_id = tt_cat.term_taxonomy_id AND tt_cat.taxonomy = 'product_cat'
+            INNER JOIN {$this->wpdb->terms} t_cat ON tt_cat.term_id = t_cat.term_id
+            INNER JOIN {$this->wpdb->term_relationships} tr_brand ON p.ID = tr_brand.object_id
+            INNER JOIN {$this->wpdb->term_taxonomy} tt_brand ON tr_brand.term_taxonomy_id = tt_brand.term_taxonomy_id AND tt_brand.taxonomy = 'product_brand'
+            INNER JOIN {$this->wpdb->terms} t_brand ON tt_brand.term_id = t_brand.term_id
+            WHERE p.post_type = 'product'
+            AND p.post_status = 'publish'
+            AND t_cat.slug = %s
+            GROUP BY t_brand.term_id, t_brand.name, t_brand.slug
+            ORDER BY t_brand.name ASC
+        ";
+
+        $results = $this->wpdb->get_results($this->wpdb->prepare($query, $category_slug));
+
+        $brands = [];
+        foreach ($results as $result) {
+            $brands[] = [
+                'id' => (int) $result->term_id,
+                'name' => $result->name,
+                'slug' => $result->slug,
+                'count' => (int) $result->count
             ];
         }
 
@@ -404,6 +462,52 @@ class DreamShop_Filters_Product_Query {
         ";
 
         $result = $this->wpdb->get_row($query);
+
+        return [
+            'min' => (float) ($result->min_price ?? 0),
+            'max' => (float) ($result->max_price ?? 100)
+        ];
+    }
+
+    /**
+     * Get availability options for specific category
+     */
+    private function get_availability_options_by_category($category_slug) {
+        // For now, return static options but we could make this dynamic by checking
+        // what availability options actually exist for products in this category
+        return $this->get_availability_options();
+    }
+
+    /**
+     * Get shipping time options for specific category
+     */
+    private function get_shipping_time_options_by_category($category_slug) {
+        // For now, return static options but we could make this dynamic by checking
+        // what shipping options actually exist for products in this category
+        return $this->get_shipping_time_options();
+    }
+
+    /**
+     * Get price range for specific category
+     */
+    private function get_price_range_by_category($category_slug) {
+        $query = "
+            SELECT
+                MIN(CAST(pm.meta_value AS DECIMAL(10,2))) as min_price,
+                MAX(CAST(pm.meta_value AS DECIMAL(10,2))) as max_price
+            FROM {$this->wpdb->postmeta} pm
+            INNER JOIN {$this->wpdb->posts} p ON pm.post_id = p.ID
+            INNER JOIN {$this->wpdb->term_relationships} tr ON p.ID = tr.object_id
+            INNER JOIN {$this->wpdb->term_taxonomy} tt ON tr.term_taxonomy_id = tt.term_taxonomy_id AND tt.taxonomy = 'product_cat'
+            INNER JOIN {$this->wpdb->terms} t ON tt.term_id = t.term_id
+            WHERE pm.meta_key = '_price'
+            AND p.post_type = 'product'
+            AND p.post_status = 'publish'
+            AND pm.meta_value != ''
+            AND t.slug = %s
+        ";
+
+        $result = $this->wpdb->get_row($this->wpdb->prepare($query, $category_slug));
 
         return [
             'min' => (float) ($result->min_price ?? 0),

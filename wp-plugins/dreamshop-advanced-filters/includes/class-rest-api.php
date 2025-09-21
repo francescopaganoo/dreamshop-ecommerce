@@ -36,6 +36,21 @@ class DreamShop_Filters_REST_API {
             'permission_callback' => '__return_true'
         ]);
 
+        // Filter options for specific category endpoint
+        register_rest_route($this->namespace, '/filter-options/(?P<category_slug>[a-zA-Z0-9-_]+)', [
+            'methods' => 'GET',
+            'callback' => [$this, 'get_category_filter_options'],
+            'permission_callback' => '__return_true',
+            'args' => [
+                'category_slug' => [
+                    'required' => true,
+                    'validate_callback' => function($param) {
+                        return is_string($param) && !empty($param);
+                    }
+                ]
+            ]
+        ]);
+
         // Product details endpoint
         register_rest_route($this->namespace, '/products/(?P<id>\d+)', [
             'methods' => 'GET',
@@ -132,6 +147,32 @@ class DreamShop_Filters_REST_API {
 
         } catch (Exception $e) {
             error_log('DreamShop Filter Options Error: ' . $e->getMessage());
+
+            return new WP_REST_Response([
+                'success' => false,
+                'error' => 'Internal server error',
+                'message' => WP_DEBUG ? $e->getMessage() : 'Something went wrong'
+            ], 500);
+        }
+    }
+
+    /**
+     * Get filter options for specific category
+     */
+    public function get_category_filter_options($request) {
+        try {
+            $category_slug = $request->get_param('category_slug');
+            $options = $this->product_query->get_category_filter_options($category_slug);
+
+            return new WP_REST_Response([
+                'success' => true,
+                'data' => $options,
+                'category_slug' => $category_slug,
+                'timestamp' => current_time('timestamp')
+            ], 200);
+
+        } catch (Exception $e) {
+            error_log('DreamShop Category Filter Options Error: ' . $e->getMessage());
 
             return new WP_REST_Response([
                 'success' => false,
