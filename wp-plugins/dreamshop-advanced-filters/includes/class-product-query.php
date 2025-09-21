@@ -93,14 +93,12 @@ class DreamShop_Filters_Product_Query {
             $where_conditions[] = "t_brand.slug IN ($brand_placeholders)";
         }
 
-        // Price filter
-        if (!empty($filters['min_price']) || !empty($filters['max_price'])) {
-            if (!empty($filters['min_price'])) {
-                $where_conditions[] = $this->wpdb->prepare("CAST(pm_price.meta_value AS DECIMAL(10,2)) >= %f", $filters['min_price']);
-            }
-            if (!empty($filters['max_price'])) {
-                $where_conditions[] = $this->wpdb->prepare("CAST(pm_price.meta_value AS DECIMAL(10,2)) <= %f", $filters['max_price']);
-            }
+        // Price filter - add conditions but defer parameter preparation
+        if (!empty($filters['min_price']) && $filters['min_price'] > 0) {
+            $where_conditions[] = "CAST(pm_price.meta_value AS DECIMAL(10,2)) >= " . floatval($filters['min_price']);
+        }
+        if (!empty($filters['max_price']) && $filters['max_price'] > 0) {
+            $where_conditions[] = "CAST(pm_price.meta_value AS DECIMAL(10,2)) <= " . floatval($filters['max_price']);
         }
 
         // Attribute filters (availability and shipping)
@@ -146,6 +144,7 @@ class DreamShop_Filters_Product_Query {
         if (!empty($params)) {
             $query = $this->wpdb->prepare($query, ...$params);
         }
+
 
 
         return $query;

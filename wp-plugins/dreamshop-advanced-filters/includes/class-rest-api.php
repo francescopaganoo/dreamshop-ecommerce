@@ -108,7 +108,9 @@ class DreamShop_Filters_REST_API {
                 'page' => $page,
                 'per_page' => $per_page,
                 'orderby' => $orderby,
-                'order' => $order
+                'order' => $order,
+                'raw_min_price' => $request->get_param('min_price'),
+                'raw_max_price' => $request->get_param('max_price')
             ]));
 
             // Get filtered products

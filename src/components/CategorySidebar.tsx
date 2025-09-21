@@ -28,7 +28,6 @@ interface CategorySidebarProps {
   selectedShippingTimeSlugs?: string[];
   priceRange?: { min: number; max: number };
   selectedPriceRange?: { min: number; max: number };
-  onPriceRangeChange?: (range: { min: number; max: number }) => void;
   onApplyFilters?: (filters: {
     brandSlugs: string[];
     availabilitySlugs: string[];
@@ -52,7 +51,6 @@ export default function CategorySidebar({
   selectedShippingTimeSlugs = [],
   priceRange,
   selectedPriceRange,
-  onPriceRangeChange,
   onApplyFilters,
   isApplyingFilters = false,
   isOpen = false,
@@ -396,7 +394,7 @@ export default function CategorySidebar({
 
 
       {/* Price Range Section */}
-      {priceRange && onPriceRangeChange && (
+      {priceRange && (
         <div className="mb-8">
           <h3 className="text-lg font-bold text-gray-900 mb-4 border-b border-gray-100 pb-2">
             Prezzo
