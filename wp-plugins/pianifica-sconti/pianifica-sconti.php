@@ -1,11 +1,11 @@
 <?php
 /**
  * Plugin Name: WooCommerce Pianifica Sconto - Modifica Rapida
- * Plugin URI: https://yourwebsite.com
+ * Plugin URI: https://planstudios.it
  * Description: Aggiunge la funzionalità "Pianifica sconto" alla modifica rapida dei prodotti WooCommerce
  * Version: 1.0.2
- * Author: Plan Studios Group FP
- * Author URI: https://yourwebsite.com
+ * Author: Plan Studios Group - FP
+ * Author URI: https://planstudios.it
  * Text Domain: wc-schedule-sale-quick-edit
  * Domain Path: /languages
  * Requires at least: 5.0
@@ -270,13 +270,13 @@ class WC_Schedule_Sale_Quick_Edit {
                 <label class="alignleft">
                     <span class="title"><?php _e('🚀 Inizio Sconto', 'wc-schedule-sale-quick-edit'); ?></span>
                     <span class="input-text-wrap">
-                        <input 
-                            type="datetime-local" 
-                            name="_sale_price_dates_from_quick" 
-                            class="text" 
-                            value="" 
+                        <input
+                            type="date"
+                            name="_sale_price_dates_from_quick"
+                            class="text"
+                            value=""
                         />
-                        <span class="wc-schedule-sale-help"><?php _e('Data e ora di inizio dello sconto', 'wc-schedule-sale-quick-edit'); ?></span>
+                        <span class="wc-schedule-sale-help"><?php _e('Data di inizio dello sconto', 'wc-schedule-sale-quick-edit'); ?></span>
                     </span>
                 </label>
             </div>
@@ -286,13 +286,13 @@ class WC_Schedule_Sale_Quick_Edit {
                 <label class="alignleft">
                     <span class="title"><?php _e('🏁 Fine Sconto', 'wc-schedule-sale-quick-edit'); ?></span>
                     <span class="input-text-wrap">
-                        <input 
-                            type="datetime-local" 
-                            name="_sale_price_dates_to_quick" 
-                            class="text" 
-                            value="" 
+                        <input
+                            type="date"
+                            name="_sale_price_dates_to_quick"
+                            class="text"
+                            value=""
                         />
-                        <span class="wc-schedule-sale-help"><?php _e('Data e ora di fine dello sconto', 'wc-schedule-sale-quick-edit'); ?></span>
+                        <span class="wc-schedule-sale-help"><?php _e('Data di fine dello sconto', 'wc-schedule-sale-quick-edit'); ?></span>
                     </span>
                 </label>
             </div>
@@ -461,13 +461,13 @@ class WC_Schedule_Sale_Quick_Edit {
                     'date_to' => $date_to
                 );
                 
-                // Formatta le date per l'input datetime-local
+                // Formatta le date per l'input date
                 $date_from_formatted = '';
                 $date_to_formatted = '';
                 
                 if ($date_from && is_a($date_from, 'WC_DateTime')) {
                     try {
-                        $date_from_formatted = $date_from->date('Y-m-d\TH:i');
+                        $date_from_formatted = $date_from->date('Y-m-d');
                     } catch (Exception $e) {
                         $this->log("Errore formattazione data_from per prodotto $post_id: " . $e->getMessage());
                     }
@@ -475,7 +475,7 @@ class WC_Schedule_Sale_Quick_Edit {
                 
                 if ($date_to && is_a($date_to, 'WC_DateTime')) {
                     try {
-                        $date_to_formatted = $date_to->date('Y-m-d\TH:i');
+                        $date_to_formatted = $date_to->date('Y-m-d');
                     } catch (Exception $e) {
                         $this->log("Errore formattazione date_to per prodotto $post_id: " . $e->getMessage());
                     }
@@ -534,7 +534,7 @@ class WC_Schedule_Sale_Quick_Edit {
                 
                 if ($date_from && is_a($date_from, 'WC_DateTime')) {
                     try {
-                        $date_from_formatted = $date_from->date('Y-m-d\TH:i');
+                        $date_from_formatted = $date_from->date('Y-m-d');
                     } catch (Exception $e) {
                         $this->log("Errore formattazione data_from nel footer per prodotto {$post->ID}: " . $e->getMessage());
                     }
@@ -542,7 +542,7 @@ class WC_Schedule_Sale_Quick_Edit {
                 
                 if ($date_to && is_a($date_to, 'WC_DateTime')) {
                     try {
-                        $date_to_formatted = $date_to->date('Y-m-d\TH:i');
+                        $date_to_formatted = $date_to->date('Y-m-d');
                     } catch (Exception $e) {
                         $this->log("Errore formattazione date_to nel footer per prodotto {$post->ID}: " . $e->getMessage());
                     }
