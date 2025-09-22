@@ -33,8 +33,8 @@ export async function POST(request: NextRequest) {
     const paymentIntent = await stripe.paymentIntents.create({
       amount: amount,
       currency: 'eur',
-      // Per i pagamenti standard usiamo solo carte
-      payment_method_types: ['card'],
+      // Supporto per carte di credito e Klarna
+      payment_method_types: ['card', 'klarna'],
       metadata: {
         order_id: orderId.toString(),
         platform: typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'ios' : 'other'

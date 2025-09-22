@@ -1531,7 +1531,128 @@ export default function CheckoutPage() {
           throw new Error('Pagamento non completato');
         }
       }
-      
+
+      // Se il metodo di pagamento è Klarna, gestisci il pagamento tramite Stripe con Klarna
+      if (formData.paymentMethod === 'klarna') {
+        setIsStripeLoading(true);
+
+        console.log('Inizializzazione pagamento con Klarna...');
+
+        // Se l'utente vuole creare un account, crealo prima dell'ordine
+        let customerId = undefined;
+        if (formData.createAccount && formData.password && !isAuthenticated) {
+          try {
+            const customerData = {
+              email: formData.email,
+              first_name: formData.firstName,
+              last_name: formData.lastName,
+              password: formData.password,
+              billing: billingInfo,
+              shipping: shippingInfo
+            };
+
+            const newCustomer = await createCustomer(customerData);
+            customerId = newCustomer.id;
+            console.log('Account cliente creato con successo per Klarna:', customerId);
+          } catch (error) {
+            console.error('Errore nella creazione dell\'account cliente per Klarna:', error);
+            setFormError('Si è verificato un errore durante la creazione dell\'account. Riprova con un\'altra email.');
+            setIsStripeLoading(false);
+            setIsSubmitting(false);
+            return;
+          }
+        }
+
+        // Calcola i punti che saranno assegnati per questo ordine
+        const couponDiscount = coupon ? discount : 0;
+        const subtotalForPoints = subtotal - couponDiscount - pointsDiscount;
+        const pointsToEarn = Math.floor(Math.max(0, subtotalForPoints));
+        console.log(`[CHECKOUT KLARNA] CALCOLO PUNTI - Subtotale: €${subtotal.toFixed(2)}, Sconto coupon: €${couponDiscount.toFixed(2)}, Sconto punti: €${pointsDiscount.toFixed(2)}, Valore per punti: €${subtotalForPoints.toFixed(2)} → ${pointsToEarn} punti verranno assegnati`);
+
+        // Crea un ordine in stato pending
+        const orderData = {
+          payment_method: 'klarna',
+          payment_method_title: 'Klarna',
+          set_paid: false,
+          customer_id: customerId || (isAuthenticated && user ? user.id : 0),
+          customer_note: formData.notes,
+          billing: billingInfo,
+          shipping: shippingInfo,
+          line_items,
+          shipping_lines: [
+            {
+              method_id: selectedShippingMethod?.id || 'flat_rate',
+              method_title: selectedShippingMethod?.title || 'Spedizione standard',
+              total: String(shipping)
+            }
+          ],
+          // Aggiungi fee e sconti come line items aggiuntivi se presenti
+          fee_lines: [
+            // Sconti coupon se presenti
+            ...(coupon && discount > 0 ? [{
+              name: `Sconto Coupon: ${coupon.code}`,
+              total: String(-discount),
+              tax_class: '',
+              tax_status: 'none'
+            }] : []),
+            // Sconti punti se presenti
+            ...(pointsDiscount > 0 ? [{
+              name: 'Sconto Punti DreamShop',
+              total: String(-pointsDiscount),
+              tax_class: '',
+              tax_status: 'none'
+            }] : [])
+          ],
+          meta_data: [
+            { key: '_checkout_points_earned', value: String(pointsToEarn) },
+            { key: '_checkout_payment_method', value: 'klarna' }
+          ]
+        };
+
+        console.log('Dati ordine Klarna per WooCommerce:', orderData);
+
+        try {
+          const order = await createOrder(orderData);
+          console.log('Ordine Klarna creato:', order);
+
+          if (!order || !order.id) {
+            throw new Error('Errore nella creazione dell\'ordine per Klarna');
+          }
+
+          // Crea un Payment Intent con Klarna
+          const paymentResponse = await fetch('/api/stripe/payment-intent', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              amount: Math.round(total * 100),
+              orderId: order.id
+            }),
+          });
+
+          const paymentData = await paymentResponse.json();
+
+          if (!paymentResponse.ok || !paymentData.clientSecret) {
+            throw new Error(paymentData.error || 'Errore nella creazione del Payment Intent per Klarna');
+          }
+
+          // Per Klarna, reindirizza all'hosted payment page di Stripe che gestisce Klarna
+          window.location.href = `/api/stripe/checkout-klarna?order_id=${order.id}&amount=${Math.round(total * 100)}`;
+
+        } catch (error) {
+          console.error('Errore durante il pagamento con Klarna:', error);
+          setFormError(error instanceof Error ? error.message : 'Si è verificato un errore durante il pagamento con Klarna');
+          setIsStripeLoading(false);
+          setIsSubmitting(false);
+          return;
+        }
+
+        setIsStripeLoading(false);
+        setIsSubmitting(false);
+        return;
+      }
+
       // Per altri metodi di pagamento, crea l'ordine direttamente
       
       // Debug: Verifichiamo i dati dell'utente prima di creare l'ordine
@@ -1560,7 +1681,7 @@ export default function CheckoutPage() {
         // Metti customer_id come prima proprietà per assicurarti che sia incluso
         customer_id: customerIdForOrder,
         payment_method: formData.paymentMethod,
-        payment_method_title: (formData.paymentMethod as string) === 'stripe' ? 'Carta di credito' : 'PayPal',
+        payment_method_title: (formData.paymentMethod as string) === 'stripe' ? 'Carta di credito' : (formData.paymentMethod as string) === 'klarna' ? 'Klarna' : 'PayPal',
         set_paid: false, // Will be set to true after Stripe payment
         billing: billingInfo,
         shipping: shippingInfo,
@@ -2311,7 +2432,35 @@ export default function CheckoutPage() {
                         </div>
                       )}
                     </div>
-                    
+
+                    <div>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="paymentMethod"
+                          value="klarna"
+                          checked={formData.paymentMethod === 'klarna'}
+                          onChange={handleInputChange}
+                          className="mr-2"
+                        />
+                        <span className="text-gray-700">Klarna - Paga in 3 rate</span>
+                      </label>
+                      {formData.paymentMethod === 'klarna' && (
+                        <div className="mt-2 pl-6 text-sm text-gray-600">
+                          <p>Paga in 3 rate senza interessi con Klarna. Completa l&apos;acquisto ora e ricevi la merce immediatamente.</p>
+                          <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                            <div className="flex items-center text-blue-700">
+                              <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                              </svg>
+                              <span className="text-sm font-medium">Paga subito solo 1/3 dell&apos;importo</span>
+                            </div>
+                            <p className="text-xs text-blue-600 mt-1">Le rate rimanenti verranno addebitate automaticamente ogni 30 giorni</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
                     <div>
                       <label className="flex items-center">
                         <input
