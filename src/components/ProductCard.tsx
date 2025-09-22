@@ -9,6 +9,7 @@ import { useState, useEffect } from 'react';
 import WishlistButton from '@/components/WishlistButton';
 import { motion } from 'framer-motion';
 import { FaPlus } from 'react-icons/fa';
+import { getProductDepositOptions } from '@/lib/deposits';
 
 interface ProductCardProps {
   product: Product;
@@ -23,6 +24,8 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
   const [showMessage, setShowMessage] = useState(false);
   const [message, setMessage] = useState('');
   const [prefetched, setPrefetched] = useState(false);
+  const [hasInstallments, setHasInstallments] = useState(false);
+  const [installmentsChecked, setInstallmentsChecked] = useState(false);
   
   // Controlla se il prodotto è in pre-order basandosi sull'attributo pa_disponibilita
   const getAttribute = (name: string) => {
@@ -59,6 +62,53 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
                      disponibilita?.slug?.toLowerCase().includes('pre-order') ||
                      disponibilita?.name?.toLowerCase().includes('preorder') ||
                      disponibilita?.slug?.toLowerCase().includes('preorder');
+
+  // Controlla asincronamente se il prodotto ha pagamenti a rate disponibili
+  useEffect(() => {
+    const checkInstallments = async () => {
+      if (installmentsChecked) return;
+
+      // Prima prova con i metadati esistenti
+      const hasMetadataInstallments = () => {
+        if (product._wc_convert_to_deposit === 'yes' ||
+            product.wc_deposit_option === 'yes') {
+          return true;
+        }
+
+        if (product.meta_data && Array.isArray(product.meta_data)) {
+          const depositMeta = product.meta_data.find(meta =>
+            (meta.key === '_wc_convert_to_deposit' && meta.value === 'yes') ||
+            (meta.key === '_wc_deposit_enabled' && meta.value === 'yes') ||
+            (meta.key === '_wc_deposit_type' && meta.value === 'plan') ||
+            (meta.key === '_wc_deposit_type' && meta.value === 'percent') ||
+            (meta.key === '_wc_deposit_type' && meta.value === 'fixed')
+          );
+          return !!depositMeta;
+        }
+
+        return false;
+      };
+
+      if (hasMetadataInstallments()) {
+        setHasInstallments(true);
+        setInstallmentsChecked(true);
+        return;
+      }
+
+      // Se non trovato nei metadati, fai una chiamata API (solo per i primi prodotti visibili)
+      try {
+        const options = await getProductDepositOptions(product.id);
+        setHasInstallments(options.deposit_enabled);
+      } catch {
+        // In caso di errore, imposta a false silenziosamente
+        setHasInstallments(false);
+      } finally {
+        setInstallmentsChecked(true);
+      }
+    };
+
+    checkInstallments();
+  }, [product.id, product._wc_convert_to_deposit, product.wc_deposit_option, product.meta_data, installmentsChecked]);
 
   
   // Get the product image or use a placeholder
@@ -236,7 +286,16 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
               </span>
             )
           )}
-          
+
+          {/* Indicazione pagamento a rate */}
+          {hasInstallments && (
+            <div className="mt-1">
+              <span className="text-xs text-green-600 font-medium bg-green-50 px-2 py-1 rounded-md">
+                Pagamento a rate disponibile
+              </span>
+            </div>
+          )}
+
           {/* Sale Countdown Compact - Solo per prodotti in offerta con data di fine */}
           {/*{product.sale_price && product.date_on_sale_to && (
             <div className="mt-2">
