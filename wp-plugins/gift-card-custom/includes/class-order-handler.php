@@ -17,51 +17,51 @@ class GiftCard_Order_Handler {
     public function process_gift_card_purchase($order_id) {
         $order = wc_get_order($order_id);
         if (!$order) {
-            error_log('[GIFT CARD] Ordine non trovato: ' . $order_id);
             return;
         }
 
         // Ottieni l'ID del prodotto gift card configurato
         $gift_card_product_id = get_option('gift_card_product_id');
+
         if (!$gift_card_product_id) {
             return;
         }
 
         $customer_id = $order->get_customer_id();
+
         if (!$customer_id) {
-            error_log('[GIFT CARD] Cliente non identificato per ordine: ' . $order_id);
             return;
         }
 
         // Verifica se questo ordine è già stato processato per le gift card
         $already_processed = get_post_meta($order_id, '_gift_card_processed', true);
         if ($already_processed) {
-            error_log('[GIFT CARD] Ordine già processato: ' . $order_id);
             return;
         }
 
         // SICUREZZA: Verifica che l'ordine non sia un ordine di deposito/rata
         if ($this->is_deposit_or_installment_order($order)) {
-            error_log('[GIFT CARD] BLOCCATO: Ordine #' . $order_id . ' identificato come deposito/rata - non processando gift card');
             return;
         }
 
         $gift_card_found = false;
+        $order_items = $order->get_items();
 
         // Controlla ogni item nell'ordine
-        foreach ($order->get_items() as $item_id => $item) {
+        foreach ($order_items as $item_id => $item) {
             $product_id = $item->get_product_id();
             $variation_id = $item->get_variation_id();
+            $quantity = $item->get_quantity();
 
             // Se è una variazione, controlla il prodotto padre
             $check_product_id = $variation_id ? $product_id : $product_id;
 
             // VALIDAZIONE MULTIPLA per identificare correttamente le gift card
             if ($this->is_genuine_gift_card_item($check_product_id, $item, $gift_card_product_id)) {
+
                 // Questo è un acquisto di gift card
                 $product = $item->get_product();
                 if (!$product) {
-                    error_log('[GIFT CARD] Prodotto non trovato per item: ' . $item_id);
                     continue;
                 }
 
@@ -73,69 +73,44 @@ class GiftCard_Order_Handler {
                 $total_amount = $gift_card_amount * $quantity;
 
                 if ($total_amount > 0) {
-                    // Crea la descrizione
-                    $description = sprintf(
-                        'Acquisto Gift Card - Ordine #%d - %s (Qtà: %d)',
-                        $order_id,
-                        $product->get_name(),
-                        $quantity
-                    );
+                    // Ottieni i dati del destinatario dall'item dell'ordine
+                    $recipient_email = $item->get_meta('_gift_card_recipient_email');
+                    $recipient_name = $item->get_meta('_gift_card_recipient_name');
+                    $message = $item->get_meta('_gift_card_message');
 
-                    // Log dettagliato prima dell'accredito
-                    error_log(sprintf(
-                        '[GIFT CARD] ACCREDITO CONFERMATO: Ordine #%d, Cliente %d, Prodotto %s (ID: %d), Importo: €%.2f',
-                        $order_id,
-                        $customer_id,
-                        $product->get_name(),
-                        $check_product_id,
-                        $total_amount
-                    ));
+                    // Se non c'è email del destinatario, usa quella del cliente
+                    if (empty($recipient_email)) {
+                        $customer = new WC_Customer($customer_id);
+                        $recipient_email = $customer->get_email();
+                        $recipient_name = $customer->get_first_name() . ' ' . $customer->get_last_name();
+                    }
 
-                    // Accredita il saldo
-                    $result = GiftCard_Database::update_user_balance(
+                    // Crea il codice gift card
+                    $gift_card_code = GiftCard_Database::create_gift_card(
                         $customer_id,
                         $total_amount,
-                        'credit',
-                        $description,
+                        $recipient_email,
+                        $recipient_name,
+                        $message,
                         $order_id
                     );
 
-                    if ($result) {
+                    if ($gift_card_code) {
                         // Aggiungi nota all'ordine
                         $order->add_order_note(sprintf(
-                            'Gift Card da €%.2f accreditata al cliente (ID: %d) - Variazione: %s',
+                            'Gift Card da €%.2f creata con codice %s per %s - Variazione: %s',
                             $total_amount,
-                            $customer_id,
+                            $gift_card_code,
+                            $recipient_email,
                             $variation_id ? wc_get_formatted_variation($product, true) : 'Prodotto semplice'
-                        ));
-
-                        // Log per debug
-                        error_log(sprintf(
-                            '[GIFT CARD] SUCCESSO: Accreditato €%.2f all\'utente %d per l\'ordine %d (Prodotto: %d, Variazione: %d)',
-                            $total_amount,
-                            $customer_id,
-                            $order_id,
-                            $product_id,
-                            $variation_id
                         ));
 
                         $gift_card_found = true;
 
-                        // Invia email di notifica al cliente (opzionale)
-                        $this->send_gift_card_notification($order, $customer_id, $total_amount);
+                        // Invia email con il codice gift card
+                        $this->send_gift_card_email($order, $gift_card_code, $total_amount, $recipient_email, $recipient_name, $message);
                     }
-                } else {
-                    error_log('[GIFT CARD] Importo non valido per ordine: ' . $order_id . ', importo: ' . $total_amount);
                 }
-            } else {
-                // Log per tracciare cosa viene scartato
-                error_log(sprintf(
-                    '[GIFT CARD] SCARTATO: Ordine #%d, Item #%d non è una gift card valida (Prodotto ID: %d vs Gift Card ID: %d)',
-                    $order_id,
-                    $item_id,
-                    $check_product_id,
-                    $gift_card_product_id
-                ));
             }
         }
         
@@ -146,38 +121,72 @@ class GiftCard_Order_Handler {
     }
     
     /**
-     * Invia notifica email al cliente per l'accredito gift card (opzionale)
+     * Invia email con il codice gift card al destinatario
      */
-    private function send_gift_card_notification($order, $customer_id, $amount) {
-        $user = get_user_by('id', $customer_id);
-        if (!$user) {
-            return;
-        }
-        
-        $current_balance = GiftCard_Database::get_user_balance($customer_id);
-        
-        $subject = 'Gift Card Accreditata - Ordine #' . $order->get_order_number();
-        
-        $message = sprintf(
+    private function send_gift_card_email($order, $gift_card_code, $amount, $recipient_email, $recipient_name, $message) {
+        $purchaser = new WC_Customer($order->get_customer_id());
+        $purchaser_name = $purchaser->get_first_name() . ' ' . $purchaser->get_last_name();
+
+        $subject = 'Hai ricevuto una Gift Card da ' . get_bloginfo('name');
+
+        // Costruisci il messaggio email
+        $email_message = sprintf(
             "Ciao %s,\n\n" .
-            "La tua Gift Card è stata accreditata con successo!\n\n" .
-            "Dettagli:\n" .
-            "- Importo accreditato: €%.2f\n" .
-            "- Ordine: #%s\n" .
-            "- Saldo attuale: €%.2f\n\n" .
-            "Puoi utilizzare il tuo saldo per i prossimi acquisti.\n\n" .
-            "Grazie per il tuo acquisto!",
-            $user->display_name,
+            "Hai ricevuto una Gift Card da %s!\n\n" .
+            "Dettagli della Gift Card:\n" .
+            "- Codice: %s\n" .
+            "- Valore: €%.2f\n" .
+            "- Da: %s\n\n",
+            $recipient_name ?: 'Cliente',
+            $purchaser_name,
+            $gift_card_code,
             $amount,
-            $order->get_order_number(),
-            $current_balance
+            $purchaser_name
         );
-        
-        // Invia l'email (commentato per default, decommentare se necessario)
-        // wp_mail($user->user_email, $subject, $message);
-        
+
+        // Aggiungi il messaggio personalizzato se presente
+        if (!empty($message)) {
+            $email_message .= "Messaggio personalizzato:\n\"" . $message . "\"\n\n";
+        }
+
+        $email_message .= sprintf(
+            "Come utilizzare la Gift Card:\n" .
+            "1. Vai sul sito %s\n" .
+            "2. Accedi al tuo account o registrati\n" .
+            "3. Vai nella sezione Gift Card del tuo account\n" .
+            "4. Inserisci il codice: %s\n" .
+            "5. Il saldo verrà aggiunto al tuo account e potrai utilizzarlo per i tuoi acquisti\n\n" .
+            "La Gift Card non ha scadenza.\n\n" .
+            "Buono shopping!\n" .
+            "Team %s",
+            get_site_url(),
+            $gift_card_code,
+            get_bloginfo('name')
+        );
+
+        // Headers per email HTML (opzionale)
+        $headers = array('Content-Type: text/plain; charset=UTF-8');
+
+        // Invia l'email
+        $sent = wp_mail($recipient_email, $subject, $email_message, $headers);
+
         // Log dell'invio
-        error_log('[GIFT CARD] Notifica inviata a ' . $user->user_email . ' per €' . $amount);
+        if ($sent) {
+            // Aggiungi nota all'ordine
+            $order->add_order_note(sprintf(
+                'Email Gift Card inviata a %s con codice %s',
+                $recipient_email,
+                $gift_card_code
+            ));
+        } else {
+            $order->add_order_note(sprintf(
+                'ERRORE: Email Gift Card NON inviata a %s (codice %s)',
+                $recipient_email,
+                $gift_card_code
+            ));
+        }
+
+        return $sent;
     }
     
     /**
@@ -203,7 +212,6 @@ class GiftCard_Order_Handler {
 
         foreach ($deposit_indicators as $meta_key) {
             if ($order->get_meta($meta_key)) {
-                error_log('[GIFT CARD] Indicatore deposito trovato: ' . $meta_key);
                 return true;
             }
         }
@@ -219,7 +227,6 @@ class GiftCard_Order_Handler {
 
             foreach ($item_deposit_indicators as $item_meta_key) {
                 if ($item->get_meta($item_meta_key)) {
-                    error_log('[GIFT CARD] Indicatore item deposito trovato: ' . $item_meta_key);
                     return true;
                 }
             }
@@ -233,7 +240,6 @@ class GiftCard_Order_Handler {
             $note_content = strtolower($note->content);
             foreach ($deposit_keywords as $keyword) {
                 if (strpos($note_content, $keyword) !== false) {
-                    error_log('[GIFT CARD] Keyword deposito trovata nelle note: ' . $keyword);
                     return true;
                 }
             }
@@ -259,7 +265,6 @@ class GiftCard_Order_Handler {
         // Seconda verifica: il prodotto deve esistere e essere del tipo corretto
         $product = wc_get_product($product_id);
         if (!$product) {
-            error_log('[GIFT CARD] Prodotto non esistente: ' . $product_id);
             return false;
         }
 
@@ -276,7 +281,6 @@ class GiftCard_Order_Handler {
         }
 
         if (!$has_gift_card_keyword) {
-            error_log('[GIFT CARD] Prodotto non contiene keyword gift card nel nome: ' . $product->get_name());
             return false;
         }
 
@@ -284,19 +288,16 @@ class GiftCard_Order_Handler {
         $item_deposit_indicators = ['is_deposit', 'deposit_amount', 'full_amount'];
         foreach ($item_deposit_indicators as $meta_key) {
             if ($item->get_meta($meta_key)) {
-                error_log('[GIFT CARD] Item ha metadati di deposito, non è una gift card: ' . $meta_key);
                 return false;
             }
         }
 
         // Quinta verifica: il prodotto deve essere abilitato e pubblicato
         if ($product->get_status() !== 'publish') {
-            error_log('[GIFT CARD] Prodotto non pubblicato: ' . $product_id);
             return false;
         }
 
         // Se tutte le verifiche sono passate, è una gift card genuina
-        error_log('[GIFT CARD] VALIDAZIONE SUPERATA: Prodotto ' . $product_id . ' è una gift card valida');
         return true;
     }
 

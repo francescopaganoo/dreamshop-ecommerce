@@ -183,6 +183,62 @@ export async function getGiftCardCouponInfo(couponCode: string): Promise<GiftCar
   }
 }
 
+// Riscatta una gift card
+export async function redeemGiftCard(
+  giftCardCode: string,
+  userId: number,
+  token: string
+): Promise<{
+  success: boolean;
+  message: string;
+  amount: number;
+  formatted_amount: string;
+  new_balance: number;
+  formatted_new_balance: string;
+}> {
+  try {
+    // Usa l'API Next.js invece di chiamare direttamente WordPress
+    const response = await fetch(`/api/gift-cards/redeem`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        gift_card_code: giftCardCode,
+        user_id: userId
+      }),
+    });
+
+    // Sempre parsare la risposta JSON prima di verificare lo status
+    const result = await response.json();
+
+    if (!response.ok) {
+      // Per errori 400, il server dovrebbe restituire un messaggio specifico
+      if (response.status === 400 && result.message) {
+        throw new Error(result.message);
+      }
+      throw new Error(`Errore del server: ${response.status}`);
+    }
+
+    if (!result.success) {
+      throw new Error(result.message || 'Errore nel riscatto della gift card');
+    }
+
+    return {
+      success: true,
+      message: result.data.message,
+      amount: result.data.amount,
+      formatted_amount: result.data.formatted_amount,
+      new_balance: result.data.new_balance,
+      formatted_new_balance: result.data.formatted_new_balance
+    };
+  } catch (error) {
+    console.error('Errore nel riscatto della gift card:', error);
+    throw error;
+  }
+}
+
 // Valida un coupon gift card
 export async function validateGiftCardCoupon(
   couponCode: string, 

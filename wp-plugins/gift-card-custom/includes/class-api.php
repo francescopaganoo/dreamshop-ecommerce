@@ -47,18 +47,78 @@ class GiftCard_API {
             'callback' => array($this, 'generate_coupon'),
             'permission_callback' => array($this, 'check_user_permission')
         ));
+
+        // Endpoint per riscattare gift card
+        register_rest_route('gift-card/v1', '/redeem', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'redeem_gift_card'),
+            'permission_callback' => array($this, 'check_user_permission'),
+            'args' => array(
+                'gift_card_code' => array(
+                    'required' => true,
+                    'validate_callback' => function($param) {
+                        return !empty($param) && is_string($param);
+                    }
+                ),
+                'user_id' => array(
+                    'required' => true,
+                    'validate_callback' => function($param) {
+                        return is_numeric($param);
+                    }
+                )
+            )
+        ));
+
+        // Endpoint per verificare un codice gift card
+        register_rest_route('gift-card/v1', '/verify/(?P<code>[a-zA-Z0-9]+)', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'verify_gift_card'),
+            'permission_callback' => array($this, 'check_user_permission'),
+            'args' => array(
+                'code' => array(
+                    'required' => true,
+                    'validate_callback' => function($param) {
+                        return !empty($param) && is_string($param);
+                    }
+                )
+            )
+        ));
+
+        // Endpoint per ottenere le gift card di un utente
+        register_rest_route('gift-card/v1', '/user-gift-cards/(?P<user_id>\d+)', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_user_gift_cards'),
+            'permission_callback' => array($this, 'check_user_permission'),
+            'args' => array(
+                'user_id' => array(
+                    'required' => true,
+                    'validate_callback' => function($param) {
+                        return is_numeric($param);
+                    }
+                ),
+                'type' => array(
+                    'required' => false,
+                    'default' => 'purchased',
+                    'validate_callback' => function($param) {
+                        return in_array($param, array('purchased', 'redeemed'));
+                    }
+                )
+            )
+        ));
+
+        // Endpoint per ottenere la configurazione del plugin
+        register_rest_route('gift-card/v1', '/config', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_config'),
+            'permission_callback' => array($this, 'check_user_permission')
+        ));
     }
     
     public function check_user_permission($request) {
-        // Log per debug
-        error_log('[GIFT CARD API] Verifica permessi chiamata API');
-        
         // Verifica header Authorization (può essere Basic o Bearer)
         $auth_header = $request->get_header('authorization');
-        error_log('[GIFT CARD API] Header Authorization: ' . ($auth_header ? 'presente' : 'mancante'));
-        
+
         if (!$auth_header) {
-            error_log('[GIFT CARD API] Errore: Header autorizzazione mancante');
             return new WP_Error('unauthorized', 'Header autorizzazione mancante', array('status' => 401));
         }
         
@@ -67,10 +127,8 @@ class GiftCard_API {
             // Autentica con credenziali WooCommerce (chiamato dalle API Next.js)
             $auth_result = $this->authenticate_basic_auth($auth_header);
             if ($auth_result === true) {
-                error_log('[GIFT CARD API] Autenticazione Basic Auth completata con successo');
                 return true;
             } else {
-                error_log('[GIFT CARD API] Errore: Autenticazione Basic Auth fallita');
                 return $auth_result; // Restituisce il WP_Error
             }
         }
@@ -78,23 +136,20 @@ class GiftCard_API {
         // Fallback per Bearer token (per compatibilità)
         if (strpos($auth_header, 'Bearer ') === 0) {
             $token = str_replace('Bearer ', '', $auth_header);
-            error_log('[GIFT CARD API] Token Bearer ricevuto: ' . substr($token, 0, 20) . '...');
-            
+
             $user_id = $this->decode_jwt_token($token);
             if ($user_id) {
-                error_log('[GIFT CARD API] Utente autenticato via JWT: ' . $user_id);
                 wp_set_current_user($user_id);
-                
+
                 $requested_user_id = $request->get_param('user_id');
                 if ($requested_user_id && $user_id != $requested_user_id && !current_user_can('manage_options')) {
                     return new WP_Error('forbidden', 'Accesso negato ai dati di altri utenti', array('status' => 403));
                 }
-                
+
                 return true;
             }
         }
-        
-        error_log('[GIFT CARD API] Errore: Nessun metodo di autenticazione valido');
+
         return new WP_Error('unauthorized', 'Metodo di autenticazione non supportato', array('status' => 401));
     }
     
@@ -110,17 +165,14 @@ class GiftCard_API {
             
             // Per semplicità, accettiamo qualsiasi credenziale Basic Auth valida (sarà l'API Next.js a gestire l'autenticazione utente)
             if ($consumer_key && $consumer_secret && strlen($consumer_key) > 10 && strlen($consumer_secret) > 10) {
-                error_log('[GIFT CARD API] Basic Auth: Credenziali WooCommerce accettate');
                 // Impostiamo un utente amministratore fittizio per le chiamate dell'API Next.js
                 wp_set_current_user(1); // Admin user per le chiamate API interne
                 return true;
             }
-            
-            error_log('[GIFT CARD API] Basic Auth: Credenziali non valide');
+
             return new WP_Error('unauthorized', 'Credenziali Basic Auth non valide', array('status' => 401));
-            
+
         } catch (Exception $e) {
-            error_log('[GIFT CARD API] Errore Basic Auth: ' . $e->getMessage());
             return new WP_Error('unauthorized', 'Errore nella decodifica Basic Auth', array('status' => 401));
         }
     }
@@ -133,7 +185,6 @@ class GiftCard_API {
             // Split del token JWT
             $parts = explode('.', $token);
             if (count($parts) !== 3) {
-                error_log('[GIFT CARD API] JWT: Formato token non valido');
                 return false;
             }
             
@@ -146,11 +197,8 @@ class GiftCard_API {
             $payload = json_decode(base64_decode($payload_encoded), true);
             
             if (!$payload) {
-                error_log('[GIFT CARD API] JWT: Impossibile decodificare il payload');
                 return false;
             }
-            
-            error_log('[GIFT CARD API] JWT Payload: ' . print_r($payload, true));
             
             // Prova diversi formati di payload
             $user_id = null;
@@ -164,19 +212,16 @@ class GiftCard_API {
             }
             
             if (!$user_id) {
-                error_log('[GIFT CARD API] JWT: User ID non trovato nel payload');
                 return false;
             }
             
             // Verifica scadenza
             if (isset($payload['exp']) && time() > $payload['exp']) {
-                error_log('[GIFT CARD API] JWT: Token scaduto');
                 return false;
             }
             
             return intval($user_id);
         } catch (Exception $e) {
-            error_log('[GIFT CARD API] Errore decodifica JWT: ' . $e->getMessage());
             return false;
         }
     }
@@ -194,7 +239,6 @@ class GiftCard_API {
             ));
             
             if ($user_id) {
-                error_log('[GIFT CARD API] WooCommerce: User trovato via API key');
                 return intval($user_id);
             }
             
@@ -206,13 +250,11 @@ class GiftCard_API {
             ));
             
             if ($user_id) {
-                error_log('[GIFT CARD API] WooCommerce: User trovato via session token');
                 return intval($user_id);
             }
             
             return false;
         } catch (Exception $e) {
-            error_log('[GIFT CARD API] Errore autenticazione WooCommerce: ' . $e->getMessage());
             return false;
         }
     }
@@ -286,25 +328,20 @@ class GiftCard_API {
         $user_id = intval($body['user_id']);
         $amount = floatval($body['amount']);
         
-        error_log("[GIFT CARD API] Richiesta generazione coupon per utente {$user_id}, importo €{$amount}");
         
         if (!$user_id || $amount <= 0) {
-            error_log('[GIFT CARD API] Parametri non validi per generazione coupon');
             return new WP_Error('invalid_params', 'Parametri non validi', array('status' => 400));
         }
         
         try {
             $current_balance = GiftCard_Database::get_user_balance($user_id);
-            error_log("[GIFT CARD API] Saldo attuale utente {$user_id}: €{$current_balance}");
             
             if ($amount > $current_balance) {
-                error_log('[GIFT CARD API] Saldo insufficiente per generazione coupon');
                 return new WP_Error('insufficient_balance', 'Saldo insufficiente', array('status' => 400));
             }
             
             // Genera codice coupon univoco
             $coupon_code = 'GC' . strtoupper(wp_generate_password(8, false));
-            error_log("[GIFT CARD API] Generazione coupon: {$coupon_code}");
             
             // Crea il coupon in WooCommerce
             $coupon = new WC_Coupon();
@@ -317,7 +354,6 @@ class GiftCard_API {
             $coupon_id = $coupon->save();
             
             if (!$coupon_id) {
-                error_log('[GIFT CARD API] Errore nella creazione del coupon WooCommerce');
                 return new WP_Error('coupon_creation_failed', 'Errore nella creazione del coupon', array('status' => 500));
             }
             
@@ -328,12 +364,10 @@ class GiftCard_API {
             if (!$debit_result) {
                 // Se fallisce l'addebito, elimina il coupon creato
                 wp_delete_post($coupon_id, true);
-                error_log('[GIFT CARD API] Errore nell\'addebito del saldo');
                 return new WP_Error('balance_update_failed', 'Errore nell\'aggiornamento del saldo', array('status' => 500));
             }
             
             $new_balance = GiftCard_Database::get_user_balance($user_id);
-            error_log("[GIFT CARD API] Coupon generato con successo. Nuovo saldo: €{$new_balance}");
             
             return rest_ensure_response(array(
                 'success' => true,
@@ -346,8 +380,164 @@ class GiftCard_API {
                 )
             ));
         } catch (Exception $e) {
-            error_log('[GIFT CARD API] Errore nella generazione del coupon: ' . $e->getMessage());
             return new WP_Error('generation_error', 'Errore nella generazione del coupon: ' . $e->getMessage(), array('status' => 500));
+        }
+    }
+
+    /**
+     * Riscatta una gift card
+     */
+    public function redeem_gift_card($request) {
+        // Pulisci eventuali output buffer per evitare HTML nell'output JSON
+        if (ob_get_level()) {
+            ob_clean();
+        }
+
+        // Disabilita la visualizzazione di errori PHP che potrebbero interferire con JSON
+        $old_display_errors = ini_get('display_errors');
+        ini_set('display_errors', 0);
+
+        $gift_card_code = sanitize_text_field($request->get_param('gift_card_code'));
+        $user_id = intval($request->get_param('user_id'));
+
+        // Validazione input
+        if (empty($gift_card_code) || $user_id <= 0) {
+            return new WP_Error('invalid_input', 'Parametri non validi', array('status' => 400));
+        }
+
+        try {
+            // Verifica che la classe database sia disponibile
+            if (!class_exists('GiftCard_Database')) {
+                return new WP_Error('class_not_found', 'Classe GiftCard_Database non trovata', array('status' => 500));
+            }
+
+            $result = GiftCard_Database::redeem_gift_card($gift_card_code, $user_id);
+
+            if ($result['success']) {
+                $new_balance = GiftCard_Database::get_user_balance($user_id);
+
+                $response_data = array(
+                    'success' => true,
+                    'data' => array(
+                        'message' => $result['message'],
+                        'amount' => floatval($result['amount']),
+                        'formatted_amount' => '€' . number_format($result['amount'], 2, ',', '.'),
+                        'new_balance' => $new_balance,
+                        'formatted_new_balance' => '€' . number_format($new_balance, 2, ',', '.')
+                    )
+                );
+
+                // Assicurati che venga restituito JSON corretto
+                header('Content-Type: application/json');
+                return rest_ensure_response($response_data);
+            } else {
+                return new WP_Error('redeem_failed', $result['message'], array('status' => 400));
+            }
+
+        } catch (Exception $e) {
+            return new WP_Error('redeem_error', 'Errore nel riscatto della gift card', array('status' => 500));
+        } finally {
+            // Ripristina la configurazione di display_errors
+            ini_set('display_errors', $old_display_errors);
+        }
+    }
+
+    /**
+     * Verifica un codice gift card senza riscattarlo
+     */
+    public function verify_gift_card($request) {
+        $code = sanitize_text_field($request->get_param('code'));
+
+        try {
+            $gift_card = GiftCard_Database::get_gift_card_by_code($code);
+
+            if (!$gift_card) {
+                return new WP_Error('invalid_code', 'Codice gift card non valido', array('status' => 404));
+            }
+
+            // Controlla se è già riscattata
+            $is_redeemed = $gift_card->is_redeemed;
+            $is_expired = $gift_card->expires_at && strtotime($gift_card->expires_at) < time();
+
+            return rest_ensure_response(array(
+                'success' => true,
+                'data' => array(
+                    'code' => $gift_card->code,
+                    'amount' => floatval($gift_card->amount),
+                    'formatted_amount' => '€' . number_format($gift_card->amount, 2, ',', '.'),
+                    'is_redeemed' => $is_redeemed,
+                    'is_expired' => $is_expired,
+                    'is_valid' => !$is_redeemed && !$is_expired,
+                    'recipient_email' => $gift_card->recipient_email,
+                    'created_at' => $gift_card->created_at,
+                    'redeemed_at' => $gift_card->redeemed_at
+                )
+            ));
+
+        } catch (Exception $e) {
+            return new WP_Error('verify_error', 'Errore nella verifica della gift card', array('status' => 500));
+        }
+    }
+
+    /**
+     * Ottiene le gift card di un utente
+     */
+    public function get_user_gift_cards($request) {
+        $user_id = intval($request->get_param('user_id'));
+        $type = $request->get_param('type') ?: 'purchased';
+
+        try {
+            $gift_cards = GiftCard_Database::get_user_gift_cards($user_id, $type);
+
+            $formatted_gift_cards = array();
+            foreach ($gift_cards as $gift_card) {
+                $formatted_gift_cards[] = array(
+                    'id' => intval($gift_card->id),
+                    'code' => $gift_card->code,
+                    'amount' => floatval($gift_card->amount),
+                    'formatted_amount' => '€' . number_format($gift_card->amount, 2, ',', '.'),
+                    'recipient_email' => $gift_card->recipient_email,
+                    'recipient_name' => $gift_card->recipient_name,
+                    'message' => $gift_card->message,
+                    'is_redeemed' => intval($gift_card->is_redeemed),
+                    'created_at' => $gift_card->created_at,
+                    'redeemed_at' => $gift_card->redeemed_at,
+                    'formatted_created_at' => date_i18n('d/m/Y H:i', strtotime($gift_card->created_at)),
+                    'formatted_redeemed_at' => $gift_card->redeemed_at ? date_i18n('d/m/Y H:i', strtotime($gift_card->redeemed_at)) : null
+                );
+            }
+
+            return rest_ensure_response(array(
+                'success' => true,
+                'data' => array(
+                    'gift_cards' => $formatted_gift_cards,
+                    'type' => $type,
+                    'count' => count($formatted_gift_cards)
+                )
+            ));
+
+        } catch (Exception $e) {
+            return new WP_Error('fetch_error', 'Errore nel recupero delle gift card', array('status' => 500));
+        }
+    }
+
+    /**
+     * Ottiene la configurazione del plugin
+     */
+    public function get_config($request) {
+        try {
+            $gift_card_product_id = get_option('gift_card_product_id');
+
+            return rest_ensure_response(array(
+                'success' => true,
+                'data' => array(
+                    'gift_card_product_id' => $gift_card_product_id ? intval($gift_card_product_id) : null,
+                    'plugin_version' => GIFT_CARD_VERSION
+                )
+            ));
+
+        } catch (Exception $e) {
+            return new WP_Error('config_error', 'Errore nel recupero della configurazione', array('status' => 500));
         }
     }
 }

@@ -2,12 +2,13 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { 
-  getGiftCardBalance, 
-  getGiftCardTransactions, 
+import {
+  getGiftCardBalance,
+  getGiftCardTransactions,
   generateGiftCardCoupon,
+  redeemGiftCard,
   GiftCardBalance as GiftCardBalanceType,
-  GiftCardTransaction 
+  GiftCardTransaction
 } from '@/lib/gift-cards';
 
 interface GiftCardBalanceProps {
@@ -28,6 +29,12 @@ export default function GiftCardBalance({ className = '' }: GiftCardBalanceProps
   const [isGeneratingCoupon, setIsGeneratingCoupon] = useState(false);
   const [generatedCoupon, setGeneratedCoupon] = useState<string | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
+
+  // Riscatto gift card
+  const [giftCardCode, setGiftCardCode] = useState<string>('');
+  const [isRedeemingGiftCard, setIsRedeemingGiftCard] = useState(false);
+  const [redeemError, setRedeemError] = useState<string | null>(null);
+  const [redeemSuccess, setRedeemSuccess] = useState<string | null>(null);
 
   // Carica saldo gift card
   const loadBalance = useCallback(async () => {
@@ -123,6 +130,49 @@ export default function GiftCardBalance({ className = '' }: GiftCardBalanceProps
     }
   };
 
+  // Riscatta gift card
+  const handleRedeemGiftCard = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!user) return;
+
+    const code = giftCardCode.trim().toUpperCase();
+    if (!code) {
+      setRedeemError('Inserisci un codice gift card valido');
+      return;
+    }
+
+    try {
+      setIsRedeemingGiftCard(true);
+      setRedeemError(null);
+      setRedeemSuccess(null);
+
+      const token = localStorage.getItem('woocommerce_token');
+      if (!token) {
+        throw new Error('Token non trovato');
+      }
+
+      // Chiamata API per riscattare la gift card
+      const result = await redeemGiftCard(code, user.id, token);
+
+      setRedeemSuccess(`Gift card riscattata con successo! Accreditato: ${result.formatted_amount}`);
+      setGiftCardCode('');
+
+      // Aggiorna il saldo
+      await loadBalance();
+
+      // Ricarica le transazioni se visibili
+      if (showTransactions) {
+        loadTransactions();
+      }
+    } catch (err) {
+      console.error('Errore nel riscatto gift card:', err);
+      setRedeemError(err instanceof Error ? err.message : 'Errore nel riscatto della gift card');
+    } finally {
+      setIsRedeemingGiftCard(false);
+    }
+  };
+
   // Copia coupon negli appunti
   const copyCouponToClipboard = async (couponCode: string) => {
     try {
@@ -154,6 +204,70 @@ export default function GiftCardBalance({ className = '' }: GiftCardBalanceProps
   return (
     <div className={`gift-card-balance ${className}`}>
       <h2 className="text-xl font-semibold mb-4 text-gray-600">Le tue Gift Card</h2>
+
+      {/* Riscatto Gift Card */}
+      <div className="bg-blue-50 rounded-lg p-6 mb-6 border border-blue-100">
+        <h3 className="text-lg font-medium text-gray-700 mb-4">Riscatta Gift Card</h3>
+        <form onSubmit={handleRedeemGiftCard} className="space-y-4">
+          <div>
+            <label htmlFor="gift-card-code" className="block text-sm font-medium text-gray-700 mb-2">
+              Codice Gift Card
+            </label>
+            <input
+              id="gift-card-code"
+              type="text"
+              placeholder="Inserisci il codice della gift card"
+              value={giftCardCode}
+              onChange={(e) => {
+                setGiftCardCode(e.target.value.toUpperCase());
+                setRedeemError(null);
+                setRedeemSuccess(null);
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
+              disabled={isRedeemingGiftCard}
+            />
+          </div>
+
+          {redeemError && (
+            <div className="bg-red-50 border border-red-200 rounded-md p-3">
+              <p className="text-red-600 text-sm">{redeemError}</p>
+            </div>
+          )}
+
+          {redeemSuccess && (
+            <div className="bg-green-50 border border-green-200 rounded-md p-3">
+              <p className="text-green-600 text-sm">{redeemSuccess}</p>
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={isRedeemingGiftCard || !giftCardCode.trim()}
+            className="w-full bg-blue-500 text-white py-2 px-4 rounded-md font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+          >
+            {isRedeemingGiftCard ? (
+              <span className="flex items-center justify-center">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Riscattando...
+              </span>
+            ) : (
+              'Riscatta Gift Card'
+            )}
+          </button>
+        </form>
+
+        <div className="mt-4 p-3 bg-blue-100 rounded-md">
+          <div className="flex items-start">
+            <svg className="w-5 h-5 text-blue-500 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div className="text-sm text-blue-700">
+              <p className="font-medium">Come funziona:</p>
+              <p>Inserisci il codice della gift card ricevuto via email per aggiungere il saldo al tuo account.</p>
+            </div>
+          </div>
+        </div>
+      </div>
       
       {/* Saldo */}
       <div className="bg-bred-50 rounded-lg p-6 mb-6 border border-bred-100">

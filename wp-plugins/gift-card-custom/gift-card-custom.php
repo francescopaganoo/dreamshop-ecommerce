@@ -3,7 +3,7 @@
  * Plugin Name: Gift Card Custom
  * Plugin URI: https://dreamshop.it
  * Description: Sistema Gift Card semplice con gestione saldi utenti e prodotti variabili
- * Version: 1.0.0
+ * Version: 2.0.0
  * Author: Plan Studios Group - FP
  * License: GPL v2 or later
  * Text Domain: gift-card-custom
@@ -16,7 +16,7 @@ if (!defined('ABSPATH')) {
 // Definizioni costanti
 define('GIFT_CARD_PLUGIN_PATH', plugin_dir_path(__FILE__));
 define('GIFT_CARD_PLUGIN_URL', plugin_dir_url(__FILE__));
-define('GIFT_CARD_VERSION', '1.0.0');
+define('GIFT_CARD_VERSION', '2.0.0');
 
 // Classe principale del plugin
 class GiftCard_Plugin {

@@ -14,6 +14,10 @@ export interface CartItem {
     name: string;
     option: string;
   }>;
+  meta_data?: Array<{
+    key: string;
+    value: string;
+  }>;
 }
 
 interface CartContextType {
@@ -209,7 +213,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
             product: productWithSlug,
             quantity: actualQuantity,
             variation_id: cartItem.variation_id,
-            attributes: cartItem.attributes
+            attributes: cartItem.attributes,
+            meta_data: cartItem.meta_data
           });
         }
       } 
@@ -248,7 +253,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
           // Aggiungi il nuovo prodotto al carrello
           newCart.push({
             product,
-            quantity
+            quantity,
+            meta_data: product.meta_data
           });
         }
       }

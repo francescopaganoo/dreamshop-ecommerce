@@ -742,31 +742,20 @@ export async function getProductVariations(productId: number): Promise<ProductVa
     const cachedData = variationsCache[productId];
     
     if (cachedData && (now - cachedData.timestamp < CACHE_DURATION)) {
-      // Log più dettagliato per il debug
-      const timeLeft = Math.round((CACHE_DURATION - (now - cachedData.timestamp)) / 1000);
-      console.log(`✅ CACHE HIT: Using cached variations for product ${productId} (${cachedData.data.length} variations) - Cache expires in ${timeLeft}s`);
       return cachedData.data;
     }
     
     // Se non abbiamo dati in cache o sono scaduti, facciamo la chiamata API
-    console.log(`⚠️ CACHE MISS: Fetching variations for product ${productId} from API`);
-    
     // Aggiungiamo un parametro timestamp per evitare la cache su iOS
     const timestamp = new Date().getTime();
-    
+
     const { data } = await api.get(`products/${productId}/variations`, {
       per_page: 100, // Recupera fino a 100 variazioni
       _: timestamp, // Parametro per evitare la cache
     });
     
-    console.log(`📦 API RESPONSE: Received ${Array.isArray(data) ? data.length : 0} variations for product ${productId}`);
-    
-    // Aggiungiamo uno stack trace per vedere da dove viene chiamata questa funzione
-    console.log('Call stack:', new Error().stack);
-    
     // Verifica che i dati siano un array e non vuoti
     if (!data || !Array.isArray(data)) {
-      console.error(`Invalid variations data for product ${productId}:`, data);
       return [];
     }
     
@@ -777,8 +766,7 @@ export async function getProductVariations(productId: number): Promise<ProductVa
     };
     
     return data as ProductVariation[];
-  } catch (error) {
-    console.error(`Error fetching variations for product ${productId}:`, error);
+  } catch {
     return [];
   }
 }

@@ -683,20 +683,29 @@ export default function CheckoutPage() {
             lineItem.meta_data = [...(lineItem.meta_data || []), ...attributeMeta];
           }
           
+          // Aggiungi i metadati dal cart item (es. dati gift card)
+          if (item.meta_data && item.meta_data.length > 0) {
+            // Assicurati che meta_data sia un array
+            if (!lineItem.meta_data) lineItem.meta_data = [];
+
+            // Aggiungi i metadati personalizzati dall'item del carrello
+            lineItem.meta_data.push(...item.meta_data);
+          }
+
           // Aggiungi i metadati degli acconti se il prodotto li ha
           if (item.product._wc_convert_to_deposit === 'yes') {
             console.log(`Checkout: Aggiungo metadati acconto al prodotto ${item.product.id}`);
-            
+
             // Assicurati che meta_data sia un array
             if (!lineItem.meta_data) lineItem.meta_data = [];
-            
+
             // Aggiungi i metadati degli acconti
             lineItem.meta_data.push(
               { key: '_wc_convert_to_deposit', value: 'yes' },
               { key: '_wc_deposit_type', value: item.product._wc_deposit_type || 'percent' },
               { key: '_wc_deposit_amount', value: item.product._wc_deposit_amount || '40' }
             );
-            
+
             // Aggiungi metadati a livello di ordine per compatibilità con WooCommerce Deposits
             console.log(`Checkout: Prodotto ${item.product.id} ha acconto: ${item.product._wc_deposit_type} ${item.product._wc_deposit_amount}`);
           }
@@ -841,20 +850,29 @@ export default function CheckoutPage() {
           lineItem.meta_data = [...(lineItem.meta_data || []), ...attributeMeta];
         }
         
+        // Aggiungi i metadati dal cart item (es. dati gift card)
+        if (item.meta_data && item.meta_data.length > 0) {
+          // Assicurati che meta_data sia un array
+          if (!lineItem.meta_data) lineItem.meta_data = [];
+
+          // Aggiungi i metadati personalizzati dall'item del carrello
+          lineItem.meta_data.push(...item.meta_data);
+        }
+
         // Aggiungi i metadati degli acconti se il prodotto li ha
         if (item.product._wc_convert_to_deposit === 'yes') {
           console.log(`Checkout: Aggiungo metadati acconto al prodotto ${item.product.id}`);
-          
+
           // Assicurati che meta_data sia un array
           if (!lineItem.meta_data) lineItem.meta_data = [];
-          
+
           // Aggiungi i metadati degli acconti
           lineItem.meta_data.push(
             { key: '_wc_convert_to_deposit', value: 'yes' },
             { key: '_wc_deposit_type', value: item.product._wc_deposit_type || 'percent' },
             { key: '_wc_deposit_amount', value: item.product._wc_deposit_amount || '40' }
           );
-          
+
           // Aggiungi metadati a livello di ordine per compatibilità con WooCommerce Deposits
           console.log(`Checkout: Prodotto ${item.product.id} ha acconto: ${item.product._wc_deposit_type} ${item.product._wc_deposit_amount}`);
         }
@@ -1009,6 +1027,15 @@ export default function CheckoutPage() {
                 lineItem.meta_data = [...(lineItem.meta_data || []), ...attributeMeta];
               }
               
+              // Aggiungi i metadati dal cart item (es. dati gift card)
+              if (item.meta_data && item.meta_data.length > 0) {
+                // Assicurati che meta_data sia un array
+                if (!lineItem.meta_data) lineItem.meta_data = [];
+
+                // Aggiungi i metadati personalizzati dall'item del carrello
+                lineItem.meta_data.push(...item.meta_data);
+              }
+
               // Aggiungi i metadati degli acconti se il prodotto li ha
               if (item.product._wc_convert_to_deposit === 'yes') {
                 console.log(`iOS CHECKOUT - ACCONTO RILEVATO: Aggiungo metadati acconto al prodotto ${item.product.id}`);
@@ -1017,17 +1044,17 @@ export default function CheckoutPage() {
                   _wc_deposit_type: item.product._wc_deposit_type,
                   _wc_deposit_amount: item.product._wc_deposit_amount
                 });
-                
+
                 // Assicurati che meta_data sia un array
                 if (!lineItem.meta_data) lineItem.meta_data = [];
-                
+
                 // Aggiungi i metadati degli acconti
                 lineItem.meta_data.push(
                   { key: '_wc_convert_to_deposit', value: 'yes' },
                   { key: '_wc_deposit_type', value: item.product._wc_deposit_type || 'percent' },
                   { key: '_wc_deposit_amount', value: item.product._wc_deposit_amount || '40' }
                 );
-                
+
                 console.log(`iOS CHECKOUT - Metadati aggiunti al line_item:`, lineItem.meta_data);
               } else {
                 console.log(`iOS CHECKOUT - NESSUN ACCONTO per prodotto ${item.product.id}: _wc_convert_to_deposit = ${item.product._wc_convert_to_deposit}`);

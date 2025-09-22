@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { ProductVariation, ProductAttribute, Product } from '../../lib/api';
 import { useCart, CartItem } from '../../context/CartContext';
 import ProductNotificationForm from '../ProductNotificationForm';
+import GiftCardForm, { GiftCardData } from './GiftCardForm';
 
 interface ProductVariationsProps {
   productId: number;
@@ -34,6 +35,8 @@ export default function ProductVariations({
   const [message, setMessage] = useState<string>('');
   const [variationsLoaded, setVariationsLoaded] = useState<boolean>(false);
   const [isAddingToCart, setIsAddingToCart] = useState<boolean>(false);
+  const [giftCardData, setGiftCardData] = useState<GiftCardData | null>(null);
+  const [isGiftCardProduct, setIsGiftCardProduct] = useState<boolean>(false);
   const { addToCart } = useCart();
   
   // Controlla se il prodotto è in pre-order basandosi sull'attributo Disponibilità
@@ -43,7 +46,34 @@ export default function ProductVariations({
   
   const disponibilita = getAttribute('Disponibilità');
   const isPreOrder = disponibilita?.toLowerCase().includes('pre-order') || disponibilita?.toLowerCase().includes('preorder');
-  
+
+  // Verifica se è un prodotto gift card
+  useEffect(() => {
+    const checkIfGiftCardProduct = async () => {
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_WORDPRESS_URL}wp-json/gift-card/v1/config`, {
+          headers: {
+            'Authorization': `Basic ${btoa(`${process.env.NEXT_PUBLIC_WC_CONSUMER_KEY}:${process.env.NEXT_PUBLIC_WC_CONSUMER_SECRET}`)}`
+          }
+        });
+
+        if (response.ok) {
+          const config = await response.json();
+          const giftCardProductId = config?.data?.gift_card_product_id;
+          setIsGiftCardProduct(productId === giftCardProductId);
+        } else {
+          // Fallback per ID hardcoded
+          setIsGiftCardProduct(productId === 176703);
+        }
+      } catch {
+        // Fallback per ID hardcoded in caso di errore
+        setIsGiftCardProduct(productId === 176703);
+      }
+    };
+
+    checkIfGiftCardProduct();
+  }, [productId]);
+
   // Nascondi il messaggio dopo 3 secondi
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -172,7 +202,23 @@ export default function ProductVariations({
       setShowMessage(true);
       return;
     }
-    
+
+    // Se è un prodotto gift card, verifica che i dati siano completi
+    if (isGiftCardProduct) {
+      if (!giftCardData || !giftCardData.recipientEmail) {
+        setMessage('Per favore inserisci l\'email del destinatario per la gift card.');
+        setShowMessage(true);
+        return;
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(giftCardData.recipientEmail)) {
+        setMessage('Per favore inserisci un indirizzo email valido.');
+        setShowMessage(true);
+        return;
+      }
+    }
+
     if (isAddingToCart) return;
     
     // Controllo preliminare della quantità disponibile
@@ -190,7 +236,7 @@ export default function ProductVariations({
         ?.map(attr => `${attr.name}: ${attr.option}`)
         .join(', ') || `Variazione #${selectedVariation.id}`;
       
-      const productWithVariation: Product = {
+      let productWithVariation: Product = {
         id: productId,
         name: `${productName} - ${variationDetails}`,
         price: selectedVariation.price,
@@ -207,6 +253,19 @@ export default function ProductVariations({
         images: selectedVariation.image ? [{ id: 0, src: selectedVariation.image.src, alt: '' }] : [],
         categories: []
       };
+
+      // Se è un prodotto gift card, aggiungi i metadati
+      if (isGiftCardProduct && giftCardData) {
+        productWithVariation = {
+          ...productWithVariation,
+          meta_data: [
+            ...(productWithVariation.meta_data || []),
+            { key: '_gift_card_recipient_email', value: giftCardData.recipientEmail },
+            { key: '_gift_card_recipient_name', value: giftCardData.recipientName || '' },
+            { key: '_gift_card_message', value: giftCardData.message || '' }
+          ]
+        };
+      }
       
       const formattedAttributes = selectedVariation.attributes?.map(attr => ({
         id: attr.id,
@@ -218,22 +277,30 @@ export default function ProductVariations({
         product: productWithVariation,
         quantity: quantity,
         variation_id: selectedVariation.id,
-        attributes: formattedAttributes
+        attributes: formattedAttributes,
+        meta_data: isGiftCardProduct && giftCardData ? [
+          { key: '_gift_card_recipient_email', value: giftCardData.recipientEmail },
+          { key: '_gift_card_recipient_name', value: giftCardData.recipientName },
+          { key: '_gift_card_message', value: giftCardData.message }
+        ] : []
       };
       
       // Utilizziamo il risultato restituito dalla funzione addToCart
       const result = addToCart(cartItem);
       
       if (result.success) {
-        setMessage(`${quantity} ${quantity > 1 ? 'pezzi' : 'pezzo'} di ${productWithVariation.name} ${quantity > 1 ? 'aggiunti' : 'aggiunto'} al carrello!`);
+        if (isGiftCardProduct) {
+          setMessage(`Gift card aggiunta al carrello! Verrà inviata a ${giftCardData?.recipientEmail}`);
+        } else {
+          setMessage(`${quantity} ${quantity > 1 ? 'pezzi' : 'pezzo'} di ${productWithVariation.name} ${quantity > 1 ? 'aggiunti' : 'aggiunto'} al carrello!`);
+        }
       } else {
         // Mostriamo il messaggio di errore restituito dalla funzione addToCart
         setMessage(result.message || 'Errore durante l\'aggiunta al carrello');
       }
       
       setShowMessage(true);
-    } catch (error) {
-      console.error('Errore durante l\'aggiunta al carrello:', error);
+    } catch {
       setMessage('Si è verificato un errore durante l\'aggiunta al carrello');
       setShowMessage(true);
     }
@@ -282,7 +349,12 @@ export default function ProductVariations({
       setQuantity(1);
     }
   };
-  
+
+  // Gestisce il cambio dei dati gift card
+  const handleGiftCardDataChange = (data: GiftCardData) => {
+    setGiftCardData(data);
+  };
+
   // Formatta il prezzo con il simbolo della valuta
   const formatPrice = (price: string | undefined) => {
     if (!price || isNaN(parseFloat(price))) {
@@ -487,7 +559,15 @@ export default function ProductVariations({
           />
         </div>
       )}
-      
+
+      {/* Form Gift Card - solo per prodotti gift card */}
+      {isGiftCardProduct && (
+        <GiftCardForm
+          productId={productId}
+          onDataChange={handleGiftCardDataChange}
+        />
+      )}
+
       {/* Pulsante Aggiungi al carrello */}
       {variationsLoaded && variations.length > 0 && (
         <button
@@ -510,9 +590,11 @@ export default function ProductVariations({
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
                 <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
               </svg>
-              {isPreOrder
-                ? `Pre-ordina ora ${quantity > 1 ? quantity + ' pezzi' : ''}`
-                : `Aggiungi ${quantity > 1 ? quantity + ' pezzi' : ''} al carrello`
+              {isGiftCardProduct
+                ? `Acquista Gift Card ${quantity > 1 ? quantity + ' pezzi' : ''}`
+                : isPreOrder
+                  ? `Pre-ordina ora ${quantity > 1 ? quantity + ' pezzi' : ''}`
+                  : `Aggiungi ${quantity > 1 ? quantity + ' pezzi' : ''} al carrello`
               }
             </>
           )}

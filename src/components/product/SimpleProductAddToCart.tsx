@@ -8,6 +8,7 @@ import PayPalExpressButton from '@/components/product/PayPalExpressButton';
 import AppleGooglePayButton from '@/components/product/AppleGooglePayButton';
 import ProductNotificationForm from '@/components/ProductNotificationForm';
 import { getDepositMetadata } from '@/lib/deposits';
+import GiftCardForm, { GiftCardData } from '@/components/product/GiftCardForm';
 
 interface SimpleProductAddToCartProps {
   product: Product;
@@ -19,6 +20,8 @@ export default function SimpleProductAddToCart({ product }: SimpleProductAddToCa
   const [message, setMessage] = useState<string>('');
   const [isAddingToCart, setIsAddingToCart] = useState<boolean>(false);
   const [enableDeposit, setEnableDeposit] = useState<'yes' | 'no'>('no');
+  const [giftCardData, setGiftCardData] = useState<GiftCardData | null>(null);
+  const [isGiftCardProduct, setIsGiftCardProduct] = useState<boolean>(false);
   const { addToCart } = useCart();
   
   // Controlla se il prodotto è in pre-order basandosi sull'attributo Disponibilità
@@ -56,7 +59,23 @@ export default function SimpleProductAddToCart({ product }: SimpleProductAddToCa
                      disponibilita?.slug?.toLowerCase().includes('pre-order') ||
                      disponibilita?.name?.toLowerCase().includes('preorder') ||
                      disponibilita?.slug?.toLowerCase().includes('preorder');
-  
+
+  // Verifica se è un prodotto gift card
+  useEffect(() => {
+    const checkIfGiftCardProduct = async () => {
+      try {
+        const response = await fetch('/wp-json/wp/v2/options');
+        const options = await response.json();
+        const giftCardProductId = parseInt(options.gift_card_product_id || '0');
+        setIsGiftCardProduct(product.id === giftCardProductId);
+      } catch (error) {
+        console.error('Errore nel recupero ID prodotto gift card:', error);
+      }
+    };
+
+    checkIfGiftCardProduct();
+  }, [product.id]);
+
   // Nascondi il messaggio dopo 3 secondi
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -118,14 +137,30 @@ export default function SimpleProductAddToCart({ product }: SimpleProductAddToCa
   // Gestisce l'aggiunta al carrello
   const handleAddToCart = async () => {
     if (isAddingToCart) return;
-    
+
+    // Se è un prodotto gift card, verifica che i dati siano completi
+    if (isGiftCardProduct) {
+      if (!giftCardData || !giftCardData.recipientEmail) {
+        setMessage('Per favore inserisci l\'email del destinatario per la gift card.');
+        setShowMessage(true);
+        return;
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(giftCardData.recipientEmail)) {
+        setMessage('Per favore inserisci un indirizzo email valido.');
+        setShowMessage(true);
+        return;
+      }
+    }
+
     // Controllo preliminare della quantità disponibile
     if (hasStockManagement && typeof product.stock_quantity === 'number' && quantity > product.stock_quantity) {
       setMessage(`Disponibilità insufficiente. Massimo disponibile: ${product.stock_quantity} pezzi`);
       setShowMessage(true);
       return;
     }
-    
+
     setIsAddingToCart(true);
     
     try {
@@ -218,10 +253,29 @@ export default function SimpleProductAddToCart({ product }: SimpleProductAddToCa
         }
       } else {
         // Aggiunta normale al carrello senza acconto
-        const result = addToCart(product, quantity);
-        
+        let productToAdd = product;
+
+        // Se è un prodotto gift card, aggiungi i metadati
+        if (isGiftCardProduct && giftCardData) {
+          productToAdd = {
+            ...product,
+            meta_data: [
+              ...(product.meta_data || []),
+              { key: '_gift_card_recipient_email', value: giftCardData.recipientEmail },
+              { key: '_gift_card_recipient_name', value: giftCardData.recipientName || '' },
+              { key: '_gift_card_message', value: giftCardData.message || '' }
+            ]
+          };
+        }
+
+        const result = addToCart(productToAdd, quantity);
+
         if (result.success) {
-          setMessage(`${quantity} ${quantity > 1 ? 'pezzi' : 'pezzo'} di ${product.name} ${quantity > 1 ? 'aggiunti' : 'aggiunto'} al carrello!`);
+          if (isGiftCardProduct) {
+            setMessage(`Gift card aggiunta al carrello! Verrà inviata a ${giftCardData?.recipientEmail}`);
+          } else {
+            setMessage(`${quantity} ${quantity > 1 ? 'pezzi' : 'pezzo'} di ${product.name} ${quantity > 1 ? 'aggiunti' : 'aggiunto'} al carrello!`);
+          }
         } else {
           setMessage(result.message || 'Errore durante l\'aggiunta al carrello');
         }
@@ -240,6 +294,11 @@ export default function SimpleProductAddToCart({ product }: SimpleProductAddToCa
   // Gestisce il cambio dell'opzione di acconto
   const handleDepositOptionChange = (option: 'yes' | 'no') => {
     setEnableDeposit(option);
+  };
+
+  // Gestisce il cambio dei dati gift card
+  const handleGiftCardDataChange = (data: GiftCardData) => {
+    setGiftCardData(data);
   };
   
   return (
@@ -276,10 +335,18 @@ export default function SimpleProductAddToCart({ product }: SimpleProductAddToCa
       )}
       
       {/* Opzioni di acconto se disponibili */}
-      {isInStock && hasValidPrice && (
-        <ProductDepositOptionsComponent 
-          product={product} 
-          onDepositOptionChange={handleDepositOptionChange} 
+      {isInStock && hasValidPrice && !isGiftCardProduct && (
+        <ProductDepositOptionsComponent
+          product={product}
+          onDepositOptionChange={handleDepositOptionChange}
+        />
+      )}
+
+      {/* Form Gift Card - solo per prodotti gift card */}
+      {isGiftCardProduct && (
+        <GiftCardForm
+          productId={product.id}
+          onDataChange={handleGiftCardDataChange}
         />
       )}
       
@@ -318,24 +385,26 @@ export default function SimpleProductAddToCart({ product }: SimpleProductAddToCa
         </div>
       )}
       
-      {/* Express Checkout Options - Sopra il pulsante aggiungi al carrello */}
-      <div className="space-y-3">
-        {/* Apple Pay / Google Pay */}
-        {isInStock && hasValidPrice && (
-          <AppleGooglePayButton
+      {/* Express Checkout Options - Sopra il pulsante aggiungi al carrello - Non per gift card */}
+      {!isGiftCardProduct && (
+        <div className="space-y-3">
+          {/* Apple Pay / Google Pay */}
+          {isInStock && hasValidPrice && (
+            <AppleGooglePayButton
+              product={product}
+              quantity={quantity}
+              enableDeposit={enableDeposit}
+            />
+          )}
+
+          {/* PayPal Express - Gestisce internamente le condizioni di visibilità */}
+          <PayPalExpressButton
             product={product}
             quantity={quantity}
             enableDeposit={enableDeposit}
           />
-        )}
-
-        {/* PayPal Express - Gestisce internamente le condizioni di visibilità */}
-        <PayPalExpressButton
-          product={product}
-          quantity={quantity}
-          enableDeposit={enableDeposit}
-        />
-      </div>
+        </div>
+      )}
       
       {/* Form notifica se prodotto non disponibile */}
       {!isInStock && (
@@ -363,11 +432,13 @@ export default function SimpleProductAddToCart({ product }: SimpleProductAddToCa
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
               <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
             </svg>
-            {enableDeposit === 'yes' 
-              ? `Paga acconto per ${quantity > 1 ? quantity + ' pezzi' : ''}`
-              : isPreOrder
-                ? `Pre-ordina ora ${quantity > 1 ? quantity + ' pezzi' : ''}`
-                : `Aggiungi ${quantity > 1 ? quantity + ' pezzi' : ''} al carrello`
+            {isGiftCardProduct
+              ? `Acquista Gift Card ${quantity > 1 ? quantity + ' pezzi' : ''}`
+              : enableDeposit === 'yes'
+                ? `Paga acconto per ${quantity > 1 ? quantity + ' pezzi' : ''}`
+                : isPreOrder
+                  ? `Pre-ordina ora ${quantity > 1 ? quantity + ' pezzi' : ''}`
+                  : `Aggiungi ${quantity > 1 ? quantity + ' pezzi' : ''} al carrello`
             }
           </>
         </button>
