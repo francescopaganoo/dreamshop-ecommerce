@@ -62,27 +62,30 @@ class DSPN_Stock_Monitor {
         if (get_option('dspn_enabled') !== '1') {
             return;
         }
-        
+
         $product = wc_get_product($product_id);
         if (!$product) {
             return;
         }
-        
+
         // Check if product is now in stock
         if (!$product->is_in_stock()) {
             return;
         }
-        
+
         // Get pending notifications for this product
         $notifications = $this->database->get_pending_notifications($product_id);
-        
+
         if (empty($notifications)) {
             return;
         }
-        
+
+        // Ensure email handler is initialized
+        $this->init_email_handler();
+
         // Send notifications
         $sent_notifications = array();
-        
+
         foreach ($notifications as $notification) {
             $email_sent = $this->email_handler->send_stock_notification(
                 $notification->email,

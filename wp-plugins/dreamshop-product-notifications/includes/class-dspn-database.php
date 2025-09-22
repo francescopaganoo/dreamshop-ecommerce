@@ -75,18 +75,43 @@ class DSPN_Database {
             return new WP_Error('invalid_product', 'Prodotto non trovato');
         }
         
-        // Check if already subscribed
+        // Check if already subscribed (only pending status)
         $existing = $wpdb->get_row($wpdb->prepare(
             "SELECT * FROM {$this->table_name} WHERE email = %s AND product_id = %d AND status = 'pending'",
             $email,
             $product_id
         ));
-        
+
         if ($existing) {
             return new WP_Error('already_subscribed', 'Sei già iscritto per questo prodotto');
         }
-        
-        // Insert subscription
+
+        // Check if user previously cancelled subscription
+        $cancelled = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$this->table_name} WHERE email = %s AND product_id = %d AND status = 'cancelled'",
+            $email,
+            $product_id
+        ));
+
+        if ($cancelled) {
+            // Reactivate cancelled subscription
+            $result = $wpdb->update(
+                $this->table_name,
+                array(
+                    'customer_name' => $customer_name,
+                    'created_at' => current_time('mysql'),
+                    'status' => 'pending',
+                    'notified_at' => null
+                ),
+                array('id' => $cancelled->id),
+                array('%s', '%s', '%s', '%s'),
+                array('%d')
+            );
+
+            return $result ? $cancelled->id : new WP_Error('db_error', 'Errore durante la riattivazione');
+        }
+
+        // Insert new subscription
         $result = $wpdb->insert(
             $this->table_name,
             array(

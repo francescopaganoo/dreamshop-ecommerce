@@ -64,10 +64,14 @@ export default function SimpleProductAddToCart({ product }: SimpleProductAddToCa
   useEffect(() => {
     const checkIfGiftCardProduct = async () => {
       try {
-        const response = await fetch('/wp-json/wp/v2/options');
-        const options = await response.json();
-        const giftCardProductId = parseInt(options.gift_card_product_id || '0');
-        setIsGiftCardProduct(product.id === giftCardProductId);
+        const response = await fetch('/api/gift-cards/config');
+        if (response.ok) {
+          const result = await response.json();
+          const giftCardProductId = result.data?.gift_card_product_id || 0;
+          setIsGiftCardProduct(product.id === giftCardProductId);
+        } else {
+          console.warn('Endpoint gift card config non disponibile');
+        }
       } catch (error) {
         console.error('Errore nel recupero ID prodotto gift card:', error);
       }

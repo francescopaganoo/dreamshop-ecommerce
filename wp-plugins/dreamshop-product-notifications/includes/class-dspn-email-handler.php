@@ -24,10 +24,10 @@ class DSPN_Email_Handler {
         $placeholders = array(
             '{customer_name}' => !empty($customer_name) ? $customer_name : 'Cliente',
             '{product_name}' => $product->get_name(),
-            '{product_url}' => get_permalink($product->get_id()),
+            '{product_url}' => $this->get_product_url($product),
             '{product_price}' => $product->get_price_html(),
             '{shop_name}' => get_bloginfo('name'),
-            '{shop_url}' => home_url(),
+            '{shop_url}' => $this->get_shop_url(),
             '{unsubscribe_url}' => $this->get_unsubscribe_url($email, $product->get_id(), $notification_id)
         );
         
@@ -138,6 +138,45 @@ class DSPN_Email_Handler {
         } else {
             wp_die('Errore durante la disiscrizione. Riprova più tardi.');
         }
+    }
+
+    /**
+     * Get product URL (frontend or backend)
+     */
+    private function get_product_url($product) {
+        $frontend_url = get_option('dspn_frontend_url');
+
+        if (!empty($frontend_url)) {
+            // Use frontend URL with configurable pattern
+            $frontend_url = rtrim($frontend_url, '/');
+            $pattern = get_option('dspn_product_url_pattern', '/product/{slug}');
+
+            // Replace placeholders
+            $product_path = str_replace(
+                array('{slug}', '{id}'),
+                array($product->get_slug(), $product->get_id()),
+                $pattern
+            );
+
+            return $frontend_url . $product_path;
+        }
+
+        // Fallback to WordPress permalink
+        return get_permalink($product->get_id());
+    }
+
+    /**
+     * Get shop URL (frontend or backend)
+     */
+    private function get_shop_url() {
+        $frontend_url = get_option('dspn_frontend_url');
+
+        if (!empty($frontend_url)) {
+            return rtrim($frontend_url, '/');
+        }
+
+        // Fallback to WordPress home URL
+        return home_url();
     }
 }
 

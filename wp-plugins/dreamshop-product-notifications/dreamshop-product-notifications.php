@@ -1,10 +1,10 @@
 <?php
 /**
  * Plugin Name: DreamShop Product Notifications
- * Plugin URI: https://dreamshop.it
+ * Plugin URI: https://planstudios.it
  * Description: Gestisce le notifiche quando i prodotti tornano disponibili. Gli utenti possono iscriversi per ricevere email quando un prodotto esaurito torna in stock.
  * Version: 1.0.0
- * Author: DreamShop
+ * Author: Plan Studios Group - FP
  * License: GPL v2 or later
  * Text Domain: dreamshop-product-notifications
  */

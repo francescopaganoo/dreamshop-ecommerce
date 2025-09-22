@@ -562,10 +562,52 @@ export function CartProvider({ children }: { children: ReactNode }) {
 }
 
 // Custom hook to use the cart context
+// Oggetto mock per SSR e fallback
+const mockCartContext: CartContextType = {
+  cart: [],
+  addToCart: () => ({ success: false, message: 'Cart not available' }),
+  removeFromCart: () => {},
+  updateQuantity: () => {},
+  clearCart: () => {},
+  getCartTotal: () => 0,
+  getCartCount: () => 0,
+  getSubtotal: () => 0,
+  coupon: null,
+  couponCode: '',
+  setCouponCode: () => {},
+  applyCouponCode: async () => {},
+  removeCoupon: () => {},
+  discount: 0,
+  couponError: null,
+  isApplyingCoupon: false,
+  stockMessage: null,
+  setStockMessage: () => {},
+  userPoints: 0,
+  pointsLabel: '',
+  pointsToRedeem: 0,
+  setPointsToRedeem: () => {},
+  pointsDiscount: 0,
+  loadUserPoints: async () => {},
+  applyPointsDiscount: () => {},
+  removePointsDiscount: () => {},
+  isLoadingPoints: false,
+  pointsError: null,
+};
+
 export function useCart() {
+  // Sempre chiama useContext per rispettare le regole degli hooks
   const context = useContext(CartContext);
-  if (context === undefined) {
-    throw new Error('useCart must be used within a CartProvider');
+
+  // Durante SSR, ritorna sempre l'oggetto mock
+  if (typeof window === 'undefined') {
+    return mockCartContext;
   }
+
+  // Se il context non è disponibile lato client, usa il mock
+  if (context === undefined) {
+    console.warn('useCart must be used within a CartProvider, using mock context');
+    return mockCartContext;
+  }
+
   return context;
 }

@@ -52,6 +52,8 @@ class DSPN_Admin {
         register_setting('dspn_settings', 'dspn_enabled');
         register_setting('dspn_settings', 'dspn_from_email');
         register_setting('dspn_settings', 'dspn_from_name');
+        register_setting('dspn_settings', 'dspn_frontend_url');
+        register_setting('dspn_settings', 'dspn_product_url_pattern');
         register_setting('dspn_settings', 'dspn_email_template');
     }
     
@@ -241,6 +243,20 @@ class DSPN_Admin {
                         <td>
                             <input type="text" name="dspn_from_name" value="<?php echo esc_attr(get_option('dspn_from_name', get_bloginfo('name'))); ?>" class="regular-text" />
                             <p class="description">Il nome che apparirà come mittente delle email.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">URL Frontend</th>
+                        <td>
+                            <input type="url" name="dspn_frontend_url" value="<?php echo esc_attr(get_option('dspn_frontend_url', '')); ?>" class="regular-text" placeholder="https://staging.dreamshop18.com" />
+                            <p class="description">L'URL del frontend Next.js per i link dei prodotti nelle email. Se vuoto, userà i link del backend WordPress.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Pattern URL Prodotto</th>
+                        <td>
+                            <input type="text" name="dspn_product_url_pattern" value="<?php echo esc_attr(get_option('dspn_product_url_pattern', '/product/{slug}')); ?>" class="regular-text" placeholder="/product/{slug}" />
+                            <p class="description">Pattern per gli URL dei prodotti. Usa {slug} per lo slug del prodotto o {id} per l'ID. Es: /product/{slug}, /products/{id}, /shop/{slug}</p>
                         </td>
                     </tr>
                     <tr>
