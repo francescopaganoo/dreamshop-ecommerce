@@ -69,7 +69,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     let data;
     try {
       data = await response.json();
-    } catch (parseError) {
+    } catch {
       console.error(`Gift Card Redeem API: Impossibile parsare risposta JSON dal plugin WordPress: ${response.status}`);
       return NextResponse.json({
         success: false,
