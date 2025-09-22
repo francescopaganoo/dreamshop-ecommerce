@@ -99,7 +99,9 @@ class DreamShop_Product_Notifications {
         <h2>Il prodotto che stavi aspettando è tornato disponibile!</h2>
         <p>Ciao {customer_name},</p>
         <p>Abbiamo buone notizie per te! Il prodotto <strong>{product_name}</strong> che stavi aspettando è finalmente tornato disponibile nel nostro store.</p>
-        <p><a href="{product_url}" style="background-color: #dc2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">Acquista Ora</a></p>
+        <p style="margin: 20px 0; text-align: center;">
+            <a href="{product_url}" style="background-color: #dc2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 0;">Acquista Ora</a>
+        </p>
         <p>Non perdere questa opportunità, le quantità potrebbero essere limitate!</p>
         <p>Cordiali saluti,<br>Il team di DreamShop</p>
         ';

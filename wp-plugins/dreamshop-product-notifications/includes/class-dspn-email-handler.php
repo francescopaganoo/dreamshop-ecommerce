@@ -32,6 +32,9 @@ class DSPN_Email_Handler {
         );
         
         $message = str_replace(array_keys($placeholders), array_values($placeholders), $template);
+
+        // Normalize line breaks and ensure proper spacing
+        $message = $this->normalize_email_formatting($message);
         
         // Set email headers
         $headers = array(
@@ -177,6 +180,24 @@ class DSPN_Email_Handler {
 
         // Fallback to WordPress home URL
         return home_url();
+    }
+
+    /**
+     * Normalize email formatting to ensure proper line breaks and spacing
+     */
+    private function normalize_email_formatting($message) {
+        // Convert WordPress autop formatting
+        $message = wpautop($message);
+
+        // Ensure proper spacing around buttons/links
+        $message = preg_replace('/(<p[^>]*>)(\s*<a[^>]*style="[^"]*display:\s*inline-block[^"]*"[^>]*>)/', '$1<br>$2', $message);
+        $message = preg_replace('/(<\/a>\s*)(<\/p>)/', '$1<br>$2', $message);
+
+        // Add margin to button containers
+        $message = preg_replace('/(<p[^>]*>)([^<]*<a[^>]*style="[^"]*display:\s*inline-block[^"]*"[^>]*>[^<]*<\/a>[^<]*)(<\/p>)/',
+            '<p style="margin: 20px 0; text-align: center;">$2</p>', $message);
+
+        return $message;
     }
 }
 
