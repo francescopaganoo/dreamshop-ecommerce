@@ -1,4 +1,4 @@
-import { getFilteredProductsPlugin, getCategories, getProductsByBrandSlug, getMostPopularProducts, Product, Category } from "@/lib/api";
+import { getFilteredProductsPlugin, getCategories, getProductsByBrandSlug, getBestSellingProducts, Product, Category } from "@/lib/api";
 import ProductList from "@/components/ProductList";
 import LazyProductSection from "@/components/LazyProductSection";
 import CategoryCarousel from "@/components/CategoryCarousel";
@@ -79,9 +79,9 @@ async function getBanprestoProducts(): Promise<Product[]> {
   return products.filter(product => product.stock_status === 'instock').slice(0, 5);
 }
 
-async function getMostPopularProductsHome(): Promise<Product[]> {
-  // Ottieni i 5 prodotti più venduti
-  return await getMostPopularProducts(5);
+async function getBestSellingProductsHome(): Promise<Product[]> {
+  // Ottieni i 5 prodotti più venduti del mese usando il nuovo endpoint
+  return await getBestSellingProducts(5);
 }
 
 
@@ -100,7 +100,7 @@ export default async function Home() {
     getCardGameProducts(),
     getTsumeProducts(),
     getBanprestoProducts(),
-    getMostPopularProductsHome()
+    getBestSellingProductsHome()
   ]);
   
   return (
@@ -482,7 +482,7 @@ export default async function Home() {
                     className="flex items-center gap-3 p-3 bg-white rounded-lg hover:shadow-md transition-all duration-300 group"
                   >
                     <div className="w-12 h-12 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
-                      {product.images && product.images.length > 0 ? (
+                      {product.images && product.images.length > 0 && product.images[0].src && typeof product.images[0].src === 'string' ? (
                         <Image
                           src={product.images[0].src.replace('-300x300', '-150x150')}
                           alt={product.images[0].alt || product.name}
@@ -533,7 +533,7 @@ export default async function Home() {
                     className="flex items-center gap-3 p-3 bg-white rounded-lg hover:shadow-md transition-all duration-300 group"
                   >
                     <div className="w-12 h-12 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
-                      {product.images && product.images.length > 0 ? (
+                      {product.images && product.images.length > 0 && product.images[0].src && typeof product.images[0].src === 'string' ? (
                         <Image
                           src={product.images[0].src.replace('-300x300', '-150x150')}
                           alt={product.images[0].alt || product.name}
@@ -584,7 +584,7 @@ export default async function Home() {
                     className="flex items-center gap-3 p-3 bg-white rounded-lg hover:shadow-md transition-all duration-300 group"
                   >
                     <div className="w-12 h-12 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
-                      {product.images && product.images.length > 0 ? (
+                      {product.images && product.images.length > 0 && product.images[0].src && typeof product.images[0].src === 'string' ? (
                         <Image
                           src={product.images[0].src.replace('-300x300', '-150x150')}
                           alt={product.images[0].alt || product.name}
@@ -635,7 +635,7 @@ export default async function Home() {
                     className="flex items-center gap-3 p-3 bg-white rounded-lg hover:shadow-md transition-all duration-300 group"
                   >
                     <div className="w-12 h-12 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
-                      {product.images && product.images.length > 0 ? (
+                      {product.images && product.images.length > 0 && product.images[0].src && typeof product.images[0].src === 'string' ? (
                         <Image
                           src={product.images[0].src.replace('-300x300', '-150x150')}
                           alt={product.images[0].alt || product.name}
