@@ -206,7 +206,7 @@ export default function GiftCardBalance({ className = '' }: GiftCardBalanceProps
       <h2 className="text-xl font-semibold mb-4 text-gray-600">Le tue Gift Card</h2>
 
       {/* Riscatto Gift Card */}
-      <div className="bg-blue-50 rounded-lg p-6 mb-6 border border-blue-100">
+      <div className="bg-bred-50 rounded-lg p-6 mb-6 border border-bred-100">
         <h3 className="text-lg font-medium text-gray-700 mb-4">Riscatta Gift Card</h3>
         <form onSubmit={handleRedeemGiftCard} className="space-y-4">
           <div>
@@ -223,7 +223,7 @@ export default function GiftCardBalance({ className = '' }: GiftCardBalanceProps
                 setRedeemError(null);
                 setRedeemSuccess(null);
               }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bred-500 uppercase"
               disabled={isRedeemingGiftCard}
             />
           </div>
@@ -243,7 +243,7 @@ export default function GiftCardBalance({ className = '' }: GiftCardBalanceProps
           <button
             type="submit"
             disabled={isRedeemingGiftCard || !giftCardCode.trim()}
-            className="w-full bg-blue-500 text-white py-2 px-4 rounded-md font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+            className="w-full bg-bred-500 text-white py-2 px-4 rounded-md font-medium hover:bg-bred-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
             {isRedeemingGiftCard ? (
               <span className="flex items-center justify-center">
@@ -256,12 +256,12 @@ export default function GiftCardBalance({ className = '' }: GiftCardBalanceProps
           </button>
         </form>
 
-        <div className="mt-4 p-3 bg-blue-100 rounded-md">
+        <div className="mt-4 p-3 bg-bred-100 rounded-md">
           <div className="flex items-start">
-            <svg className="w-5 h-5 text-blue-500 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-bred-500 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <div className="text-sm text-blue-700">
+            <div className="text-sm text-bred-700">
               <p className="font-medium">Come funziona:</p>
               <p>Inserisci il codice della gift card ricevuto via email per aggiungere il saldo al tuo account.</p>
             </div>
