@@ -1,5 +1,6 @@
-import { getFilteredProductsPlugin, getCategories, getProductsOnSale, getProductsByBrandSlug, getMostPopularProducts, Product, Category } from "@/lib/api";
+import { getFilteredProductsPlugin, getCategories, getProductsByBrandSlug, getMostPopularProducts, Product, Category } from "@/lib/api";
 import ProductList from "@/components/ProductList";
+import LazyProductSection from "@/components/LazyProductSection";
 import CategoryCarousel from "@/components/CategoryCarousel";
 import Link from "next/link";
 import Image from "next/image";
@@ -47,71 +48,6 @@ async function getProductCategories(): Promise<Category[]> {
   return allCategories.filter(category => !excludedSlugs.includes(category.slug));
 }
 
-async function getIchibanKujiProducts(): Promise<Product[]> {
-  // Ottieni i prodotti della categoria Ichiban Kuji usando il plugin
-  const response = await getFilteredProductsPlugin({
-    category: 'ichiban-kuji',
-    page: 1,
-    per_page: 20,
-    orderby: 'date',
-    order: 'desc'
-  });
-  return response.products.filter(product => product.stock_status === 'instock').slice(0, 8);
-}
-
-async function getResineProducts(): Promise<Product[]> {
-  // Ottieni i prodotti della categoria Resine usando il plugin
-  const response = await getFilteredProductsPlugin({
-    category: 'resine',
-    page: 1,
-    per_page: 20,
-    orderby: 'date',
-    order: 'desc'
-  });
-  return response.products.filter(product => product.stock_status === 'instock').slice(0, 8);
-}
-
-async function getSHFiguartsProducts(): Promise<Product[]> {
-  // Ottieni i prodotti della categoria S.H.Figuarts usando il plugin
-  const response = await getFilteredProductsPlugin({
-    category: 's-h-figuarts',
-    page: 1,
-    per_page: 20,
-    orderby: 'date',
-    order: 'desc'
-  });
-  return response.products.filter(product => product.stock_status === 'instock').slice(0, 8);
-}
-
-async function getRivisteProducts(): Promise<Product[]> {
-  // Ottieni i prodotti della categoria Editoria usando il plugin
-  const response = await getFilteredProductsPlugin({
-    category: 'editoria',
-    page: 1,
-    per_page: 20,
-    orderby: 'date',
-    order: 'desc'
-  });
-  return response.products.filter(product => product.stock_status === 'instock').slice(0, 8);
-}
-
-async function getPokemonProducts(): Promise<Product[]> {
-  // Ottieni i prodotti della categoria Pokemon usando il plugin
-  const response = await getFilteredProductsPlugin({
-    category: 'pokemon',
-    page: 1,
-    per_page: 20,
-    orderby: 'date',
-    order: 'desc'
-  });
-  return response.products.filter(product => product.stock_status === 'instock').slice(0, 8);
-}
-
-async function getSaleProducts(): Promise<Product[]> {
-  // Ottieni i prodotti in offerta
-  const products = await getProductsOnSale(1, 20, 'date', 'desc');
-  return products.filter(product => product.stock_status === 'instock').slice(0, 8);
-}
 
 async function getCardGameProducts(): Promise<Product[]> {
   // Ottieni i prodotti della categoria Card Game usando il plugin
@@ -150,15 +86,10 @@ async function getMostPopularProductsHome(): Promise<Product[]> {
 
 
 export default async function Home() {
+  // Carichiamo solo i dati essenziali per il rendering iniziale
   const [
     products,
     categories,
-    ichibanKujiProducts,
-    resineProducts,
-    shFiguartsProducts,
-    rivisteProducts,
-    pokemonProducts,
-    saleProducts,
     cardGameProducts,
     tsumeProducts,
     banprestoProducts,
@@ -166,12 +97,6 @@ export default async function Home() {
   ] = await Promise.all([
     getFeaturedProducts(),
     getProductCategories(),
-    getIchibanKujiProducts(),
-    getResineProducts(),
-    getSHFiguartsProducts(),
-    getRivisteProducts(),
-    getPokemonProducts(),
-    getSaleProducts(),
     getCardGameProducts(),
     getTsumeProducts(),
     getBanprestoProducts(),
@@ -353,30 +278,20 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Ichiban Kuji Products Section */}
-      {ichibanKujiProducts.length > 0 && (
-        <section className="bg-gray-50">
-          <div className="container mx-auto px-6">
-
-            <div className="relative">
-              {/* Decorative elements */}
-              <div className="absolute -top-6 -left-6 w-12 h-12 bg-purple-500/5 rounded-full hidden md:block animate-pulse"></div>
-              <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-pink-500/5 rounded-full hidden md:block animate-pulse delay-300"></div>
-              
-              <ProductList products={ichibanKujiProducts} />
-            </div>
-            
-            <div className="text-center mt-12">
-              <Link 
-                href="/category/ichiban-kuji" 
-                className="inline-flex items-center bg-bred-500 text-white hover:bg-bred-600 px-8 py-3 rounded-md font-medium transition-colors shadow-md hover:shadow-lg"
-              >
-                Visualizza altre Ichiban Kuji <FaArrowRight className="ml-2" />
-              </Link>
-            </div>
-          </div>
-        </section>
-      )}
+      {/* Ichiban Kuji Products Section - Lazy Loading */}
+      <LazyProductSection
+        title="Ichiban Kuji"
+        badge="APPENA ARRIVATI"
+        description="Scopri i premi più ambiti delle lotterie Ichiban Kuji"
+        categorySlug="ichiban-kuji"
+        categoryLink="/category/ichiban-kuji"
+        buttonText="Visualizza altre Ichiban Kuji"
+        bgGradient="bg-gray-50"
+        decorativeColors={{
+          primary: "bg-purple-500/5",
+          secondary: "bg-pink-500/5"
+        }}
+      />
 
       {/* Resine Banner */}
       <section className="py-8 md:py-16 bg-gray-50">
@@ -395,30 +310,20 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Resine Products Section */}
-      {resineProducts.length > 0 && (
-        <section className="bg-gray-50">
-          <div className="container mx-auto px-6">
-
-            <div className="relative">
-              {/* Decorative elements */}
-              <div className="absolute -top-6 -left-6 w-12 h-12 bg-green-500/5 rounded-full hidden md:block animate-pulse"></div>
-              <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-emerald-500/5 rounded-full hidden md:block animate-pulse delay-300"></div>
-              
-              <ProductList products={resineProducts} />
-            </div>
-            
-            <div className="text-center mt-12">
-              <Link 
-                href="/category/resine" 
-                className="inline-flex items-center bg-bred-500 text-white hover:bg-bred-600 px-8 py-3 rounded-md font-medium transition-colors shadow-md hover:shadow-lg"
-              >
-                Vedi Tutte le Statue in Resina <FaArrowRight className="ml-2" />
-              </Link>
-            </div>
-          </div>
-        </section>
-      )}
+      {/* Resine Products Section - Lazy Loading */}
+      <LazyProductSection
+        title="Resine"
+        badge="STATUE PREMIUM"
+        description="Le statue in resina più dettagliate e raffinate del mercato"
+        categorySlug="resine"
+        categoryLink="/category/resine"
+        buttonText="Vedi Tutte le Statue in Resina"
+        bgGradient="bg-gray-50"
+        decorativeColors={{
+          primary: "bg-green-500/5",
+          secondary: "bg-emerald-500/5"
+        }}
+      />
 
       {/* S.H.Figuarts Banner */}
       <section className="py-8 md:py-16 bg-gray-50">
@@ -437,30 +342,20 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* S.H.Figuarts Products Section */}
-      {shFiguartsProducts.length > 0 && (
-        <section className="bg-gray-50">
-          <div className="container mx-auto px-6">
-
-            <div className="relative">
-              {/* Decorative elements */}
-              <div className="absolute -top-6 -left-6 w-12 h-12 bg-red-500/5 rounded-full hidden md:block animate-pulse"></div>
-              <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-orange-500/5 rounded-full hidden md:block animate-pulse delay-300"></div>
-              
-              <ProductList products={shFiguartsProducts} />
-            </div>
-            
-            <div className="text-center mt-12">
-              <Link 
-                href="/category/s-h-figuarts" 
-                className="inline-flex items-center bg-bred-500 text-white hover:bg-bred-600 px-8 py-3 rounded-md font-medium transition-colors shadow-md hover:shadow-lg"
-              >
-                Vedi Tutte le S.H.Figuarts <FaArrowRight className="ml-2" />
-              </Link>
-            </div>
-          </div>
-        </section>
-      )}
+      {/* S.H.Figuarts Products Section - Lazy Loading */}
+      <LazyProductSection
+        title="S.H. Figuarts"
+        badge="ACTION FIGURES PREMIUM"
+        description="La massima espressione dell'articolazione e del dettaglio"
+        categorySlug="s-h-figuarts"
+        categoryLink="/category/s-h-figuarts"
+        buttonText="Vedi Tutte le S.H.Figuarts"
+        bgGradient="bg-gray-50"
+        decorativeColors={{
+          primary: "bg-red-500/5",
+          secondary: "bg-orange-500/5"
+        }}
+      />
 
       {/* Riviste Banner */}
       <section className="py-8 md:py-16 bg-gray-50">
@@ -479,30 +374,20 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Riviste Products Section */}
-      {rivisteProducts.length > 0 && (
-        <section className="bg-gray-50">
-          <div className="container mx-auto px-6">
-
-            <div className="relative">
-              {/* Decorative elements */}
-              <div className="absolute -top-6 -left-6 w-12 h-12 bg-blue-500/5 rounded-full hidden md:block animate-pulse"></div>
-              <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-indigo-500/5 rounded-full hidden md:block animate-pulse delay-300"></div>
-              
-              <ProductList products={rivisteProducts} />
-            </div>
-            
-            <div className="text-center mt-12">
-              <Link 
-                href="/category/editoria" 
-                className="inline-flex items-center bg-bred-500 text-white hover:bg-bred-600 px-8 py-3 rounded-md font-medium transition-colors shadow-md hover:shadow-lg"
-              >
-                Vedi Tutte le Riviste & Gadget <FaArrowRight className="ml-2" />
-              </Link>
-            </div>
-          </div>
-        </section>
-      )}
+      {/* Riviste Products Section - Lazy Loading */}
+      <LazyProductSection
+        title="Shōnen Jump"
+        badge="RIVISTE & GADGET"
+        description="Il meglio dell'editoria giapponese e gadget esclusivi"
+        categorySlug="editoria"
+        categoryLink="/category/editoria"
+        buttonText="Vedi Tutte le Riviste & Gadget"
+        bgGradient="bg-gray-50"
+        decorativeColors={{
+          primary: "bg-blue-500/5",
+          secondary: "bg-indigo-500/5"
+        }}
+      />
 
       {/* Pokemon Banner */}
       <section className="py-8 md:py-16 bg-gray-50">
@@ -521,30 +406,20 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Pokemon Products Section */}
-      {pokemonProducts.length > 0 && (
-        <section className="bg-gray-50">
-          <div className="container mx-auto px-6">
-
-            <div className="relative">
-              {/* Decorative elements */}
-              <div className="absolute -top-6 -left-6 w-12 h-12 bg-yellow-500/5 rounded-full hidden md:block animate-pulse"></div>
-              <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-red-500/5 rounded-full hidden md:block animate-pulse delay-300"></div>
-              
-              <ProductList products={pokemonProducts} />
-            </div>
-            
-            <div className="text-center mt-12">
-              <Link 
-                href="/category/pokemon" 
-                className="inline-flex items-center bg-bred-500 text-white hover:bg-bred-600 px-8 py-3 rounded-md font-medium transition-colors shadow-md hover:shadow-lg"
-              >
-                Vedi Tutti i Prodotti Pokémon <FaArrowRight className="ml-2" />
-              </Link>
-            </div>
-          </div>
-        </section>
-      )}
+      {/* Pokemon Products Section - Lazy Loading */}
+      <LazyProductSection
+        title="Pokemon"
+        badge="APPENA ARRIVATI"
+        description="Tutto per i veri allenatori di Pokémon"
+        categorySlug="pokemon"
+        categoryLink="/category/pokemon"
+        buttonText="Vedi Tutti i Prodotti Pokémon"
+        bgGradient="bg-gray-50"
+        decorativeColors={{
+          primary: "bg-yellow-500/5",
+          secondary: "bg-red-500/5"
+        }}
+      />
 
       {/* Sale Banner */}
       <section className="py-8 md:py-16 bg-gray-50">
@@ -563,30 +438,20 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Sale Products Section */}
-      {saleProducts.length > 0 && (
-        <section className="bg-gray-50">
-          <div className="container mx-auto px-6">
-
-            <div className="relative">
-              {/* Decorative elements */}
-              <div className="absolute -top-6 -left-6 w-12 h-12 bg-red-500/5 rounded-full hidden md:block animate-pulse"></div>
-              <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-orange-500/5 rounded-full hidden md:block animate-pulse delay-300"></div>
-              
-              <ProductList products={saleProducts} />
-            </div>
-            
-            <div className="text-center mt-12 mb-8">
-              <Link 
-                href="/offerte" 
-                className="inline-flex items-center bg-bred-500 text-white hover:bg-bred-600 px-8 py-3 rounded-md font-medium transition-colors shadow-md hover:shadow-lg"
-              >
-                Vedi Tutte le Offerte <FaArrowRight className="ml-2" />
-              </Link>
-            </div>
-          </div>
-        </section>
-      )}
+      {/* Sale Products Section - Lazy Loading */}
+      <LazyProductSection
+        title="Offerte"
+        badge="SUPER SCONTI"
+        description="Approfitta delle nostre offerte speciali prima che scadano!"
+        isSaleProducts={true}
+        categoryLink="/offerte"
+        buttonText="Vedi Tutte le Offerte"
+        bgGradient="bg-gray-50"
+        decorativeColors={{
+          primary: "bg-red-500/5",
+          secondary: "bg-orange-500/5"
+        }}
+      />
 
       {/* 4 Columns Section */}
       <section className="py-16 bg-white">
@@ -619,10 +484,11 @@ export default async function Home() {
                     <div className="w-12 h-12 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
                       {product.images && product.images.length > 0 ? (
                         <Image
-                          src={product.images[0].src}
+                          src={product.images[0].src.replace('-300x300', '-150x150')}
                           alt={product.images[0].alt || product.name}
                           width={48}
                           height={48}
+                          loading="lazy"
                           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                         />
                       ) : (
@@ -669,10 +535,11 @@ export default async function Home() {
                     <div className="w-12 h-12 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
                       {product.images && product.images.length > 0 ? (
                         <Image
-                          src={product.images[0].src}
+                          src={product.images[0].src.replace('-300x300', '-150x150')}
                           alt={product.images[0].alt || product.name}
                           width={48}
                           height={48}
+                          loading="lazy"
                           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                         />
                       ) : (
@@ -719,10 +586,11 @@ export default async function Home() {
                     <div className="w-12 h-12 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
                       {product.images && product.images.length > 0 ? (
                         <Image
-                          src={product.images[0].src}
+                          src={product.images[0].src.replace('-300x300', '-150x150')}
                           alt={product.images[0].alt || product.name}
                           width={48}
                           height={48}
+                          loading="lazy"
                           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                         />
                       ) : (
@@ -769,10 +637,11 @@ export default async function Home() {
                     <div className="w-12 h-12 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
                       {product.images && product.images.length > 0 ? (
                         <Image
-                          src={product.images[0].src}
+                          src={product.images[0].src.replace('-300x300', '-150x150')}
                           alt={product.images[0].alt || product.name}
                           width={48}
                           height={48}
+                          loading="lazy"
                           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                         />
                       ) : (
