@@ -113,8 +113,8 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
   
   // Get the product image or use a placeholder
   const imageUrl = product.images && product.images.length > 0
-    ? product.images[0].src
-    : 'https://via.placeholder.com/300';
+    ? product.images[0].src.replace('-300x300', '-800x800')
+    : 'https://via.placeholder.com/800';
   
   // Format price with currency symbol
   const formatPrice = (price: string | null | undefined) => {
