@@ -1,4 +1,4 @@
-import { getProductBySlug, getBestSellingProducts, getRelatedProducts, extractACFFields } from '@/lib/api';
+import { getProductBySlug, getBestSellingProducts, getRelatedProducts, getRelatedProductsBySlug, extractACFFields } from '@/lib/api';
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -365,7 +365,7 @@ async function ProductDetails({ slug }: { slug: string }) {
             </div>
           </div>
         }>
-          <RelatedProductsSection productId={product.id} categories={product.categories || []} />
+          <RelatedProductsSection productSlug={product.slug} productId={product.id} categories={product.categories || []} />
         </Suspense>
       </div>
       
@@ -389,12 +389,23 @@ async function ProductDetails({ slug }: { slug: string }) {
 }
 
 // Componente per i prodotti correlati
-async function RelatedProductsSection({ productId, categories }: { productId: number, categories: Array<{id: number; name: string; slug: string}> }) {
-  const categoryIds = categories.map(cat => cat.id);
-  const relatedProducts = await getRelatedProducts(productId, categoryIds, 4);
-  
+async function RelatedProductsSection({ productSlug, productId, categories }: {
+  productSlug: string,
+  productId: number,
+  categories: Array<{id: number; name: string; slug: string}>
+}) {
+  // Prima prova con il nuovo endpoint DreamShop
+  let relatedProducts = await getRelatedProductsBySlug(productSlug, 4);
+
+  // Se il nuovo endpoint non restituisce risultati, usa il fallback
+  if (relatedProducts.length === 0) {
+    console.log('🔄 Fallback to category-based related products');
+    const categoryIds = categories.map(cat => cat.id);
+    relatedProducts = await getRelatedProducts(productId, categoryIds, 4);
+  }
+
   if (relatedProducts.length === 0) return null;
-  
+
   return (
     <div>
       <div className="flex items-center mb-8">

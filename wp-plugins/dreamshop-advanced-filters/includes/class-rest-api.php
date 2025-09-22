@@ -80,6 +80,42 @@ class DreamShop_Filters_REST_API {
                 ]
             ]
         ]);
+
+        // Related products endpoint by product slug
+        register_rest_route($this->namespace, '/products/(?P<slug>[a-zA-Z0-9-_]+)/related', [
+            'methods' => 'GET',
+            'callback' => [$this, 'get_related_products'],
+            'permission_callback' => '__return_true',
+            'args' => [
+                'slug' => [
+                    'required' => true,
+                    'validate_callback' => function($param) {
+                        return is_string($param) && !empty($param);
+                    }
+                ],
+                'limit' => [
+                    'default' => 4,
+                    'validate_callback' => function($param) {
+                        return is_numeric($param) && $param > 0 && $param <= 20;
+                    }
+                ]
+            ]
+        ]);
+
+        // Best selling products of the month endpoint
+        register_rest_route($this->namespace, '/products/best-selling', [
+            'methods' => 'GET',
+            'callback' => [$this, 'get_best_selling_products'],
+            'permission_callback' => '__return_true',
+            'args' => [
+                'limit' => [
+                    'default' => 10,
+                    'validate_callback' => function($param) {
+                        return is_numeric($param) && $param > 0 && $param <= 50;
+                    }
+                ]
+            ]
+        ]);
     }
 
     /**
@@ -531,5 +567,176 @@ class DreamShop_Filters_REST_API {
         }
 
         return $images;
+    }
+
+    /**
+     * Get related products by product slug
+     */
+    public function get_related_products($request) {
+        try {
+            $product_slug = $request->get_param('slug');
+            $limit = (int) $request->get_param('limit') ?: 4;
+
+            // Get product by slug
+            $product_post = get_page_by_path($product_slug, OBJECT, 'product');
+            if (!$product_post) {
+                return new WP_REST_Response([
+                    'success' => false,
+                    'error' => 'Product not found'
+                ], 404);
+            }
+
+            $product = wc_get_product($product_post->ID);
+            if (!$product) {
+                return new WP_REST_Response([
+                    'success' => false,
+                    'error' => 'Product not found'
+                ], 404);
+            }
+
+            // Get related products using WooCommerce built-in functionality
+            $related_ids = wc_get_related_products($product->get_id(), $limit);
+
+            $related_products = [];
+            foreach ($related_ids as $related_id) {
+                $related_product = wc_get_product($related_id);
+                if ($related_product) {
+                    $related_products[] = [
+                        'id' => $related_id,
+                        'name' => $related_product->get_name(),
+                        'slug' => $related_product->get_slug(),
+                        'price' => $related_product->get_price(),
+                        'regular_price' => $related_product->get_regular_price(),
+                        'sale_price' => $related_product->get_sale_price(),
+                        'on_sale' => $related_product->is_on_sale(),
+                        'stock_status' => $related_product->get_stock_status(),
+                        'images' => $this->get_product_images($related_product),
+                        'permalink' => get_permalink($related_id),
+                        'short_description' => $related_product->get_short_description(),
+                        'categories' => $this->get_product_categories($related_product)
+                    ];
+                }
+            }
+
+            return new WP_REST_Response([
+                'success' => true,
+                'data' => [
+                    'product' => [
+                        'id' => $product->get_id(),
+                        'name' => $product->get_name(),
+                        'slug' => $product->get_slug()
+                    ],
+                    'related_products' => $related_products,
+                    'total' => count($related_products)
+                ],
+                'timestamp' => current_time('timestamp')
+            ], 200);
+
+        } catch (Exception $e) {
+            error_log('DreamShop Related Products Error: ' . $e->getMessage());
+
+            return new WP_REST_Response([
+                'success' => false,
+                'error' => 'Internal server error',
+                'message' => WP_DEBUG ? $e->getMessage() : 'Something went wrong'
+            ], 500);
+        }
+    }
+
+    /**
+     * Get best selling products of the month
+     */
+    public function get_best_selling_products($request) {
+        try {
+            $limit = (int) $request->get_param('limit') ?: 10;
+
+            // Calculate date range for current month
+            $start_date = date('Y-m-01');
+            $end_date = date('Y-m-t');
+
+            global $wpdb;
+
+            // Query to get best selling products based on order items in the current month
+            $query = "
+                SELECT p.ID, p.post_title, p.post_name, SUM(oim.meta_value) as total_sales
+                FROM {$wpdb->posts} p
+                INNER JOIN {$wpdb->prefix}woocommerce_order_itemmeta oim_product ON p.ID = oim_product.meta_value
+                INNER JOIN {$wpdb->prefix}woocommerce_order_items oi ON oim_product.order_item_id = oi.order_item_id
+                INNER JOIN {$wpdb->prefix}woocommerce_order_itemmeta oim ON oi.order_item_id = oim.order_item_id
+                INNER JOIN {$wpdb->posts} o ON oi.order_id = o.ID
+                WHERE p.post_type = 'product'
+                AND p.post_status = 'publish'
+                AND oim_product.meta_key = '_product_id'
+                AND oim.meta_key = '_qty'
+                AND o.post_type = 'shop_order'
+                AND o.post_status IN ('wc-completed', 'wc-processing')
+                AND DATE(o.post_date) BETWEEN %s AND %s
+                GROUP BY p.ID, p.post_title, p.post_name
+                ORDER BY total_sales DESC
+                LIMIT %d
+            ";
+
+            $results = $wpdb->get_results($wpdb->prepare($query, $start_date, $end_date, $limit));
+
+            // If no sales data for current month, fallback to overall best sellers
+            if (empty($results)) {
+                $fallback_query = "
+                    SELECT p.ID, p.post_title, p.post_name, pm.meta_value as total_sales
+                    FROM {$wpdb->posts} p
+                    LEFT JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id AND pm.meta_key = 'total_sales'
+                    WHERE p.post_type = 'product'
+                    AND p.post_status = 'publish'
+                    ORDER BY CAST(COALESCE(pm.meta_value, '0') AS UNSIGNED) DESC
+                    LIMIT %d
+                ";
+
+                $results = $wpdb->get_results($wpdb->prepare($fallback_query, $limit));
+            }
+
+            $best_selling_products = [];
+            foreach ($results as $result) {
+                $product = wc_get_product($result->ID);
+                if ($product) {
+                    $best_selling_products[] = [
+                        'id' => $result->ID,
+                        'name' => $result->post_title,
+                        'slug' => $result->post_name,
+                        'price' => $product->get_price(),
+                        'regular_price' => $product->get_regular_price(),
+                        'sale_price' => $product->get_sale_price(),
+                        'on_sale' => $product->is_on_sale(),
+                        'stock_status' => $product->get_stock_status(),
+                        'images' => $this->get_product_images($product),
+                        'permalink' => get_permalink($result->ID),
+                        'short_description' => $product->get_short_description(),
+                        'categories' => $this->get_product_categories($product),
+                        'sales_count' => (int) $result->total_sales
+                    ];
+                }
+            }
+
+            return new WP_REST_Response([
+                'success' => true,
+                'data' => [
+                    'products' => $best_selling_products,
+                    'total' => count($best_selling_products),
+                    'period' => [
+                        'start_date' => $start_date,
+                        'end_date' => $end_date,
+                        'month' => date('F Y')
+                    ]
+                ],
+                'timestamp' => current_time('timestamp')
+            ], 200);
+
+        } catch (Exception $e) {
+            error_log('DreamShop Best Selling Products Error: ' . $e->getMessage());
+
+            return new WP_REST_Response([
+                'success' => false,
+                'error' => 'Internal server error',
+                'message' => WP_DEBUG ? $e->getMessage() : 'Something went wrong'
+            ], 500);
+        }
     }
 }

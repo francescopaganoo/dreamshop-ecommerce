@@ -112,7 +112,7 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
 
   
   // Get the product image or use a placeholder
-  const imageUrl = product.images && product.images.length > 0
+  const imageUrl = product.images && product.images.length > 0 && product.images[0].src && typeof product.images[0].src === 'string'
     ? product.images[0].src.replace('-300x300', '-800x800')
     : 'https://via.placeholder.com/800';
   

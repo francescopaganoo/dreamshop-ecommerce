@@ -1,6 +1,32 @@
 import api from './woocommerce';
 import axios from 'axios';
 
+// Interface for DreamShop plugin API product response
+interface DreamShopProduct {
+  id: string | number;
+  name: string;
+  slug: string;
+  permalink: string;
+  price: string;
+  regular_price: string;
+  sale_price: string;
+  on_sale: boolean;
+  stock_status: string;
+  short_description: string;
+  images: Array<{
+    id: string | number;
+    src: string;
+    src_large: string;
+    alt: string;
+  }>;
+  categories: Array<{
+    id: number;
+    name: string;
+    slug: string;
+  }>;
+  sales_count?: number;
+}
+
 // Cache for preventing duplicate requests
 const requestCache = new Map<string, Promise<{ products: Product[], total: number }>>();
 
@@ -1945,27 +1971,121 @@ export async function createCustomer(customerData: CreateCustomerData): Promise<
 }
 
 /**
- * Ottiene i prodotti più venduti
+ * Ottiene i prodotti più venduti del mese usando l'endpoint DreamShop
  * @param limit - Numero di prodotti da restituire (default: 4)
  * @returns Promise<Product[]> - Array di prodotti più venduti
  */
 export async function getBestSellingProducts(limit: number = 4): Promise<Product[]> {
   try {
-    const response = await api.get('products', {
-      per_page: limit,
-      orderby: 'popularity',
-      status: 'publish',
-      stock_status: 'instock'
+    const baseUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL?.replace(/\/$/, '') || '';
+    const bestSellingUrl = `${baseUrl}/wp-json/dreamshop/v1/products/best-selling?limit=${limit}`;
+
+    console.log('🔥 Getting best selling products from plugin:', bestSellingUrl);
+
+    const response = await fetch(bestSellingUrl, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      }
     });
-    return response.data as Product[];
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    if (data.success && data.data?.products) {
+      // Convert plugin response to Product format
+      return data.data.products.map((product: DreamShopProduct) => ({
+        id: typeof product.id === 'string' ? parseInt(product.id) : product.id,
+        name: product.name,
+        slug: product.slug,
+        permalink: product.permalink,
+        price: product.price,
+        regular_price: product.regular_price,
+        sale_price: product.sale_price,
+        on_sale: product.on_sale,
+        stock_status: product.stock_status,
+        short_description: product.short_description,
+        images: product.images || [],
+        categories: product.categories || [],
+        sales_count: product.sales_count || 0
+      }));
+    }
+
+    return [];
   } catch (error) {
     console.error('Errore nel recupero dei prodotti più venduti:', error);
+    // Fallback to original API if plugin endpoint fails
+    try {
+      const response = await api.get('products', {
+        per_page: limit,
+        orderby: 'popularity',
+        status: 'publish',
+        stock_status: 'instock'
+      });
+      return response.data as Product[];
+    } catch (fallbackError) {
+      console.error('Errore anche nel fallback:', fallbackError);
+      return [];
+    }
+  }
+}
+
+/**
+ * Ottiene i prodotti correlati usando l'endpoint DreamShop
+ * @param productSlug - Slug del prodotto corrente
+ * @param limit - Numero di prodotti da restituire (default: 4)
+ * @returns Promise<Product[]> - Array di prodotti correlati
+ */
+export async function getRelatedProductsBySlug(productSlug: string, limit: number = 4): Promise<Product[]> {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL?.replace(/\/$/, '') || '';
+    const relatedUrl = `${baseUrl}/wp-json/dreamshop/v1/products/${productSlug}/related?limit=${limit}`;
+
+    console.log('⚡ Getting related products from plugin:', relatedUrl);
+
+    const response = await fetch(relatedUrl, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    if (data.success && data.data?.related_products) {
+      // Convert plugin response to Product format
+      return data.data.related_products.map((product: DreamShopProduct) => ({
+        id: typeof product.id === 'string' ? parseInt(product.id) : product.id,
+        name: product.name,
+        slug: product.slug,
+        permalink: product.permalink,
+        price: product.price,
+        regular_price: product.regular_price,
+        sale_price: product.sale_price,
+        on_sale: product.on_sale,
+        stock_status: product.stock_status,
+        short_description: product.short_description,
+        images: product.images || [],
+        categories: product.categories || []
+      }));
+    }
+
+    return [];
+  } catch (error) {
+    console.error('Errore nel recupero dei prodotti correlati dal plugin:', error);
     return [];
   }
 }
 
 /**
- * Ottiene i prodotti correlati basati sulla categoria
+ * Ottiene i prodotti correlati basati sulla categoria (manteniamo per retrocompatibilità)
  * @param productId - ID del prodotto corrente
  * @param categoryIds - Array di ID delle categorie del prodotto
  * @param limit - Numero di prodotti da restituire (default: 4)
@@ -1974,7 +2094,7 @@ export async function getBestSellingProducts(limit: number = 4): Promise<Product
 export async function getRelatedProducts(productId: number, categoryIds: number[], limit: number = 4): Promise<Product[]> {
   try {
     if (categoryIds.length === 0) return [];
-    
+
     const response = await api.get('products', {
       per_page: limit + 1, // +1 per escludere il prodotto corrente
       category: categoryIds.join(','),
@@ -1982,7 +2102,7 @@ export async function getRelatedProducts(productId: number, categoryIds: number[
       status: 'publish',
       stock_status: 'instock'
     });
-    
+
     return (response.data as Product[]).slice(0, limit);
   } catch (error) {
     console.error('Errore nel recupero dei prodotti correlati:', error);
