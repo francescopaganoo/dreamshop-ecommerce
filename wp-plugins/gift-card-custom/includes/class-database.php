@@ -74,9 +74,42 @@ class GiftCard_Database {
             KEY is_redeemed (is_redeemed)
         ) $charset_collate;";
 
+        // Tabella per i log degli acquisti gift card
+        $gift_card_logs_table = $wpdb->prefix . 'gift_card_logs';
+
+        $sql_logs = "CREATE TABLE $gift_card_logs_table (
+            id bigint(20) NOT NULL AUTO_INCREMENT,
+            order_id bigint(20) NOT NULL,
+            gift_card_code varchar(50) NOT NULL,
+            purchaser_id bigint(20) NOT NULL,
+            purchaser_name varchar(255) NOT NULL,
+            purchaser_email varchar(255) NOT NULL,
+            recipient_email varchar(255) NOT NULL,
+            recipient_name varchar(255) DEFAULT NULL,
+            message text DEFAULT NULL,
+            amount decimal(10,2) NOT NULL,
+            email_sent tinyint(1) DEFAULT 0,
+            email_sent_at datetime DEFAULT NULL,
+            email_error text DEFAULT NULL,
+            manual_sent tinyint(1) DEFAULT 0,
+            manual_sent_at datetime DEFAULT NULL,
+            manual_sent_by bigint(20) DEFAULT NULL,
+            notes text DEFAULT NULL,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY order_id (order_id),
+            KEY gift_card_code (gift_card_code),
+            KEY purchaser_id (purchaser_id),
+            KEY recipient_email (recipient_email),
+            KEY email_sent (email_sent),
+            KEY manual_sent (manual_sent),
+            KEY created_at (created_at)
+        ) $charset_collate;";
+
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
         dbDelta($sql);
         dbDelta($sql_gift_cards);
+        dbDelta($sql_logs);
 
         // Verifica specifica per la tabella gift_cards e creala manualmente se necessario
         $gift_cards_exists = $wpdb->get_var("SHOW TABLES LIKE '{$wpdb->prefix}gift_cards'");
@@ -367,5 +400,197 @@ class GiftCard_Database {
         }
 
         return array();
+    }
+
+    /**
+     * Crea un log dell'acquisto gift card
+     */
+    public static function create_gift_card_log($order_id, $gift_card_code, $purchaser_data, $recipient_data, $amount, $email_sent = false, $email_error = null) {
+        global $wpdb;
+
+        $table_name = $wpdb->prefix . 'gift_card_logs';
+
+        $result = $wpdb->insert(
+            $table_name,
+            array(
+                'order_id' => $order_id,
+                'gift_card_code' => $gift_card_code,
+                'purchaser_id' => $purchaser_data['id'],
+                'purchaser_name' => $purchaser_data['name'],
+                'purchaser_email' => $purchaser_data['email'],
+                'recipient_email' => $recipient_data['email'],
+                'recipient_name' => $recipient_data['name'] ?: '',
+                'message' => $recipient_data['message'] ?: '',
+                'amount' => $amount,
+                'email_sent' => $email_sent ? 1 : 0,
+                'email_sent_at' => $email_sent ? current_time('mysql') : null,
+                'email_error' => $email_error
+            ),
+            array('%d', '%s', '%d', '%s', '%s', '%s', '%s', '%s', '%f', '%d', '%s', '%s')
+        );
+
+        if ($result) {
+            return $wpdb->insert_id;
+        }
+        return false;
+    }
+
+    /**
+     * Aggiorna lo stato di invio email di un log
+     */
+    public static function update_gift_card_log_email_status($log_id, $email_sent, $email_error = null) {
+        global $wpdb;
+
+        $table_name = $wpdb->prefix . 'gift_card_logs';
+
+        return $wpdb->update(
+            $table_name,
+            array(
+                'email_sent' => $email_sent ? 1 : 0,
+                'email_sent_at' => $email_sent ? current_time('mysql') : null,
+                'email_error' => $email_error
+            ),
+            array('id' => $log_id),
+            array('%d', '%s', '%s'),
+            array('%d')
+        );
+    }
+
+    /**
+     * Marca un log come inviato manualmente
+     */
+    public static function mark_gift_card_log_manual_sent($log_id, $sent_by_user_id, $notes = '') {
+        global $wpdb;
+
+        $table_name = $wpdb->prefix . 'gift_card_logs';
+
+        return $wpdb->update(
+            $table_name,
+            array(
+                'manual_sent' => 1,
+                'manual_sent_at' => current_time('mysql'),
+                'manual_sent_by' => $sent_by_user_id,
+                'notes' => $notes
+            ),
+            array('id' => $log_id),
+            array('%d', '%s', '%d', '%s'),
+            array('%d')
+        );
+    }
+
+    /**
+     * Ottieni tutti i log degli acquisti gift card
+     */
+    public static function get_gift_card_logs($limit = 50, $offset = 0, $filters = array()) {
+        global $wpdb;
+
+        $table_name = $wpdb->prefix . 'gift_card_logs';
+
+        $where_clauses = array();
+        $where_values = array();
+
+        // Filtri opzionali
+        if (!empty($filters['email_sent'])) {
+            if ($filters['email_sent'] === 'failed') {
+                $where_clauses[] = 'email_sent = 0';
+            } elseif ($filters['email_sent'] === 'sent') {
+                $where_clauses[] = 'email_sent = 1';
+            }
+        }
+
+        if (!empty($filters['manual_sent'])) {
+            if ($filters['manual_sent'] === 'yes') {
+                $where_clauses[] = 'manual_sent = 1';
+            } elseif ($filters['manual_sent'] === 'no') {
+                $where_clauses[] = 'manual_sent = 0';
+            }
+        }
+
+        if (!empty($filters['search'])) {
+            $search = '%' . $wpdb->esc_like($filters['search']) . '%';
+            $where_clauses[] = '(gift_card_code LIKE %s OR recipient_email LIKE %s OR purchaser_email LIKE %s OR recipient_name LIKE %s OR purchaser_name LIKE %s)';
+            $where_values = array_merge($where_values, array($search, $search, $search, $search, $search));
+        }
+
+        $where_sql = '';
+        if (!empty($where_clauses)) {
+            $where_sql = 'WHERE ' . implode(' AND ', $where_clauses);
+        }
+
+        $sql = "SELECT * FROM $table_name $where_sql ORDER BY created_at DESC LIMIT %d OFFSET %d";
+        $where_values[] = $limit;
+        $where_values[] = $offset;
+
+        if (!empty($where_values)) {
+            $prepared_sql = $wpdb->prepare($sql, $where_values);
+        } else {
+            $prepared_sql = $wpdb->prepare($sql, $limit, $offset);
+        }
+
+        return $wpdb->get_results($prepared_sql);
+    }
+
+    /**
+     * Conta i log degli acquisti gift card
+     */
+    public static function count_gift_card_logs($filters = array()) {
+        global $wpdb;
+
+        $table_name = $wpdb->prefix . 'gift_card_logs';
+
+        $where_clauses = array();
+        $where_values = array();
+
+        // Stessi filtri della funzione get_gift_card_logs
+        if (!empty($filters['email_sent'])) {
+            if ($filters['email_sent'] === 'failed') {
+                $where_clauses[] = 'email_sent = 0';
+            } elseif ($filters['email_sent'] === 'sent') {
+                $where_clauses[] = 'email_sent = 1';
+            }
+        }
+
+        if (!empty($filters['manual_sent'])) {
+            if ($filters['manual_sent'] === 'yes') {
+                $where_clauses[] = 'manual_sent = 1';
+            } elseif ($filters['manual_sent'] === 'no') {
+                $where_clauses[] = 'manual_sent = 0';
+            }
+        }
+
+        if (!empty($filters['search'])) {
+            $search = '%' . $wpdb->esc_like($filters['search']) . '%';
+            $where_clauses[] = '(gift_card_code LIKE %s OR recipient_email LIKE %s OR purchaser_email LIKE %s OR recipient_name LIKE %s OR purchaser_name LIKE %s)';
+            $where_values = array_merge($where_values, array($search, $search, $search, $search, $search));
+        }
+
+        $where_sql = '';
+        if (!empty($where_clauses)) {
+            $where_sql = 'WHERE ' . implode(' AND ', $where_clauses);
+        }
+
+        $sql = "SELECT COUNT(*) FROM $table_name $where_sql";
+
+        if (!empty($where_values)) {
+            $prepared_sql = $wpdb->prepare($sql, $where_values);
+        } else {
+            $prepared_sql = $sql;
+        }
+
+        return $wpdb->get_var($prepared_sql);
+    }
+
+    /**
+     * Ottieni un log specifico per ID
+     */
+    public static function get_gift_card_log($log_id) {
+        global $wpdb;
+
+        $table_name = $wpdb->prefix . 'gift_card_logs';
+
+        return $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM $table_name WHERE id = %d",
+            $log_id
+        ));
     }
 }

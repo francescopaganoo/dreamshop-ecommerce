@@ -107,8 +107,41 @@ class GiftCard_Order_Handler {
 
                         $gift_card_found = true;
 
-                        // Invia email con il codice gift card
-                        $this->send_gift_card_email($order, $gift_card_code, $total_amount, $recipient_email, $recipient_name, $message);
+                        // Prepara i dati per il log
+                        $customer = new WC_Customer($customer_id);
+                        $purchaser_data = array(
+                            'id' => $customer_id,
+                            'name' => $customer->get_first_name() . ' ' . $customer->get_last_name(),
+                            'email' => $customer->get_email()
+                        );
+
+                        $recipient_data = array(
+                            'email' => $recipient_email,
+                            'name' => $recipient_name,
+                            'message' => $message
+                        );
+
+                        // Invia email e registra il risultato
+                        $email_sent = $this->send_gift_card_email($order, $gift_card_code, $total_amount, $recipient_email, $recipient_name, $message);
+
+                        // Crea il log dell'acquisto
+                        $log_id = GiftCard_Database::create_gift_card_log(
+                            $order_id,
+                            $gift_card_code,
+                            $purchaser_data,
+                            $recipient_data,
+                            $total_amount,
+                            $email_sent,
+                            $email_sent ? null : 'Errore generico durante l\'invio'
+                        );
+
+                        if ($log_id) {
+                            $order->add_order_note(sprintf(
+                                'Log Gift Card creato con ID: %d - Email %s',
+                                $log_id,
+                                $email_sent ? 'inviata' : 'NON inviata'
+                            ));
+                        }
                     }
                 }
             }

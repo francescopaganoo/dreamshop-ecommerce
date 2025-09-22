@@ -24,7 +24,17 @@ class GiftCard_Admin {
             56
         );
         
-        // Sottomenu
+        // Sottomenu - Log Acquisti
+        add_submenu_page(
+            'gift-card-manager',
+            'Log Acquisti',
+            'Log Acquisti',
+            'manage_woocommerce',
+            'gift-card-logs',
+            array($this, 'admin_logs_page')
+        );
+
+        // Sottomenu - Configurazione
         add_submenu_page(
             'gift-card-manager',
             'Configurazione',
@@ -63,10 +73,16 @@ class GiftCard_Admin {
         if (!isset($_POST['gift_card_action']) || !wp_verify_nonce($_POST['_wpnonce'], 'gift_card_admin')) {
             return;
         }
-        
+
         $action = sanitize_text_field($_POST['gift_card_action']);
-        
+
         switch ($action) {
+            case 'mark_manual_sent':
+                $this->handle_mark_manual_sent();
+                break;
+            case 'resend_email':
+                $this->handle_resend_email();
+                break;
             case 'save_settings':
                 $this->save_settings();
                 break;
@@ -450,5 +466,419 @@ class GiftCard_Admin {
             </tbody>
         </table>
         <?php
+    }
+
+    /**
+     * Pagina admin per i log degli acquisti gift card
+     */
+    public function admin_logs_page() {
+        // Gestione filtri
+        $current_filter = isset($_GET['filter']) ? sanitize_text_field($_GET['filter']) : 'all';
+        $search = isset($_GET['search']) ? sanitize_text_field($_GET['search']) : '';
+
+        $filters = array();
+        if ($current_filter === 'failed') {
+            $filters['email_sent'] = 'failed';
+        } elseif ($current_filter === 'sent') {
+            $filters['email_sent'] = 'sent';
+        } elseif ($current_filter === 'manual') {
+            $filters['manual_sent'] = 'yes';
+        }
+
+        if (!empty($search)) {
+            $filters['search'] = $search;
+        }
+
+        // Paginazione
+        $current_page = isset($_GET['paged']) ? max(1, intval($_GET['paged'])) : 1;
+        $per_page = 20;
+        $offset = ($current_page - 1) * $per_page;
+
+        $logs = GiftCard_Database::get_gift_card_logs($per_page, $offset, $filters);
+        $total_logs = GiftCard_Database::count_gift_card_logs($filters);
+        $total_pages = ceil($total_logs / $per_page);
+
+        // Stats
+        $stats = array(
+            'total' => GiftCard_Database::count_gift_card_logs(),
+            'failed' => GiftCard_Database::count_gift_card_logs(array('email_sent' => 'failed')),
+            'sent' => GiftCard_Database::count_gift_card_logs(array('email_sent' => 'sent')),
+            'manual' => GiftCard_Database::count_gift_card_logs(array('manual_sent' => 'yes'))
+        );
+
+        ?>
+        <div class="wrap">
+            <h1>Log Acquisti Gift Card</h1>
+
+            <!-- Stats -->
+            <div class="gift-card-stats" style="margin: 20px 0;">
+                <ul class="subsubsub">
+                    <li><a href="?page=gift-card-logs" class="<?php echo $current_filter === 'all' ? 'current' : ''; ?>">Tutti <span class="count">(<?php echo $stats['total']; ?>)</span></a> |</li>
+                    <li><a href="?page=gift-card-logs&filter=failed" class="<?php echo $current_filter === 'failed' ? 'current' : ''; ?>">Email Non Inviate <span class="count">(<?php echo $stats['failed']; ?>)</span></a> |</li>
+                    <li><a href="?page=gift-card-logs&filter=sent" class="<?php echo $current_filter === 'sent' ? 'current' : ''; ?>">Email Inviate <span class="count">(<?php echo $stats['sent']; ?>)</span></a> |</li>
+                    <li><a href="?page=gift-card-logs&filter=manual" class="<?php echo $current_filter === 'manual' ? 'current' : ''; ?>">Inviate Manualmente <span class="count">(<?php echo $stats['manual']; ?>)</span></a></li>
+                </ul>
+            </div>
+
+            <!-- Barra di ricerca -->
+            <div class="tablenav top" style="margin: 20px 0;">
+                <form method="get" style="float: right;">
+                    <input type="hidden" name="page" value="gift-card-logs">
+                    <?php if ($current_filter !== 'all'): ?>
+                        <input type="hidden" name="filter" value="<?php echo esc_attr($current_filter); ?>">
+                    <?php endif; ?>
+                    <input type="search" name="search" value="<?php echo esc_attr($search); ?>" placeholder="Cerca per codice, email, nome...">
+                    <input type="submit" class="button" value="Cerca">
+                    <?php if (!empty($search)): ?>
+                        <a href="?page=gift-card-logs<?php echo $current_filter !== 'all' ? '&filter=' . esc_attr($current_filter) : ''; ?>" class="button">Cancella</a>
+                    <?php endif; ?>
+                </form>
+                <div class="clear"></div>
+            </div>
+
+            <!-- Tabella log -->
+            <table class="wp-list-table widefat fixed striped">
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Ordine</th>
+                        <th>Codice Gift Card</th>
+                        <th>Acquirente</th>
+                        <th>Destinatario</th>
+                        <th>Importo</th>
+                        <th>Email</th>
+                        <th>Azioni</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($logs)): ?>
+                        <tr>
+                            <td colspan="8" style="text-align: center; padding: 20px;">
+                                <em>Nessun log trovato.</em>
+                            </td>
+                        </tr>
+                    <?php else: ?>
+                        <?php foreach ($logs as $log): ?>
+                            <tr>
+                                <td><?php echo date_i18n('d/m/Y H:i', strtotime($log->created_at)); ?></td>
+                                <td>
+                                    <a href="<?php echo admin_url('post.php?post=' . $log->order_id . '&action=edit'); ?>" target="_blank">
+                                        #<?php echo $log->order_id; ?>
+                                    </a>
+                                </td>
+                                <td>
+                                    <strong><?php echo esc_html($log->gift_card_code); ?></strong>
+                                </td>
+                                <td>
+                                    <strong><?php echo esc_html($log->purchaser_name); ?></strong><br>
+                                    <small><?php echo esc_html($log->purchaser_email); ?></small>
+                                </td>
+                                <td>
+                                    <strong><?php echo esc_html($log->recipient_name ?: $log->recipient_email); ?></strong><br>
+                                    <small><?php echo esc_html($log->recipient_email); ?></small>
+                                    <?php if (!empty($log->message)): ?>
+                                        <br><em>"<?php echo esc_html(substr($log->message, 0, 50)) . (strlen($log->message) > 50 ? '...' : ''); ?>"</em>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <strong>€<?php echo number_format($log->amount, 2, ',', '.'); ?></strong>
+                                </td>
+                                <td>
+                                    <?php if ($log->email_sent): ?>
+                                        <span class="gift-card-status-sent">✓ Inviata</span><br>
+                                        <small><?php echo date_i18n('d/m/Y H:i', strtotime($log->email_sent_at)); ?></small>
+                                    <?php else: ?>
+                                        <span class="gift-card-status-failed">✗ Non inviata</span>
+                                        <?php if ($log->email_error): ?>
+                                            <br><small style="color: #dc3232;"><?php echo esc_html($log->email_error); ?></small>
+                                        <?php endif; ?>
+                                    <?php endif; ?>
+
+                                    <?php if ($log->manual_sent): ?>
+                                        <br><span class="gift-card-status-manual">📧 Inviata manualmente</span>
+                                        <br><small><?php echo date_i18n('d/m/Y H:i', strtotime($log->manual_sent_at)); ?></small>
+                                        <?php if ($log->notes): ?>
+                                            <br><small><?php echo esc_html($log->notes); ?></small>
+                                        <?php endif; ?>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <?php if (!$log->email_sent && !$log->manual_sent): ?>
+                                        <form method="post" style="display: inline;">
+                                            <?php wp_nonce_field('gift_card_admin'); ?>
+                                            <input type="hidden" name="gift_card_action" value="mark_manual_sent">
+                                            <input type="hidden" name="log_id" value="<?php echo $log->id; ?>">
+                                            <input type="submit" class="button button-primary button-small" value="Marca come Inviata"
+                                                   onclick="return confirm('Confermi che hai inviato manualmente questa gift card?');">
+                                        </form>
+                                    <?php endif; ?>
+
+                                    <button class="button button-small"
+                                            onclick="showGiftCardDetails(<?php echo htmlspecialchars(json_encode($log), ENT_QUOTES, 'UTF-8'); ?>)">
+                                        Dettagli
+                                    </button>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+
+            <!-- Paginazione -->
+            <?php if ($total_pages > 1): ?>
+                <div class="tablenav bottom">
+                    <div class="tablenav-pages">
+                        <?php
+                        $page_links = paginate_links(array(
+                            'base' => add_query_arg('paged', '%#%'),
+                            'format' => '',
+                            'prev_text' => '&laquo;',
+                            'next_text' => '&raquo;',
+                            'total' => $total_pages,
+                            'current' => $current_page
+                        ));
+                        echo $page_links;
+                        ?>
+                    </div>
+                </div>
+            <?php endif; ?>
+        </div>
+
+        <!-- Modal per dettagli gift card -->
+        <div id="gift-card-modal" style="display: none; position: fixed; z-index: 100000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+            <div style="background-color: #fff; margin: 5% auto; padding: 0; border-radius: 8px; width: 80%; max-width: 600px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0; position: relative;">
+                    <h2 style="margin: 0; color: white;">🎁 Dettagli Gift Card</h2>
+                    <button onclick="closeGiftCardModal()" style="position: absolute; right: 15px; top: 15px; background: none; border: none; color: white; font-size: 24px; cursor: pointer; line-height: 1;">&times;</button>
+                </div>
+                <div id="gift-card-modal-content" style="padding: 25px; line-height: 1.6;">
+                    <!-- Content will be inserted here -->
+                </div>
+                <div style="padding: 20px; border-top: 1px solid #eee; text-align: right;">
+                    <button onclick="closeGiftCardModal()" class="button button-secondary">Chiudi</button>
+                    <button onclick="copyGiftCardCode()" class="button button-primary" style="margin-left: 10px;">📋 Copia Codice</button>
+                </div>
+            </div>
+        </div>
+
+        <style>
+        .gift-card-status-sent { color: #46b450; font-weight: bold; }
+        .gift-card-status-failed { color: #dc3232; font-weight: bold; }
+        .gift-card-status-manual { color: #00a0d2; font-weight: bold; }
+
+        .gift-card-detail-row {
+            display: flex;
+            margin-bottom: 12px;
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .gift-card-detail-label {
+            font-weight: bold;
+            min-width: 140px;
+            color: #23282d;
+        }
+        .gift-card-detail-value {
+            flex: 1;
+            color: #32373c;
+        }
+        .gift-card-code {
+            font-family: 'Courier New', monospace;
+            background: #f8f9fa;
+            padding: 8px 12px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            font-size: 16px;
+            font-weight: bold;
+            color: #2271b1;
+            letter-spacing: 1px;
+        }
+        .gift-card-status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status-sent { background: #d4edda; color: #155724; }
+        .status-failed { background: #f8d7da; color: #721c24; }
+        .status-manual { background: #cce7ff; color: #004085; }
+        </style>
+
+        <script>
+        var currentGiftCardCode = '';
+
+        function showGiftCardDetails(log) {
+            currentGiftCardCode = log.gift_card_code;
+
+            var content = '<div>';
+
+            // Codice Gift Card
+            content += '<div class="gift-card-detail-row">';
+            content += '<div class="gift-card-detail-label">Codice:</div>';
+            content += '<div class="gift-card-detail-value"><span class="gift-card-code">' + log.gift_card_code + '</span></div>';
+            content += '</div>';
+
+            // Ordine
+            content += '<div class="gift-card-detail-row">';
+            content += '<div class="gift-card-detail-label">Ordine:</div>';
+            content += '<div class="gift-card-detail-value"><a href="<?php echo admin_url('post.php?post='); ?>' + log.order_id + '&action=edit" target="_blank">#' + log.order_id + '</a></div>';
+            content += '</div>';
+
+            // Importo
+            content += '<div class="gift-card-detail-row">';
+            content += '<div class="gift-card-detail-label">Importo:</div>';
+            content += '<div class="gift-card-detail-value"><strong>€' + parseFloat(log.amount).toFixed(2).replace('.', ',') + '</strong></div>';
+            content += '</div>';
+
+            // Acquirente
+            content += '<div class="gift-card-detail-row">';
+            content += '<div class="gift-card-detail-label">Acquirente:</div>';
+            content += '<div class="gift-card-detail-value">';
+            content += '<strong>' + log.purchaser_name + '</strong><br>';
+            content += '<small style="color: #666;">' + log.purchaser_email + '</small>';
+            content += '</div>';
+            content += '</div>';
+
+            // Destinatario
+            content += '<div class="gift-card-detail-row">';
+            content += '<div class="gift-card-detail-label">Destinatario:</div>';
+            content += '<div class="gift-card-detail-value">';
+            content += '<strong>' + (log.recipient_name || log.recipient_email) + '</strong><br>';
+            content += '<small style="color: #666;">' + log.recipient_email + '</small>';
+            content += '</div>';
+            content += '</div>';
+
+            // Messaggio personalizzato
+            if (log.message && log.message.trim()) {
+                content += '<div class="gift-card-detail-row">';
+                content += '<div class="gift-card-detail-label">Messaggio:</div>';
+                content += '<div class="gift-card-detail-value">';
+                content += '<em style="background: #f9f9f9; padding: 8px; border-left: 3px solid #ddd; display: block; border-radius: 4px;">"' + log.message + '"</em>';
+                content += '</div>';
+                content += '</div>';
+            }
+
+            // Data creazione
+            content += '<div class="gift-card-detail-row">';
+            content += '<div class="gift-card-detail-label">Creata il:</div>';
+            content += '<div class="gift-card-detail-value">' + formatDateTime(log.created_at) + '</div>';
+            content += '</div>';
+
+            // Stato email
+            content += '<div class="gift-card-detail-row">';
+            content += '<div class="gift-card-detail-label">Email automatica:</div>';
+            content += '<div class="gift-card-detail-value">';
+            if (log.email_sent == 1) {
+                content += '<span class="gift-card-status status-sent">✓ Inviata</span>';
+                if (log.email_sent_at) {
+                    content += '<br><small>Inviata il: ' + formatDateTime(log.email_sent_at) + '</small>';
+                }
+            } else {
+                content += '<span class="gift-card-status status-failed">✗ Non inviata</span>';
+                if (log.email_error) {
+                    content += '<br><small style="color: #dc3232;">Errore: ' + log.email_error + '</small>';
+                }
+            }
+            content += '</div>';
+            content += '</div>';
+
+            // Invio manuale
+            if (log.manual_sent == 1) {
+                content += '<div class="gift-card-detail-row">';
+                content += '<div class="gift-card-detail-label">Invio manuale:</div>';
+                content += '<div class="gift-card-detail-value">';
+                content += '<span class="gift-card-status status-manual">📧 Inviata manualmente</span>';
+                if (log.manual_sent_at && log.manual_sent_at !== 'null') {
+                    content += '<br><small>Inviata il: ' + formatDateTime(log.manual_sent_at) + '</small>';
+                }
+                if (log.notes && log.notes.trim()) {
+                    content += '<br><small><strong>Note:</strong> ' + log.notes + '</small>';
+                }
+                content += '</div>';
+                content += '</div>';
+            }
+
+            content += '</div>';
+
+            document.getElementById('gift-card-modal-content').innerHTML = content;
+            document.getElementById('gift-card-modal').style.display = 'block';
+        }
+
+        function closeGiftCardModal() {
+            document.getElementById('gift-card-modal').style.display = 'none';
+        }
+
+        function copyGiftCardCode() {
+            if (currentGiftCardCode) {
+                navigator.clipboard.writeText(currentGiftCardCode).then(function() {
+                    alert('Codice gift card copiato: ' + currentGiftCardCode);
+                }).catch(function() {
+                    // Fallback per browser più vecchi
+                    var textArea = document.createElement('textarea');
+                    textArea.value = currentGiftCardCode;
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    alert('Codice gift card copiato: ' + currentGiftCardCode);
+                });
+            }
+        }
+
+        function formatDateTime(dateString) {
+            if (!dateString || dateString === 'null') return '-';
+
+            var date = new Date(dateString);
+            if (isNaN(date.getTime())) return dateString;
+
+            var day = ('0' + date.getDate()).slice(-2);
+            var month = ('0' + (date.getMonth() + 1)).slice(-2);
+            var year = date.getFullYear();
+            var hours = ('0' + date.getHours()).slice(-2);
+            var minutes = ('0' + date.getMinutes()).slice(-2);
+
+            return day + '/' + month + '/' + year + ' alle ' + hours + ':' + minutes;
+        }
+
+        // Chiudi il modal cliccando fuori
+        window.onclick = function(event) {
+            var modal = document.getElementById('gift-card-modal');
+            if (event.target == modal) {
+                closeGiftCardModal();
+            }
+        }
+
+        // Chiudi il modal con ESC
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeGiftCardModal();
+            }
+        });
+        </script>
+        <?php
+    }
+
+    /**
+     * Marca un log come inviato manualmente
+     */
+    private function handle_mark_manual_sent() {
+        if (!isset($_POST['log_id'])) {
+            return;
+        }
+
+        $log_id = intval($_POST['log_id']);
+        $notes = isset($_POST['notes']) ? sanitize_textarea_field($_POST['notes']) : 'Marcata come inviata dall\'amministratore';
+
+        $result = GiftCard_Database::mark_gift_card_log_manual_sent($log_id, get_current_user_id(), $notes);
+
+        if ($result) {
+            add_action('admin_notices', function() {
+                echo '<div class="notice notice-success is-dismissible"><p>Log marcato come inviato manualmente.</p></div>';
+            });
+        } else {
+            add_action('admin_notices', function() {
+                echo '<div class="notice notice-error is-dismissible"><p>Errore nell\'aggiornamento del log.</p></div>';
+            });
+        }
     }
 }
