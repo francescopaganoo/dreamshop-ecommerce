@@ -111,6 +111,31 @@ class DSPN_Database {
             return $result ? $cancelled->id : new WP_Error('db_error', 'Errore durante la riattivazione');
         }
 
+        // Check if user previously received notification (status 'notified')
+        $notified = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$this->table_name} WHERE email = %s AND product_id = %d AND status = 'notified'",
+            $email,
+            $product_id
+        ));
+
+        if ($notified) {
+            // Reactivate notified subscription for new availability notification
+            $result = $wpdb->update(
+                $this->table_name,
+                array(
+                    'customer_name' => $customer_name,
+                    'created_at' => current_time('mysql'),
+                    'status' => 'pending',
+                    'notified_at' => null
+                ),
+                array('id' => $notified->id),
+                array('%s', '%s', '%s', '%s'),
+                array('%d')
+            );
+
+            return $result ? $notified->id : new WP_Error('db_error', 'Errore durante la riattivazione');
+        }
+
         // Insert new subscription
         $result = $wpdb->insert(
             $this->table_name,
