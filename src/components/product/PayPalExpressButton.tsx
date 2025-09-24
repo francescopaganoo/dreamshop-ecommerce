@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { PayPalButtons, PayPalMessages } from '@paypal/react-paypal-js';
-import { Product, calculateShipping, ShippingAddress } from '@/lib/api';
+import { Product, getShippingMethods, ShippingAddress, ShippingMethod } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 
@@ -19,8 +19,7 @@ export default function PayPalExpressButton({
 }: PayPalExpressButtonProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [shippingCost, setShippingCost] = useState<number>(7.00); // Default Italia
-  const [isCalculatingShipping, setIsCalculatingShipping] = useState(false);
+  const [selectedShippingMethod, setSelectedShippingMethod] = useState<ShippingMethod | null>(null);
   const { user } = useAuth();
   const router = useRouter();
 
@@ -28,10 +27,9 @@ export default function PayPalExpressButton({
   const hasValidPrice = product.price && parseFloat(product.price) > 0;
   const isInStock = product.stock_status === 'instock' && hasValidPrice;
 
-  // Effetto per calcolare la spedizione quando il componente viene montato
+  // Effetto per calcolare i metodi di spedizione quando il componente viene montato
   useEffect(() => {
     const calculateDefaultShipping = async () => {
-      setIsCalculatingShipping(true);
       try {
         // Utilizziamo un indirizzo di default per l'Italia per il calcolo iniziale
         const defaultAddress: ShippingAddress = {
@@ -44,18 +42,38 @@ export default function PayPalExpressButton({
           country: 'IT'
         };
 
-        const calculatedShipping = await calculateShipping(defaultAddress);
-        setShippingCost(calculatedShipping);
+        const unitPrice = parseFloat(product.sale_price || product.price || '0');
+        const cartTotal = unitPrice * quantity;
+
+        // Prepara gli item del carrello per il calcolo spedizione
+        const cartItems = [{
+          product_id: product.id,
+          quantity: quantity,
+          variation_id: 0,
+          shipping_class_id: product.shipping_class_id || 0
+        }];
+
+        const availableMethods = await getShippingMethods(defaultAddress, cartTotal, cartItems);
+
+        // Seleziona automaticamente il primo metodo disponibile
+        if (availableMethods.length > 0) {
+          setSelectedShippingMethod(availableMethods[0]);
+        }
       } catch (error) {
         console.error('Errore nel calcolo della spedizione di default:', error);
-        setShippingCost(7.00); // Fallback per l'Italia
-      } finally {
-        setIsCalculatingShipping(false);
+        // Fallback con metodo standard
+        const fallbackMethod: ShippingMethod = {
+          id: 'flat_rate',
+          title: 'Spedizione standard',
+          description: 'Consegna in 3-5 giorni lavorativi',
+          cost: 7.00
+        };
+        setSelectedShippingMethod(fallbackMethod);
       }
     };
 
     calculateDefaultShipping();
-  }, [product.id, quantity]);
+  }, [product.id, product.price, product.sale_price, product.shipping_class_id, quantity]);
 
   if (!isInStock) {
     return null;
@@ -65,6 +83,7 @@ export default function PayPalExpressButton({
   const calculatePayPalTotal = () => {
     const unitPrice = parseFloat(product.sale_price || product.price || '0');
     const subtotal = unitPrice * quantity;
+    const shippingCost = selectedShippingMethod?.cost || 0;
     const subtotalWithShipping = subtotal + shippingCost;
     const paypalFee = subtotalWithShipping * 0.03; // 3% di commissione su subtotale + spedizione
     const totalWithFeeAndShipping = subtotalWithShipping + paypalFee;
@@ -77,7 +96,7 @@ export default function PayPalExpressButton({
     };
   };
 
-  const { subtotal, shipping, fee, total } = calculatePayPalTotal();
+  const { shipping, total } = calculatePayPalTotal();
 
   // Crea l'ordine PayPal diretto
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -98,8 +117,8 @@ export default function PayPalExpressButton({
               currency_code: 'EUR',
               value: totalAmount,
             },
-            description: `${product.name} x${quantity} + Spedizione €${shipping} + Commissione PayPal 3%`,
-            custom_id: `product_${product.id}_qty_${quantity}_deposit_${enableDeposit}_paypal_fee_shipping`,
+            description: `${product.name} x${quantity} + ${selectedShippingMethod?.title || 'Spedizione'} €${shipping} + Commissione PayPal 3%`,
+            custom_id: `product_${product.id}_qty_${quantity}_deposit_${enableDeposit}_shipping_${selectedShippingMethod?.id || 'standard'}_paypal_fee`,
           },
         ],
         application_context: {
@@ -191,30 +210,6 @@ export default function PayPalExpressButton({
           </div>
         )}
 
-        {/* Messaggio informativo sulla commissione PayPal e spedizione */}
-        <div className="mb-3 p-3 bg-bred-50 border border-bred-100 rounded-md">
-          <div className="flex items-start text-sm text-bred-700">
-            <svg className="w-4 h-4 mr-2 mt-0.5 text-bred-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-            </svg>
-            <div className="flex-1">
-              <p className="font-medium">Pagamento PayPal Express</p>
-              <div className="text-xs mt-1 space-y-1">
-                <div>Subtotale prodotto: €{subtotal}</div>
-                <div className="flex items-center">
-                  Spedizione: €{shipping}
-                  {isCalculatingShipping && (
-                    <div className="ml-2 w-3 h-3 border border-bred-500 border-t-transparent rounded-full animate-spin"></div>
-                  )}
-                </div>
-                <div>Commissione PayPal (3%): €{fee}</div>
-                <div className="border-t border-bred-100 pt-1 mt-2">
-                  <strong>Totale: €{total}</strong>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
         
         {/* PayPal Standard */}
         <div className="mb-3">
