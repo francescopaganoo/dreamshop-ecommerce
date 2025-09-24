@@ -85,6 +85,8 @@ async function getBestSellingProductsHome(): Promise<Product[]> {
 }
 
 
+
+
 export default async function Home() {
   // Carichiamo solo i dati essenziali per il rendering iniziale
   const [
@@ -280,9 +282,6 @@ export default async function Home() {
 
       {/* Ichiban Kuji Products Section - Lazy Loading */}
       <LazyProductSection
-        title="Ichiban Kuji"
-        badge="APPENA ARRIVATI"
-        description="Scopri i premi più ambiti delle lotterie Ichiban Kuji"
         categorySlug="ichiban-kuji"
         categoryLink="/category/ichiban-kuji"
         buttonText="Visualizza altre Ichiban Kuji"
@@ -312,9 +311,6 @@ export default async function Home() {
 
       {/* Resine Products Section - Lazy Loading */}
       <LazyProductSection
-        title="Resine"
-        badge="STATUE PREMIUM"
-        description="Le statue in resina più dettagliate e raffinate del mercato"
         categorySlug="resine"
         categoryLink="/category/resine"
         buttonText="Vedi Tutte le Statue in Resina"
@@ -344,9 +340,6 @@ export default async function Home() {
 
       {/* S.H.Figuarts Products Section - Lazy Loading */}
       <LazyProductSection
-        title="S.H. Figuarts"
-        badge="ACTION FIGURES PREMIUM"
-        description="La massima espressione dell'articolazione e del dettaglio"
         categorySlug="s-h-figuarts"
         categoryLink="/category/s-h-figuarts"
         buttonText="Vedi Tutte le S.H.Figuarts"
@@ -376,9 +369,6 @@ export default async function Home() {
 
       {/* Riviste Products Section - Lazy Loading */}
       <LazyProductSection
-        title="Shōnen Jump"
-        badge="RIVISTE & GADGET"
-        description="Il meglio dell'editoria giapponese e gadget esclusivi"
         categorySlug="editoria"
         categoryLink="/category/editoria"
         buttonText="Vedi Tutte le Riviste & Gadget"
@@ -408,9 +398,6 @@ export default async function Home() {
 
       {/* Pokemon Products Section - Lazy Loading */}
       <LazyProductSection
-        title="Pokemon"
-        badge="APPENA ARRIVATI"
-        description="Tutto per i veri allenatori di Pokémon"
         categorySlug="pokemon"
         categoryLink="/category/pokemon"
         buttonText="Vedi Tutti i Prodotti Pokémon"
@@ -440,9 +427,6 @@ export default async function Home() {
 
       {/* Sale Products Section - Lazy Loading */}
       <LazyProductSection
-        title="Offerte"
-        badge="SUPER SCONTI"
-        description="Approfitta delle nostre offerte speciali prima che scadano!"
         isSaleProducts={true}
         categoryLink="/offerte"
         buttonText="Vedi Tutte le Offerte"
