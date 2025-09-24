@@ -2574,7 +2574,7 @@ export default function CheckoutPage() {
                   </div>
                 </div>
                 
-                <div className="mb-6">
+                <div className="mb-6 hidden">
                   <h3 className="text-lg font-semibold mb-2 text-gray-700">Metodo di Spedizione</h3>
                   <div className="space-y-3">
                     {shippingMethods.length > 0 ? (
