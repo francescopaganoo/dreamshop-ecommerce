@@ -1,5 +1,4 @@
 import { getFilteredProductsPlugin, getCategories, getProductsByBrandSlug, getBestSellingProducts, Product, Category } from "@/lib/api";
-import ProductList from "@/components/ProductList";
 import LazyProductSection from "@/components/LazyProductSection";
 import CategoryCarousel from "@/components/CategoryCarousel";
 import Link from "next/link";
@@ -11,15 +10,6 @@ import {FaArrowRight } from "react-icons/fa";
 //export const dynamic = 'force-dynamic';
 export const revalidate = 300;
 
-async function getFeaturedProducts(): Promise<Product[]> {
-  const response = await getFilteredProductsPlugin({
-    page: 1,
-    per_page: 20,
-    orderby: 'date',
-    order: 'desc'
-  });
-  return response.products.filter(product => product.stock_status === 'instock').slice(0, 8);
-}
 
 async function getProductCategories(): Promise<Category[]> {
   const allCategories = await getCategories();
@@ -90,14 +80,12 @@ async function getBestSellingProductsHome(): Promise<Product[]> {
 export default async function Home() {
   // Carichiamo solo i dati essenziali per il rendering iniziale
   const [
-    products,
     categories,
     cardGameProducts,
     tsumeProducts,
     banprestoProducts,
     popularProducts
   ] = await Promise.all([
-    getFeaturedProducts(),
     getProductCategories(),
     getCardGameProducts(),
     getTsumeProducts(),
@@ -240,28 +228,17 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Featured Products - Design Moderno */}
-      <section className="bg-gray-50">
-        <div className="container mx-auto px-6">
-
-          
-          <div className="relative">
-            {/* Decorative elements */}
-            <div className="absolute -top-6 -left-6 w-12 h-12 bg-bred-500/5 rounded-full hidden md:block"></div>
-            <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-bred-500/5 rounded-full hidden md:block"></div>
-            <ProductList products={products} />
-          </div>
-          
-          {/*<div className="text-center mt-12">
-            <Link 
-              href="/products" 
-              className="inline-flex items-center bg-bred-500 text-white hover:bg-bred-600 px-8 py-3 rounded-md font-medium transition-colors shadow-md hover:shadow-lg"
-            >
-              Visualizza Altri Prodotti <FaArrowRight className="ml-2" />
-            </Link>
-          </div> */}
-        </div>
-      </section>
+      {/* Nuovi Arrivi Products Section - Lazy Loading */}
+      <LazyProductSection
+        isLatestProducts={true}
+        categoryLink="/products?orderby=date&order=desc"
+        buttonText="Visualizza Altri Nuovi Arrivi"
+        bgGradient="bg-gray-50"
+        decorativeColors={{
+          primary: "bg-bred-500/5",
+          secondary: "bg-bred-500/5"
+        }}
+      />
 
       {/* Ichiban Kuji Banner */}
       <section className="py-8 md:py-16 bg-gray-50">

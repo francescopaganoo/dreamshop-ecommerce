@@ -12,6 +12,7 @@ interface LazyProductSectionProps {
   description?: string;
   categorySlug?: string;
   isSaleProducts?: boolean;
+  isLatestProducts?: boolean;
   categoryLink: string;
   buttonText: string;
   bgGradient: string;
@@ -68,6 +69,7 @@ export default function LazyProductSection({
   description,
   categorySlug,
   isSaleProducts = false,
+  isLatestProducts = false,
   categoryLink,
   buttonText,
   bgGradient,
@@ -125,10 +127,12 @@ export default function LazyProductSection({
 
           if (isSaleProducts) {
             response = await fetch('/api/products/sale?limit=8', fetchOptions);
+          } else if (isLatestProducts) {
+            response = await fetch('/api/products/latest?limit=8', fetchOptions);
           } else if (categorySlug) {
             response = await fetch(`/api/products/category/${categorySlug}?limit=8`, fetchOptions);
           } else {
-            throw new Error('Either categorySlug or isSaleProducts must be provided');
+            throw new Error('Either categorySlug, isSaleProducts, or isLatestProducts must be provided');
           }
           
           clearTimeout(timeoutId);
@@ -143,7 +147,7 @@ export default function LazyProductSection({
         } catch (error) {
           if (error instanceof Error) {
             if (error.name === 'AbortError') {
-              console.warn('Product fetch was aborted (timeout or component unmounted):', categorySlug || 'sale');
+              console.warn('Product fetch was aborted (timeout or component unmounted):', categorySlug || isSaleProducts ? 'sale' : 'latest');
             } else {
               console.error('Error loading products:', error.message);
             }
@@ -161,7 +165,7 @@ export default function LazyProductSection({
         abortController.abort();
       };
     }
-  }, [isVisible, isLoading, categorySlug, isSaleProducts]);
+  }, [isVisible, isLoading, categorySlug, isSaleProducts, isLatestProducts]);
 
   if (!isVisible) {
     return <section ref={sectionRef}></section>;
