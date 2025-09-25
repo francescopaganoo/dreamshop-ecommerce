@@ -6,6 +6,7 @@ import { ProductVariation, ProductAttribute, Product } from '../../lib/api';
 import { useCart, CartItem } from '../../context/CartContext';
 import ProductNotificationForm from '../ProductNotificationForm';
 import GiftCardForm, { GiftCardData } from './GiftCardForm';
+import GiftCardCustomAmount from './GiftCardCustomAmount';
 
 interface ProductVariationsProps {
   productId: number;
@@ -17,14 +18,20 @@ interface ProductVariationsProps {
     option: string;
   }>;
   productName: string;
+  productImages?: Array<{
+    id: number;
+    src: string;
+    alt: string;
+  }>;
 }
 
-export default function ProductVariations({ 
-  productId, 
-  attributes, 
-  variations, 
+export default function ProductVariations({
+  productId,
+  attributes,
+  variations,
   defaultAttributes,
-  productName 
+  productName,
+  productImages
 }: ProductVariationsProps) {
   // Stati essenziali
   const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string>>({});
@@ -36,6 +43,7 @@ export default function ProductVariations({
   const [variationsLoaded, setVariationsLoaded] = useState<boolean>(false);
   const [isAddingToCart, setIsAddingToCart] = useState<boolean>(false);
   const [giftCardData, setGiftCardData] = useState<GiftCardData | null>(null);
+  const [customAmount, setCustomAmount] = useState<number | undefined>(undefined);
   const [isGiftCardProduct, setIsGiftCardProduct] = useState<boolean>(false);
   const { addToCart } = useCart();
   
@@ -197,7 +205,8 @@ export default function ProductVariations({
   
   // Gestisce l'aggiunta al carrello di una variazione di prodotto
   const handleAddToCart = () => {
-    if (!selectedVariation) {
+    // Per le gift card con importo personalizzato, non è necessaria una variazione
+    if (!selectedVariation && !(isGiftCardProduct && customAmount)) {
       setMessage('Seleziona una variazione prima di aggiungere al carrello');
       setShowMessage(true);
       return;
@@ -221,8 +230,8 @@ export default function ProductVariations({
 
     if (isAddingToCart) return;
     
-    // Controllo preliminare della quantità disponibile
-    if (selectedVariation.manage_stock && typeof selectedVariation.stock_quantity === 'number' && 
+    // Controllo preliminare della quantità disponibile (solo se c'è una variazione selezionata)
+    if (selectedVariation && selectedVariation.manage_stock && typeof selectedVariation.stock_quantity === 'number' &&
         quantity > selectedVariation.stock_quantity) {
       setMessage(`Disponibilità insufficiente. Massimo disponibile: ${selectedVariation.stock_quantity} pezzi`);
       setShowMessage(true);
@@ -232,57 +241,108 @@ export default function ProductVariations({
     setIsAddingToCart(true);
     
     try {
-      const variationDetails = selectedVariation.attributes
-        ?.map(attr => `${attr.name}: ${attr.option}`)
-        .join(', ') || `Variazione #${selectedVariation.id}`;
-      
-      let productWithVariation: Product = {
-        id: productId,
-        name: `${productName} - ${variationDetails}`,
-        price: selectedVariation.price,
-        regular_price: selectedVariation.regular_price,
-        sale_price: selectedVariation.sale_price,
-        description: '',
-        short_description: '',
-        permalink: '',
-        slug: '',
-        type: 'variation',
-        stock_status: selectedVariation.stock_status,
-        stock_quantity: selectedVariation.stock_quantity,
-        manage_stock: selectedVariation.manage_stock,
-        images: selectedVariation.image ? [{ id: 0, src: selectedVariation.image.src, alt: '' }] : [],
-        categories: []
-      };
+      let variationDetails = '';
+      let productWithVariation: Product;
+
+      if (selectedVariation) {
+        // Caso normale con variazione selezionata
+        variationDetails = selectedVariation.attributes
+          ?.map(attr => `${attr.name}: ${attr.option}`)
+          .join(', ') || `Variazione #${selectedVariation.id}`;
+
+        productWithVariation = {
+          id: productId,
+          name: `${productName} - ${variationDetails}`,
+          price: selectedVariation.price,
+          regular_price: selectedVariation.regular_price,
+          sale_price: selectedVariation.sale_price,
+          description: '',
+          short_description: '',
+          permalink: '',
+          slug: '',
+          type: 'variation',
+          stock_status: selectedVariation.stock_status,
+          stock_quantity: selectedVariation.stock_quantity,
+          manage_stock: selectedVariation.manage_stock,
+          images: selectedVariation.image ? [{ id: 0, src: selectedVariation.image.src, alt: '' }] : [],
+          categories: []
+        };
+      } else {
+        // Caso gift card con importo personalizzato senza variazione
+        variationDetails = `Importo personalizzato €${customAmount}`;
+
+        productWithVariation = {
+          id: productId,
+          name: `${productName} - ${variationDetails}`,
+          price: customAmount?.toString() || '0',
+          regular_price: customAmount?.toString() || '0',
+          sale_price: '',
+          description: '',
+          short_description: '',
+          permalink: '',
+          slug: '',
+          type: 'simple',
+          stock_status: 'instock',
+          stock_quantity: null,
+          manage_stock: false,
+          images: productImages || [],
+          categories: []
+        };
+      }
 
       // Se è un prodotto gift card, aggiungi i metadati
       if (isGiftCardProduct && giftCardData) {
+        const giftCardMetaData = [
+          { key: '_gift_card_recipient_email', value: giftCardData.recipientEmail },
+          { key: '_gift_card_recipient_name', value: giftCardData.recipientName || '' },
+          { key: '_gift_card_message', value: giftCardData.message || '' }
+        ];
+
+        // Se usa un importo personalizzato, aggiungilo ai metadati e modifica il prezzo
+        if (customAmount) {
+          giftCardMetaData.push({ key: '_gift_card_custom_amount', value: customAmount.toString() });
+
+          // Modifica il prezzo del prodotto per riflettere l'importo personalizzato
+          productWithVariation = {
+            ...productWithVariation,
+            price: customAmount.toString(),
+            regular_price: customAmount.toString(),
+            sale_price: ''
+          };
+        }
+
         productWithVariation = {
           ...productWithVariation,
           meta_data: [
             ...(productWithVariation.meta_data || []),
-            { key: '_gift_card_recipient_email', value: giftCardData.recipientEmail },
-            { key: '_gift_card_recipient_name', value: giftCardData.recipientName || '' },
-            { key: '_gift_card_message', value: giftCardData.message || '' }
+            ...giftCardMetaData
           ]
         };
       }
       
-      const formattedAttributes = selectedVariation.attributes?.map(attr => ({
+      const formattedAttributes = selectedVariation?.attributes?.map(attr => ({
         id: attr.id,
         name: attr.name,
         option: attr.option
       })) || [];
-      
+
+      const cartItemMetaData = isGiftCardProduct && giftCardData ? [
+        { key: '_gift_card_recipient_email', value: giftCardData.recipientEmail },
+        { key: '_gift_card_recipient_name', value: giftCardData.recipientName || '' },
+        { key: '_gift_card_message', value: giftCardData.message || '' }
+      ] : [];
+
+      // Se usa importo personalizzato, aggiungilo ai meta_data del cart item
+      if (isGiftCardProduct && customAmount) {
+        cartItemMetaData.push({ key: '_gift_card_custom_amount', value: customAmount.toString() });
+      }
+
       const cartItem: CartItem = {
         product: productWithVariation,
         quantity: quantity,
-        variation_id: selectedVariation.id,
+        variation_id: selectedVariation?.id || 0,
         attributes: formattedAttributes,
-        meta_data: isGiftCardProduct && giftCardData ? [
-          { key: '_gift_card_recipient_email', value: giftCardData.recipientEmail },
-          { key: '_gift_card_recipient_name', value: giftCardData.recipientName },
-          { key: '_gift_card_message', value: giftCardData.message }
-        ] : []
+        meta_data: cartItemMetaData
       };
       
       // Utilizziamo il risultato restituito dalla funzione addToCart
@@ -353,6 +413,11 @@ export default function ProductVariations({
   // Gestisce il cambio dei dati gift card
   const handleGiftCardDataChange = (data: GiftCardData) => {
     setGiftCardData(data);
+  };
+
+  // Gestisce il cambio dell'importo personalizzato
+  const handleCustomAmountChange = (amount: number | undefined) => {
+    setCustomAmount(amount);
   };
 
   // Formatta il prezzo con il simbolo della valuta
@@ -560,6 +625,14 @@ export default function ProductVariations({
         </div>
       )}
 
+      {/* Importo personalizzato Gift Card - solo per prodotti gift card */}
+      {isGiftCardProduct && (
+        <GiftCardCustomAmount
+          productId={productId}
+          onAmountChange={handleCustomAmountChange}
+        />
+      )}
+
       {/* Form Gift Card - solo per prodotti gift card */}
       {isGiftCardProduct && (
         <GiftCardForm
@@ -572,18 +645,23 @@ export default function ProductVariations({
       {variationsLoaded && variations.length > 0 && (
         <button
           onClick={handleAddToCart}
-          disabled={!selectedVariation || selectedVariation.stock_status !== 'instock' || isAddingToCart}
+          disabled={
+            (!selectedVariation && !(isGiftCardProduct && customAmount)) ||
+            (selectedVariation && selectedVariation.stock_status !== 'instock') ||
+            isAddingToCart
+          }
           className={`w-full py-3 px-6 rounded-md font-medium text-center flex items-center justify-center ${
-            !selectedVariation || selectedVariation.stock_status !== 'instock'
+            (!selectedVariation && !(isGiftCardProduct && customAmount)) ||
+            (selectedVariation && selectedVariation.stock_status !== 'instock')
               ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
               : isAddingToCart
                 ? 'bg-bred-700 text-white cursor-not-allowed'
                 : 'bg-bred-500 text-white hover:bg-bred-700 transition-colors'
           }`}
         >
-          {!selectedVariation ? (
-            'Seleziona una variante'
-          ) : selectedVariation.stock_status !== 'instock' ? (
+          {!selectedVariation && !(isGiftCardProduct && customAmount) ? (
+            isGiftCardProduct ? 'Seleziona una variante o inserisci importo personalizzato' : 'Seleziona una variante'
+          ) : selectedVariation && selectedVariation.stock_status !== 'instock' ? (
             'Non disponibile'
           ) : (
             <>
@@ -591,7 +669,9 @@ export default function ProductVariations({
                 <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
               </svg>
               {isGiftCardProduct
-                ? `Acquista Gift Card ${quantity > 1 ? quantity + ' pezzi' : ''}`
+                ? customAmount
+                  ? `Acquista Gift Card €${customAmount} ${quantity > 1 ? quantity + ' pezzi' : ''}`
+                  : `Acquista Gift Card ${quantity > 1 ? quantity + ' pezzi' : ''}`
                 : isPreOrder
                   ? `Pre-ordina ora ${quantity > 1 ? quantity + ' pezzi' : ''}`
                   : `Aggiungi ${quantity > 1 ? quantity + ' pezzi' : ''} al carrello`

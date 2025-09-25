@@ -197,7 +197,8 @@ export default function CartPage() {
         variation_id: item.variation_id,
         name: item.product.name,
         quantity: item.quantity,
-        price: item.product.price
+        price: item.product.price,
+        meta_data: item.meta_data || []
       }));
       
       // Chiama l'API per verificare la disponibilità

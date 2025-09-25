@@ -99,8 +99,17 @@ class GiftCard_Order_Handler {
                     continue;
                 }
 
-                // Ottieni il valore della gift card dal prezzo dell'item
-                $gift_card_amount = floatval($item->get_subtotal());
+                // Controlla prima se c'è un importo personalizzato
+                $custom_amount = $item->get_meta('_gift_card_custom_amount');
+
+                if (!empty($custom_amount) && is_numeric($custom_amount)) {
+                    // Usa l'importo personalizzato se presente
+                    $gift_card_amount = floatval($custom_amount);
+                } else {
+                    // Altrimenti usa il prezzo dell'item come prima
+                    $gift_card_amount = floatval($item->get_subtotal());
+                }
+
                 $quantity = intval($item->get_quantity());
 
                 // Calcola il totale considerando la quantità
@@ -130,12 +139,16 @@ class GiftCard_Order_Handler {
                     );
 
                     if ($gift_card_code) {
+                        // Prepara la nota sull'importo utilizzato
+                        $amount_note = !empty($custom_amount) ? 'importo personalizzato' : 'importo da variazione';
+
                         // Aggiungi nota all'ordine
                         $order->add_order_note(sprintf(
-                            'Gift Card da €%.2f creata con codice %s per %s - Variazione: %s',
+                            'Gift Card da €%.2f creata con codice %s per %s - %s (%s)',
                             $total_amount,
                             $gift_card_code,
                             $recipient_email,
+                            $amount_note,
                             $variation_id ? wc_get_formatted_variation($product, true) : 'Prodotto semplice'
                         ));
 

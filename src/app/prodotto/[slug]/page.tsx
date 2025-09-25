@@ -329,6 +329,7 @@ async function ProductDetails({ slug }: { slug: string }) {
                     });
                   })()}
                   productName={product.name}
+                  productImages={product.images}
                 />
               </Suspense>
             ) : (
@@ -450,17 +451,28 @@ async function BestSellingProductsSection() {
 }
 
 // Componente per caricare le variazioni in modo asincrono
-async function ProductVariationsLoader({ productId, attributes, productName }: { productId: number, attributes: Array<{id: number; name: string; position: number; visible: boolean; variation: boolean; options: string[]}>, productName: string }) {
+async function ProductVariationsLoader({
+  productId,
+  attributes,
+  productName,
+  productImages
+}: {
+  productId: number,
+  attributes: Array<{id: number; name: string; position: number; visible: boolean; variation: boolean; options: string[]}>,
+  productName: string,
+  productImages?: Array<{id: number; src: string; alt: string}>
+}) {
   // Importiamo getProductVariations solo quando necessario
   const { getProductVariations } = await import('../../../lib/api');
   const variations = await getProductVariations(productId);
-  
+
   return (
-    <ProductVariations 
+    <ProductVariations
       productId={productId}
       attributes={attributes}
       variations={variations}
       productName={productName}
+      productImages={productImages}
     />
   );
 }

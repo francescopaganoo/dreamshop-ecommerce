@@ -9,6 +9,7 @@ import AppleGooglePayButton from '@/components/product/AppleGooglePayButton';
 import ProductNotificationForm from '@/components/ProductNotificationForm';
 import { getDepositMetadata } from '@/lib/deposits';
 import GiftCardForm, { GiftCardData } from '@/components/product/GiftCardForm';
+import GiftCardCustomAmount from '@/components/product/GiftCardCustomAmount';
 
 interface SimpleProductAddToCartProps {
   product: Product;
@@ -21,6 +22,7 @@ export default function SimpleProductAddToCart({ product }: SimpleProductAddToCa
   const [isAddingToCart, setIsAddingToCart] = useState<boolean>(false);
   const [enableDeposit, setEnableDeposit] = useState<'yes' | 'no'>('no');
   const [giftCardData, setGiftCardData] = useState<GiftCardData | null>(null);
+  const [customAmount, setCustomAmount] = useState<number | undefined>(undefined);
   const [isGiftCardProduct, setIsGiftCardProduct] = useState<boolean>(false);
   const { addToCart } = useCart();
   
@@ -261,15 +263,36 @@ export default function SimpleProductAddToCart({ product }: SimpleProductAddToCa
 
         // Se è un prodotto gift card, aggiungi i metadati
         if (isGiftCardProduct && giftCardData) {
-          productToAdd = {
-            ...product,
-            meta_data: [
-              ...(product.meta_data || []),
-              { key: '_gift_card_recipient_email', value: giftCardData.recipientEmail },
-              { key: '_gift_card_recipient_name', value: giftCardData.recipientName || '' },
-              { key: '_gift_card_message', value: giftCardData.message || '' }
-            ]
-          };
+          const giftCardMetaData = [
+            { key: '_gift_card_recipient_email', value: giftCardData.recipientEmail },
+            { key: '_gift_card_recipient_name', value: giftCardData.recipientName || '' },
+            { key: '_gift_card_message', value: giftCardData.message || '' }
+          ];
+
+          // Se usa un importo personalizzato, aggiungilo ai metadati e modifica il prezzo
+          if (customAmount) {
+            giftCardMetaData.push({ key: '_gift_card_custom_amount', value: customAmount.toString() });
+
+            // Modifica il prezzo del prodotto per riflettere l'importo personalizzato
+            productToAdd = {
+              ...product,
+              price: customAmount.toString(),
+              regular_price: customAmount.toString(),
+              sale_price: '',
+              meta_data: [
+                ...(product.meta_data || []),
+                ...giftCardMetaData
+              ]
+            };
+          } else {
+            productToAdd = {
+              ...product,
+              meta_data: [
+                ...(product.meta_data || []),
+                ...giftCardMetaData
+              ]
+            };
+          }
         }
 
         const result = addToCart(productToAdd, quantity);
@@ -303,6 +326,11 @@ export default function SimpleProductAddToCart({ product }: SimpleProductAddToCa
   // Gestisce il cambio dei dati gift card
   const handleGiftCardDataChange = (data: GiftCardData) => {
     setGiftCardData(data);
+  };
+
+  // Gestisce il cambio dell'importo personalizzato
+  const handleCustomAmountChange = (amount: number | undefined) => {
+    setCustomAmount(amount);
   };
   
   return (
@@ -343,6 +371,14 @@ export default function SimpleProductAddToCart({ product }: SimpleProductAddToCa
         <ProductDepositOptionsComponent
           product={product}
           onDepositOptionChange={handleDepositOptionChange}
+        />
+      )}
+
+      {/* Importo personalizzato Gift Card - solo per prodotti gift card */}
+      {isGiftCardProduct && (
+        <GiftCardCustomAmount
+          productId={product.id}
+          onAmountChange={handleCustomAmountChange}
         />
       )}
 

@@ -11,6 +11,7 @@ export interface GiftCardData {
   recipientEmail: string;
   recipientName: string;
   message: string;
+  customAmount?: number;
 }
 
 export default function GiftCardForm({ productId, onDataChange }: GiftCardFormProps) {
@@ -18,7 +19,8 @@ export default function GiftCardForm({ productId, onDataChange }: GiftCardFormPr
   const [formData, setFormData] = useState<GiftCardData>({
     recipientEmail: '',
     recipientName: '',
-    message: ''
+    message: '',
+    customAmount: undefined
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
@@ -74,7 +76,7 @@ export default function GiftCardForm({ productId, onDataChange }: GiftCardFormPr
     return emailRegex.test(email);
   };
 
-  const handleInputChange = (field: keyof GiftCardData, value: string) => {
+  const handleInputChange = (field: keyof GiftCardData, value: string | number | boolean) => {
     const newFormData = { ...formData, [field]: value };
     setFormData(newFormData);
 
@@ -84,18 +86,29 @@ export default function GiftCardForm({ productId, onDataChange }: GiftCardFormPr
     if (field === 'recipientEmail') {
       if (!value) {
         newErrors.recipientEmail = 'Email del destinatario è obbligatoria';
-      } else if (!validateEmail(value)) {
+      } else if (!validateEmail(value as string)) {
         newErrors.recipientEmail = 'Inserisci un indirizzo email valido';
       } else {
         delete newErrors.recipientEmail;
       }
     }
 
-    if (field === 'message' && value.length > 500) {
+    if (field === 'message' && (value as string).length > 500) {
       newErrors.message = 'Il messaggio non può superare i 500 caratteri';
-      newFormData.message = value.substring(0, 500);
+      newFormData.message = (value as string).substring(0, 500);
     } else if (field === 'message') {
       delete newErrors.message;
+    }
+
+    if (field === 'customAmount') {
+      const amount = value as number;
+      if (amount && amount < 5) {
+        newErrors.customAmount = 'L\'importo minimo è di €5';
+      } else if (amount && amount > 500) {
+        newErrors.customAmount = 'L\'importo massimo è di €500';
+      } else {
+        delete newErrors.customAmount;
+      }
     }
 
     setErrors(newErrors);
@@ -103,9 +116,11 @@ export default function GiftCardForm({ productId, onDataChange }: GiftCardFormPr
   };
 
   const isFormValid = () => {
-    return formData.recipientEmail &&
-           validateEmail(formData.recipientEmail) &&
-           Object.keys(errors).length === 0;
+    const isEmailValid = formData.recipientEmail && validateEmail(formData.recipientEmail);
+    const isAmountValid = !formData.customAmount || (formData.customAmount >= 5 && formData.customAmount <= 500);
+    const hasNoErrors = Object.keys(errors).length === 0;
+
+    return isEmailValid && isAmountValid && hasNoErrors;
   };
 
   return (
@@ -203,7 +218,7 @@ export default function GiftCardForm({ productId, onDataChange }: GiftCardFormPr
               <ul className="list-disc list-inside space-y-1 text-blue-600">
                 <li>Il destinatario riceverà una email con il codice della gift card</li>
                 <li>Potrà utilizzare il codice per i suoi acquisti sul nostro sito</li>
-                <li>La gift card non ha scadenza</li>
+                <li>La gift card scade dopo 1 anno dalla data di emissione</li>
               </ul>
             </div>
           </div>

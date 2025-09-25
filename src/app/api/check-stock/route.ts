@@ -8,6 +8,10 @@ interface CartItem {
   name: string;
   quantity: number;
   price: string;
+  meta_data?: Array<{
+    key: string;
+    value: string;
+  }>;
 }
 
 interface ProductData {
@@ -69,11 +73,16 @@ export async function POST(request: Request) {
           }
         }
         
-        // Verifica se il prezzo è cambiato
-        if (data.price && parseFloat(data.price) > 0) {
+        // Verifica se è una gift card con importo personalizzato
+        const isCustomAmountGiftCard = item.meta_data?.some(meta =>
+          meta.key === '_gift_card_custom_amount'
+        );
+
+        // Verifica se il prezzo è cambiato (salta per gift card con importo personalizzato)
+        if (!isCustomAmountGiftCard && data.price && parseFloat(data.price) > 0) {
           const currentPrice = parseFloat(data.price);
           const cartPrice = parseFloat(item.price);
-          
+
           // Se il prezzo è cambiato di più del 1%, segnalalo
           if (Math.abs(currentPrice - cartPrice) / cartPrice > 0.01) {
             stockIssues.push({
