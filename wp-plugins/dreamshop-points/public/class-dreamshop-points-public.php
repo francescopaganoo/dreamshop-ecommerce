@@ -451,26 +451,32 @@ class DreamShop_Points_Public {
     
     /**
      * Invia una notifica all'utente per i punti aggiunti
+     * DISATTIVATA: Email "Hai guadagnato punti!" non verrà più inviata
      *
      * @param int $user_id ID dell'utente
      * @param int $points Punti aggiunti
      * @param int $order_id ID dell'ordine
      */
     private function notify_points_added($user_id, $points, $order_id) {
+        // Email temporaneamente disattivata
+        return;
+
+        /*
+        // CODICE EMAIL COMMENTATO - SCOMMENTARE PER RIATTIVARE
         $user = get_user_by('id', $user_id);
-        
+
         if (!$user) {
             return;
         }
-        
+
         // Se è attivo WooCommerce Email, usa quello
         if (class_exists('WC_Email')) {
             $mailer = WC()->mailer();
-            
+
             // Template dell'email
             $heading = __('Hai guadagnato punti!', 'dreamshop-points');
             $subject = __('Hai guadagnato punti col tuo ordine', 'dreamshop-points');
-            
+
             // Contenuto dell'email
             $message = sprintf(
                 __('Congratulazioni %s!<br><br>Hai guadagnato <strong>%d punti</strong> con il tuo ordine #%s.<br><br>Visita la tua <a href="%s">pagina account</a> per vedere il tuo saldo punti.', 'dreamshop-points'),
@@ -479,17 +485,18 @@ class DreamShop_Points_Public {
                 $order_id,
                 wc_get_account_endpoint_url('')
             );
-            
+
             // Wrap the content with WooCommerce email template
             $content = $mailer->wrap_message($heading, $message);
-            
+
             // Create a new email
             $email = new WC_Email();
             $email_content = apply_filters('woocommerce_mail_content', $email->style_inline($content));
-            
+
             // Send the email
             $mailer->send($user->user_email, $subject, $email_content);
         }
+        */
     }
     
     /**
