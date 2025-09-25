@@ -351,13 +351,11 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
           <WishlistButton productId={product.id} />
         </div>
         
-        {/* Badge offerta - se necessario - più piccolo su mobile */}
-        {product.sale_price && (
-          <div className="absolute top-2 left-2 md:top-5 md:left-5">
-            <div className="bg-green-500 text-white text-xs font-medium px-1 py-1 md:px-2 md:py-1 rounded-md">
-              {product.regular_price && product.sale_price 
-                ? `-${Math.ceil(((parseFloat(product.regular_price) - parseFloat(product.sale_price)) / parseFloat(product.regular_price)) * 100)}%`
-                : 'Offerta'}
+        {/* Badge offerta - verde per indicare risparmio */}
+        {product.sale_price && product.regular_price && parseFloat(product.sale_price) < parseFloat(product.regular_price) && (
+          <div className="absolute top-2 left-2 md:top-5 md:left-5 z-10">
+            <div className="bg-green-500 text-white text-xs font-bold px-2 py-1 md:px-3 md:py-1 rounded-full shadow-lg">
+              -{Math.ceil(((parseFloat(product.regular_price) - parseFloat(product.sale_price)) / parseFloat(product.regular_price)) * 100)}%
             </div>
           </div>
         )}
