@@ -298,116 +298,118 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
                   </div>
                 </div>
               ) : products.length > 0 ? (
-                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-                  {products
-                    .filter((product, index, self) =>
-                      index === self.findIndex(p => p.id === product.id)
-                    )
-                    .map((product: Product, index: number) => (
-                      <ProductCard
-                        key={`${product.id}-${index}`}
-                        product={product}
-                        priority={index < 6} // Priorità per i primi 6 prodotti (above the fold)
-                      />
-                    ))}
-                </div>
+                <>
+                  <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+                    {products
+                      .filter((product, index, self) =>
+                        index === self.findIndex(p => p.id === product.id)
+                      )
+                      .map((product: Product, index: number) => (
+                        <ProductCard
+                          key={`${product.id}-${index}`}
+                          product={product}
+                          priority={index < 6} // Priorità per i primi 6 prodotti (above the fold)
+                        />
+                      ))}
+                  </div>
+
+                  {/* Pagination */}
+                  <div className="mt-8 flex justify-center">
+                    <div className="flex items-center space-x-1">
+                      {/* Precedente */}
+                      {page > 1 && (() => {
+                        const prevSearchParams = new URLSearchParams(window.location.search);
+                        prevSearchParams.set('page', (page - 1).toString());
+                        return (
+                          <Link
+                            href={`/category/${categorySlug}?${prevSearchParams.toString()}`}
+                            className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 mr-2"
+                          >
+                            Precedente
+                          </Link>
+                        );
+                      })()}
+
+                      {/* Numeri pagina */}
+                      {(() => {
+                        const pageNumbers = [];
+                        const maxVisible = 7;
+                        const maxPage = Math.ceil(totalProducts / perPage);
+
+                        const start = Math.max(1, page - Math.floor(maxVisible / 2));
+                        const end = Math.min(maxPage, start + maxVisible - 1);
+
+                        // Aggiungi prima pagina se non è visibile
+                        if (start > 1) {
+                          const firstPageParams = new URLSearchParams(window.location.search);
+                          firstPageParams.set('page', '1');
+                          pageNumbers.push(
+                            <Link
+                              key={1}
+                              href={`/category/${categorySlug}?${firstPageParams.toString()}`}
+                              className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100"
+                            >
+                              1
+                            </Link>
+                          );
+
+                          if (start > 2) {
+                            pageNumbers.push(
+                              <span key="dots1" className="px-2 py-2 text-gray-500">...</span>
+                            );
+                          }
+                        }
+
+                        // Pagine centrali
+                        for (let i = start; i <= end; i++) {
+                          if (i === page) {
+                            pageNumbers.push(
+                              <span
+                                key={i}
+                                className="px-3 py-2 bg-gray-200 text-gray-700 rounded-md font-medium cursor-not-allowed"
+                              >
+                                {i}
+                              </span>
+                            );
+                          } else if (i <= maxPage) {
+                            const pageParams = new URLSearchParams(window.location.search);
+                            pageParams.set('page', i.toString());
+                            pageNumbers.push(
+                              <Link
+                                key={i}
+                                href={`/category/${categorySlug}?${pageParams.toString()}`}
+                                className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100"
+                              >
+                                {i}
+                              </Link>
+                            );
+                          }
+                        }
+
+                        return pageNumbers;
+                      })()}
+
+                      {/* Successivo */}
+                      {page < Math.ceil(totalProducts / perPage) && (() => {
+                        const nextSearchParams = new URLSearchParams(window.location.search);
+                        nextSearchParams.set('page', (page + 1).toString());
+                        return (
+                          <Link
+                            href={`/category/${categorySlug}?${nextSearchParams.toString()}`}
+                            className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 ml-2"
+                          >
+                            Successivo
+                          </Link>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </>
               ) : (
                 <div className="text-center py-12">
                   <p className="text-gray-500">Nessun prodotto trovato in questa categoria.</p>
                 </div>
               )}
-            </div>
-          </div>
-          
-          {/* Pagination */}
-          <div className="mt-12 flex justify-center">
-            <div className="flex items-center space-x-1">
-              {/* Precedente */}
-              {page > 1 && (() => {
-                const prevSearchParams = new URLSearchParams(window.location.search);
-                prevSearchParams.set('page', (page - 1).toString());
-                return (
-                  <Link
-                    href={`/category/${categorySlug}?${prevSearchParams.toString()}`}
-                    className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 mr-2"
-                  >
-                    Precedente
-                  </Link>
-                );
-              })()}
-              
-              {/* Numeri pagina */}
-              {(() => {
-                const pageNumbers = [];
-                const maxVisible = 7;
-                const maxPage = Math.ceil(totalProducts / perPage);
-
-                const start = Math.max(1, page - Math.floor(maxVisible / 2));
-                const end = Math.min(maxPage, start + maxVisible - 1);
-                
-                // Aggiungi prima pagina se non è visibile
-                if (start > 1) {
-                  const firstPageParams = new URLSearchParams(window.location.search);
-                  firstPageParams.set('page', '1');
-                  pageNumbers.push(
-                    <Link
-                      key={1}
-                      href={`/category/${categorySlug}?${firstPageParams.toString()}`}
-                      className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100"
-                    >
-                      1
-                    </Link>
-                  );
-                  
-                  if (start > 2) {
-                    pageNumbers.push(
-                      <span key="dots1" className="px-2 py-2 text-gray-500">...</span>
-                    );
-                  }
-                }
-                
-                // Pagine centrali
-                for (let i = start; i <= end; i++) {
-                  if (i === page) {
-                    pageNumbers.push(
-                      <span 
-                        key={i}
-                        className="px-3 py-2 bg-gray-200 text-gray-700 rounded-md font-medium cursor-not-allowed"
-                      >
-                        {i}
-                      </span>
-                    );
-                  } else if (i <= maxPage) {
-                    const pageParams = new URLSearchParams(window.location.search);
-                    pageParams.set('page', i.toString());
-                    pageNumbers.push(
-                      <Link
-                        key={i}
-                        href={`/category/${categorySlug}?${pageParams.toString()}`}
-                        className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100"
-                      >
-                        {i}
-                      </Link>
-                    );
-                  }
-                }
-                
-                return pageNumbers;
-              })()}
-              
-              {/* Successivo */}
-              {page < Math.ceil(totalProducts / perPage) && (() => {
-                const nextSearchParams = new URLSearchParams(window.location.search);
-                nextSearchParams.set('page', (page + 1).toString());
-                return (
-                  <Link
-                    href={`/category/${categorySlug}?${nextSearchParams.toString()}`}
-                    className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 ml-2"
-                  >
-                    Successivo
-                  </Link>
-                );
-              })()}
             </div>
           </div>
         </div>
