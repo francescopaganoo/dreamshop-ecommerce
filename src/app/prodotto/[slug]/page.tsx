@@ -7,7 +7,7 @@ import SimpleProductAddToCart from '@/components/product/SimpleProductAddToCart'
 import ProductSkeleton from '@/components/product/ProductSkeleton';
 import ProductActions from '@/components/product/ProductActions';
 import BundleProducts from '@/components/product/BundleProducts';
-import ProductImageGallery from '@/components/product/ProductImageGallery';
+import ProductImagesSection from '@/components/product/ProductImagesSection';
 import SaleCountdown from '@/components/product/SaleCountdown';
 import ProductCard from '@/components/ProductCard';
 import { isBundle, BundleProduct } from '@/types/bundle';
@@ -102,7 +102,7 @@ async function ProductDetails({ slug }: { slug: string }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
         {/* Product Images & Specifications */}
         <div>
-          <ProductImageGallery 
+          <ProductImagesSection
             images={product.images || []}
             productName={product.name}
             isOnSale={!!isOnSale}

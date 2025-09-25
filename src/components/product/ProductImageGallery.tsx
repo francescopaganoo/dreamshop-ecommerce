@@ -13,10 +13,21 @@ interface ProductImageGalleryProps {
   images: ProductImage[];
   productName: string;
   isOnSale?: boolean;
+  selectedImageIndex?: number;
+  onImageSelect?: (index: number) => void;
 }
 
-export default function ProductImageGallery({ images, productName, isOnSale }: ProductImageGalleryProps) {
-  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+export default function ProductImageGallery({
+  images,
+  productName,
+  isOnSale,
+  selectedImageIndex: externalSelectedIndex,
+  onImageSelect
+}: ProductImageGalleryProps) {
+  const [internalSelectedIndex, setInternalSelectedIndex] = useState(0);
+
+  // Usa l'indice esterno se fornito, altrimenti usa quello interno
+  const selectedImageIndex = externalSelectedIndex !== undefined ? externalSelectedIndex : internalSelectedIndex;
   
   // Se non ci sono immagini, usa un placeholder
   const displayImages = images.length > 0 
@@ -52,7 +63,13 @@ export default function ProductImageGallery({ images, productName, isOnSale }: P
           {displayImages.map((image, index) => (
             <button
               key={image.id}
-              onClick={() => setSelectedImageIndex(index)}
+              onClick={() => {
+                if (onImageSelect) {
+                  onImageSelect(index);
+                } else {
+                  setInternalSelectedIndex(index);
+                }
+              }}
               className={`relative flex-shrink-0 w-20 h-20 bg-white rounded-lg border-2 overflow-hidden transition-all duration-200 ${
                 index === selectedImageIndex 
                   ? 'border-bred-500 ring-2 ring-bred-200' 

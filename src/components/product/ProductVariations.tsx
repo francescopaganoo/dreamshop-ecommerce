@@ -7,6 +7,7 @@ import { useCart, CartItem } from '../../context/CartContext';
 import ProductNotificationForm from '../ProductNotificationForm';
 import GiftCardForm, { GiftCardData } from './GiftCardForm';
 import GiftCardCustomAmount from './GiftCardCustomAmount';
+import { variationImageEvents } from './ProductImagesSection';
 
 interface ProductVariationsProps {
   productId: number;
@@ -176,7 +177,14 @@ export default function ProductVariations({
     
     setSelectedVariation(exactMatchingVariation || null);
   }, [selectedAttributes, variations, availableOptions]);
-  
+
+  // Emetti evento per cambiare l'immagine della galleria quando cambia la variazione selezionata
+  useEffect(() => {
+    if (selectedVariation && selectedVariation.image && !isGiftCardProduct) {
+      variationImageEvents.emit(selectedVariation.image.src);
+    }
+  }, [selectedVariation, isGiftCardProduct]);
+
   // Gestisce la selezione di un attributo
   const handleAttributeSelect = (attributeName: string, option: string) => {
     setSelectedAttributes(prev => {
@@ -193,13 +201,18 @@ export default function ProductVariations({
   // Gestisce la selezione di un'immagine di variazione
   const handleImageSelect = (variation: ProductVariation) => {
     setSelectedVariation(variation);
-    
+
     if (variation.attributes && variation.attributes.length > 0) {
       const attrs: Record<string, string> = {};
       variation.attributes.forEach(attr => {
         attrs[attr.name.toLowerCase()] = attr.option;
       });
       setSelectedAttributes(attrs);
+    }
+
+    // Cambia l'immagine principale nella galleria usando l'event emitter
+    if (variation.image) {
+      variationImageEvents.emit(variation.image.src);
     }
   };
   
