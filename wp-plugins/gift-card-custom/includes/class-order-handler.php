@@ -160,48 +160,32 @@ class GiftCard_Order_Handler {
         $purchaser = new WC_Customer($order->get_customer_id());
         $purchaser_name = $purchaser->get_first_name() . ' ' . $purchaser->get_last_name();
 
-        $subject = 'Hai ricevuto una Gift Card da ' . get_bloginfo('name');
+        $subject = '🎁 Hai ricevuto una Gift Card da ' . get_bloginfo('name');
 
-        // Costruisci il messaggio email
-        $email_message = sprintf(
-            "Ciao %s,\n\n" .
-            "Hai ricevuto una Gift Card da %s!\n\n" .
-            "Dettagli della Gift Card:\n" .
-            "- Codice: %s\n" .
-            "- Valore: €%.2f\n" .
-            "- Da: %s\n\n",
+        // Template HTML moderno per la Gift Card
+        $email_message = $this->get_gift_card_email_template(
             $recipient_name ?: 'Cliente',
             $purchaser_name,
             $gift_card_code,
             $amount,
-            $purchaser_name
-        );
-
-        // Aggiungi il messaggio personalizzato se presente
-        if (!empty($message)) {
-            $email_message .= "Messaggio personalizzato:\n\"" . $message . "\"\n\n";
-        }
-
-        $email_message .= sprintf(
-            "Come utilizzare la Gift Card:\n" .
-            "1. Vai sul sito %s\n" .
-            "2. Accedi al tuo account o registrati\n" .
-            "3. Vai nella sezione Gift Card del tuo account\n" .
-            "4. Inserisci il codice: %s\n" .
-            "5. Il saldo verrà aggiunto al tuo account e potrai utilizzarlo per i tuoi acquisti\n\n" .
-            "La Gift Card non ha scadenza.\n\n" .
-            "Buono shopping!\n" .
-            "Team %s",
+            $message,
             get_site_url(),
-            $gift_card_code,
             get_bloginfo('name')
         );
 
-        // Headers per email HTML (opzionale)
-        $headers = array('Content-Type: text/plain; charset=UTF-8');
+        // Headers per email HTML
+        $headers = array('Content-Type: text/html; charset=UTF-8');
+
+        // Personalizza mittente email per questa sessione
+        add_filter('wp_mail_from', array($this, 'custom_gift_card_mail_from'));
+        add_filter('wp_mail_from_name', array($this, 'custom_gift_card_mail_from_name'));
 
         // Invia l'email
         $sent = wp_mail($recipient_email, $subject, $email_message, $headers);
+
+        // Rimuovi i filtri dopo l'invio
+        remove_filter('wp_mail_from', array($this, 'custom_gift_card_mail_from'));
+        remove_filter('wp_mail_from_name', array($this, 'custom_gift_card_mail_from_name'));
 
         // Log dell'invio
         if ($sent) {
@@ -221,7 +205,128 @@ class GiftCard_Order_Handler {
 
         return $sent;
     }
-    
+
+    /**
+     * Template HTML moderno per la Gift Card
+     */
+    private function get_gift_card_email_template($recipient_name, $purchaser_name, $gift_card_code, $amount, $message, $site_url, $shop_name) {
+        $formatted_amount = number_format($amount, 2, ',', '.') . ' €';
+
+        $html = '
+        <div style="max-width: 600px; margin: 0 auto; font-family: \'Segoe UI\', Tahoma, Geneva, Verdana, sans-serif; background-color: #ffffff;">
+            <!-- Header -->
+            <div style="background: linear-gradient(135deg, #a2180e 0%, #8b1508 100%); color: white; padding: 30px 20px; text-align: center; border-radius: 10px 10px 0 0;">
+                <h1 style="margin: 0; font-size: 28px; font-weight: bold;">🎁 GIFT CARD RICEVUTA!</h1>
+                <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Un regalo speciale ti aspetta</p>
+            </div>
+
+            <!-- Content -->
+            <div style="padding: 40px 30px; background-color: #ffffff;">
+                <h2 style="color: #333333; font-size: 24px; margin: 0 0 20px 0; text-align: center;">
+                    Ciao ' . esc_html($recipient_name) . '! 👋
+                </h2>
+
+                <div style="background-color: #f8f9fa; padding: 25px; border-radius: 10px; border-left: 4px solid #a2180e; margin: 20px 0;">
+                    <p style="margin: 0 0 15px 0; font-size: 16px; color: #333333; line-height: 1.6;">
+                        <strong style="color: #a2180e;">' . esc_html($purchaser_name) . '</strong> ti ha inviato una Gift Card da utilizzare su ' . esc_html($shop_name) . '!
+                    </p>
+                </div>
+
+                <!-- Gift Card Section -->
+                <div style="background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%); border: 2px solid #a2180e; border-radius: 15px; padding: 30px; margin: 30px 0; text-align: center; position: relative;">
+                    <div style="background: linear-gradient(135deg, #a2180e 0%, #8b1508 100%); color: white; padding: 8px 20px; border-radius: 20px; display: inline-block; margin-bottom: 20px; font-size: 14px; font-weight: bold;">
+                        🎁 GIFT CARD
+                    </div>
+
+                    <h3 style="color: #a2180e; font-size: 24px; margin: 15px 0 10px 0; font-weight: bold;">
+                        VALORE: ' . $formatted_amount . '
+                    </h3>
+
+                    <div style="background-color: #ffffff; border: 2px dashed #a2180e; border-radius: 8px; padding: 15px; margin: 20px 0;">
+                        <p style="margin: 0 0 5px 0; font-size: 14px; color: #666666; font-weight: bold;">CODICE GIFT CARD:</p>
+                        <p style="margin: 0; font-size: 20px; font-weight: bold; color: #a2180e; letter-spacing: 2px; font-family: monospace;">
+                            ' . esc_html($gift_card_code) . '
+                        </p>
+                    </div>
+                </div>';
+
+        // Aggiungi messaggio personalizzato se presente
+        if (!empty($message)) {
+            $html .= '
+                <div style="background-color: #e8f5e8; border: 1px solid #28a745; padding: 20px; border-radius: 8px; margin: 25px 0;">
+                    <h4 style="margin: 0 0 10px 0; color: #155724; font-size: 16px;">💌 Messaggio da ' . esc_html($purchaser_name) . ':</h4>
+                    <p style="margin: 0; color: #155724; font-style: italic; font-size: 15px; line-height: 1.5;">
+                        "' . esc_html($message) . '"
+                    </p>
+                </div>';
+        }
+
+        $html .= '
+                <!-- Instructions -->
+                <div style="background-color: #f8f9fa; border-radius: 10px; padding: 25px; margin: 30px 0;">
+                    <h4 style="margin: 0 0 15px 0; color: #a2180e; font-size: 18px; text-align: center;">
+                        🛍️ Come utilizzare la tua Gift Card
+                    </h4>
+                    <ol style="margin: 0; padding-left: 20px; color: #333333; line-height: 1.8;">
+                        <li>Vai su <a href="' . esc_url($site_url) . '" style="color: #a2180e; text-decoration: none; font-weight: bold;">' . esc_html($shop_name) . '</a></li>
+                        <li>Accedi al tuo account o registrati se non hai ancora un account</li>
+                        <li>Vai nella sezione <strong>Gift Card</strong> del tuo account</li>
+                        <li>Inserisci il codice: <strong style="color: #a2180e;">' . esc_html($gift_card_code) . '</strong></li>
+                        <li>Il saldo verrà aggiunto al tuo account per i tuoi acquisti</li>
+                    </ol>
+                </div>
+
+                <!-- Important Notice -->
+                <div style="background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%); border: 1px solid #17a2b8; padding: 20px; border-radius: 8px; margin: 25px 0; text-align: center;">
+                    <p style="margin: 0; color: #0c5460; font-size: 16px; font-weight: bold;">
+                        ✨ La tua Gift Card non ha scadenza! ✨
+                    </p>
+                </div>
+
+                <!-- Footer Message -->
+                <div style="text-align: center; padding: 20px 0; border-top: 1px solid #e9ecef; margin-top: 30px;">
+                    <p style="margin: 0 0 10px 0; color: #666666; font-size: 18px; font-weight: bold;">
+                        Buono shopping! 🛒
+                    </p>
+                    <p style="margin: 0; color: #a2180e; font-size: 18px; font-weight: bold;">
+                        Il team di ' . esc_html($shop_name) . '
+                    </p>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div style="background-color: #f8f9fa; padding: 20px 30px; text-align: center; border-radius: 0 0 10px 10px; border-top: 1px solid #e9ecef;">
+                <p style="margin: 0 0 10px 0; font-size: 14px; color: #666666;">
+                    Visita il nostro store: <a href="' . esc_url($site_url) . '" style="color: #a2180e; text-decoration: none; font-weight: bold;">' . esc_html($shop_name) . '</a>
+                </p>
+                <p style="margin: 0; font-size: 12px; color: #999999;">
+                    Conserva questa email per riferimenti futuri
+                </p>
+            </div>
+        </div>
+        ';
+
+        return $html;
+    }
+
+    /**
+     * Personalizza l'indirizzo email del mittente per le Gift Card
+     */
+    public function custom_gift_card_mail_from($original_email_address) {
+        // Usa l'email dell'admin del sito o un'email personalizzata
+        $admin_email = get_option('admin_email');
+        return $admin_email ? $admin_email : $original_email_address;
+    }
+
+    /**
+     * Personalizza il nome del mittente per le Gift Card
+     */
+    public function custom_gift_card_mail_from_name($original_email_from) {
+        // Usa il nome del sito invece di "WordPress"
+        $site_name = get_bloginfo('name');
+        return $site_name ? $site_name : $original_email_from;
+    }
+
     /**
      * Verifica se un ordine è un deposito o una rata per prevenire addebiti impropri
      *
