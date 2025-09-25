@@ -30,6 +30,7 @@ export default function CheckoutPage() {
   const stripe = useStripe();
   const elements = useElements();
   const [cardError, setCardError] = useState<string | null>(null);
+  const [termsError, setTermsError] = useState<string | null>(null);
   
   // Hook di PayPal
   // Rimuoviamo le variabili non utilizzate
@@ -77,6 +78,7 @@ export default function CheckoutPage() {
     shippingState: string;
     shippingPostcode: string;
     shippingCountry: string;
+    acceptTerms: boolean;
   }
 
   interface PayPalOrderData {
@@ -218,7 +220,8 @@ export default function CheckoutPage() {
     shippingState: '',
     shippingPostcode: '',
     shippingCountry: 'IT',
-    shippingPhone: ''
+    shippingPhone: '',
+    acceptTerms: false
   });
 
   // Stato per i paesi disponibili
@@ -492,7 +495,8 @@ export default function CheckoutPage() {
       shippingState: '',
       shippingPostcode: '',
       shippingCountry: 'IT',
-      shippingPhone: ''
+      shippingPhone: '',
+      acceptTerms: false
     });
     
     // Reset errori
@@ -644,6 +648,15 @@ export default function CheckoutPage() {
       return;
     }
     
+    // Verifica se l'utente ha accettato i termini e condizioni
+    if (!formData.acceptTerms) {
+      setTermsError('È necessario accettare i termini e condizioni per completare l\'ordine.');
+      return;
+    }
+
+    // Pulisci l'errore dei termini se è stato risolto
+    setTermsError(null);
+
     // Verifica se l'utente ha selezionato di creare un account ma non ha inserito una password
     if (!isAuthenticated && formData.createAccount && (!formData.password || formData.password.length < 6)) {
       setFormError('Per creare un account è necessario inserire una password di almeno 6 caratteri.');
@@ -2647,16 +2660,52 @@ export default function CheckoutPage() {
                     )}
                   </div>
                 )}
-                
+
+                {/* Checkbox per accettare i termini e condizioni */}
+                <div className="mb-6">
+                  <div className="flex items-start">
+                    <input
+                      id="acceptTerms"
+                      name="acceptTerms"
+                      type="checkbox"
+                      checked={formData.acceptTerms}
+                      onChange={(e) => {
+                        setFormData({...formData, acceptTerms: e.target.checked});
+                        if (e.target.checked) {
+                          setTermsError(null);
+                        }
+                      }}
+                      className="h-4 w-4 text-bred-500 focus:ring-bred-500 border-gray-300 rounded mt-1"
+                    />
+                    <label htmlFor="acceptTerms" className="ml-2 block text-sm text-gray-900">
+                      Accetto i{' '}
+                      <a
+                        href="/termini-vendita"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-bred-500 hover:text-bred-700 underline"
+                      >
+                        termini e condizioni
+                      </a>
+                      {' '}di vendita *
+                    </label>
+                  </div>
+                  {termsError && (
+                    <div className="mt-2 text-sm text-red-600">
+                      {termsError}
+                    </div>
+                  )}
+                </div>
+
                 <button
                   type="submit"
                   disabled={isSubmitting || isStripeLoading || isProcessingPayment || cart.length === 0 || orderSuccess}
                   className={`w-full py-3 px-4 rounded-md text-white font-medium ${(isSubmitting || isStripeLoading || isProcessingPayment || orderSuccess) ? 'bg-gray-400 cursor-not-allowed' : 'bg-bred-500 hover:bg-bred-700'}`}
                 >
                   {orderSuccess ? 'Ordine Completato ✓' :
-                   isSubmitting ? 'Elaborazione...' : 
-                   isStripeLoading ? 'Reindirizzamento a Stripe...' : 
-                   isProcessingPayment ? 'Preparazione pagamento...' : 
+                   isSubmitting ? 'Elaborazione...' :
+                   isStripeLoading ? 'Reindirizzamento a Stripe...' :
+                   isProcessingPayment ? 'Preparazione pagamento...' :
                    'Effettua Ordine'}
                 </button>
                 
