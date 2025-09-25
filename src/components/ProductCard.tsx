@@ -124,7 +124,15 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
   };
   
   // Verifica se il prodotto è variabile
-  const isVariable = product.type === 'variable';
+  const isGiftCard = product.name.toLowerCase().includes('gift card') ||
+                     product.name.toLowerCase().includes('gift-card') ||
+                     product.slug.toLowerCase().includes('gift-card');
+
+  const isVariable = product.type === 'variable' ||
+                     (product.variations && product.variations.length > 0) ||
+                     (product.attributes && product.attributes.some(attr => attr.variation)) ||
+                     isGiftCard;
+
   
   // Verifica se il prodotto è disponibile
   const hasValidPrice = product.price && parseFloat(product.price) > 0;
@@ -325,8 +333,8 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
         >
           <FaPlus className="mr-1 md:mr-2" size={10} />
           <span className="hidden md:inline">
-            {isVariable 
-              ? "Seleziona Opzioni" 
+            {isVariable
+              ? "Visualizza Prodotto"
               : !isInStock
                 ? "Non disponibile"
                 : isPreOrder
@@ -335,8 +343,8 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
             }
           </span>
           <span className="md:hidden">
-            {isVariable 
-              ? "Opzioni" 
+            {isVariable
+              ? "Visualizza"
               : !isInStock
                 ? "N/A"
                 : isPreOrder

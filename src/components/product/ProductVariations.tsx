@@ -283,7 +283,7 @@ export default function ProductVariations({
           slug: '',
           type: 'simple',
           stock_status: 'instock',
-          stock_quantity: null,
+          stock_quantity: undefined,
           manage_stock: false,
           images: productImages || [],
           categories: []
