@@ -20,17 +20,33 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true });
     }
     
-    // Invia la richiesta di reset password a WooCommerce
+    // Invia la richiesta di reset password al WordPress custom endpoint
     try {
-      await api.post('customers/password-reset', {
-        email: email
+      const backendUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL;
+      const frontendUrl = process.env.NODE_ENV === 'production'
+        ? 'https://your-frontend-domain.com' // Sostituisci con il tuo dominio frontend
+        : 'http://localhost:3000';
+
+      const response = await fetch(`${backendUrl}wp-json/custom/v1/password-reset`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email,
+          frontend_url: frontendUrl
+        }),
       });
-      
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       // Restituisci una risposta di successo
       return NextResponse.json({ success: true });
     } catch (error) {
-      console.error('Errore durante la richiesta di reset password a WooCommerce:', error);
-      
+      console.error('Errore durante la richiesta di reset password a WordPress:', error);
+
       // Anche in caso di errore, restituisci una risposta di successo per non rivelare informazioni sensibili
       return NextResponse.json({ success: true });
     }
