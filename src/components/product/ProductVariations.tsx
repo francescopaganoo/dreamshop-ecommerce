@@ -497,8 +497,8 @@ export default function ProductVariations({
         );
       })}
       
-      {/* Galleria delle variazioni con immagini */}
-      {variationsLoaded && variations.filter(v => v.image).length > 0 && (
+      {/* Galleria delle variazioni con immagini - nascosta per gift card */}
+      {variationsLoaded && variations.filter(v => v.image).length > 0 && !isGiftCardProduct && (
         <div className="mb-6">
           <h3 className="text-lg font-semibold mb-3 text-gray-900">Immagini varianti</h3>
           <div className="grid grid-cols-4 gap-2">
