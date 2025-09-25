@@ -256,6 +256,9 @@ class GiftCard_Database {
             $code = 'GC' . strtoupper(wp_generate_password(12, false, false));
         } while (self::gift_card_exists($code));
 
+        // Calcola la data di scadenza: 1 anno dalla data di creazione
+        $expires_at = date('Y-m-d H:i:s', strtotime('+1 year'));
+
         $result = $wpdb->insert(
             $table_name,
             array(
@@ -265,9 +268,10 @@ class GiftCard_Database {
                 'recipient_email' => $recipient_email,
                 'recipient_name' => $recipient_name,
                 'message' => $message,
-                'order_id' => $order_id
+                'order_id' => $order_id,
+                'expires_at' => $expires_at
             ),
-            array('%s', '%f', '%d', '%s', '%s', '%s', '%d')
+            array('%s', '%f', '%d', '%s', '%s', '%s', '%d', '%s')
         );
 
         if ($result) {

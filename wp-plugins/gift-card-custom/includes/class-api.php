@@ -470,7 +470,9 @@ class GiftCard_API {
                     'is_valid' => !$is_redeemed && !$is_expired,
                     'recipient_email' => $gift_card->recipient_email,
                     'created_at' => $gift_card->created_at,
-                    'redeemed_at' => $gift_card->redeemed_at
+                    'redeemed_at' => $gift_card->redeemed_at,
+                    'expires_at' => $gift_card->expires_at,
+                    'formatted_expires_at' => $gift_card->expires_at ? date_i18n('d/m/Y', strtotime($gift_card->expires_at)) : null
                 )
             ));
 
@@ -491,6 +493,8 @@ class GiftCard_API {
 
             $formatted_gift_cards = array();
             foreach ($gift_cards as $gift_card) {
+                $is_expired = $gift_card->expires_at && strtotime($gift_card->expires_at) < time();
+
                 $formatted_gift_cards[] = array(
                     'id' => intval($gift_card->id),
                     'code' => $gift_card->code,
@@ -500,10 +504,13 @@ class GiftCard_API {
                     'recipient_name' => $gift_card->recipient_name,
                     'message' => $gift_card->message,
                     'is_redeemed' => intval($gift_card->is_redeemed),
+                    'is_expired' => $is_expired,
                     'created_at' => $gift_card->created_at,
                     'redeemed_at' => $gift_card->redeemed_at,
+                    'expires_at' => $gift_card->expires_at,
                     'formatted_created_at' => date_i18n('d/m/Y H:i', strtotime($gift_card->created_at)),
-                    'formatted_redeemed_at' => $gift_card->redeemed_at ? date_i18n('d/m/Y H:i', strtotime($gift_card->redeemed_at)) : null
+                    'formatted_redeemed_at' => $gift_card->redeemed_at ? date_i18n('d/m/Y H:i', strtotime($gift_card->redeemed_at)) : null,
+                    'formatted_expires_at' => $gift_card->expires_at ? date_i18n('d/m/Y', strtotime($gift_card->expires_at)) : null
                 );
             }
 

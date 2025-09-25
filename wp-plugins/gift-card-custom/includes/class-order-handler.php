@@ -162,6 +162,10 @@ class GiftCard_Order_Handler {
 
         $subject = '🎁 Hai ricevuto una Gift Card da ' . get_bloginfo('name');
 
+        // Ottieni la gift card appena creata per includere la data di scadenza
+        $gift_card = GiftCard_Database::get_gift_card_by_code($gift_card_code);
+        $expires_at = $gift_card ? $gift_card->expires_at : null;
+
         // Template HTML moderno per la Gift Card
         $email_message = $this->get_gift_card_email_template(
             $recipient_name ?: 'Cliente',
@@ -170,7 +174,8 @@ class GiftCard_Order_Handler {
             $amount,
             $message,
             get_site_url(),
-            get_bloginfo('name')
+            get_bloginfo('name'),
+            $expires_at
         );
 
         // Headers per email HTML
@@ -209,7 +214,7 @@ class GiftCard_Order_Handler {
     /**
      * Template HTML moderno per la Gift Card
      */
-    private function get_gift_card_email_template($recipient_name, $purchaser_name, $gift_card_code, $amount, $message, $site_url, $shop_name) {
+    private function get_gift_card_email_template($recipient_name, $purchaser_name, $gift_card_code, $amount, $message, $site_url, $shop_name, $expires_at = null) {
         $formatted_amount = number_format($amount, 2, ',', '.') . ' €';
 
         $html = '
@@ -276,10 +281,13 @@ class GiftCard_Order_Handler {
                     </ol>
                 </div>
 
-                <!-- Important Notice -->
-                <div style="background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%); border: 1px solid #17a2b8; padding: 20px; border-radius: 8px; margin: 25px 0; text-align: center;">
-                    <p style="margin: 0; color: #0c5460; font-size: 16px; font-weight: bold;">
-                        ✨ La tua Gift Card non ha scadenza! ✨
+                <!-- Expiration Notice -->
+                <div style="background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%); border: 1px solid #ffc107; padding: 20px; border-radius: 8px; margin: 25px 0; text-align: center;">
+                    <p style="margin: 0; color: #856404; font-size: 16px; font-weight: bold;">
+                        ⏰ Scadenza Gift Card: ' . ($expires_at ? date('d/m/Y', strtotime($expires_at)) : 'Nessuna scadenza') . '
+                    </p>
+                    <p style="margin: 5px 0 0 0; color: #856404; font-size: 14px;">
+                        Utilizza la tua Gift Card entro questa data!
                     </p>
                 </div>
 
