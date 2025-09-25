@@ -39,16 +39,50 @@ class GiftCard_Order_Handler {
             return;
         }
 
+        // Verifica aggiuntiva: controlla se esistono già gift card per questo ordine
+        global $wpdb;
+        $existing_gift_cards = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$wpdb->prefix}gift_cards WHERE order_id = %d",
+            $order_id
+        ));
+
+        if ($existing_gift_cards > 0) {
+            // Se esistono già gift card per questo ordine, marca come processato e esci
+            update_post_meta($order_id, '_gift_card_processed', true);
+            return;
+        }
+
         // SICUREZZA: Verifica che l'ordine non sia un ordine di deposito/rata
         if ($this->is_deposit_or_installment_order($order)) {
             return;
         }
 
-        $gift_card_found = false;
-        $order_items = $order->get_items();
+        // Verifica ulteriore: controlla che il pagamento sia effettivamente completato
+        if (!$this->is_payment_completed($order)) {
+            return;
+        }
 
-        // Controlla ogni item nell'ordine
-        foreach ($order_items as $item_id => $item) {
+        // Usa un lock per prevenire processi concorrenti per lo stesso ordine
+        $lock_key = "gift_card_processing_" . $order_id;
+        $lock_timeout = 30; // 30 secondi
+
+        if (!wp_cache_add($lock_key, time(), '', $lock_timeout)) {
+            // Se il lock esiste già, esci
+            return;
+        }
+
+        try {
+            // Doppio controllo dopo aver acquisito il lock
+            $already_processed = get_post_meta($order_id, '_gift_card_processed', true);
+            if ($already_processed) {
+                return;
+            }
+
+            $gift_card_found = false;
+            $order_items = $order->get_items();
+
+            // Controlla ogni item nell'ordine
+            foreach ($order_items as $item_id => $item) {
             $product_id = $item->get_product_id();
             $variation_id = $item->get_variation_id();
             $quantity = $item->get_quantity();
@@ -145,11 +179,16 @@ class GiftCard_Order_Handler {
                     }
                 }
             }
-        }
-        
-        // Marca l'ordine come processato se abbiamo trovato gift card
-        if ($gift_card_found) {
-            update_post_meta($order_id, '_gift_card_processed', true);
+            }
+
+            // Marca l'ordine come processato se abbiamo trovato gift card
+            if ($gift_card_found) {
+                update_post_meta($order_id, '_gift_card_processed', true);
+            }
+
+        } finally {
+            // Rilascia sempre il lock
+            wp_cache_delete($lock_key);
         }
     }
     
@@ -444,6 +483,78 @@ class GiftCard_Order_Handler {
         }
 
         // Se tutte le verifiche sono passate, è una gift card genuina
+        return true;
+    }
+
+    /**
+     * Verifica che il pagamento dell'ordine sia effettivamente completato
+     *
+     * @param WC_Order $order Oggetto ordine
+     * @return bool True se il pagamento è completato, False altrimenti
+     */
+    private function is_payment_completed($order) {
+        // Controlla che l'ordine abbia uno stato che indica pagamento completato
+        $valid_statuses = array('completed', 'processing');
+        if (!in_array($order->get_status(), $valid_statuses)) {
+            return false;
+        }
+
+        // Controlla che l'ordine sia effettivamente pagato
+        if (!$order->is_paid()) {
+            return false;
+        }
+
+        // Se ha un metodo di pagamento, controlla che non sia in stato di errore
+        $payment_method = $order->get_payment_method();
+        if ($payment_method) {
+            // Controlla se ci sono stati recenti tentativi di pagamento falliti
+            $payment_attempts = get_post_meta($order->get_id(), '_payment_attempts', true);
+            $current_time = time();
+
+            // Se ci sono stati tentativi di pagamento negli ultimi 2 minuti, aspetta
+            if ($payment_attempts && is_array($payment_attempts)) {
+                $recent_attempts = array_filter($payment_attempts, function($attempt) use ($current_time) {
+                    return isset($attempt['time']) && ($current_time - $attempt['time']) < 120; // 2 minuti
+                });
+
+                if (!empty($recent_attempts)) {
+                    // Registra il tentativo attuale
+                    $payment_attempts[] = array(
+                        'time' => $current_time,
+                        'status' => $order->get_status(),
+                        'method' => $payment_method
+                    );
+
+                    update_post_meta($order->get_id(), '_payment_attempts', $payment_attempts);
+
+                    // Se ci sono troppi tentativi recenti, aspetta
+                    if (count($recent_attempts) >= 2) {
+                        return false;
+                    }
+                }
+            } else {
+                // Prima volta, inizializza il tracking
+                update_post_meta($order->get_id(), '_payment_attempts', array(array(
+                    'time' => $current_time,
+                    'status' => $order->get_status(),
+                    'method' => $payment_method
+                )));
+            }
+        }
+
+        // Controlla che l'ordine non abbia flag di pagamento in corso
+        $payment_processing = get_post_meta($order->get_id(), '_payment_processing', true);
+        if ($payment_processing) {
+            $processing_time = intval($payment_processing);
+            // Se il pagamento è in elaborazione da meno di 60 secondi, aspetta
+            if ((time() - $processing_time) < 60) {
+                return false;
+            } else {
+                // Se è passato troppo tempo, rimuovi il flag
+                delete_post_meta($order->get_id(), '_payment_processing');
+            }
+        }
+
         return true;
     }
 
