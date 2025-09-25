@@ -18,6 +18,7 @@ class DSPN_Admin {
         add_action('admin_init', array($this, 'register_settings'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_assets'));
         add_action('admin_post_dspn_test_notification', array($this, 'handle_test_notification'));
+        add_action('admin_post_dspn_update_template', array($this, 'handle_template_update'));
         add_action('wp_ajax_dspn_delete_notification', array($this, 'ajax_delete_notification'));
     }
     
@@ -214,7 +215,13 @@ class DSPN_Admin {
         ?>
         <div class="wrap">
             <h1>Impostazioni Notifiche Prodotti</h1>
-            
+
+            <?php if (isset($_GET['message']) && $_GET['message'] === 'template_updated'): ?>
+                <div class="notice notice-success is-dismissible">
+                    <p><strong>✅ Template aggiornato!</strong> Il nuovo template email con design moderno è stato applicato con successo.</p>
+                </div>
+            <?php endif; ?>
+
             <form method="post" action="options.php">
                 <?php
                 settings_fields('dspn_settings');
@@ -270,12 +277,31 @@ class DSPN_Admin {
                             ));
                             ?>
                             <p class="description">
-                                Placeholder disponibili: {customer_name}, {product_name}, {product_url}, {product_price}, {shop_name}, {shop_url}, {unsubscribe_url}
+                                <strong>Placeholder disponibili:</strong><br>
+                                • <code>{customer_name}</code> - Nome del cliente<br>
+                                • <code>{product_name}</code> - Nome del prodotto<br>
+                                • <code>{product_url}</code> - Link al prodotto<br>
+                                • <code>{product_price}</code> - Prezzo formattato del prodotto<br>
+                                • <code>{product_image}</code> - Immagine del prodotto (HTML img tag)<br>
+                                • <code>{shop_name}</code> - Nome del negozio<br>
+                                • <code>{shop_url}</code> - Link al negozio<br>
+                                • <code>{unsubscribe_url}</code> - Link per la disiscrizione
                             </p>
+                            <div style="margin-top: 15px; padding: 10px; background-color: #f0f8ff; border: 1px solid #d1ecf1; border-radius: 4px;">
+                                <p style="margin: 0 0 10px 0; font-weight: bold; color: #0c5460;">🎨 Template Aggiornato Disponibile!</p>
+                                <p style="margin: 0 0 10px 0; font-size: 13px; color: #0c5460;">
+                                    È disponibile un nuovo template email con design moderno, colori brand (#a2180e) e supporto per le immagini prodotto.
+                                </p>
+                                <a href="<?php echo admin_url('admin-post.php?action=dspn_update_template&_wpnonce=' . wp_create_nonce('dspn_update_template')); ?>"
+                                   class="button button-secondary"
+                                   onclick="return confirm('Questo sostituirà il template attuale con la nuova versione. Continuare?');">
+                                    ✨ Aggiorna al Nuovo Template
+                                </a>
+                            </div>
                         </td>
                     </tr>
                 </table>
-                
+
                 <?php submit_button('Salva Impostazioni'); ?>
             </form>
         </div>
@@ -333,5 +359,36 @@ class DSPN_Admin {
         } else {
             wp_send_json_error('Errore durante l\'eliminazione');
         }
+    }
+
+    /**
+     * Handle template update
+     */
+    public function handle_template_update() {
+        if (!current_user_can('manage_options')) {
+            wp_die('Accesso negato');
+        }
+
+        if (!wp_verify_nonce($_GET['_wpnonce'] ?? '', 'dspn_update_template')) {
+            wp_die('Token di sicurezza non valido');
+        }
+
+        // Get the new template from the main plugin class
+        $plugin = new DreamShop_Product_Notifications();
+        $reflection = new ReflectionClass($plugin);
+        $method = $reflection->getMethod('get_default_email_template');
+        $method->setAccessible(true);
+        $new_template = $method->invoke($plugin);
+
+        // Update the template
+        update_option('dspn_email_template', $new_template);
+        update_option('dspn_template_version', '2.0');
+
+        // Redirect back with success message
+        wp_redirect(add_query_arg(array(
+            'page' => 'dspn-settings',
+            'message' => 'template_updated'
+        ), admin_url('admin.php')));
+        exit;
     }
 }

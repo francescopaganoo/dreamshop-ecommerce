@@ -26,6 +26,7 @@ class DSPN_Email_Handler {
             '{product_name}' => $product->get_name(),
             '{product_url}' => $this->get_product_url($product),
             '{product_price}' => $product->get_price_html(),
+            '{product_image}' => $this->get_product_image($product),
             '{shop_name}' => get_bloginfo('name'),
             '{shop_url}' => $this->get_shop_url(),
             '{unsubscribe_url}' => $this->get_unsubscribe_url($email, $product->get_id(), $notification_id)
@@ -198,6 +199,29 @@ class DSPN_Email_Handler {
             '<p style="margin: 20px 0; text-align: center;">$2</p>', $message);
 
         return $message;
+    }
+
+    /**
+     * Get product image for email
+     */
+    private function get_product_image($product) {
+        $image_id = $product->get_image_id();
+
+        if (!$image_id) {
+            return '';
+        }
+
+        $image_url = wp_get_attachment_image_url($image_id, 'medium');
+
+        if (!$image_url) {
+            return '';
+        }
+
+        return sprintf(
+            '<img src="%s" alt="%s" style="max-width: 200px; height: auto; border-radius: 8px; display: block;">',
+            esc_url($image_url),
+            esc_attr($product->get_name())
+        );
     }
 }
 
