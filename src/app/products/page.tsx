@@ -313,7 +313,7 @@ function ProductsPageContent() {
                   
                   {/* Pagination */}
                   <div className="mt-12 flex justify-center">
-                    <div className="flex items-center space-x-1">
+                    <div className="flex items-center space-x-1 overflow-x-auto">
                       {/* Precedente */}
                       {page > 1 && (() => {
                         const prevSearchParams = new URLSearchParams(searchParams.toString());
@@ -321,50 +321,52 @@ function ProductsPageContent() {
                         return (
                           <Link
                             href={`/products?${prevSearchParams.toString()}`}
-                            className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 mr-2"
+                            className="px-2 sm:px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 mr-1 sm:mr-2 text-sm sm:text-base whitespace-nowrap"
                           >
-                            Precedente
+                            <span className="hidden sm:inline">Precedente</span>
+                            <span className="sm:hidden">‹</span>
                           </Link>
                         );
                       })()}
-                      
+
                       {/* Numeri pagina */}
                       {(() => {
                         const pageNumbers = [];
-                        const maxVisible = 7;
+                        // Responsive maxVisible: meno pagine su mobile
+                        const maxVisible = typeof window !== 'undefined' && window.innerWidth < 640 ? 3 : 7;
                         const maxPage = Math.ceil(totalProducts / perPage);
-                        
+
                         const start = Math.max(1, page - Math.floor(maxVisible / 2));
                         const end = Math.min(maxPage, start + maxVisible - 1);
-                        
-                        // Aggiungi prima pagina se non è visibile
-                        if (start > 1) {
+
+                        // Aggiungi prima pagina se non è visibile (solo su desktop o quando c'è spazio)
+                        if (start > 1 && (typeof window === 'undefined' || window.innerWidth >= 640 || maxVisible > 3)) {
                           const firstPageParams = new URLSearchParams(searchParams.toString());
                           firstPageParams.set('page', '1');
                           pageNumbers.push(
                             <Link
                               key={1}
                               href={`/products?${firstPageParams.toString()}`}
-                              className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100"
+                              className="px-2 sm:px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 text-sm sm:text-base"
                             >
                               1
                             </Link>
                           );
-                          
+
                           if (start > 2) {
                             pageNumbers.push(
-                              <span key="dots1" className="px-2 py-2 text-gray-500">...</span>
+                              <span key="dots1" className="px-1 sm:px-2 py-2 text-gray-500 text-sm sm:text-base">...</span>
                             );
                           }
                         }
-                        
+
                         // Pagine centrali
                         for (let i = start; i <= end; i++) {
                           if (i === page) {
                             pageNumbers.push(
-                              <span 
+                              <span
                                 key={i}
-                                className="px-3 py-2 bg-gray-200 text-gray-700 rounded-md font-medium cursor-not-allowed"
+                                className="px-2 sm:px-3 py-2 bg-bred-500 text-white rounded-md font-medium cursor-not-allowed text-sm sm:text-base"
                               >
                                 {i}
                               </span>
@@ -376,17 +378,38 @@ function ProductsPageContent() {
                               <Link
                                 key={i}
                                 href={`/products?${pageParams.toString()}`}
-                                className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100"
+                                className="px-2 sm:px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 text-sm sm:text-base"
                               >
                                 {i}
                               </Link>
                             );
                           }
                         }
-                        
+
+                        // Aggiungi ultima pagina se non è visibile (solo su desktop)
+                        if (end < maxPage && (typeof window === 'undefined' || window.innerWidth >= 640)) {
+                          if (end < maxPage - 1) {
+                            pageNumbers.push(
+                              <span key="dots2" className="px-1 sm:px-2 py-2 text-gray-500 text-sm sm:text-base">...</span>
+                            );
+                          }
+
+                          const lastPageParams = new URLSearchParams(searchParams.toString());
+                          lastPageParams.set('page', maxPage.toString());
+                          pageNumbers.push(
+                            <Link
+                              key={maxPage}
+                              href={`/products?${lastPageParams.toString()}`}
+                              className="px-2 sm:px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 text-sm sm:text-base"
+                            >
+                              {maxPage}
+                            </Link>
+                          );
+                        }
+
                         return pageNumbers;
                       })()}
-                      
+
                       {/* Successivo */}
                       {page < Math.ceil(totalProducts / perPage) && (() => {
                         const nextSearchParams = new URLSearchParams(searchParams.toString());
@@ -394,9 +417,10 @@ function ProductsPageContent() {
                         return (
                           <Link
                             href={`/products?${nextSearchParams.toString()}`}
-                            className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 ml-2"
+                            className="px-2 sm:px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 ml-1 sm:ml-2 text-sm sm:text-base whitespace-nowrap"
                           >
-                            Successivo
+                            <span className="hidden sm:inline">Successivo</span>
+                            <span className="sm:hidden">›</span>
                           </Link>
                         );
                       })()}

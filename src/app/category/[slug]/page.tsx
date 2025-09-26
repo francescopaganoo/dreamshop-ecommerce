@@ -315,7 +315,7 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
 
                   {/* Pagination */}
                   <div className="mt-8 flex justify-center">
-                    <div className="flex items-center space-x-1">
+                    <div className="flex items-center space-x-1 overflow-x-auto">
                       {/* Precedente */}
                       {page > 1 && (() => {
                         const prevSearchParams = new URLSearchParams(window.location.search);
@@ -323,9 +323,10 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
                         return (
                           <Link
                             href={`/category/${categorySlug}?${prevSearchParams.toString()}`}
-                            className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 mr-2"
+                            className="px-2 sm:px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 mr-1 sm:mr-2 text-sm sm:text-base whitespace-nowrap"
                           >
-                            Precedente
+                            <span className="hidden sm:inline">Precedente</span>
+                            <span className="sm:hidden">‹</span>
                           </Link>
                         );
                       })()}
@@ -333,21 +334,22 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
                       {/* Numeri pagina */}
                       {(() => {
                         const pageNumbers = [];
-                        const maxVisible = 7;
+                        // Responsive maxVisible: meno pagine su mobile
+                        const maxVisible = typeof window !== 'undefined' && window.innerWidth < 640 ? 3 : 7;
                         const maxPage = Math.ceil(totalProducts / perPage);
 
                         const start = Math.max(1, page - Math.floor(maxVisible / 2));
                         const end = Math.min(maxPage, start + maxVisible - 1);
 
-                        // Aggiungi prima pagina se non è visibile
-                        if (start > 1) {
+                        // Aggiungi prima pagina se non è visibile (solo su desktop o quando c'è spazio)
+                        if (start > 1 && (typeof window === 'undefined' || window.innerWidth >= 640 || maxVisible > 3)) {
                           const firstPageParams = new URLSearchParams(window.location.search);
                           firstPageParams.set('page', '1');
                           pageNumbers.push(
                             <Link
                               key={1}
                               href={`/category/${categorySlug}?${firstPageParams.toString()}`}
-                              className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100"
+                              className="px-2 sm:px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 text-sm sm:text-base"
                             >
                               1
                             </Link>
@@ -355,7 +357,7 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
 
                           if (start > 2) {
                             pageNumbers.push(
-                              <span key="dots1" className="px-2 py-2 text-gray-500">...</span>
+                              <span key="dots1" className="px-1 sm:px-2 py-2 text-gray-500 text-sm sm:text-base">...</span>
                             );
                           }
                         }
@@ -366,7 +368,7 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
                             pageNumbers.push(
                               <span
                                 key={i}
-                                className="px-3 py-2 bg-gray-200 text-gray-700 rounded-md font-medium cursor-not-allowed"
+                                className="px-2 sm:px-3 py-2 bg-bred-500 text-white rounded-md font-medium cursor-not-allowed text-sm sm:text-base"
                               >
                                 {i}
                               </span>
@@ -378,12 +380,33 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
                               <Link
                                 key={i}
                                 href={`/category/${categorySlug}?${pageParams.toString()}`}
-                                className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100"
+                                className="px-2 sm:px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 text-sm sm:text-base"
                               >
                                 {i}
                               </Link>
                             );
                           }
+                        }
+
+                        // Aggiungi ultima pagina se non è visibile (solo su desktop)
+                        if (end < maxPage && (typeof window === 'undefined' || window.innerWidth >= 640)) {
+                          if (end < maxPage - 1) {
+                            pageNumbers.push(
+                              <span key="dots2" className="px-1 sm:px-2 py-2 text-gray-500 text-sm sm:text-base">...</span>
+                            );
+                          }
+
+                          const lastPageParams = new URLSearchParams(window.location.search);
+                          lastPageParams.set('page', maxPage.toString());
+                          pageNumbers.push(
+                            <Link
+                              key={maxPage}
+                              href={`/category/${categorySlug}?${lastPageParams.toString()}`}
+                              className="px-2 sm:px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 text-sm sm:text-base"
+                            >
+                              {maxPage}
+                            </Link>
+                          );
                         }
 
                         return pageNumbers;
@@ -396,9 +419,10 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
                         return (
                           <Link
                             href={`/category/${categorySlug}?${nextSearchParams.toString()}`}
-                            className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 ml-2"
+                            className="px-2 sm:px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 ml-1 sm:ml-2 text-sm sm:text-base whitespace-nowrap"
                           >
-                            Successivo
+                            <span className="hidden sm:inline">Successivo</span>
+                            <span className="sm:hidden">›</span>
                           </Link>
                         );
                       })()}
