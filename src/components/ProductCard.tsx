@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { Product } from '@/lib/api';
 import { useCart } from '@/context/CartContext';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import WishlistButton from '@/components/WishlistButton';
 import { motion } from 'framer-motion';
 import { FaPlus } from 'react-icons/fa';
@@ -26,7 +26,57 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
   const [prefetched, setPrefetched] = useState(false);
   const [hasInstallments, setHasInstallments] = useState(false);
   const [installmentsChecked, setInstallmentsChecked] = useState(false);
-  
+  const [currentImageUrl, setCurrentImageUrl] = useState<string>('');
+  const [fallbackIndex, setFallbackIndex] = useState(0);
+
+  // Genera array di URL da testare in ordine di preferenza
+  const getImageUrlsToTest = (originalUrl: string) => {
+    if (!originalUrl) return ['https://via.placeholder.com/800'];
+
+    const urls = [];
+    const sizes = ['800x800', '600x600', '300x300'];
+
+    // Prima aggiungiamo le dimensioni specifiche
+    sizes.forEach(size => {
+      if (originalUrl.includes('-')) {
+        // Se l'URL ha già una dimensione, sostituiscila
+        urls.push(originalUrl.replace(/-\d+x\d+/, `-${size}`));
+      } else {
+        // Se non ha dimensione, prova ad aggiungere prima dell'estensione
+        const lastDot = originalUrl.lastIndexOf('.');
+        if (lastDot > 0) {
+          urls.push(originalUrl.substring(0, lastDot) + `-${size}` + originalUrl.substring(lastDot));
+        }
+      }
+    });
+
+    // Aggiungi l'URL originale come fallback finale
+    urls.push(originalUrl);
+    urls.push('https://via.placeholder.com/800');
+
+    return urls;
+  };
+
+  const imageUrlsToTest = useMemo(() => {
+    return product.images && product.images.length > 0 && product.images[0].src
+      ? getImageUrlsToTest(product.images[0].src)
+      : ['https://via.placeholder.com/800'];
+  }, [product.images]);
+
+  // Imposta l'URL dell'immagine corrente basandosi sull'indice di fallback
+  useEffect(() => {
+    if (imageUrlsToTest[fallbackIndex]) {
+      setCurrentImageUrl(imageUrlsToTest[fallbackIndex]);
+    }
+  }, [fallbackIndex, imageUrlsToTest]);
+
+  // Gestisce l'errore di caricamento dell'immagine
+  const handleImageError = () => {
+    if (fallbackIndex < imageUrlsToTest.length - 1) {
+      setFallbackIndex(prev => prev + 1);
+    }
+  };
+
   // Controlla se il prodotto è in pre-order basandosi sull'attributo pa_disponibilita
   const getAttribute = (name: string) => {
     if (!product.attributes) return undefined;
@@ -110,11 +160,6 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
     checkInstallments();
   }, [product.id, product._wc_convert_to_deposit, product.wc_deposit_option, product.meta_data, installmentsChecked]);
 
-  
-  // Get the product image or use a placeholder
-  const imageUrl = product.images && product.images.length > 0 && product.images[0].src && typeof product.images[0].src === 'string'
-    ? product.images[0].src.replace('-300x300', '-800x800')
-    : 'https://via.placeholder.com/800';
   
   // Format price with currency symbol
   const formatPrice = (price: string | null | undefined) => {
@@ -254,13 +299,14 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
       <Link href={`/prodotto/${product.slug}`} className="block mb-2 md:mb-5">
         <div className="relative h-40 md:h-52 w-full transition-all duration-300">
           <Image
-            src={imageUrl}
+            src={currentImageUrl || 'https://via.placeholder.com/800'}
             alt={product.name}
             fill
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             style={{ objectFit: 'contain' }}
             className="transition-transform duration-300 hover:scale-105"
             priority={priority}
+            onError={handleImageError}
           />
         </div>
       </Link>
