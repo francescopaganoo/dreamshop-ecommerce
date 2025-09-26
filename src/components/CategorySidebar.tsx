@@ -137,6 +137,11 @@ export default function CategorySidebar({
         priceRange: localPriceRange || { min: priceRange.min, max: priceRange.max },
         excludeSoldOut: localExcludeSoldOut
       });
+
+      // Chiudi la modale mobile se presente
+      if (onClose) {
+        onClose();
+      }
     }
   };
 
