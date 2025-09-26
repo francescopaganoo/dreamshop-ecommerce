@@ -6,7 +6,8 @@
       "Bash(npm run build:*)",
       "Bash(npm run dev:*)",
       "WebFetch(domain:be2.dreamshop18.com)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(php:*)"
     ],
     "deny": []
   }

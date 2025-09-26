@@ -32,18 +32,12 @@ class DreamShop_Filters_Product_Query {
             return $cached_result;
         }
 
-        // Build the main query
-        $query = $this->build_products_query($filters, $page, $per_page, $orderby, $order);
-
-        // Execute query
-        $results = $this->wpdb->get_results($query, ARRAY_A);
+        // Get products with backfill logic to ensure we get the requested number
+        $products = $this->get_products_with_backfill($filters, $page, $per_page, $orderby, $order);
 
         // Get total count for pagination
         $total_query = $this->build_count_query($filters);
         $total_count = (int) $this->wpdb->get_var($total_query);
-
-        // Format results
-        $products = $this->format_products($results);
 
         $response = [
             'products' => $products,
@@ -60,21 +54,80 @@ class DreamShop_Filters_Product_Query {
     }
 
     /**
+     * Get products with backfill logic to ensure we get the requested number
+     */
+    private function get_products_with_backfill($filters, $page, $per_page, $orderby, $order) {
+        $products = [];
+        $seen_ids = [];
+        $attempts = 0;
+        $max_attempts = 3;
+        // Start with extra products to account for potential duplicates and filtering
+        $current_per_page = $per_page + 5; // Start with 5 extra products
+        $current_page = $page;
+
+        while (count($products) < $per_page && $attempts < $max_attempts) {
+            $attempts++;
+
+            // Build and execute query
+            $query = $this->build_products_query($filters, $current_page, $current_per_page, $orderby, $order);
+            $results = $this->wpdb->get_results($query, ARRAY_A);
+
+            error_log("DreamShop Filter: Attempt $attempts - SQL query returned " . count($results) . " products for page $current_page");
+
+            // Format results
+            $formatted_products = $this->format_products($results);
+
+            // Add new unique products to our collection
+            foreach ($formatted_products as $product) {
+                if (count($products) < $per_page && !in_array($product['id'], $seen_ids)) {
+                    $products[] = $product;
+                    $seen_ids[] = $product['id'];
+                }
+            }
+
+            error_log("DreamShop Filter: After attempt $attempts, we have " . count($products) . " unique products (need $per_page)");
+
+            // If we don't have enough products, try to get more
+            if (count($products) < $per_page && count($results) >= $current_per_page) {
+                // Increase the fetch size for next attempt
+                $current_per_page = $current_per_page + ($per_page - count($products)) + 10; // Add 10 extra buffer for duplicates
+                error_log("DreamShop Filter: Not enough products, increasing per_page to $current_per_page for next attempt");
+            } else {
+                // No more products available or we have enough
+                break;
+            }
+        }
+
+        error_log("DreamShop Filter: Final result - returning " . count($products) . " unique products after $attempts attempts");
+        return $products;
+    }
+
+    /**
      * Build the main products query
      */
     private function build_products_query($filters, $page, $per_page, $orderby, $order) {
         $offset = ($page - 1) * $per_page;
 
-        // Base query
+        // Base query - use GROUP BY instead of DISTINCT to handle multiple joins better
         $query = "
-            SELECT DISTINCT p.ID, p.post_title, p.post_name, p.post_excerpt, pm_price.meta_value as price
+            SELECT p.ID, p.post_title, p.post_name, p.post_excerpt, pm_price.meta_value as price
             FROM {$this->wpdb->posts} p
             INNER JOIN {$this->wpdb->postmeta} pm_price ON p.ID = pm_price.post_id AND pm_price.meta_key = '_price'
         ";
 
         // Join conditions based on filters
         $joins = [];
-        $where_conditions = ["p.post_type = 'product'", "p.post_status = 'publish'"];
+        $where_conditions = [
+            "p.post_type = 'product'",
+            "p.post_status = 'publish'",
+            "p.post_password = ''"  // Exclude password protected products (often used for private products)
+        ];
+
+        // Add join to check product visibility and catalog visibility
+        $joins[] = "LEFT JOIN {$this->wpdb->postmeta} pm_visibility ON p.ID = pm_visibility.post_id AND pm_visibility.meta_key = '_visibility'";
+        $joins[] = "LEFT JOIN {$this->wpdb->postmeta} pm_catalog_visibility ON p.ID = pm_catalog_visibility.post_id AND pm_catalog_visibility.meta_key = '_catalog_visibility'";
+        $where_conditions[] = "(pm_visibility.meta_value IS NULL OR pm_visibility.meta_value = 'visible')";
+        $where_conditions[] = "(pm_catalog_visibility.meta_value IS NULL OR pm_catalog_visibility.meta_value = 'visible')";
 
         // Category filter
         if (!empty($filters['category_slug'])) {
@@ -129,6 +182,9 @@ class DreamShop_Filters_Product_Query {
         // Add WHERE conditions
         $query .= " WHERE " . implode(" AND ", $where_conditions);
 
+        // Add GROUP BY to eliminate duplicates from JOINs
+        $query .= " GROUP BY p.ID";
+
         // Add ORDER BY
         $query .= $this->build_order_by($orderby, $order);
 
@@ -158,7 +214,8 @@ class DreamShop_Filters_Product_Query {
             $query = $this->wpdb->prepare($query, ...$params);
         }
 
-
+        // Log the final query for debugging
+        error_log("DreamShop Filter: Final SQL Query: " . $query);
 
         return $query;
     }
@@ -221,14 +278,25 @@ class DreamShop_Filters_Product_Query {
      */
     private function build_count_query($filters) {
         $query = "
-            SELECT COUNT(DISTINCT p.ID)
-            FROM {$this->wpdb->posts} p
-            INNER JOIN {$this->wpdb->postmeta} pm_price ON p.ID = pm_price.post_id AND pm_price.meta_key = '_price'
+            SELECT COUNT(*) FROM (
+                SELECT p.ID
+                FROM {$this->wpdb->posts} p
+                INNER JOIN {$this->wpdb->postmeta} pm_price ON p.ID = pm_price.post_id AND pm_price.meta_key = '_price'
         ";
 
         // Apply same filters as main query (without pagination)
         $joins = [];
-        $where_conditions = ["p.post_type = 'product'", "p.post_status = 'publish'"];
+        $where_conditions = [
+            "p.post_type = 'product'",
+            "p.post_status = 'publish'",
+            "p.post_password = ''"  // Exclude password protected products (often used for private products)
+        ];
+
+        // Add join to check product visibility and catalog visibility
+        $joins[] = "LEFT JOIN {$this->wpdb->postmeta} pm_visibility ON p.ID = pm_visibility.post_id AND pm_visibility.meta_key = '_visibility'";
+        $joins[] = "LEFT JOIN {$this->wpdb->postmeta} pm_catalog_visibility ON p.ID = pm_catalog_visibility.post_id AND pm_catalog_visibility.meta_key = '_catalog_visibility'";
+        $where_conditions[] = "(pm_visibility.meta_value IS NULL OR pm_visibility.meta_value = 'visible')";
+        $where_conditions[] = "(pm_catalog_visibility.meta_value IS NULL OR pm_catalog_visibility.meta_value = 'visible')";
 
         // Category filter
         if (!empty($filters['category_slug'])) {
@@ -283,6 +351,9 @@ class DreamShop_Filters_Product_Query {
         // Add WHERE conditions
         $query .= " WHERE " . implode(" AND ", $where_conditions);
 
+        // Add GROUP BY to eliminate duplicates from JOINs in count query too
+        $query .= " GROUP BY p.ID) as unique_products";
+
         // Prepare query with parameters
         $params = [];
 
@@ -331,9 +402,22 @@ class DreamShop_Filters_Product_Query {
      */
     private function format_products($results) {
         $products = [];
+        $skipped_products = [];
+        $seen_ids = [];
+
+        error_log("DreamShop Format: Input results count: " . count($results));
+        error_log("DreamShop Format: Input IDs: " . implode(', ', array_column($results, 'ID')));
 
         foreach ($results as $result) {
             $product_id = $result['ID'];
+
+            // Check for duplicates in SQL results
+            if (in_array($product_id, $seen_ids)) {
+                error_log("DreamShop Format: DUPLICATE ID detected in SQL results: $product_id");
+                continue;
+            }
+            $seen_ids[] = $product_id;
+
             $product = wc_get_product($product_id);
 
             if ($product) {
@@ -351,7 +435,16 @@ class DreamShop_Filters_Product_Query {
                     'short_description' => $result['post_excerpt'],
                     'attributes' => $this->get_product_attributes($product)
                 ];
+            } else {
+                // Log skipped product for debugging
+                $skipped_products[] = $product_id;
+                error_log("DreamShop Filter: Skipped product ID {$product_id} - wc_get_product returned false");
             }
+        }
+
+        // Log summary of skipped products
+        if (!empty($skipped_products)) {
+            error_log("DreamShop Filter: Total skipped products: " . count($skipped_products) . " - IDs: " . implode(', ', $skipped_products));
         }
 
         return $products;
