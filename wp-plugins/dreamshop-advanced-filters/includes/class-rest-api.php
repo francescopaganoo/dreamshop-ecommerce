@@ -600,8 +600,9 @@ class DreamShop_Filters_REST_API {
                 ], 404);
             }
 
-            // Get related products using WooCommerce built-in functionality
-            $related_ids = wc_get_related_products($product->get_id(), $limit);
+            // Get related products ordered by date (most recent first) using primary category
+            $primary_category_id = $this->get_primary_category_id($product);
+            $related_ids = $this->get_recent_related_products($product->get_id(), $primary_category_id, $limit);
 
             $related_products = [];
             foreach ($related_ids as $related_id) {
@@ -744,5 +745,71 @@ class DreamShop_Filters_REST_API {
                 'message' => WP_DEBUG ? $e->getMessage() : 'Something went wrong'
             ], 500);
         }
+    }
+
+    /**
+     * Get primary category ID (Yoast primary or first category)
+     */
+    private function get_primary_category_id($product) {
+        $product_id = $product->get_id();
+
+        // Cerca la categoria primaria di Yoast
+        $primary_cat_id = get_post_meta($product_id, '_yoast_wpseo_primary_product_cat', true);
+
+        if (!empty($primary_cat_id) && is_numeric($primary_cat_id)) {
+            return (int) $primary_cat_id;
+        }
+
+        // Fallback alla prima categoria
+        $category_ids = $product->get_category_ids();
+        return !empty($category_ids) ? $category_ids[0] : null;
+    }
+
+    /**
+     * Get related products ordered by date (most recent first) using primary category only
+     */
+    private function get_recent_related_products($product_id, $primary_category_id, $limit) {
+        global $wpdb;
+
+        // Se non c'è categoria primaria, fallback ai prodotti più recenti
+        if (empty($primary_category_id)) {
+            return wc_get_related_products($product_id, $limit);
+        }
+
+        // Query per prodotti SOLO nella categoria primaria ordinati per data (prendiamo più prodotti per randomizzare)
+        $fetch_limit = $limit * 3; // Prendiamo 3 volte i prodotti richiesti per avere varietà
+
+        $query = "
+            SELECT DISTINCT p.ID
+            FROM {$wpdb->posts} p
+            INNER JOIN {$wpdb->term_relationships} tr ON p.ID = tr.object_id
+            INNER JOIN {$wpdb->term_taxonomy} tt ON tr.term_taxonomy_id = tt.term_taxonomy_id
+            LEFT JOIN {$wpdb->postmeta} pm_stock ON p.ID = pm_stock.post_id AND pm_stock.meta_key = '_stock_status'
+            WHERE p.post_type = 'product'
+            AND p.post_status = 'publish'
+            AND p.ID != %d
+            AND tt.taxonomy = 'product_cat'
+            AND tt.term_id = %d
+            AND (pm_stock.meta_value = 'instock' OR pm_stock.meta_value IS NULL)
+            ORDER BY p.post_date DESC
+            LIMIT %d
+        ";
+
+        $all_related_ids = $wpdb->get_col($wpdb->prepare($query, $product_id, $primary_category_id, $fetch_limit));
+
+        // Randomizza e prendi solo il numero richiesto
+        if (!empty($all_related_ids)) {
+            shuffle($all_related_ids);
+            $related_ids = array_slice($all_related_ids, 0, $limit);
+        } else {
+            $related_ids = [];
+        }
+
+        // Se non troviamo risultati nella categoria primaria, usa il fallback originale
+        if (empty($related_ids)) {
+            return wc_get_related_products($product_id, $limit);
+        }
+
+        return $related_ids;
     }
 }
