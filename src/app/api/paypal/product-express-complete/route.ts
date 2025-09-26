@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     console.log('PayPal Order ID:', paypalOrderId);
     console.log('Billing Data:', billingData);
 
-    // Calcola la commissione PayPal del 3% e estrae la spedizione
+    // Calcola la commissione PayPal del 3.5% + €0.35 e estrae la spedizione
     const getPurchaseUnitAmount = () => {
       if (paypalOrderDetails?.purchase_units?.[0]?.amount?.value) {
         return parseFloat(paypalOrderDetails.purchase_units[0].amount.value);
@@ -29,9 +29,9 @@ export async function POST(request: NextRequest) {
     const totalAmountPaid = getPurchaseUnitAmount();
 
     // Il totale pagato include: subtotale prodotto + spedizione + commissione PayPal
-    // Formula: totale = (subtotale + spedizione) * 1.03
-    // Quindi: subtotale + spedizione = totale / 1.03
-    const subtotalWithShipping = totalAmountPaid / 1.03;
+    // Formula: totale = (subtotale + spedizione) * 1.035 + 0.35
+    // Quindi: subtotale + spedizione = (totale - 0.35) / 1.035
+    const subtotalWithShipping = (totalAmountPaid - 0.35) / 1.035;
     const paypalFee = totalAmountPaid - subtotalWithShipping;
 
     // Stimiamo la spedizione standard per l'Italia (sarà calcolata correttamente dal frontend)
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
       ],
       fee_lines: [
         {
-          name: 'Commissione PayPal (3%)',
+          name: 'Commissione PayPal (3.5% + €0.35)',
           total: paypalFee.toFixed(2),
           tax_status: 'none'
         }

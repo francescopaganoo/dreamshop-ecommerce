@@ -424,8 +424,8 @@ export default function CheckoutPage() {
   // Calcola il totale base (prodotti + spedizione - sconti)
   const baseTotal = (subtotal - discount - pointsDiscount) + shipping;
 
-  // Calcola la commissione PayPal del 3% se PayPal è selezionato
-  const paypalFee = formData.paymentMethod === 'paypal' ? baseTotal * 0.03 : 0;
+  // Calcola la commissione PayPal del 3.5% + €0.35 se PayPal è selezionato
+  const paypalFee = formData.paymentMethod === 'paypal' ? (baseTotal * 0.035) + 0.35 : 0;
 
   // Totale finale includendo eventuale commissione PayPal
   const total = baseTotal + paypalFee;
@@ -794,7 +794,7 @@ export default function CheckoutPage() {
             }] : []),
             // Commissione PayPal se presente
             ...(paypalFee > 0 ? [{
-              name: 'Commissione PayPal (3%)',
+              name: 'Commissione PayPal (3.5% + €0.35)',
               total: String(paypalFee),
               tax_class: '',
               tax_status: 'none'
@@ -1725,7 +1725,7 @@ export default function CheckoutPage() {
           }] : []),
           // Commissione PayPal se presente (nota: per Stripe non dovrebbe mai essere aggiunta)
           ...(paypalFee > 0 && formData.paymentMethod === 'paypal' ? [{
-            name: 'Commissione PayPal (3%)',
+            name: 'Commissione PayPal (3.5% + €0.35)',
             total: String(paypalFee),
             tax_class: '',
             tax_status: 'none'
@@ -2847,7 +2847,7 @@ export default function CheckoutPage() {
                             <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
                             </svg>
-                            Commissione PayPal (3%)
+                            Commissione PayPal (3.5% + €0.35)
                           </span>
                           <span>{formatPrice(paypalFee)}</span>
                         </div>

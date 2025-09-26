@@ -79,13 +79,13 @@ export default function PayPalExpressButton({
     return null;
   }
 
-  // Calcola il totale con commissione PayPal del 3% e spedizione
+  // Calcola il totale con commissione PayPal del 3.5% + €0.35 e spedizione
   const calculatePayPalTotal = () => {
     const unitPrice = parseFloat(product.sale_price || product.price || '0');
     const subtotal = unitPrice * quantity;
     const shippingCost = selectedShippingMethod?.cost || 0;
     const subtotalWithShipping = subtotal + shippingCost;
-    const paypalFee = subtotalWithShipping * 0.03; // 3% di commissione su subtotale + spedizione
+    const paypalFee = (subtotalWithShipping * 0.035) + 0.35; // 3.5% di commissione + €0.35 fisso su subtotale + spedizione
     const totalWithFeeAndShipping = subtotalWithShipping + paypalFee;
     return {
       subtotal: subtotal.toFixed(2),
@@ -117,7 +117,7 @@ export default function PayPalExpressButton({
               currency_code: 'EUR',
               value: totalAmount,
             },
-            description: `${product.name} x${quantity} + ${selectedShippingMethod?.title || 'Spedizione'} €${shipping} + Commissione PayPal 3%`,
+            description: `${product.name} x${quantity} + ${selectedShippingMethod?.title || 'Spedizione'} €${shipping} + Commissione PayPal 3.5% + €0.35`,
             custom_id: `product_${product.id}_qty_${quantity}_deposit_${enableDeposit}_shipping_${selectedShippingMethod?.id || 'standard'}_paypal_fee`,
           },
         ],
