@@ -131,7 +131,8 @@ class DreamShop_Filters_REST_API {
                 'shipping_time_slugs' => $this->parse_array_param($request->get_param('shipping')),
                 'min_price' => $request->get_param('min_price'),
                 'max_price' => $request->get_param('max_price'),
-                'exclude_sold_out' => $request->get_param('exclude_sold_out') === 'true' || $request->get_param('exclude_sold_out') === true
+                'exclude_sold_out' => $request->get_param('exclude_sold_out') === 'true' || $request->get_param('exclude_sold_out') === true,
+                'on_sale' => $request->get_param('on_sale') === 'true' || $request->get_param('on_sale') === true
             ];
 
             $page = (int) $request->get_param('page') ?: 1;
@@ -413,6 +414,11 @@ class DreamShop_Filters_REST_API {
             ],
             'exclude_sold_out' => [
                 'description' => 'Exclude sold out products',
+                'type' => 'boolean',
+                'default' => false
+            ],
+            'on_sale' => [
+                'description' => 'Filter only products on sale',
                 'type' => 'boolean',
                 'default' => false
             ]

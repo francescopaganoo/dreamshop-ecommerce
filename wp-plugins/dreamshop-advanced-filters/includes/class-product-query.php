@@ -107,6 +107,13 @@ class DreamShop_Filters_Product_Query {
             $where_conditions[] = "(pm_stock.meta_value IS NULL OR pm_stock.meta_value != 'outofstock')";
         }
 
+        // Filter only products on sale
+        if (!empty($filters['on_sale']) && $filters['on_sale']) {
+            $joins[] = "INNER JOIN {$this->wpdb->postmeta} pm_sale_price ON p.ID = pm_sale_price.post_id AND pm_sale_price.meta_key = '_sale_price'";
+            $joins[] = "INNER JOIN {$this->wpdb->postmeta} pm_regular_price ON p.ID = pm_regular_price.post_id AND pm_regular_price.meta_key = '_regular_price'";
+            $where_conditions[] = "pm_sale_price.meta_value != '' AND pm_sale_price.meta_value IS NOT NULL AND CAST(pm_sale_price.meta_value AS DECIMAL(10,2)) > 0 AND CAST(pm_sale_price.meta_value AS DECIMAL(10,2)) < CAST(pm_regular_price.meta_value AS DECIMAL(10,2))";
+        }
+
         // Attribute filters (availability and shipping)
         $attribute_conditions = $this->build_attribute_conditions($filters);
         if (!empty($attribute_conditions)) {
@@ -252,6 +259,13 @@ class DreamShop_Filters_Product_Query {
         if (!empty($filters['exclude_sold_out']) && $filters['exclude_sold_out']) {
             $joins[] = "LEFT JOIN {$this->wpdb->postmeta} pm_stock ON p.ID = pm_stock.post_id AND pm_stock.meta_key = '_stock_status'";
             $where_conditions[] = "(pm_stock.meta_value IS NULL OR pm_stock.meta_value != 'outofstock')";
+        }
+
+        // Filter only products on sale
+        if (!empty($filters['on_sale']) && $filters['on_sale']) {
+            $joins[] = "INNER JOIN {$this->wpdb->postmeta} pm_sale_price ON p.ID = pm_sale_price.post_id AND pm_sale_price.meta_key = '_sale_price'";
+            $joins[] = "INNER JOIN {$this->wpdb->postmeta} pm_regular_price ON p.ID = pm_regular_price.post_id AND pm_regular_price.meta_key = '_regular_price'";
+            $where_conditions[] = "pm_sale_price.meta_value != '' AND pm_sale_price.meta_value IS NOT NULL AND CAST(pm_sale_price.meta_value AS DECIMAL(10,2)) > 0 AND CAST(pm_sale_price.meta_value AS DECIMAL(10,2)) < CAST(pm_regular_price.meta_value AS DECIMAL(10,2))";
         }
 
         // Attribute filters

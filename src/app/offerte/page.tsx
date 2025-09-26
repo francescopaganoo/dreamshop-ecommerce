@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Product } from '@/lib/api';
+import { Product, getFilteredProductsPlugin } from '@/lib/api';
 import ProductList from '@/components/ProductList';
 import { FaFire } from 'react-icons/fa';
 import { FaTags } from 'react-icons/fa';
 
 export default function OffertePage() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [totalProducts, setTotalProducts] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMorePages, setHasMorePages] = useState(true);
@@ -16,26 +17,28 @@ export default function OffertePage() {
   const fetchProducts = async (page: number) => {
     setIsLoading(true);
     try {
-      // Usa la stessa API della home ma con più prodotti per pagina
-      const response = await fetch(`/api/products/sale?limit=${productsPerPage}&page=${page}`, {
-        headers: {
-          'Cache-Control': 'no-cache'
-        }
+      // Usa il plugin dreamshop-advanced-filters per ottenere solo prodotti in offerta
+      const response = await getFilteredProductsPlugin({
+        on_sale: true,
+        page,
+        per_page: productsPerPage,
+        orderby: 'date',
+        order: 'desc'
       });
 
-      if (!response.ok) {
-        throw new Error(`Error fetching products: ${response.status}`);
-      }
+      console.log('Offerte Plugin Response:', response);
 
-      const data = await response.json();
-      setProducts(data);
-      
-      // Se riceviamo meno prodotti del limite, non ci sono più pagine
-      setHasMorePages(data.length === productsPerPage);
-      
+      setProducts(response.products);
+      setTotalProducts(response.total);
+
+      // Calcola se ci sono più pagine
+      const totalPages = Math.ceil(response.total / productsPerPage);
+      setHasMorePages(page < totalPages);
+
     } catch (error) {
       console.error('Errore nel caricamento dei prodotti in offerta:', error);
       setProducts([]);
+      setTotalProducts(0);
     } finally {
       setIsLoading(false);
     }
@@ -94,7 +97,7 @@ export default function OffertePage() {
               {/* Product Count */}
               <div className="mb-8">
                 <p className="text-gray-600">
-                  Pagina {currentPage} - {products.length} prodotti in offerta
+                  Pagina {currentPage} - {products.length} di {totalProducts} prodotti in offerta
                 </p>
               </div>
 
