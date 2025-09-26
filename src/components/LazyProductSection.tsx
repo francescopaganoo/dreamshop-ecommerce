@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Product } from '@/lib/api';
+import { Product, getFilteredProductsPlugin } from '@/lib/api';
 import ProductList from './ProductList';
 import Link from 'next/link';
 import { FaArrowRight } from 'react-icons/fa';
@@ -112,36 +112,51 @@ export default function LazyProductSection({
         // Aspetta il ritardo casuale per distribuire le richieste
         await new Promise(resolve => setTimeout(resolve, randomDelay));
         try {
-          let response;
-          const fetchOptions = {
-            signal: abortController.signal,
-            headers: {
-              'Cache-Control': 'no-cache'
-            }
-          };
-
-          // Aggiungiamo un timeout di 10 secondi
-          const timeoutId = setTimeout(() => {
-            abortController.abort();
-          }, 10000);
+          let data: Product[] = [];
 
           if (isSaleProducts) {
-            response = await fetch('/api/products/sale?limit=8', fetchOptions);
-          } else if (isLatestProducts) {
-            response = await fetch('/api/products/latest?limit=8', fetchOptions);
-          } else if (categorySlug) {
-            response = await fetch(`/api/products/category/${categorySlug}?limit=8`, fetchOptions);
+            // Usa il plugin per ottenere prodotti in offerta
+            const response = await getFilteredProductsPlugin({
+              on_sale: true,
+              page: 1,
+              per_page: 8,
+              orderby: 'date',
+              order: 'desc'
+            });
+            data = response.products;
           } else {
-            throw new Error('Either categorySlug, isSaleProducts, or isLatestProducts must be provided');
+            // Usa fetch per le altre sezioni
+            const abortController = new AbortController();
+            let response;
+            const fetchOptions = {
+              signal: abortController.signal,
+              headers: {
+                'Cache-Control': 'no-cache'
+              }
+            };
+
+            // Aggiungiamo un timeout di 10 secondi
+            const timeoutId = setTimeout(() => {
+              abortController.abort();
+            }, 10000);
+
+            if (isLatestProducts) {
+              response = await fetch('/api/products/latest?limit=8', fetchOptions);
+            } else if (categorySlug) {
+              response = await fetch(`/api/products/category/${categorySlug}?limit=8`, fetchOptions);
+            } else {
+              throw new Error('Either categorySlug, isSaleProducts, or isLatestProducts must be provided');
+            }
+
+            clearTimeout(timeoutId);
+
+            if (!response.ok) {
+              throw new Error(`Failed to fetch products: ${response.status} ${response.statusText}`);
+            }
+
+            data = await response.json();
           }
-          
-          clearTimeout(timeoutId);
-          
-          if (!response.ok) {
-            throw new Error(`Failed to fetch products: ${response.status} ${response.statusText}`);
-          }
-          
-          const data = await response.json();
+
           setProducts(data);
           setIsLoading(false);
         } catch (error) {
