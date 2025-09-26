@@ -1666,6 +1666,136 @@ export default function CheckoutPage() {
         return;
       }
 
+      // Se il metodo di pagamento è Satispay, gestisci il pagamento tramite Stripe con Satispay
+      if (formData.paymentMethod === 'satispay') {
+        setIsStripeLoading(true);
+
+        console.log('Inizializzazione pagamento con Satispay...');
+
+        // Se l'utente vuole creare un account, crealo prima dell'ordine
+        let customerId = undefined;
+        if (formData.createAccount && formData.password && !isAuthenticated) {
+          try {
+            const customerData = {
+              email: formData.email,
+              first_name: formData.firstName,
+              last_name: formData.lastName,
+              password: formData.password,
+              billing: billingInfo,
+              shipping: shippingInfo
+            };
+
+            const newCustomer = await createCustomer(customerData);
+            customerId = newCustomer.id;
+            console.log('Account cliente creato con successo per Satispay:', customerId);
+          } catch (error) {
+            console.error('Errore nella creazione dell\'account cliente per Satispay:', error);
+            setFormError('Si è verificato un errore durante la creazione dell\'account. Riprova con un\'altra email.');
+            setIsStripeLoading(false);
+            setIsSubmitting(false);
+            return;
+          }
+        }
+
+        // Calcola i punti che saranno assegnati per questo ordine
+        const couponDiscount = coupon ? discount : 0;
+        const subtotalForPoints = subtotal - couponDiscount - pointsDiscount;
+        const pointsToEarn = Math.floor(Math.max(0, subtotalForPoints));
+        console.log(`[CHECKOUT SATISPAY] CALCOLO PUNTI - Subtotale: €${subtotal.toFixed(2)}, Sconto coupon: €${couponDiscount.toFixed(2)}, Sconto punti: €${pointsDiscount.toFixed(2)}, Valore per punti: €${subtotalForPoints.toFixed(2)} → ${pointsToEarn} punti verranno assegnati`);
+
+        // Crea un ordine in stato pending
+        const orderData = {
+          payment_method: 'satispay',
+          payment_method_title: 'Satispay',
+          set_paid: false,
+          customer_note: formData.notes,
+          billing: billingInfo,
+          shipping: shippingInfo,
+          line_items: cart.map(item => {
+            const lineItem: LineItem = {
+              product_id: item.product.id,
+              quantity: item.quantity
+            };
+
+            if (item.variation_id) {
+              lineItem.variation_id = item.variation_id;
+            }
+
+            if (!lineItem.meta_data) {
+              lineItem.meta_data = [];
+            }
+
+            if (item.attributes && item.attributes.length > 0) {
+              const attributeMeta = item.attributes.map(attr => ({
+                key: `pa_${attr.name.toLowerCase().replace(/\s+/g, '-')}`,
+                value: attr.option
+              }));
+
+              lineItem.meta_data = [...(lineItem.meta_data || []), ...attributeMeta];
+            }
+
+            return lineItem;
+          }),
+          shipping_lines: selectedShippingMethod ? [{
+            method_id: selectedShippingMethod.id || 'flat_rate',
+            method_title: selectedShippingMethod.title || 'Spedizione standard',
+            total: String(shipping)
+          }] : [],
+          coupon_lines: coupon ? [{
+            code: coupon.code,
+            discount: (Math.round(discount * 100) / 100).toString()
+          }] : [],
+          meta_data: [
+            ...(customerId ? [{ key: '_customer_user', value: customerId.toString() }] : []),
+            ...(isAuthenticated && user?.id ? [{ key: '_customer_user', value: user.id.toString() }] : []),
+            { key: '_checkout_payment_method', value: 'satispay' }
+          ]
+        };
+
+        console.log('Dati ordine Satispay per WooCommerce:', orderData);
+
+        try {
+          const order = await createOrder(orderData);
+          console.log('Ordine Satispay creato:', order);
+
+          if (!order.id) {
+            throw new Error('Errore nella creazione dell\'ordine per Satispay');
+          }
+
+          // Crea un Payment Intent con Satispay
+          const paymentResponse = await fetch('/api/stripe/payment-intent', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              amount: Math.round(total * 100),
+              orderId: order.id,
+              paymentMethod: 'satispay'
+            }),
+          });
+
+          const paymentData = await paymentResponse.json();
+          if (!paymentResponse.ok) {
+            throw new Error(paymentData.error || 'Errore nella creazione del Payment Intent per Satispay');
+          }
+
+          // Per Satispay, reindirizza all'hosted payment page di Stripe che gestisce Satispay
+          window.location.href = `/api/stripe/checkout-satispay?order_id=${order.id}&amount=${Math.round(total * 100)}`;
+
+        } catch (error) {
+          console.error('Errore durante il pagamento con Satispay:', error);
+          setFormError(error instanceof Error ? error.message : 'Si è verificato un errore durante il pagamento con Satispay');
+          setIsStripeLoading(false);
+          setIsSubmitting(false);
+          return;
+        }
+
+        setIsStripeLoading(false);
+        setIsSubmitting(false);
+        return;
+      }
+
       // Per altri metodi di pagamento, crea l'ordine direttamente
       
       // Debug: Verifichiamo i dati dell'utente prima di creare l'ordine
@@ -1694,7 +1824,7 @@ export default function CheckoutPage() {
         // Metti customer_id come prima proprietà per assicurarti che sia incluso
         customer_id: customerIdForOrder,
         payment_method: formData.paymentMethod,
-        payment_method_title: (formData.paymentMethod as string) === 'stripe' ? 'Carta di credito' : (formData.paymentMethod as string) === 'klarna' ? 'Klarna' : 'PayPal',
+        payment_method_title: (formData.paymentMethod as string) === 'stripe' ? 'Carta di credito' : (formData.paymentMethod as string) === 'klarna' ? 'Klarna' : (formData.paymentMethod as string) === 'satispay' ? 'Satispay' : 'PayPal',
         set_paid: false, // Will be set to true after Stripe payment
         billing: billingInfo,
         shipping: shippingInfo,
@@ -2469,6 +2599,34 @@ export default function CheckoutPage() {
                               <span className="text-sm font-medium">Paga subito solo 1/3 dell&apos;importo</span>
                             </div>
                             <p className="text-xs text-blue-600 mt-1">Le rate rimanenti verranno addebitate automaticamente ogni 30 giorni</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="paymentMethod"
+                          value="satispay"
+                          checked={formData.paymentMethod === 'satispay'}
+                          onChange={handleInputChange}
+                          className="mr-2"
+                        />
+                        <span className="text-gray-700">Satispay</span>
+                      </label>
+                      {formData.paymentMethod === 'satispay' && (
+                        <div className="mt-2 pl-6 text-sm text-gray-600">
+                          <p>Paga facilmente con la tua app Satispay. Sicuro, veloce e senza commissioni.</p>
+                          <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
+                            <div className="flex items-center text-red-700">
+                              <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                              </svg>
+                              <span className="text-sm font-medium">Pagamento immediato e sicuro</span>
+                            </div>
+                            <p className="text-xs text-red-600 mt-1">Avrai bisogno dell&apos;app Satispay per completare il pagamento</p>
                           </div>
                         </div>
                       )}
