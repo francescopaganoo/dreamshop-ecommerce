@@ -104,32 +104,107 @@ export default function OffertePage() {
               {/* Products Grid */}
               <ProductList products={products} />
 
-              {/* Pagination */}
-              <div className="flex justify-center items-center space-x-4 mt-12">
-                <button
-                  onClick={() => goToPage(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-                    currentPage === 1
-                      ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                      : 'bg-white text-gray-700 hover:bg-red-50 hover:text-red-600 border border-gray-300'
-                  }`}
-                >
-                  Precedente
-                </button>
-                
-                <button
-                  onClick={() => goToPage(currentPage + 1)}
-                  disabled={!hasMorePages}
-                  className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-                    !hasMorePages
-                      ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                      : 'bg-white text-gray-700 hover:bg-red-50 hover:text-red-600 border border-gray-300'
-                  }`}
-                >
-                  Successiva
-                </button>
-              </div>
+                  {/* Pagination */}
+                  <div className="mt-12 flex justify-center">
+                    <div className="flex items-center space-x-1 overflow-x-auto">
+                      {/* Precedente */}
+                      {currentPage > 1 && (
+                        <button
+                          onClick={() => goToPage(currentPage - 1)}
+                          className="px-2 sm:px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 mr-1 sm:mr-2 text-sm sm:text-base whitespace-nowrap"
+                        >
+                          <span className="hidden sm:inline">Precedente</span>
+                          <span className="sm:hidden">‹</span>
+                        </button>
+                      )}
+
+                      {/* Numeri pagina */}
+                      {(() => {
+                        const pageNumbers = [];
+                        // Responsive maxVisible: meno pagine su mobile
+                        const maxVisible = typeof window !== 'undefined' && window.innerWidth < 640 ? 3 : 7;
+                        const maxPage = Math.ceil(totalProducts / productsPerPage);
+
+                        const start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+                        const end = Math.min(maxPage, start + maxVisible - 1);
+
+                        // Aggiungi prima pagina se non è visibile (solo su desktop o quando c'è spazio)
+                        if (start > 1 && (typeof window === 'undefined' || window.innerWidth >= 640 || maxVisible > 3)) {
+                          pageNumbers.push(
+                            <button
+                              key={1}
+                              onClick={() => goToPage(1)}
+                              className="px-2 sm:px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 text-sm sm:text-base"
+                            >
+                              1
+                            </button>
+                          );
+
+                          if (start > 2) {
+                            pageNumbers.push(
+                              <span key="dots1" className="px-1 sm:px-2 py-2 text-gray-500 text-sm sm:text-base">...</span>
+                            );
+                          }
+                        }
+
+                        // Pagine centrali
+                        for (let i = start; i <= end; i++) {
+                          if (i === currentPage) {
+                            pageNumbers.push(
+                              <span
+                                key={i}
+                                className="px-2 sm:px-3 py-2 bg-bred-500 text-white rounded-md font-medium cursor-not-allowed text-sm sm:text-base"
+                              >
+                                {i}
+                              </span>
+                            );
+                          } else if (i <= maxPage) {
+                            pageNumbers.push(
+                              <button
+                                key={i}
+                                onClick={() => goToPage(i)}
+                                className="px-2 sm:px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 text-sm sm:text-base"
+                              >
+                                {i}
+                              </button>
+                            );
+                          }
+                        }
+
+                        // Aggiungi ultima pagina se non è visibile (solo su desktop)
+                        if (end < maxPage && (typeof window === 'undefined' || window.innerWidth >= 640)) {
+                          if (end < maxPage - 1) {
+                            pageNumbers.push(
+                              <span key="dots2" className="px-1 sm:px-2 py-2 text-gray-500 text-sm sm:text-base">...</span>
+                            );
+                          }
+
+                          pageNumbers.push(
+                            <button
+                              key={maxPage}
+                              onClick={() => goToPage(maxPage)}
+                              className="px-2 sm:px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 text-sm sm:text-base"
+                            >
+                              {maxPage}
+                            </button>
+                          );
+                        }
+
+                        return pageNumbers;
+                      })()}
+
+                      {/* Successivo */}
+                      {hasMorePages && (
+                        <button
+                          onClick={() => goToPage(currentPage + 1)}
+                          className="px-2 sm:px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 ml-1 sm:ml-2 text-sm sm:text-base whitespace-nowrap"
+                        >
+                          <span className="hidden sm:inline">Successivo</span>
+                          <span className="sm:hidden">›</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
             </>
           ) : (
             // Empty state
