@@ -208,14 +208,14 @@ export default function GiftCardForm({ productId, onDataChange }: GiftCardFormPr
         </div>
 
         {/* Info box */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="bg-bred-50 border border-bred-100 rounded-lg p-4">
           <div className="flex items-start">
-            <svg className="w-5 h-5 text-blue-500 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-bred-500 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <div className="text-sm text-blue-700">
+            <div className="text-sm text-bred-700">
               <p className="font-medium mb-1">Come funziona:</p>
-              <ul className="list-disc list-inside space-y-1 text-blue-600">
+              <ul className="list-disc list-inside space-y-1 text-bred-500">
                 <li>Il destinatario riceverà una email con il codice della gift card</li>
                 <li>Potrà utilizzare il codice per i suoi acquisti sul nostro sito</li>
                 <li>La gift card scade dopo 1 anno dalla data di emissione</li>

@@ -117,8 +117,11 @@ export default async function Home() {
             className="w-full  object-contain object-center md:hidden"
           />
 
-          {/* Overlay gradient sulla parte sinistra → destra */}
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/80 via-black/10 to-transparent"></div>
+          {/* Overlay gradient per desktop - sinistra → destra */}
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/80 via-black/10 to-transparent hidden md:block"></div>
+
+          {/* Overlay gradient per mobile - più accentuato e esteso verso destra */}
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/90 via-black/60 via-black/10 to-transparent md:hidden"></div>
 
           {/* Testi sovrapposti */}
           <div className="absolute inset-0">
@@ -126,7 +129,7 @@ export default async function Home() {
               <div className="max-w-2xl transform transition-all duration-700 translate-y-0 hover:translate-y-[-10px]">
                 {/*<span className="bg-bred-600 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-6 animate-pulse">Collezione 2025</span>*/}
                 <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">Benvenuti su <span className="text-bred-500">DreamShop</span></h1>
-                <p className="text-xl md:text-2xl mb-8 max-w-xl text-gray-200 leading-relaxed">Scopri la nostra collezione esclusiva di statue, figure e trading card di anime e manga</p>
+                <p className="text-xl md:text-2xl mb-8 max-w-xl md:max-w-xl text-gray-200 leading-tight md:leading-relaxed pr-14 md:pr-0">Scopri la nostra collezione esclusiva di statue, figure e trading card di anime e manga</p>
                 <div className="flex flex-wrap gap-4">
                   <Link 
                     href="/products" 
