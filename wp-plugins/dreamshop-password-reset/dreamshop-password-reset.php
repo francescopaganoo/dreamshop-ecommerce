@@ -173,21 +173,106 @@ class DreamshopPasswordReset {
         $site_name = get_bloginfo('name');
         $user_email = $user->user_email;
         $user_name = $user->display_name;
+        $site_url = home_url();
 
         $subject = sprintf('[%s] Reset della password', $site_name);
 
-        $message = "Ciao {$user_name},\n\n";
-        $message .= "Hai richiesto di reimpostare la password per il tuo account su {$site_name}.\n\n";
-        $message .= "Clicca sul seguente link per reimpostare la tua password:\n";
-        $message .= "{$reset_url}\n\n";
-        $message .= "Questo link è valido per 24 ore.\n\n";
-        $message .= "Se non hai richiesto tu questa operazione, ignora questa email.\n\n";
-        $message .= "Cordiali saluti,\n";
-        $message .= "Il team di {$site_name}";
+        $message = $this->get_password_reset_email_template($user_name, $reset_url, $site_url, $site_name);
 
-        $headers = array('Content-Type: text/plain; charset=UTF-8');
+        $headers = array('Content-Type: text/html; charset=UTF-8');
 
         wp_mail($user_email, $subject, $message, $headers);
+    }
+
+    /**
+     * Template HTML moderno per il reset password
+     */
+    private function get_password_reset_email_template($user_name, $reset_url, $site_url, $shop_name) {
+        $html = '
+        <div style="max-width: 600px; margin: 0 auto; font-family: \'Segoe UI\', Tahoma, Geneva, Verdana, sans-serif; background-color: #ffffff;">
+            <!-- Header -->
+            <div style="background: linear-gradient(135deg, #a2180e 0%, #8b1508 100%); color: white; padding: 30px 20px; text-align: center; border-radius: 10px 10px 0 0;">
+                <h1 style="margin: 0; font-size: 28px; font-weight: bold;">🔐 RESET PASSWORD</h1>
+                <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Reimposta la tua password</p>
+            </div>
+
+            <!-- Content -->
+            <div style="padding: 40px 30px; background-color: #ffffff;">
+                <h2 style="color: #333333; font-size: 24px; margin: 0 0 20px 0; text-align: center;">
+                    Ciao ' . esc_html($user_name) . '! 👋
+                </h2>
+
+                <div style="background-color: #f8f9fa; padding: 25px; border-radius: 10px; border-left: 4px solid #a2180e; margin: 20px 0;">
+                    <p style="margin: 0 0 15px 0; font-size: 16px; color: #333333; line-height: 1.6;">
+                        Hai richiesto di <strong style="color: #a2180e;">reimpostare la password</strong> per il tuo account su ' . esc_html($shop_name) . '.
+                    </p>
+                </div>
+
+                <!-- Reset Button Section -->
+                <div style="text-align: center; margin: 30px 0;">
+                    <a href="' . esc_url($reset_url) . '" style="background: linear-gradient(135deg, #a2180e 0%, #8b1508 100%); color: white; padding: 15px 30px; border-radius: 25px; text-decoration: none; font-size: 18px; font-weight: bold; display: inline-block; box-shadow: 0 4px 15px rgba(162, 24, 14, 0.3);">
+                        🔑 Reimposta Password
+                    </a>
+                </div>
+
+                <!-- Instructions -->
+                <div style="background-color: #f8f9fa; border-radius: 10px; padding: 25px; margin: 30px 0;">
+                    <h4 style="margin: 0 0 15px 0; color: #a2180e; font-size: 18px; text-align: center;">
+                        📋 Istruzioni
+                    </h4>
+                    <ol style="margin: 0; padding-left: 20px; color: #333333; line-height: 1.8;">
+                        <li>Clicca sul pulsante "Reimposta Password" qui sopra</li>
+                        <li>Verrai reindirizzato alla pagina di reset</li>
+                        <li>Inserisci la tua nuova password</li>
+                        <li>Conferma la nuova password</li>
+                        <li>Salva le modifiche</li>
+                    </ol>
+                </div>
+
+                <!-- Security Notice -->
+                <div style="background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%); border: 1px solid #ffc107; padding: 20px; border-radius: 8px; margin: 25px 0;">
+                    <p style="margin: 0 0 10px 0; color: #856404; font-size: 16px; font-weight: bold; text-align: center;">
+                        ⏰ Link di Reset Valido per 24 ore
+                    </p>
+                    <p style="margin: 0; color: #856404; font-size: 14px; text-align: center;">
+                        Se non hai richiesto tu questa operazione, ignora questa email
+                    </p>
+                </div>
+
+                <!-- Link Alternative -->
+                <div style="background-color: #e9ecef; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                    <p style="margin: 0 0 10px 0; font-size: 14px; color: #666666; text-align: center;">
+                        Se il pulsante non funziona, copia e incolla questo link nel tuo browser:
+                    </p>
+                    <p style="margin: 0; font-size: 12px; color: #a2180e; word-break: break-all; text-align: center;">
+                        ' . esc_url($reset_url) . '
+                    </p>
+                </div>
+
+                <!-- Footer Message -->
+                <div style="text-align: center; padding: 20px 0; border-top: 1px solid #e9ecef; margin-top: 30px;">
+                    <p style="margin: 0 0 10px 0; color: #666666; font-size: 18px; font-weight: bold;">
+                        Buon shopping! 🛒
+                    </p>
+                    <p style="margin: 0; color: #a2180e; font-size: 18px; font-weight: bold;">
+                        Il team di ' . esc_html($shop_name) . '
+                    </p>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div style="background-color: #f8f9fa; padding: 20px 30px; text-align: center; border-radius: 0 0 10px 10px; border-top: 1px solid #e9ecef;">
+                <p style="margin: 0 0 10px 0; font-size: 14px; color: #666666;">
+                    Visita il nostro store: <a href="' . esc_url($site_url) . '" style="color: #a2180e; text-decoration: none; font-weight: bold;">' . esc_html($shop_name) . '</a>
+                </p>
+                <p style="margin: 0; font-size: 12px; color: #999999;">
+                    Conserva questa email per riferimenti futuri
+                </p>
+            </div>
+        </div>
+        ';
+
+        return $html;
     }
 
     /**
