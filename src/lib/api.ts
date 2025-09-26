@@ -2039,7 +2039,7 @@ export async function getBestSellingProducts(limit: number = 4): Promise<Product
  * @param limit - Numero di prodotti da restituire (default: 4)
  * @returns Promise<Product[]> - Array di prodotti correlati
  */
-export async function getRelatedProductsBySlug(productSlug: string, limit: number = 4): Promise<Product[]> {
+export async function getRelatedProductsBySlug(productSlug: string, limit: number = 8): Promise<Product[]> {
   try {
     const baseUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL?.replace(/\/$/, '') || '';
     const relatedUrl = `${baseUrl}/wp-json/dreamshop/v1/products/${productSlug}/related?limit=${limit}`;
@@ -2091,7 +2091,7 @@ export async function getRelatedProductsBySlug(productSlug: string, limit: numbe
  * @param limit - Numero di prodotti da restituire (default: 4)
  * @returns Promise<Product[]> - Array di prodotti correlati
  */
-export async function getRelatedProducts(productId: number, categoryIds: number[], limit: number = 4): Promise<Product[]> {
+export async function getRelatedProducts(productId: number, categoryIds: number[], limit: number = 8): Promise<Product[]> {
   try {
     if (categoryIds.length === 0) return [];
 

@@ -9,7 +9,7 @@ import ProductActions from '@/components/product/ProductActions';
 import BundleProducts from '@/components/product/BundleProducts';
 import ProductImagesSection from '@/components/product/ProductImagesSection';
 import SaleCountdown from '@/components/product/SaleCountdown';
-import ProductCard from '@/components/ProductCard';
+import ProductCarousel from '@/components/ProductCarousel';
 import { isBundle, BundleProduct } from '@/types/bundle';
 import { Suspense } from 'react';
 
@@ -396,32 +396,18 @@ async function RelatedProductsSection({ productSlug, productId, categories }: {
   categories: Array<{id: number; name: string; slug: string}>
 }) {
   // Prima prova con il nuovo endpoint DreamShop
-  let relatedProducts = await getRelatedProductsBySlug(productSlug, 4);
+  let relatedProducts = await getRelatedProductsBySlug(productSlug, 8);
 
   // Se il nuovo endpoint non restituisce risultati, usa il fallback
   if (relatedProducts.length === 0) {
     console.log('🔄 Fallback to category-based related products');
     const categoryIds = categories.map(cat => cat.id);
-    relatedProducts = await getRelatedProducts(productId, categoryIds, 4);
+    relatedProducts = await getRelatedProducts(productId, categoryIds, 8);
   }
 
   if (relatedProducts.length === 0) return null;
 
-  return (
-    <div>
-      <div className="flex items-center mb-8">
-        <svg className="w-6 h-6 mr-3 text-bred-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-        </svg>
-        <h2 className="text-2xl font-bold text-gray-900">Ti Potrebbero Interessare</h2>
-      </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-        {relatedProducts.map((product) => (
-          <ProductCard key={product.id} product={product} />
-        ))}
-      </div>
-    </div>
-  );
+  return <ProductCarousel products={relatedProducts} title="Ti Potrebbero Interessare" />;
 }
 
 // Componente per i prodotti più venduti
@@ -432,19 +418,15 @@ async function BestSellingProductsSection() {
   
   return (
     <div>
-      <div className="flex items-center mb-8">
-        <svg className="w-6 h-6 mr-3 text-bred-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-        </svg>
-        <h2 className="text-2xl font-bold text-gray-900">I Più Acquistati</h2>
-        <div className="ml-3 px-2 py-1 bg-bred-100 text-bred-600 text-xs font-semibold rounded-full">
+      <ProductCarousel
+        products={bestSellingProducts}
+        title="I Più Acquistati"
+      />
+      {/* Badge popolari */}
+      <div className="flex justify-start mt-2">
+        <div className="px-2 py-1 bg-bred-100 text-bred-600 text-xs font-semibold rounded-full">
           POPOLARI
         </div>
-      </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-        {bestSellingProducts.map((product) => (
-          <ProductCard key={product.id} product={product} />
-        ))}
       </div>
     </div>
   );

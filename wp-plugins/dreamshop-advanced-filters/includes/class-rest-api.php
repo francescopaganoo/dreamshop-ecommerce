@@ -94,7 +94,7 @@ class DreamShop_Filters_REST_API {
                     }
                 ],
                 'limit' => [
-                    'default' => 4,
+                    'default' => 8,
                     'validate_callback' => function($param) {
                         return is_numeric($param) && $param > 0 && $param <= 20;
                     }
