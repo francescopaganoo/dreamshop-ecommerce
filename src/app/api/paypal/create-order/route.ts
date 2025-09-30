@@ -61,8 +61,8 @@ export async function POST(request: NextRequest) {
         details: wooError 
       }, { status: 500 });
     }
-    
-  } catch (error) {
+
+  } catch {
     return NextResponse.json({ error: 'Errore interno del server' }, { status: 500 });
   }
 }

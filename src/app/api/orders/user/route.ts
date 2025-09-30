@@ -62,9 +62,10 @@ export async function GET(request: NextRequest) {
         const response = await api.get(`orders?customer=${decoded.id}&per_page=100&page=${page}&orderby=date&order=desc`);
         let orders = Array.isArray(response.data) ? response.data : [];
         
-        
+
         // Debug: elenco stati ordini dalla prima chiamata
         const initialOrderStatuses = orders.map((order: WooOrder) => order.status);
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const initialUniqueStatuses = [...new Set(initialOrderStatuses)];
         
         // SEMPRE prova chiamate aggiuntive per assicurarsi di recuperare tutti i tipi di ordini
@@ -86,7 +87,8 @@ export async function GET(request: NextRequest) {
                 orders = [...orders, ...newOrders];
               }
             }
-          } catch (error) {
+          } catch {
+            // Ignora gli errori nelle chiamate per stato specifico
           }
         
         // Se non troviamo ordini con il parametro customer, proviamo con customer_id
@@ -138,12 +140,14 @@ export async function GET(request: NextRequest) {
           return false;
         });
         
-        
+
         // Debug: elenco stati ordini per capire cosa arriva da WooCommerce
         const orderStatuses = filteredOrders.map(order => order.status);
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const uniqueStatuses = [...new Set(orderStatuses)];
-        
+
         // Debug: conteggio per ogni tipo di stato
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const statusCounts = orderStatuses.reduce((acc, status) => {
           acc[status] = (acc[status] || 0) + 1;
           return acc;
@@ -161,12 +165,12 @@ export async function GET(request: NextRequest) {
         
         return NextResponse.json({ error: 'Errore nel recupero degli ordini' }, { status: 500 });
       }
-      
-    } catch (jwtError) {
+
+    } catch {
       return NextResponse.json({ error: 'Token non valido' }, { status: 401 });
     }
-    
-  } catch (error) {
+
+  } catch {
     return NextResponse.json({ error: 'Errore interno del server' }, { status: 500 });
   }
 }

@@ -46,12 +46,12 @@ export async function POST(request: NextRequest) {
       // In Next.js 14, cookies() restituisce una Promise
       const cookieStore = await cookies();
       token = cookieStore.get('auth_token')?.value;
-      
+
       if (!token) {
         console.error('API Complete Payment: Token non fornito né negli header né nei cookie');
         return NextResponse.json({ error: 'Token non fornito o formato non valido' }, { status: 401 });
       }
-    } catch (cookieError) {
+    } catch {
       return NextResponse.json({ error: 'Errore nel recupero del token' }, { status: 401 });
     }
   }

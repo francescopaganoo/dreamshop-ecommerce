@@ -88,7 +88,7 @@ export async function GET(
         if (!order) {
           return NextResponse.json({ error: 'Ordine non trovato' }, { status: 404 });
         }
-      } catch (apiError) {
+      } catch {
         return NextResponse.json({ error: 'Errore nel recupero dell\'ordine da WooCommerce' }, { status: 500 });
       }
       

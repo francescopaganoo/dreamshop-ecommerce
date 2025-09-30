@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(request: NextRequest) {
   // Parsifica il corpo della richiesta
   const body = await request.json().catch(() => ({}));
-  const { productId, deposit_option, paymentPlanId } = body;
+  const { paymentPlanId } = body;
   
 
   

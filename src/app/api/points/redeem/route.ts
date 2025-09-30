@@ -51,7 +51,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     let requestData;
     try {
       requestData = await request.json();
-    } catch (parseError) {
+    } catch {
       return NextResponse.json({ error: 'Formato richiesta non valido', success: false }, { status: 400 });
     }
     
@@ -249,9 +249,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                                 coupon_lines: updatedCouponCodes
                               })
                             });
-                            
+
                             // Log dettagliato della risposta per debug
-                            const responseStatus = updateOrderResponse.status;
                             const responseBody = await updateOrderResponse.text();
                             
                             // Verifichiamo solo se la risposta è un JSON valido

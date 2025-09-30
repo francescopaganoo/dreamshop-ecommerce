@@ -85,6 +85,7 @@ export async function GET(request: NextRequest) {
 
       // Filtriamo TUTTI gli ordini e poi facciamo debug per capire quali sono pianificati
       // Non escludiamo nulla inizialmente per debugging
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const allPotentialScheduledOrders = orders
         .filter(() => {
           // Non filtriamo nulla per ora, prendiamo tutti gli ordini per debug
@@ -114,11 +115,12 @@ export async function GET(request: NextRequest) {
       );
       
 
-      
+
       // Cerchiamo anche ordini con specifici flag
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const scheduledOrdersByMeta = orders.filter((order: WooOrder) => {
         if (!order.meta_data) return false;
-        
+
         // Cerca tutti i possibili meta che potrebbero indicare un ordine pianificato
         return order.meta_data.some((meta: OrderMetaData) => {
           const key = meta.key?.toLowerCase() || '';
@@ -180,9 +182,10 @@ export async function GET(request: NextRequest) {
         // Altrimenti, ordina per data (più recenti prima)
         return new Date(b.date_created).getTime() - new Date(a.date_created).getTime();
       });
-      
+
       return NextResponse.json(finalScheduledOrders);
     } catch (error: unknown) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const ordersError = error instanceof Error ? error : new Error('Errore sconosciuto');
       // Continua con l'approccio 3 se il secondo fallisce
     }
