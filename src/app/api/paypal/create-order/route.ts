@@ -10,11 +10,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Dati dell\'ordine mancanti' }, { status: 400 });
     }
     
-    // Log dettagliato per debug dell'ID utente
+
     const userId = orderData.customer_id || 0;
-    console.log(`PayPal: Creazione ordine per utente ID: ${userId}`);
-    console.log(`PayPal DEBUG: Contenuto completo ordine:`, JSON.stringify(orderData, null, 2));
-    
+
     // Assicurati che customer_id non sia perso o sovrascritto
     const orderDataToSend = {
       ...orderData,
@@ -27,7 +25,6 @@ export async function POST(request: NextRequest) {
       status: 'pending' // Lo stato iniziale è pending
     };
     
-    console.log(`PayPal: Dati ordine pronti per invio:`, JSON.stringify(orderDataToSend, null, 2));
     
     // Crea l'ordine in WooCommerce
     try {
@@ -39,7 +36,6 @@ export async function POST(request: NextRequest) {
         throw new Error('Risposta non valida dalla creazione dell\'ordine');
       }
       
-      console.log(`Ordine WooCommerce creato con successo: ID ${order.id}`);
       
       // Definiamo un'interfaccia per l'ordine WooCommerce
       interface WooOrder {
@@ -60,7 +56,6 @@ export async function POST(request: NextRequest) {
       });
       
     } catch (wooError) {
-      console.error('Errore durante la creazione dell\'ordine in WooCommerce:', wooError);
       return NextResponse.json({ 
         error: 'Errore durante la creazione dell\'ordine', 
         details: wooError 
@@ -68,7 +63,6 @@ export async function POST(request: NextRequest) {
     }
     
   } catch (error) {
-    console.error('Errore nella richiesta:', error);
     return NextResponse.json({ error: 'Errore interno del server' }, { status: 500 });
   }
 }

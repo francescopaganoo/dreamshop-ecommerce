@@ -5,33 +5,27 @@ export async function GET() {
     const baseUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL?.replace(/\/$/, '') || '';
 
     // Test 1: Get filter options to see availability structure
-    console.log('🔍 Testing filter options for availability...');
     const optionsUrl = `${baseUrl}/wp-json/dreamshop/v1/filter-options`;
     const optionsResponse = await fetch(optionsUrl);
     const optionsData = await optionsResponse.json();
 
-    console.log('📊 Availability options:', optionsData.data?.availability);
 
     // Test 2: Test availability filter with in-stock
-    console.log('🔍 Testing availability filter with in-stock...');
     const inStockUrl = `${baseUrl}/wp-json/dreamshop/v1/products/filter?availability=in-stock&per_page=5`;
     const inStockResponse = await fetch(inStockUrl);
     const inStockData = await inStockResponse.json();
 
     // Test 3: Test availability filter with in-pre-order
-    console.log('🔍 Testing availability filter with in-pre-order...');
     const preOrderUrl = `${baseUrl}/wp-json/dreamshop/v1/products/filter?availability=in-pre-order&per_page=5`;
     const preOrderResponse = await fetch(preOrderUrl);
     const preOrderData = await preOrderResponse.json();
 
     // Test 4: Debug a specific product to see its availability attributes
-    console.log('🔍 Testing product 175890 to see its availability...');
     const productUrl = `${baseUrl}/wp-json/dreamshop/v1/debug/product/175890`;
     const productResponse = await fetch(productUrl);
     const productData = await productResponse.json();
 
     // Test 5: Get all products without filters to see what availability data they have
-    console.log('🔍 Getting sample products to analyze availability data...');
     const allProductsUrl = `${baseUrl}/wp-json/dreamshop/v1/products/filter?per_page=3`;
     const allProductsResponse = await fetch(allProductsUrl);
     const allProductsData = await allProductsResponse.json();

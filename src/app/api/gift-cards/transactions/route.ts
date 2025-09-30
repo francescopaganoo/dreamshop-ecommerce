@@ -10,7 +10,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const authHeader = request.headers.get('Authorization');
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    console.log('Gift Card Transactions API: Authorization header mancante o non valido');
     return NextResponse.json({ error: 'Authorization header mancante o non valido' }, { status: 401 });
   }
   
@@ -29,7 +28,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const limit = parseInt(url.searchParams.get('limit') || '20');
     const offset = parseInt(url.searchParams.get('offset') || '0');
     
-    console.log(`Gift Card Transactions API: Richiedo transazioni per utente ${userId}, limit=${limit}, offset=${offset}`);
     
     // Chiama l'endpoint WordPress del nostro plugin
     const wordpressUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL!;
@@ -62,7 +60,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
     
     const data = await response.json();
-    console.log('Gift Card Transactions API: Transazioni recuperate con successo');
     
     // Restituisci i dati nel formato aspettato dal frontend
     return NextResponse.json({

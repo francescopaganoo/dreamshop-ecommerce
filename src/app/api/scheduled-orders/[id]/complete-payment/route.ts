@@ -34,7 +34,6 @@ export async function POST(request: NextRequest) {
   const pathSegments = request.nextUrl.pathname.split('/');
   // L'ID è il segmento prima di 'complete-payment'
   const id = pathSegments[pathSegments.indexOf('complete-payment') - 1] || '';
-  console.log('API Complete Payment - Notifica completamento pagamento per rata ID:', id);
   
   // Ottieni il token dall'header Authorization o dai cookie come fallback
   const authHeader = request.headers.get('Authorization');
@@ -42,7 +41,6 @@ export async function POST(request: NextRequest) {
   
   if (authHeader && authHeader.startsWith('Bearer ')) {
     token = authHeader.substring(7); // Rimuovi 'Bearer ' dal token
-    console.log('API Complete Payment: Token ottenuto da header Authorization');
   } else {
     try {
       // In Next.js 14, cookies() restituisce una Promise
@@ -53,9 +51,7 @@ export async function POST(request: NextRequest) {
         console.error('API Complete Payment: Token non fornito né negli header né nei cookie');
         return NextResponse.json({ error: 'Token non fornito o formato non valido' }, { status: 401 });
       }
-      console.log('API Complete Payment: Token ottenuto da cookie');
     } catch (cookieError) {
-      console.error('API Complete Payment: Errore nel recupero del token dai cookie', cookieError);
       return NextResponse.json({ error: 'Errore nel recupero del token' }, { status: 401 });
     }
   }

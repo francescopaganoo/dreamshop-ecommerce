@@ -4,7 +4,6 @@
 const WORDPRESS_API_URL = 'https://be.dreamshop18.com';
 const productId = 54595; // ID del prodotto da testare
 
-console.log(`Test API per acconto - usando WORDPRESS_API_URL: ${WORDPRESS_API_URL}`);
 
 const depositEndpoint = `${WORDPRESS_API_URL}/wp-json/dreamshop/v1/products/${productId}/deposit-options`;
 

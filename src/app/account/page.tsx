@@ -100,7 +100,6 @@ function AccountContent() {
   useEffect(() => {
     const fetchOrders = async () => {
       if (!user) {
-        console.log('Utente non disponibile, impossibile caricare gli ordini');
         return;
       }
       
@@ -115,7 +114,6 @@ function AccountContent() {
           throw new Error('Token non trovato');
         }
         
-        console.log('Recupero ordini per utente:', user.id);
         
         // Aggiungiamo un timestamp per evitare problemi di cache e il parametro page
         const timestamp = new Date().getTime();
@@ -156,9 +154,7 @@ function AccountContent() {
         // Applica i filtri di default agli ordini
         const filteredOrders = data.filter((order: Order) => initialStatusFilters[order.status]);
         setOrders(filteredOrders);
-        
-        console.log(`Mostrando ${filteredOrders.length} ordini con filtri di default (completato, in elaborazione, annullato)`);
-        
+                
         // Se abbiamo meno di 100 ordini nel primo caricamento, non ci sono altri ordini da caricare
         if (data.length < 100) {
           setHasMoreOrders(false);
@@ -180,7 +176,6 @@ function AccountContent() {
     if (activeTab === 'scheduled-orders' && user) {
       const fetchScheduledOrders = async () => {
         if (!user) {
-          console.log('Utente non disponibile, impossibile caricare gli ordini pianificati');
           return;
         }
         
@@ -188,9 +183,7 @@ function AccountContent() {
         setScheduledOrdersError(null);
         
         try {
-          console.log('Recupero ordini pianificati per utente:', user.id);
           const data = await getScheduledOrders();
-          console.log(`Ordini pianificati caricati: ${data.length}`);
           setScheduledOrders(data);
           
           // Se abbiamo meno di 100 ordini nel primo caricamento, non ci sono altri ordini da caricare
@@ -214,7 +207,6 @@ function AccountContent() {
     if (activeTab === 'points' && user) {
       const fetchPoints = async () => {
         if (!user) {
-          console.log('Utente non disponibile, impossibile caricare i punti');
           return;
         }
         
@@ -230,7 +222,6 @@ function AccountContent() {
             throw new Error('Token non trovato');
           }
           
-          console.log('Recupero punti per utente:', user.id);
           
           // Chiamata alla funzione per recuperare i punti
           const data = await getUserPoints(user.id, token);
@@ -248,7 +239,6 @@ function AccountContent() {
     if (activeTab === 'addresses' && user) {
       const fetchAddresses = async () => {
         if (!user) {
-          console.log('Utente non disponibile, impossibile caricare gli indirizzi');
           return;
         }
         
@@ -264,7 +254,6 @@ function AccountContent() {
             throw new Error('Token non trovato');
           }
           
-          console.log('Recupero indirizzi per utente:', user.id);
           
           // Chiamata alla funzione per recuperare gli indirizzi
           const data = await getUserAddresses(token);
@@ -328,9 +317,7 @@ function AccountContent() {
         setScheduledOrdersError(null);
         
         try {
-          console.log('Ricarico ordini pianificati dopo il pagamento');
           const data = await getScheduledOrders();
-          console.log(`Ordini pianificati ricaricati: ${data.length}`);
           setScheduledOrders(data);
         } catch (error) {
           console.error('Errore durante il ricaricamento degli ordini pianificati:', error);
@@ -341,7 +328,6 @@ function AccountContent() {
       };
       
       // Non c'è più bisogno di invalidare la cache - i filtri sono sempre tutti attivi per default
-      console.log('Ordini ricaricati dopo il pagamento');
       
       fetchScheduledOrders();
     }
@@ -414,7 +400,6 @@ function AccountContent() {
                           const filteredOrders = allOrders.filter((order: Order) => newFilters[order.status]);
                           setOrders(filteredOrders);
                           
-                          console.log(`Filtro ${status} ${newFilters[status] ? 'attivato' : 'disattivato'}: mostrando ${filteredOrders.length} ordini`);
                           
                           // Reset alla prima pagina quando si cambia filtro
                           setOrdersCurrentPage(1);
@@ -564,7 +549,6 @@ function AccountContent() {
                                     Object.keys(updatedOrderStates).forEach(status => {
                                       if (updatedFilters[status] === undefined) {
                                         updatedFilters[status] = true; // Attiva di default
-                                        console.log(`Aggiunto nuovo stato agli ordini: ${status}`);
                                       }
                                     });
                                     
@@ -656,7 +640,6 @@ function AccountContent() {
                               if (ordersCurrentPage === maxPage && hasMoreOrders && !isLoadingOrders) {
                                 try {
                                   setIsLoadingOrders(true);
-                                  console.log(`Caricamento pagina aggiuntiva ${nextOrdersPage} di ordini`);
                                   
                                   // Recupera il token dal localStorage
                                   const token = localStorage.getItem('woocommerce_token');
@@ -680,7 +663,6 @@ function AccountContent() {
                                   }
                                   
                                   const moreData = await response.json();
-                                  console.log(`Caricati ${moreData.length} ordini aggiuntivi`);
                                   
                                   // Filtra i nuovi ordini come fatto per il caricamento iniziale
                                   const moreFilteredOrders = moreData.filter((order: Order) => 
@@ -712,7 +694,6 @@ function AccountContent() {
                                         Object.keys(updatedOrderStates).forEach(status => {
                                           if (updatedFilters[status] === undefined) {
                                             updatedFilters[status] = true; // Attiva di default
-                                            console.log(`Aggiunto nuovo stato agli ordini: ${status}`);
                                           }
                                         });
                                         
@@ -909,11 +890,9 @@ function AccountContent() {
                               if (scheduledOrdersCurrentPage === maxPage && hasMoreScheduledOrders && !isLoadingScheduledOrders) {
                                 try {
                                   setIsLoadingScheduledOrders(true);
-                                  console.log(`Caricamento pagina aggiuntiva ${nextScheduledOrdersPage} di ordini programmati`);
                                   
                                   // Carica la pagina successiva
                                   const moreData = await getScheduledOrders(nextScheduledOrdersPage);
-                                  console.log(`Caricati ${moreData.length} ordini aggiuntivi`);
                                   
                                   if (moreData.length > 0) {
                                     // Aggiungi i nuovi dati agli ordini esistenti

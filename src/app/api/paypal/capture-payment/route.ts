@@ -20,7 +20,6 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
     
-    console.log(`Cattura del pagamento PayPal per l'ordine ${orderId}, PayPal Order ID: ${paypalOrderId}`);
     
     // Definiamo un'interfaccia per i dettagli dell'ordine WooCommerce
     interface WooOrderDetails {
@@ -80,7 +79,6 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Errore nella cattura del pagamento PayPal' }, { status: 500 });
       }
       
-      console.log(`Pagamento PayPal catturato con successo: ${captureData.id}, Status: ${captureData.status}`);
       
       // Prepariamo i dati per l'aggiornamento dell'ordine
       const orderUpdateData = {
@@ -141,7 +139,6 @@ export async function POST(request: NextRequest) {
       
       const wooOrder = updatedOrder as WooOrder;
       
-      console.log(`Ordine ${orderId} aggiornato con successo a stato: ${wooOrder.status || 'sconosciuto'}`);
       
       return NextResponse.json({
         success: true,

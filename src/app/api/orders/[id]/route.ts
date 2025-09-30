@@ -64,13 +64,11 @@ export async function GET(
     const pathParts = url.pathname.split('/');
     const orderId = pathParts[pathParts.length - 1];
     
-    console.log('Richiesta dettagli ordine:', { orderId });
     
     // Ottieni il token dall'header Authorization
     const authHeader = request.headers.get('Authorization');
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log('Token non fornito');
       return NextResponse.json({ error: 'Token non fornito' }, { status: 401 });
     }
     
@@ -79,24 +77,18 @@ export async function GET(
     try {
       // Verifica il token
       const decoded = jwt.verify(token, JWT_SECRET) as jwt.JwtPayload;
-      console.log('Token verificato:', { userId: decoded.id });
       
       let order: WooCommerceOrder;
       try {
         // Ottieni i dettagli dell'ordine da WooCommerce
-        console.log('Chiamata a WooCommerce API:', `orders/${orderId}`);
         const response = await api.get(`orders/${orderId}`);
-        console.log('Risposta da WooCommerce:', { status: response.status });
         
         order = response.data as WooCommerceOrder;
-        console.log('Dati ordine ricevuti:', { orderCustomerId: order.customer_id });
         
         if (!order) {
-          console.log('Ordine non trovato');
           return NextResponse.json({ error: 'Ordine non trovato' }, { status: 404 });
         }
       } catch (apiError) {
-        console.error('Errore nella chiamata a WooCommerce:', apiError);
         return NextResponse.json({ error: 'Errore nel recupero dell\'ordine da WooCommerce' }, { status: 500 });
       }
       

@@ -30,7 +30,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const authHeader = request.headers.get('Authorization');
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    console.log('API: Authorization header mancante o non valido');
     return NextResponse.json({ error: 'Authorization header mancante o non valido' }, { status: 401 });
   }
   
@@ -46,7 +45,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     
     try {
       // Primo tentativo: usa l'endpoint nuovo che funziona correttamente
-      console.log(`API: Tentativo con endpoint nuovo /dreamshop-points/v1/users/${userId}/points`);
       
       const wordpressUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL!;
       const baseUrl = wordpressUrl.endsWith('/') ? wordpressUrl : `${wordpressUrl}/`;
@@ -63,7 +61,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       
       if (response.ok) {
         const pointsData = await response.json();
-        console.log('API: Punti recuperati con successo dall\'endpoint nuovo', pointsData);
         
         return NextResponse.json({
           points: pointsData.points,
@@ -87,17 +84,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         queryStringAuth: true 
       });
       
-      console.log('API: Fallback - Recupero dati cliente e ordini da WooCommerce');
       
       // Recuperiamo solo le informazioni necessarie
-      console.log('API: Preparazione recupero dati cliente');
       
       // Ottieni ordini cliente per simulare punti
       const ordersResponse = await api.get('orders', {
         customer: userId,
         per_page: 20
       });
-      console.log('API: Ordini cliente recuperati');
       
       // Simula dati dei punti basati sugli ordini
       let totalPoints = 0;
@@ -124,7 +118,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         });
       }
       
-      console.log(`API: Punti simulati calcolati: ${totalPoints}`);
       
       // Risposta formattata
       return NextResponse.json({

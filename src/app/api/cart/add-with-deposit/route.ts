@@ -5,13 +5,7 @@ export async function POST(request: Request) {
   try {
     const { product_id, enable_deposit, quantity, variation_id, payment_plan_id } = await request.json();
     
-    console.log('Ricevuta richiesta di aggiunta al carrello con acconto:', {
-      product_id, 
-      enable_deposit, 
-      quantity, 
-      variation_id,
-      payment_plan_id
-    });
+
     
     if (!product_id) {
       return NextResponse.json(
@@ -28,7 +22,6 @@ export async function POST(request: Request) {
     
     // Recupera token di autenticazione se disponibile, ma non obbligatorio
     const token = await getAuthToken();
-    console.log('Token di autenticazione disponibile:', !!token);
     
     // Verifica che l'URL di WordPress sia configurato
     if (!process.env.NEXT_PUBLIC_WORDPRESS_URL) {
@@ -41,7 +34,6 @@ export async function POST(request: Request) {
     
     // Utilizziamo l'endpoint personalizzato che abbiamo implementato nel plugin WordPress
     const wpEndpoint = `${process.env.NEXT_PUBLIC_WORDPRESS_URL}/wp-json/dreamshop/v1/cart/add-with-deposit`;
-    console.log('Endpoint WordPress:', wpEndpoint);
     
     // Prepara i dati per l'endpoint personalizzato
     const requestData = {
@@ -52,7 +44,6 @@ export async function POST(request: Request) {
       payment_plan_id: payment_plan_id // Aggiunto ID del piano di pagamento
     };
     
-    console.log('Invio richiesta all\'endpoint personalizzato:', requestData);
     
     const headers: Record<string, string> = {
       'Content-Type': 'application/json'
@@ -61,9 +52,7 @@ export async function POST(request: Request) {
     // Aggiungi il token all'header solo se è disponibile
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
-      console.log('Token aggiunto all\'header Authorization');
     } else {
-      console.log('Token non disponibile, richiesta non autenticata');
     }
     
     const response = await fetch(wpEndpoint, {
@@ -72,7 +61,6 @@ export async function POST(request: Request) {
       body: JSON.stringify(requestData)
     });
     
-    console.log('Risposta dall\'endpoint personalizzato - Status:', response.status);
     
     if (!response.ok) {
       let errorMessage = `Errore dal server WordPress: ${response.status}`;

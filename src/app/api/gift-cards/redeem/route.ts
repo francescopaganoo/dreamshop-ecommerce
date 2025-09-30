@@ -10,7 +10,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const authHeader = request.headers.get('Authorization');
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    console.log('Gift Card Redeem API: Authorization header mancante o non valido');
     return NextResponse.json({ error: 'Authorization header mancante o non valido' }, { status: 401 });
   }
 
@@ -44,7 +43,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }, { status: 403 });
     }
 
-    console.log(`Gift Card Redeem API: Riscatto per utente ${userId}, codice: ${gift_card_code}`);
 
     // Chiama l'endpoint WordPress del nostro plugin
     const wordpressUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL!;
@@ -89,7 +87,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }, { status: response.status });
     }
 
-    console.log('Gift Card Redeem API: Riscatto completato con successo:', data);
 
     // Restituisci i dati nel formato aspettato dal frontend
     if (data.success) {

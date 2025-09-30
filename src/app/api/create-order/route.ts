@@ -12,9 +12,7 @@ export async function POST(request: NextRequest) {
     
     // Recupera l'ID utente dall'oggetto orderData, se presente
     const userId = orderData.customer_id || 0;
-    console.log(`Standard checkout: Creazione ordine per utente ID: ${userId}`);
-    console.log(`Metodo di pagamento: ${orderData.paymentMethod}`);
-    console.log(`Standard checkout DEBUG: Contenuto completo ordine:`, JSON.stringify(data, null, 2));
+
     
     // Formatta i dati dell'ordine per l'API WooCommerce
     const customerInfo = {
@@ -46,7 +44,6 @@ export async function POST(request: NextRequest) {
     }
     
     const cartItems = JSON.parse(orderData.cartItems || '[]') as CartItem[];
-    console.log('Debug cartItems:', cartItems);
     
     const line_items = cartItems.map((item: CartItem) => {
       // Definizione dell'interfaccia per lineItem
@@ -65,7 +62,6 @@ export async function POST(request: NextRequest) {
       // Controlla se il prodotto ha i metadati di acconto
       if (item.product._wc_convert_to_deposit === 'yes') {
         // Aggiungi i metadati dell'acconto all'articolo
-        console.log(`Aggiungo metadati acconto all'articolo ${item.product.id}`);
         lineItem.meta_data = [
           {
             key: '_wc_convert_to_deposit',
@@ -85,7 +81,6 @@ export async function POST(request: NextRequest) {
       return lineItem;
     });
     
-    console.log('Debug line_items con metadati:', line_items);
     
     // Prepara il titolo del metodo di pagamento corretto
     const paymentMethodTitle = orderData.paymentMethod === 'cod' ? 'Contrassegno' : 
@@ -117,7 +112,6 @@ export async function POST(request: NextRequest) {
       ]
     };
     
-    console.log(`Standard checkout: Dati ordine pronti per invio:`, JSON.stringify(wooOrderData, null, 2));
     
     // L'ordine viene restituito direttamente dalla funzione createOrder
     

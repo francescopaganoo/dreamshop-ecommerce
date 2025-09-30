@@ -31,7 +31,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Token non valido o ID utente mancante' }, { status: 401 });
     }
     
-    console.log(`API: Recupero dettaglio ordine pianificato ID: ${orderId} per utente ID: ${decoded.id}`);
     
     try {
       // Formatta l'URL correttamente per l'API WordPress
@@ -40,7 +39,7 @@ export async function GET(request: NextRequest) {
       
       // Costruiamo l'URL per l'endpoint personalizzato
       const apiUrl = `${baseUrl}/wp-json/dreamshop/v1/scheduled-orders/${orderId}?user_id=${decoded.id}`;
-      console.log('Chiamata API diretta a:', apiUrl);
+
       
       // Chiamiamo direttamente l'endpoint con fetch
       const response = await fetch(apiUrl, {

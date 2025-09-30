@@ -41,14 +41,11 @@ interface ScheduledOrder {
 const JWT_SECRET = process.env.JWT_SECRET || 'dwi37ljio_5tk_3jt3';
 
 export async function GET(request: NextRequest) {
-  console.log('API scheduled-orders - Richiesta ricevuta');
   
   // Ottieni il parametro page dalla URL
   const url = new URL(request.url);
   const page = url.searchParams.get('page') || '1';
-  console.log(`Richiesta pagina: ${page}`);
   
-  console.log('Headers ricevuti:', JSON.stringify(Object.fromEntries(request.headers.entries())));
   
   // Ottieni il token dall'header Authorization
   const authHeader = request.headers.get('Authorization');
@@ -59,34 +56,27 @@ export async function GET(request: NextRequest) {
   }
   
   const token = authHeader.substring(7); // Rimuovi 'Bearer ' dal token
-  console.log('Token estratto:', token.substring(0, 15) + '...');
   
   try {
     // Verifica il token
     const decoded = jwt.verify(token, JWT_SECRET) as jwt.JwtPayload;
-    console.log('Token decodificato:', JSON.stringify(decoded));
     
     if (!decoded || !decoded.id) {
       console.error('API: Token decodificato non valido o mancante ID utente');
       return NextResponse.json({ error: 'Token non valido o ID utente mancante' }, { status: 401 });
     }
     
-    console.log(`API: Recupero ordini pianificati per utente ID: ${decoded.id}`);
   
   try {
     // Recuperiamo gli ordini standard tramite WooCommerce API e filtriamo
     // quelli relativi a depositi/acconti nel nostro codice
-    console.log('Recupero ordini standard e applicazione filtri');
     try {
-      console.log(`Recupero ordini standard per utente ID: ${decoded.id}, pagina: ${page}`);
       const ordersResponse = await api.get(`orders?customer=${decoded.id}&per_page=100&page=${page}&orderby=date&order=desc`);
       
       // Verifichiamo che data sia un array e gestiamo il tipo unknown
       const orders = Array.isArray(ordersResponse.data) ? ordersResponse.data : [];
-      console.log(`Recuperati ${orders.length} ordini standard`);
       
       // Log completo dei meta_data per diagnostica
-      console.log('Meta data dei primi ordini per analisi:');
       orders.slice(0, 3).forEach((order: WooOrder, index: number) => {
         if (order.meta_data) {
           console.log(`Ordine ${index+1} (${order.id}):`, order.meta_data.map((m: OrderMetaData) => ({ key: m.key, value: m.value })));
@@ -116,7 +106,6 @@ export async function GET(request: NextRequest) {
           };
         });
       
-      console.log(`Tutti gli ordini potenziali: ${allPotentialScheduledOrders.length}`);
       
       // Filtriamo solo gli ordini con stato scheduled-payment e pending-deposit
       // Questi sono gli ordini che rappresentano le rate da pagare
@@ -124,18 +113,7 @@ export async function GET(request: NextRequest) {
         order.status === 'scheduled-payment' || order.status === 'pending-deposit'
       );
       
-      // Log per debug
-      console.log(`Ordini scheduled-payment: ${orders.filter(o => o.status === 'scheduled-payment').length}`);
-      console.log(`Ordini wc-pending-deposit: ${orders.filter(o => o.status === 'wc-pending-deposit' || o.status === 'pending-deposit').length}`);
-      console.log(`Ordini completed: ${orders.filter(o => o.status === 'completed').length}`);
-      console.log(`Altri stati: ${orders.filter(o => 
-        o.status !== 'scheduled-payment' && 
-        o.status !== 'wc-pending-deposit' && 
-        o.status !== 'pending-deposit' &&
-        o.status !== 'completed'
-      ).length}`);
-      
-      console.log(`Totale rate da pagare per l'utente: ${scheduledOrdersByStatus.length}`);
+
       
       // Cerchiamo anche ordini con specifici flag
       const scheduledOrdersByMeta = orders.filter((order: WooOrder) => {
@@ -156,10 +134,8 @@ export async function GET(request: NextRequest) {
         });
       });
       
-      console.log(`Ordini con meta rilevanti: ${scheduledOrdersByMeta.length}`);
       
       // Restituiamo solo le rate da pagare filtrate
-      console.log(`Totale rate da pagare filtrate: ${scheduledOrdersByStatus.length}`);
       
       // Funzione per convertire gli stati tecnici in etichette user-friendly
       const getStatusDisplayName = (status: string, originalStatusName?: string) => {
@@ -205,16 +181,13 @@ export async function GET(request: NextRequest) {
         return new Date(b.date_created).getTime() - new Date(a.date_created).getTime();
       });
       
-      console.log(`Rate da pagare filtrate e formattate: ${finalScheduledOrders.length}`);
       return NextResponse.json(finalScheduledOrders);
     } catch (error: unknown) {
       const ordersError = error instanceof Error ? error : new Error('Errore sconosciuto');
-      console.log('Errore recupero ordini standard:', ordersError.message);
       // Continua con l'approccio 3 se il secondo fallisce
     }
 
     // APPROCCIO 3: Fetch diretto con JWT token al dreamshop namespace
-    console.log('APPROCCIO 3: Fetch diretto con JWT al dreamshop namespace');
     
     // Formatta l'URL correttamente per l'API WordPress
     let baseUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL || '';
@@ -223,7 +196,6 @@ export async function GET(request: NextRequest) {
     // Costruisci l'URL per l'endpoint personalizzato
     const timestamp = new Date().getTime();
     const apiUrl = `${baseUrl}/wp-json/dreamshop/v1/scheduled-orders?user_id=${decoded.id}&_=${timestamp}`;
-    console.log('Chiamata API diretta con JWT:', apiUrl);
     
     try {
       // Inviamo il token JWT sia nel parametro token che nell'header Authorization
@@ -246,7 +218,6 @@ export async function GET(request: NextRequest) {
       }
       
       const data = await response.json();
-      console.log('Risposta API WordPress ricevuta:', data ? 'dati presenti' : 'dati mancanti');
       
       if (data.success && Array.isArray(data.data)) {
         return NextResponse.json(data.data);

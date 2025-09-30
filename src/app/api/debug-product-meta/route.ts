@@ -4,7 +4,6 @@ export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const productId = url.searchParams.get('productId') || '54595';
   
-  console.log(`Debug prodotto metadati - product ID: ${productId}`);
   
   try {
     // Ottieni l'URL corretto dall'ambiente
@@ -19,7 +18,6 @@ export async function GET(request: NextRequest) {
     
     const wcApiUrl = `${wcEndpoint}?consumer_key=${consumerKey}&consumer_secret=${consumerSecret}`;
     
-    console.log('Calling WooCommerce API:', wcApiUrl);
     
     // Effettua la chiamata all'endpoint WooCommerce
     const wcResponse = await fetch(wcApiUrl, {
@@ -50,7 +48,6 @@ export async function GET(request: NextRequest) {
     // Chiamata all'endpoint personalizzato per gli acconti
     const depositEndpoint = `${wpUrl}/wp-json/dreamshop/v1/products/${productId}/deposit-options`;
     
-    console.log('Calling Deposits API:', depositEndpoint);
     
     // Effettua la chiamata all'endpoint degli acconti
     let depositResponse, depositData;

@@ -40,12 +40,9 @@ export default function TestDepositAPI() {
     try {
       setPluginLoading(true);
       setPluginError(null);
-      console.log(`🔍 Testando Plugin Debug per prodotto ID: ${productId}`);
       const result = await testPluginDebugEndpoint(parseInt(productId, 10));
-      console.log('🎉 Risultato Plugin Debug:', result);
       setPluginDebugData(result);
     } catch (error: unknown) {
-      console.error('❌ Errore durante il test Plugin Debug:', error);
       if (error instanceof Error) {
         setPluginError(error.message);
       } else {
@@ -65,10 +62,8 @@ export default function TestDepositAPI() {
         page: 1,
         per_page: 5
       });
-      console.log('🎉 Risultato Plugin Filter:', result);
       setPluginFilterData(result);
     } catch (error: unknown) {
-      console.error('❌ Errore durante il test Plugin Filter:', error);
       if (error instanceof Error) {
         setPluginError(error.message);
       } else {

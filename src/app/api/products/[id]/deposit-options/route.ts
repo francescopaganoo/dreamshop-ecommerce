@@ -15,7 +15,6 @@ export async function GET(request: NextRequest) {
     const baseUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL;
     const wpEndpoint = `${baseUrl}wp-json/dreamshop/v1/products/${productId}/deposit-options`;
     
-    console.log(`Chiamando API WordPress per deposito: ${wpEndpoint}`);
     
     const response = await fetch(wpEndpoint, {
       method: 'GET',
@@ -27,7 +26,6 @@ export async function GET(request: NextRequest) {
 
     // Gestione speciale per errore 400 - Prodotto senza opzioni di acconto
     if (response.status === 400) {
-      console.log(`Prodotto ${productId} non supporta acconti`);
       return NextResponse.json({
         success: true, // Impostiamo success: true per non far scattare messaggi di errore nel frontend
         deposit_enabled: false, // Indichiamo esplicitamente che l'acconto non è disponibile

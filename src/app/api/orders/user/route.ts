@@ -36,7 +36,6 @@ export async function GET(request: NextRequest) {
     // Ottieni il parametro page dalla URL
     const url = new URL(request.url);
     const page = url.searchParams.get('page') || '1';
-    console.log(`API orders/user - Richiesta pagina: ${page}`);
     
     // Ottieni il token dall'header Authorization
     const authHeader = request.headers.get('Authorization');
@@ -57,23 +56,19 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Token non valido o ID utente mancante' }, { status: 401 });
       }
       
-      console.log(`API: Recupero ordini per utente ID: ${decoded.id}`);
       
       try {
         // Otteniamo prima tutti gli ordini con paginazione (senza filtri di stato)
         const response = await api.get(`orders?customer=${decoded.id}&per_page=100&page=${page}&orderby=date&order=desc`);
         let orders = Array.isArray(response.data) ? response.data : [];
         
-        console.log(`API: Prima chiamata - trovati ${orders.length} ordini`);
         
         // Debug: elenco stati ordini dalla prima chiamata
         const initialOrderStatuses = orders.map((order: WooOrder) => order.status);
         const initialUniqueStatuses = [...new Set(initialOrderStatuses)];
-        console.log('API: Stati dalla prima chiamata:', initialUniqueStatuses);
         
         // SEMPRE prova chiamate aggiuntive per assicurarsi di recuperare tutti i tipi di ordini
         // Questo perché WooCommerce potrebbe limitare certi tipi di ordini nella prima chiamata
-        console.log('API: Eseguo sempre chiamate aggiuntive per recuperare tutti i tipi di ordini');
           
           // Proviamo chiamate separate per ogni stato principale
           try {
@@ -84,7 +79,6 @@ export async function GET(request: NextRequest) {
               const statusOrders = Array.isArray(statusResponse.data) ? statusResponse.data : [];
               
               if (statusOrders.length > 0) {
-                console.log(`API: Trovati ${statusOrders.length} ordini con stato ${status}`);
                 // Evita duplicati
                 const newOrders = statusOrders.filter(newOrder => 
                   !orders.some(existingOrder => existingOrder.id === newOrder.id)
@@ -93,18 +87,15 @@ export async function GET(request: NextRequest) {
               }
             }
           } catch (error) {
-            console.log('API: Errore nelle chiamate aggiuntive per stato:', error);
           }
         
         // Se non troviamo ordini con il parametro customer, proviamo con customer_id
         if (!orders || !Array.isArray(orders) || orders.length === 0) {
-          console.log(`API: Nessun ordine trovato con parametro customer, provo con customer_id=${decoded.id}`);
           const response2 = await api.get(`orders?customer_id=${decoded.id}&per_page=100&orderby=date&order=desc`);
           orders = Array.isArray(response2.data) ? response2.data : [];
           
           // Se ancora non troviamo ordini e abbiamo un'email, proviamo a filtrare per email
           if ((!orders || !Array.isArray(orders) || orders.length === 0) && decoded.email) {
-            console.log(`API: Nessun ordine trovato con customer_id, provo a cercare per email: ${decoded.email}`);
             
             // Recupera tutti gli ordini e filtra manualmente per email
             const allOrdersResponse = await api.get('orders?per_page=100');
@@ -119,7 +110,6 @@ export async function GET(request: NextRequest) {
               );
               
               if (ordersByEmail.length > 0) {
-                console.log(`API: Trovati ${ordersByEmail.length} ordini con email ${decoded.email}`);
                 orders = ordersByEmail;
               }
             }
@@ -128,7 +118,6 @@ export async function GET(request: NextRequest) {
         
         // Se non abbiamo trovato ordini, restituisci un array vuoto
         if (!orders || !Array.isArray(orders)) {
-          console.log('API: Nessun ordine trovato o formato risposta non valido');
           return NextResponse.json([]);
         }
         
@@ -149,25 +138,21 @@ export async function GET(request: NextRequest) {
           return false;
         });
         
-        console.log(`API: Trovati ${filteredOrders.length} ordini per l'utente ${decoded.id}`);
         
         // Debug: elenco stati ordini per capire cosa arriva da WooCommerce
         const orderStatuses = filteredOrders.map(order => order.status);
         const uniqueStatuses = [...new Set(orderStatuses)];
-        console.log('Stati degli ordini recuperati:', uniqueStatuses);
         
         // Debug: conteggio per ogni tipo di stato
         const statusCounts = orderStatuses.reduce((acc, status) => {
           acc[status] = (acc[status] || 0) + 1;
           return acc;
         }, {} as Record<string, number>);
-        console.log('Conteggio per stato:', statusCounts);
         
         // Restituisci TUTTI gli ordini filtrati senza escludere nessuno stato
         return NextResponse.json(filteredOrders);
       } catch (error: unknown) {
         const err = error as { response?: { status?: number } };
-        console.error('API: Errore durante la chiamata a WooCommerce:', err);
         
         // Verifica se l'errore è dovuto a un problema di autenticazione con WooCommerce
         if (err.response && typeof err.response === 'object' && 'status' in err.response && err.response.status === 401) {
@@ -178,12 +163,10 @@ export async function GET(request: NextRequest) {
       }
       
     } catch (jwtError) {
-      console.error('API: Errore durante la verifica del token JWT:', jwtError);
       return NextResponse.json({ error: 'Token non valido' }, { status: 401 });
     }
     
   } catch (error) {
-    console.error('API: Errore generale durante il recupero degli ordini:', error);
     return NextResponse.json({ error: 'Errore interno del server' }, { status: 500 });
   }
 }

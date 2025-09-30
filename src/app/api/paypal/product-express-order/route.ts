@@ -7,15 +7,12 @@ export async function POST(request: NextRequest) {
     const data = await request.json();
     const { productId, quantity, userId, enableDeposit = 'no' } = data;
     
-    console.log('PayPal Express: Dati ricevuti:', { productId, quantity, userId, enableDeposit });
     
     if (!productId || !quantity) {
-      console.error('PayPal Express: Dati prodotto mancanti');
       return NextResponse.json({ error: 'Dati prodotto mancanti' }, { status: 400 });
     }
     
     // Recupera i dettagli del prodotto
-    console.log(`PayPal Express: Recupero prodotto ${productId}...`);
     try {
       const productResponse = await api.get(`products/${productId}`);
       const product = productResponse.data as Product;
@@ -25,13 +22,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Prodotto non trovato' }, { status: 404 });
       }
       
-      console.log('PayPal Express: Prodotto recuperato:', product.name);
       
       // Calcola il prezzo
       const unitPrice = parseFloat(product.sale_price || product.price || '0');
       const totalAmount = (unitPrice * quantity).toFixed(2);
       
-      console.log(`PayPal Express: Prezzo unitario ${unitPrice}, totale ${totalAmount}`);
       
       // Prepara i line items
       const lineItems = [
@@ -87,7 +82,6 @@ export async function POST(request: NextRequest) {
         ]
       };
       
-      console.log('PayPal Express: Creazione ordine WooCommerce...');
       
       // Crea l'ordine in WooCommerce
       const orderResponse = await api.post('orders', orderData);
@@ -97,7 +91,6 @@ export async function POST(request: NextRequest) {
         throw new Error('Risposta non valida dalla creazione dell\'ordine');
       }
       
-      console.log(`PayPal Express: Ordine creato con successo ID ${order.id}`);
       
       return NextResponse.json({
         orderId: order.id,

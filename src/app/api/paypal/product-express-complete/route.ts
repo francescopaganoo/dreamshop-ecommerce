@@ -14,9 +14,7 @@ export async function POST(request: NextRequest) {
       paypalOrderDetails
     } = data;
     
-    console.log('PayPal Express Complete: Dati ricevuti per ordine completato');
-    console.log('PayPal Order ID:', paypalOrderId);
-    console.log('Billing Data:', billingData);
+
 
     // Calcola la commissione PayPal del 3.5% + €0.35 e estrae la spedizione
     const getPurchaseUnitAmount = () => {
@@ -37,10 +35,7 @@ export async function POST(request: NextRequest) {
     // Stimiamo la spedizione standard per l'Italia (sarà calcolata correttamente dal frontend)
     const estimatedShipping = 7.00;
 
-    console.log(`Totale pagato: €${totalAmountPaid.toFixed(2)}`);
-    console.log(`Subtotale + spedizione: €${subtotalWithShipping.toFixed(2)}`);
-    console.log(`Commissione PayPal: €${paypalFee.toFixed(2)}`);
-    console.log(`Spedizione stimata: €${estimatedShipping.toFixed(2)}`);
+
 
     // Prepara i line items
     const lineItems = [
@@ -113,7 +108,6 @@ export async function POST(request: NextRequest) {
       ]
     };
     
-    console.log('PayPal Express Complete: Creazione ordine WooCommerce...');
     
     // Crea l'ordine in WooCommerce
     const orderResponse = await api.post('orders', orderData);
@@ -123,7 +117,6 @@ export async function POST(request: NextRequest) {
       throw new Error('Risposta non valida dalla creazione dell\'ordine');
     }
     
-    console.log(`PayPal Express Complete: Ordine WooCommerce creato con ID ${order.id}`);
     
     return NextResponse.json({
       order_id: order.id,

@@ -6,10 +6,6 @@ export async function GET() {
     const consumerKey = process.env.NEXT_PUBLIC_WC_CONSUMER_KEY;
     const consumerSecret = process.env.NEXT_PUBLIC_WC_CONSUMER_SECRET;
 
-    console.log('Gift Card Config API - WordPress URL:', wordpressUrl);
-    console.log('Gift Card Config API - Consumer Key presente:', !!consumerKey);
-    console.log('Gift Card Config API - Consumer Secret presente:', !!consumerSecret);
-
     if (!wordpressUrl) {
       return NextResponse.json(
         { error: 'WordPress URL non configurato' },
@@ -25,7 +21,6 @@ export async function GET() {
     }
 
     const apiUrl = `${wordpressUrl.replace(/\/$/, '')}/wp-json/gift-card/v1/config`;
-    console.log('Gift Card Config API - Calling:', apiUrl);
 
     // Chiama l'API WordPress con autenticazione
     const response = await fetch(apiUrl, {
@@ -35,7 +30,6 @@ export async function GET() {
       },
     });
 
-    console.log('Gift Card Config API - Response status:', response.status);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -47,7 +41,6 @@ export async function GET() {
     }
 
     const data = await response.json();
-    console.log('Gift Card Config API - Success:', data);
     return NextResponse.json(data);
 
   } catch (error) {

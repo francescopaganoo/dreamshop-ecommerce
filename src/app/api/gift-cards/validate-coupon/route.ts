@@ -10,9 +10,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Ottieni i dati dalla richiesta
     const body = await request.json();
     const { coupon_code, cart_total } = body;
-    
-    console.log(`Gift Card Validate Coupon API: Validazione coupon ${coupon_code} per carrello €${cart_total}`);
-    
+        
     if (!coupon_code) {
       return NextResponse.json({
         success: false,
@@ -37,7 +35,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       });
       
       if (!couponResponse.data || !Array.isArray(couponResponse.data) || couponResponse.data.length === 0) {
-        console.log(`Gift Card Validate Coupon API: Coupon ${coupon_code} non trovato`);
         return NextResponse.json({
           success: false,
           message: 'Coupon non trovato'
@@ -45,11 +42,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
       
       const coupon = couponResponse.data[0];
-      console.log(`Gift Card Validate Coupon API: Coupon trovato:`, coupon);
       
       // Verifica che sia un coupon gift card (generato dal nostro plugin)
       if (!coupon.code.startsWith('GC') || coupon.description !== 'Gift Card - Generato automaticamente') {
-        console.log(`Gift Card Validate Coupon API: ${coupon_code} non è un coupon gift card`);
         return NextResponse.json({
           success: false,
           message: 'Questo coupon non è valido per le gift card'
@@ -58,7 +53,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       
       // Verifica stato del coupon
       if (coupon.status !== 'publish') {
-        console.log(`Gift Card Validate Coupon API: Coupon ${coupon_code} non pubblicato`);
         return NextResponse.json({
           success: false,
           message: 'Coupon non attivo'
@@ -67,7 +61,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       
       // Verifica utilizzi
       if (coupon.usage_limit && coupon.usage_count >= coupon.usage_limit) {
-        console.log(`Gift Card Validate Coupon API: Coupon ${coupon_code} già utilizzato`);
         return NextResponse.json({
           success: false,
           message: 'Coupon già utilizzato'
@@ -87,7 +80,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       
       const new_total = Math.max(0, cart_total_num - discount_amount);
       
-      console.log(`Gift Card Validate Coupon API: Coupon ${coupon_code} valido - Sconto: €${discount_amount}`);
       
       return NextResponse.json({
         success: true,

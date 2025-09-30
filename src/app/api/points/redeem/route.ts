@@ -25,8 +25,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // Identificazione device per debugging
   const userAgent = request.headers.get('user-agent') || 'unknown';
   const isIOS = userAgent.toLowerCase().includes('iphone') || userAgent.toLowerCase().includes('ipad') || userAgent.toLowerCase().includes('ios');
-  console.log(`[POINTS API] Richiesta decurtazione punti ricevuta - Device: ${isIOS ? 'iOS' : 'Other'}`);
-  console.log(`[POINTS API] User-Agent: ${userAgent}`);
+
   
   // Verifica l'autenticazione
   const authHeader = request.headers.get('authorization');
@@ -47,21 +46,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
     
     const userId = decoded.id;
-    console.log(`[POINTS API] Utente autenticato: ${userId}`);
     
     // Ottieni i dati dalla richiesta
     let requestData;
     try {
       requestData = await request.json();
-      console.log('[POINTS API] Dati richiesta:', JSON.stringify(requestData));
     } catch (parseError) {
-      console.error('[POINTS API] Errore nel parsing del JSON della richiesta:', parseError);
       return NextResponse.json({ error: 'Formato richiesta non valido', success: false }, { status: 400 });
     }
     
     // Verifica che i dati necessari siano presenti
     if (!requestData.points || requestData.points <= 0) {
-      console.error(`[POINTS API] Punti non validi: ${requestData.points}`);
       return NextResponse.json({ 
         error: 'Dati mancanti o non validi: points deve essere un numero positivo', 
         success: false 
@@ -83,8 +78,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       orderId = parseInt(requestData.order.id.toString(), 10) || 0;
     }
     
-    console.log(`[POINTS API] Dati ordine ricevuti: ${JSON.stringify(requestData)}`);
-    console.log(`[POINTS API] Decurto ${requestData.points} punti per utente ${userId}, ordine #${orderId}`);
     
     // Verifica che l'ID ordine sia valido
     if (!orderId || orderId <= 0) {
@@ -110,17 +103,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       order_id: orderId
     };
     
-    console.log(`[POINTS API] Parametri richiesta:`, JSON.stringify(requestBody));
     
     // Utilizza il nuovo endpoint sicuro con chiave API
     try {
-      console.log('[POINTS API] Chiamata al nuovo endpoint sicuro secure-redeem');
       
       // Chiave API condivisa con il plugin WordPress tramite variabile d'ambiente
       const apiKey = process.env.POINTS_API_KEY;
       
       if (!apiKey) {
-        console.error('[POINTS API] Errore: POINTS_API_KEY non configurata nelle variabili d\'ambiente');
         return NextResponse.json({
           error: 'Errore di configurazione del server',
           success: false,
@@ -136,7 +126,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         discount_amount: pointsDiscountAmount
       };
       
-      console.log(`[POINTS API] Valore sconto calcolato: ${pointsDiscountAmount}€ per ${requestData.points} punti`);
       
       // Chiamata all'endpoint sicuro per generare il coupon e riscattare i punti
       const secureEndpointResponse = await fetch(`${baseUrl}wp-json/dreamshop-points/v1/points/secure-redeem`, {
@@ -149,14 +138,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         body: JSON.stringify(completeRequestBody)
       });
       
-      // Log della risposta per debug
       const responseStatus = secureEndpointResponse.status;
-      console.log(`[POINTS API] Risposta endpoint secure-redeem: status ${responseStatus}`);
       
       if (secureEndpointResponse.ok) {
         // Risposta di successo
         const responseData = await secureEndpointResponse.json();
-        console.log('[POINTS API] Punti decurtati con successo:', JSON.stringify(responseData));
         
         // Estrai i dati del coupon dalla risposta
         interface CouponResponse {
@@ -169,7 +155,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         const couponCode = couponData.coupon_code || '';
         const discountAmount = responseData.discount_amount || (requestData.points / 100);
         
-        console.log(`[POINTS API] Coupon generato: ${couponCode} con valore ${discountAmount}€`);
         
         // Se abbiamo un ordine ID, proviamo ad applicare il coupon tramite l'API WooCommerce
         let couponApplied = false;
@@ -178,17 +163,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             // Per iOS aggiungiamo un piccolo ritardo per garantire che l'ordine sia completamente creato
             // Questo può risolvere problemi di timing su iOS durante il pagamento con carta
             if (isIOS) {
-              console.log('[POINTS API] Device iOS rilevato, aggiungendo ritardo di sicurezza...');
               await new Promise(resolve => setTimeout(resolve, 1500)); // Attendi 1.5 secondi per iOS
             }
-            console.log(`[POINTS API] Tentativo di applicare il coupon ${couponCode} all'ordine ${orderId} - Device: ${isIOS ? 'iOS' : 'Other'}`);
             
             // Ottieni le credenziali WooCommerce dalle variabili d'ambiente
             const wcConsumerKey = process.env.NEXT_PUBLIC_WC_CONSUMER_KEY || '';
             const wcConsumerSecret = process.env.NEXT_PUBLIC_WC_CONSUMER_SECRET || '';
             
             if (!wcConsumerKey || !wcConsumerSecret) {
-              console.error('[POINTS API] Credenziali WooCommerce mancanti nelle variabili d\'ambiente');
             } else {
               try {
                 // Aggiungi il coupon all'ordine con l'API WooCommerce
@@ -207,14 +189,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                   
                   // Verifica se il coupon è già applicato all'ordine
                   const currentCoupons = orderData.coupon_lines || [];
-                  console.log(`[POINTS API] Coupon esistenti sull'ordine: ${JSON.stringify(currentCoupons.map((c: CouponLine) => c.code))}`);
                   
                   const couponAlreadyApplied = currentCoupons.some(
                     (coupon: CouponLine) => coupon.code === couponCode
                   );
                   
                   if (couponAlreadyApplied) {
-                    console.log(`[POINTS API] Il coupon ${couponCode} è già applicato all'ordine ${orderId}`);
                     couponApplied = true;
                   } else {
                     try {
@@ -222,7 +202,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                       // usiamo l'endpoint specifico per l'applicazione dei coupon
                       const applyCouponUrl = `${baseUrl}wp-json/wc/v3/orders/${orderId}/apply_coupon?consumer_key=${wcConsumerKey}&consumer_secret=${wcConsumerSecret}`;
                       
-                      console.log(`[POINTS API] Utilizzo endpoint specializzato per applicare il coupon: ${applyCouponUrl}`);
                       
                       const applyCouponResponse = await fetch(applyCouponUrl, {
                         method: 'POST',
@@ -235,7 +214,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                       });
                       
                       if (applyCouponResponse.ok) {
-                        console.log(`[POINTS API] Coupon ${couponCode} applicato con successo tramite endpoint specializzato`);
                         couponApplied = true;
                       } else {
                         // Se fallisce l'endpoint specializzato, proviamo il metodo standard di aggiornamento dell'ordine
@@ -254,10 +232,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                           const existingCoupons = orderData.coupon_lines || [];
                           const existingCouponCodes = existingCoupons.map((coupon: CouponLine) => ({ code: coupon.code }));
                           
-                          console.log(`[POINTS API] Coupon esistenti sull'ordine: ${JSON.stringify(existingCouponCodes)}`);
                           
                           // Aggiungi il nuovo coupon punti alla lista
-                          console.log(`[POINTS API] Preparazione aggiornamento ordine con coupon - Device: ${isIOS ? 'iOS' : 'Other'}`);
                           if (!couponAlreadyApplied) {
                             const updatedCouponCodes = [
                               ...existingCouponCodes,
@@ -277,8 +253,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                             // Log dettagliato della risposta per debug
                             const responseStatus = updateOrderResponse.status;
                             const responseBody = await updateOrderResponse.text();
-                            console.log(`[POINTS API] Risposta aggiornamento ordine - Status: ${responseStatus}, Device: ${isIOS ? 'iOS' : 'Other'}`);
-                            console.log(`[POINTS API] Corpo risposta: ${responseBody.substring(0, 200)}${responseBody.length > 200 ? '...' : ''}`);
                             
                             // Verifichiamo solo se la risposta è un JSON valido
                             try {

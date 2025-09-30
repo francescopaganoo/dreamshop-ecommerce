@@ -6,7 +6,6 @@ export async function POST(request: Request) {
     // Estrai i dati dalla richiesta
     const cartItemData = await request.json();
     
-    console.log('Ricevuta richiesta di aggiunta al carrello:', cartItemData);
     
     if (!cartItemData.id) {
       return NextResponse.json(
@@ -26,7 +25,6 @@ export async function POST(request: Request) {
     
     // Endpoint standard di WooCommerce per aggiungere prodotti al carrello
     const wpEndpoint = `${process.env.NEXT_PUBLIC_WORDPRESS_URL}/wp-json/wc/store/cart/add-item`;
-    console.log('Endpoint WooCommerce Store API:', wpEndpoint);
     
     // Prepariamo gli header per la richiesta a WordPress
     const headers: Record<string, string> = {
@@ -37,14 +35,12 @@ export async function POST(request: Request) {
     const token = await getAuthToken();
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
-      console.log('Token di autenticazione aggiunto all\'header');
     }
     
     // Tentiamo di recuperare i cookie dalla richiesta originale
     const requestCookies = request.headers.get('cookie');
     if (requestCookies) {
       headers['Cookie'] = requestCookies;
-      console.log('Cookie recuperati dalla richiesta originale');
     }
     
     // Interfaccia per i metadati
@@ -58,7 +54,6 @@ export async function POST(request: Request) {
       meta.key === '_wc_convert_to_deposit' && meta.value === 'yes'
     );
     
-    console.log('Prodotto con acconto:', hasDepositMeta ? 'Sì' : 'No');
     
     // Invia la richiesta a WooCommerce
     const response = await fetch(wpEndpoint, {
@@ -68,7 +63,6 @@ export async function POST(request: Request) {
       credentials: 'include' // Per includere i cookie nella richiesta
     });
     
-    console.log('Risposta da WooCommerce - Status:', response.status);
     
     // Gestione della risposta
     if (!response.ok) {
@@ -90,7 +84,6 @@ export async function POST(request: Request) {
     // Processa la risposta di successo
     try {
       const responseData = await response.json();
-      console.log('Risposta da WooCommerce:', responseData);
       
       // Qui potremmo avviare il processo di conversione in acconto se necessario,
       // ma è meglio farlo al checkout

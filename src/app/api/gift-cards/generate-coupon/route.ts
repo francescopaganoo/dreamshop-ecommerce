@@ -10,7 +10,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const authHeader = request.headers.get('Authorization');
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    console.log('Gift Card Generate Coupon API: Authorization header mancante o non valido');
     return NextResponse.json({ error: 'Authorization header mancante o non valido' }, { status: 401 });
   }
   
@@ -28,7 +27,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const body = await request.json();
     const { amount } = body;
     
-    console.log(`Gift Card Generate Coupon API: Richiesta generazione coupon per utente ${userId}, importo €${amount}`);
     
     if (!amount || amount <= 0) {
       return NextResponse.json({ 
@@ -67,7 +65,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
     
     const data = await response.json();
-    console.log('Gift Card Generate Coupon API: Coupon generato con successo:', data);
     
     // Restituisci i dati nel formato aspettato dal frontend
     return NextResponse.json({

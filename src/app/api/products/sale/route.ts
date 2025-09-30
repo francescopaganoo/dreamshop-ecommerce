@@ -7,11 +7,9 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '6', 10);
     const page = parseInt(searchParams.get('page') || '1', 10);
     
-    console.log(`API: Caricamento prodotti in offerta - Pagina ${page}, Limite ${limit}`);
     
     const products = await getProductsOnSale(page, limit, 'date', 'desc');
     
-    console.log(`API: Trovati ${products.length} prodotti in offerta per pagina ${page}`);
     
     return NextResponse.json(products);
   } catch (error) {
