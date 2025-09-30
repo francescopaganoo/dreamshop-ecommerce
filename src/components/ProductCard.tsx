@@ -181,6 +181,10 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
   
   // Verifica se il prodotto è disponibile
   const hasValidPrice = product.price && parseFloat(product.price) > 0;
+
+  // Per prodotti variabili, se stock_status è 'outofstock', nessuna variazione è disponibile
+  const isVariableOutOfStock = isVariable && product.stock_status === 'outofstock';
+
   const isInStock = product.stock_status === 'instock' && hasValidPrice;
   
   // Nascondi il messaggio dopo 3 secondi
@@ -260,6 +264,11 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
   
   // Gestisce il click sul pulsante
   const handleButtonClick = () => {
+    // Non permettere il click se il prodotto variabile è completamente out of stock
+    if (isVariableOutOfStock) {
+      return;
+    }
+
     if (isVariable) {
       router.push(`/prodotto/${product.slug}`);
     } else if (isInStock) {
@@ -367,35 +376,39 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
         {/* Button con colore originale e cursor-pointer - più compatto su mobile */}
         <motion.button
           onClick={handleButtonClick}
-          disabled={isAddingToCart || (!isVariable && !isInStock)}
+          disabled={isAddingToCart || (!isVariable && !isInStock) || isVariableOutOfStock}
           className={`w-full py-2 md:py-2.5 rounded-md text-xs md:text-base font-medium flex items-center justify-center transition-colors ${
-            !isVariable && !isInStock
+            (!isVariable && !isInStock) || isVariableOutOfStock
               ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              : isVariable 
-                ? 'bg-white border border-bred-500 text-bred-500 hover:bg-bred-500 hover:text-white cursor-pointer' 
+              : isVariable
+                ? 'bg-white border border-bred-500 text-bred-500 hover:bg-bred-500 hover:text-white cursor-pointer'
                 : 'bg-bred-500 hover:bg-bred-600 text-white cursor-pointer'
           }`}
-          whileTap={!isVariable && !isInStock ? {} : { scale: 0.98 }}
+          whileTap={(!isVariable && !isInStock) || isVariableOutOfStock ? {} : { scale: 0.98 }}
         >
           <FaPlus className="mr-1 md:mr-2" size={10} />
           <span className="hidden md:inline">
-            {isVariable
-              ? "Visualizza Prodotto"
-              : !isInStock
-                ? "Non disponibile"
-                : isPreOrder
-                  ? "Pre-ordina ora"
-                  : "Aggiungi al Carrello"
+            {isVariableOutOfStock
+              ? "Non disponibile"
+              : isVariable
+                ? "Visualizza Prodotto"
+                : !isInStock
+                  ? "Non disponibile"
+                  : isPreOrder
+                    ? "Pre-ordina ora"
+                    : "Aggiungi al Carrello"
             }
           </span>
           <span className="md:hidden">
-            {isVariable
-              ? "Visualizza"
-              : !isInStock
-                ? "N/A"
-                : isPreOrder
-                  ? "Pre-ordina"
-                  : "Carrello"
+            {isVariableOutOfStock
+              ? "N/A"
+              : isVariable
+                ? "Visualizza"
+                : !isInStock
+                  ? "N/A"
+                  : isPreOrder
+                    ? "Pre-ordina"
+                    : "Carrello"
             }
           </span>
         </motion.button>
