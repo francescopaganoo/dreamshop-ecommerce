@@ -83,7 +83,7 @@ export async function POST(request: Request) {
           const currentPrice = parseFloat(data.price);
           const cartPrice = parseFloat(item.price);
 
-          // Se il prezzo è cambiato di più del 1%, segnalalo
+          // Se il prezzo è cambiato di più del 1%, segnalalo come aggiornato automaticamente
           if (Math.abs(currentPrice - cartPrice) / cartPrice > 0.01) {
             stockIssues.push({
               id: item.product_id,
@@ -92,7 +92,8 @@ export async function POST(request: Request) {
               issue: 'price_changed',
               old_price: cartPrice,
               new_price: currentPrice,
-              message: `Il prezzo di "${item.name}" è cambiato da €${cartPrice.toFixed(2)} a €${currentPrice.toFixed(2)}.`
+              fixed: true,
+              message: `Il prezzo di "${item.name}" è stato aggiornato da €${cartPrice.toFixed(2)} a €${currentPrice.toFixed(2)}.`
             });
           }
         }

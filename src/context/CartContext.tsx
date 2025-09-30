@@ -25,6 +25,7 @@ interface CartContextType {
   addToCart: (item: CartItem | Product, quantity?: number) => { success: boolean; message?: string };
   removeFromCart: (productId: number, variationId?: number) => void;
   updateQuantity: (productId: number, quantity: number, variationId?: number) => void;
+  updatePrice: (productId: number, newPrice: number, variationId?: number) => void;
   clearCart: () => void;
   getCartTotal: () => number;
   getCartCount: () => number;
@@ -288,38 +289,63 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    setCart(prevCart => 
+    setCart(prevCart =>
       prevCart.map(item => {
         // Verifica se questo è l'elemento da aggiornare
         const isTargetItem = variationId
           ? (item.product.id === productId && item.variation_id === variationId)
           : (item.product.id === productId);
-        
+
         if (!isTargetItem) {
           return item; // Non è l'elemento da aggiornare, lascialo invariato
         }
-        
+
         // Controlla se il prodotto gestisce lo stock e ha una quantità massima
         if (item.product.manage_stock && typeof item.product.stock_quantity === 'number') {
           // Limita la quantità al massimo disponibile
           const maxQuantity = item.product.stock_quantity;
           const newQuantity = Math.min(quantity, maxQuantity);
-          
+
           // Se la quantità richiesta supera quella disponibile, mostra un messaggio
           if (quantity > maxQuantity) {
             setStockMessage(`Disponibilità massima per "${item.product.name}": ${maxQuantity} ${maxQuantity === 1 ? 'pezzo' : 'pezzi'}`);
-            
+
             // Nascondi il messaggio dopo 5 secondi
             setTimeout(() => {
               setStockMessage(null);
             }, 5000);
           }
-          
+
           return { ...item, quantity: newQuantity };
         }
-        
+
         // Se non gestisce lo stock, permetti qualsiasi quantità
         return { ...item, quantity };
+      })
+    );
+  };
+
+  // Update the price of a product in the cart
+  const updatePrice = (productId: number, newPrice: number, variationId?: number) => {
+    setCart(prevCart =>
+      prevCart.map(item => {
+        // Verifica se questo è l'elemento da aggiornare
+        const isTargetItem = variationId
+          ? (item.product.id === productId && item.variation_id === variationId)
+          : (item.product.id === productId);
+
+        if (!isTargetItem) {
+          return item;
+        }
+
+        // Aggiorna il prezzo del prodotto
+        return {
+          ...item,
+          product: {
+            ...item.product,
+            price: newPrice.toFixed(2)
+          }
+        };
       })
     );
   };
@@ -530,6 +556,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       addToCart,
       removeFromCart,
       updateQuantity,
+      updatePrice,
       clearCart,
       getCartTotal,
       getCartCount,
@@ -568,6 +595,7 @@ const mockCartContext: CartContextType = {
   addToCart: () => ({ success: false, message: 'Cart not available' }),
   removeFromCart: () => {},
   updateQuantity: () => {},
+  updatePrice: () => {},
   clearCart: () => {},
   getCartTotal: () => 0,
   getCartCount: () => 0,

@@ -18,6 +18,8 @@ interface StockIssue {
   message: string;
   available?: number;
   requested?: number;
+  old_price?: number;
+  new_price?: number;
   fixed?: boolean;
 }
 
@@ -46,6 +48,7 @@ export default function CartPage() {
     cart,
     removeFromCart,
     updateQuantity,
+    updatePrice,
     clearCart,
     getCartTotal,
     getSubtotal,
@@ -227,30 +230,36 @@ export default function CartPage() {
         // Tutti i prodotti sono disponibili, procedi al checkout
         window.location.href = '/checkout';
       } else {
-        // Verifica se ci sono prodotti con quantità insufficiente che possono essere aggiornati automaticamente
-        let quantityIssuesFixed = false;
+        // Verifica se ci sono prodotti con quantità insufficiente o prezzi cambiati che possono essere aggiornati automaticamente
+        let issuesFixed = false;
         const updatedStockErrors = [...data.stockIssues];
-        
+
         // Filtra gli errori per trovare quelli relativi alla quantità insufficiente
-        const quantityIssues = data.stockIssues.filter((issue: StockIssue) => 
-          issue.issue === 'insufficient_quantity' && 
-          typeof issue.available === 'number' && 
+        const quantityIssues = data.stockIssues.filter((issue: StockIssue) =>
+          issue.issue === 'insufficient_quantity' &&
+          typeof issue.available === 'number' &&
           issue.available > 0
         );
-        
+
+        // Filtra gli errori per trovare quelli relativi ai prezzi cambiati
+        const priceIssues = data.stockIssues.filter((issue: StockIssue) =>
+          issue.issue === 'price_changed' &&
+          typeof issue.new_price === 'number'
+        );
+
         // Se ci sono problemi di quantità, aggiorniamo automaticamente il carrello
         if (quantityIssues.length > 0) {
           for (const issue of quantityIssues) {
             // Aggiorna la quantità nel carrello
             if (issue.id) {
               updateQuantity(issue.id, issue.available);
-              quantityIssuesFixed = true;
-              
+              issuesFixed = true;
+
               // Aggiorna il messaggio di errore
-              const index = updatedStockErrors.findIndex(err => 
+              const index = updatedStockErrors.findIndex(err =>
                 err.id === issue.id && err.issue === 'insufficient_quantity'
               );
-              
+
               if (index !== -1) {
                 updatedStockErrors[index] = {
                   ...updatedStockErrors[index],
@@ -261,13 +270,23 @@ export default function CartPage() {
             }
           }
         }
-        
+
+        // Se ci sono problemi di prezzo, aggiorniamo automaticamente il carrello
+        if (priceIssues.length > 0) {
+          for (const issue of priceIssues) {
+            if (issue.id && issue.new_price) {
+              updatePrice(issue.id, issue.new_price, issue.variation_id);
+              issuesFixed = true;
+            }
+          }
+        }
+
         // Aggiorna gli errori e mostra l'avviso
         setStockErrors(updatedStockErrors);
         setShowStockAlert(true);
         setIsCheckingOut(false);
-        setQuantityUpdated(quantityIssuesFixed);
-        
+        setQuantityUpdated(issuesFixed);
+
         // Scorri fino all'avviso
         setTimeout(() => {
           const alertElement = document.getElementById('stock-alert');
@@ -325,8 +344,8 @@ export default function CartPage() {
                 )}
                 <div>
                   <h3 className={`${quantityUpdated ? 'text-amber-800' : stockErrors.some(e => e.issue === 'login_required') ? 'text-blue-800' : 'text-red-800'} font-medium mb-2`}>
-                    {quantityUpdated 
-                      ? 'Alcune quantità sono state aggiornate automaticamente' 
+                    {quantityUpdated
+                      ? 'Il carrello è stato aggiornato'
                       : stockErrors.some(e => e.issue === 'login_required')
                         ? 'Login richiesto per il checkout'
                         : 'Attenzione: alcuni prodotti nel tuo carrello non sono più disponibili'}
@@ -343,21 +362,21 @@ export default function CartPage() {
                   )}
                   {quantityUpdated && (
                     <p className="text-amber-700 text-sm mt-2">
-                      Il carrello è stato aggiornato con le quantità disponibili. Puoi procedere al checkout.
+                      I prezzi e le quantità sono stati aggiornati. Puoi procedere al checkout.
                     </p>
                   )}
                 </div>
               </div>
               <div className="mt-3 flex space-x-3">
-                <button 
-                  onClick={() => setShowStockAlert(false)} 
+                <button
+                  onClick={() => setShowStockAlert(false)}
                   className={`${quantityUpdated ? 'text-amber-700 hover:text-amber-900' : stockErrors.some(e => e.issue === 'login_required') ? 'text-blue-700 hover:text-blue-900' : 'text-red-700 hover:text-red-900'} text-sm font-medium`}
                 >
                   Chiudi
                 </button>
                 {quantityUpdated && (
-                  <button 
-                    onClick={handleCheckout} 
+                  <button
+                    onClick={handleCheckout}
                     className="text-green-700 hover:text-green-900 text-sm font-medium"
                   >
                     Procedi al checkout
@@ -365,14 +384,14 @@ export default function CartPage() {
                 )}
                 {stockErrors.some(e => e.issue === 'login_required') && (
                   <div className="flex space-x-3">
-                    <Link 
-                      href="/login" 
+                    <Link
+                      href="/login"
                       className="inline-flex items-center px-3 py-2 bg-white text-bred-700 text-sm font-medium border border-bred-700 rounded-md hover:bg-bred-50 transition-colors"
                     >
                       Accedi
                     </Link>
-                    <Link 
-                      href="/register" 
+                    <Link
+                      href="/register"
                       className="inline-flex items-center px-3 py-2 bg-bred-500 text-white text-sm font-medium rounded-md hover:bg-bred-700 transition-colors"
                     >
                       Registrati
