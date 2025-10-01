@@ -146,6 +146,15 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
+                <button
+                  onClick={() => window.dispatchEvent(new CustomEvent('openCookieSettings'))}
+                  className="text-gray-300 hover:text-bred-400 transition-colors duration-300 flex items-center group"
+                >
+                  <span className="w-2 h-2 bg-bred-500 rounded-full mr-3 opacity-0 group-hover:opacity-100 transition-opacity"></span>
+                  Gestisci consensi
+                </button>
+              </li>
+              <li>
                 <Link href="/prodotto/gift-card" className="text-bred-300 hover:text-bred-100 transition-colors duration-300 flex items-center group font-semibold text-lg">
                   <span className="w-3 h-3 bg-yellow-400 rounded-full mr-3 group-hover:scale-125 transition-all duration-300"></span>
                   🎁 Gift Card
