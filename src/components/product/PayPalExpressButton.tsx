@@ -142,7 +142,6 @@ export default function PayPalExpressButton({
       
       // Cattura il pagamento PayPal
       const orderDetails = await actions.order.capture();
-      console.log('Dettagli ordine PayPal:', orderDetails);
       
       // Estrai i dati dell'acquirente da PayPal
       const payer = orderDetails.payer;
@@ -198,7 +197,6 @@ export default function PayPalExpressButton({
   };
 
   const onCancel = () => {
-    console.log('Pagamento PayPal annullato dall\'utente');
     setIsProcessing(false);
   };
 

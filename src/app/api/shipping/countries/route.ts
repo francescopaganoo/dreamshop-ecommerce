@@ -129,7 +129,6 @@ export async function GET() {
 
         // Salta le zone senza metodi attivi (come "resto del mondo")
         if (!hasActiveMethods) {
-          console.log(`Zona "${zone.name}" (ID: ${zone.id}) ignorata: nessun metodo di spedizione attivo`);
           continue;
         }
 
@@ -148,7 +147,6 @@ export async function GET() {
                 zone: zone.name
               });
               addedCountries.add(location.code);
-              console.log(`Paese aggiunto: ${countryName} (${location.code}) dalla zona "${zone.name}"`);
             }
             // Se è un continente (come Asia per la Cina), gestisci i paesi principali
             else if (location.type === 'continent' && location.code === 'AS') {
@@ -163,7 +161,6 @@ export async function GET() {
                     zone: zone.name
                   });
                   addedCountries.add(countryCode);
-                  console.log(`Paese asiatico aggiunto: ${countryName} (${countryCode}) dalla zona "${zone.name}"`);
                 }
               }
             }

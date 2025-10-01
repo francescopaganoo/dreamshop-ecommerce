@@ -181,12 +181,10 @@ export default function SimpleProductAddToCart({ product }: SimpleProductAddToCa
           
           if (depositOptionsResponse.ok) {
             const depositOptions = await depositOptionsResponse.json();
-            console.log('Opzioni acconto dal backend:', depositOptions);
             
             // Verifica se l'acconto è abilitato per questo prodotto
             if (depositOptions.success === true && depositOptions.deposit_enabled === false) {
               // Prodotto non supporta acconti, procedi con acquisto normale
-              console.log('Prodotto non supporta acconti, procedo con acquisto normale');
               
               // Disabilita l'opzione di acconto e procedi con acquisto normale
               setEnableDeposit('no');
@@ -209,19 +207,16 @@ export default function SimpleProductAddToCart({ product }: SimpleProductAddToCa
             // Estrai l'ID del piano di pagamento se presente
             if (depositOptions.payment_plan && depositOptions.payment_plan.id) {
               paymentPlanId = depositOptions.payment_plan.id.toString();
-              console.log('ID piano di pagamento estratto:', paymentPlanId);
             }
             
             // Se è il piano pianoprova, forziamo l'ID corretto
             if (depositOptions.is_pianoprova) {
               paymentPlanId = '810'; // ID hardcoded per pianoprova
-              console.log('Forzato ID piano pianoprova:', paymentPlanId);
             }
           } else {
             console.warn('Impossibile recuperare le opzioni di acconto, utilizzo valori predefiniti');
           }
           
-          console.log('ID piano di pagamento salvato nei metadati:', paymentPlanId);
             
           // Ottieni una copia del prodotto per non modificare l'originale
           const productWithDeposit = { ...product };

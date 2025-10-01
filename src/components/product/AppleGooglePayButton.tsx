@@ -87,7 +87,6 @@ export default function AppleGooglePayButton({
         setIsProcessing(true);
         setError(null);
 
-        console.log('Payment method ricevuto:', ev.paymentMethod);
 
         // Crea l'ordine backend
         const response = await fetch('/api/stripe/payment-request-order', {
@@ -127,13 +126,10 @@ export default function AppleGooglePayButton({
         });
 
         const result = await response.json();
-        console.log('Risultato creazione ordine:', result);
 
         if (response.ok && result.success) {
           // Pagamento già confermato dal backend
-          console.log('✅ Pagamento completato:', result.paymentIntentId);
-          
-          // Successo!
+
           ev.complete('success');
           router.push(`/checkout/success?order_id=${result.order_id}`);
           

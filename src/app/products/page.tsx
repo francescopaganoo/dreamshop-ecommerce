@@ -86,7 +86,6 @@ function ProductsPageContent() {
     priceRange: { min: number; max: number };
     excludeSoldOut: boolean;
   }) => {
-    console.log('🎯 Applying filters with plugin:', filters);
 
     // Start loading state
     setIsApplyingFilters(true);
@@ -131,7 +130,6 @@ function ProductsPageContent() {
       newSearchParams.delete('page');
 
       const newUrl = `/products?${newSearchParams.toString()}`;
-      console.log('🚀 Applying filters, navigating to:', newUrl);
       router.push(newUrl);
     } finally {
       // Stop loading states after a short delay to prevent flashing
@@ -192,7 +190,6 @@ function ProductsPageContent() {
           order: 'desc'
         };
 
-        console.log('Fetching products with plugin filters:', filters);
 
         // Get products using plugin
         const productsResponse = await getFilteredProductsPlugin(filters);

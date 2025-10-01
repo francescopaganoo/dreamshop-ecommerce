@@ -62,12 +62,7 @@ export async function POST(request: NextRequest) {
       shippingData: AddressData;
     } = await request.json();
 
-    console.log('🛒 Processando ordine carrello via Payment Request:', {
-      itemsCount: cartItems.length,
-      userId,
-      hasShipping: !!shippingOption,
-      discount
-    });
+
 
     // Verifica che ci siano items nel carrello
     if (!cartItems || cartItems.length === 0) {
@@ -109,7 +104,6 @@ export async function POST(request: NextRequest) {
           total: itemTotal.toString()
         });
 
-        console.log(`✓ Prodotto verificato: ${product.name} - €${unitPrice} x${item.quantity} = €${itemTotal}`);
       } catch (error) {
         console.error(`Errore verifica prodotto ${item.product_id}:`, error);
         return NextResponse.json({ 
@@ -125,13 +119,7 @@ export async function POST(request: NextRequest) {
     const orderTotal = subtotal - discount + shippingCost;
     const stripeAmount = Math.round(orderTotal * 100); // Converti in centesimi
 
-    console.log('💰 Calcolo totali:', {
-      subtotal: `€${subtotal.toFixed(2)}`,
-      discount: `€${discount.toFixed(2)}`,
-      shipping: `€${shippingCost.toFixed(2)}`,
-      total: `€${orderTotal.toFixed(2)}`,
-      stripeAmount: `${stripeAmount} centesimi`
-    });
+
 
     if (stripeAmount <= 0) {
       return NextResponse.json({ error: 'Totale ordine non valido' }, { status: 400 });
@@ -155,7 +143,6 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    console.log(`💳 Payment Intent creato: ${paymentIntent.id} - Status: ${paymentIntent.status}`);
 
     // Prepara i line items per WooCommerce
     const lineItems = verifiedItems.map(item => ({
@@ -224,7 +211,6 @@ export async function POST(request: NextRequest) {
       ]
     };
 
-    console.log('🛍️ Creando ordine WooCommerce con', lineItems.length, 'items');
 
     const orderResponse = await WooCommerce.post('orders', orderData);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -238,7 +224,6 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    console.log(`🎉 Ordine creato: #${order.id}, Payment Intent: ${paymentIntent.id}`);
 
     // Se il pagamento è confermato, aggiorna lo stato dell'ordine
     if (paymentIntent.status === 'succeeded') {
@@ -248,7 +233,6 @@ export async function POST(request: NextRequest) {
           set_paid: true,
           transaction_id: paymentIntent.id
         });
-        console.log(`✅ Ordine #${order.id} marcato come pagato`);
       } catch (updateError) {
         console.error('Errore aggiornamento ordine:', updateError);
         // Non fallire tutto l'ordine per questo errore

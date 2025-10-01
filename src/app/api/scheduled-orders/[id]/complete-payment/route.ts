@@ -71,11 +71,9 @@ export async function POST(request: NextRequest) {
       const nowDate = new Date();
       const timeRemaining = Math.floor((expDate.getTime() - nowDate.getTime()) / 1000 / 60); // minuti rimanenti
       
-      console.log(`API Complete Payment: Token scade il ${expDate.toISOString()}, minuti rimanenti: ${timeRemaining}`);
       
       // Se il token sta per scadere (meno di 30 minuti), genera un nuovo token per le chiamate successive
       if (timeRemaining < 30) {
-        console.log('API Complete Payment: Token in scadenza, generazione di un nuovo token per future chiamate');
         
         // Aggiornamento non bloccante del token nei cookie
         const newToken = sign({ id: decoded.id, email: decoded.email }, JWT_SECRET, {
@@ -101,32 +99,19 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    const userId = decoded.id;
+
     
     // Ottieni i dati dal corpo della richiesta
-    const { paymentIntentId, paymentMethod } = await request.json();
+    const { paymentIntentId } = await request.json();
     
     if (!paymentIntentId) {
       return NextResponse.json({ error: 'ID transazione mancante' }, { status: 400 });
     }
     
-    console.log(`API Complete Payment: Completamento pagamento per utente ID ${userId}, ordine ${id}, metodo: ${paymentMethod}, transaction ID: ${paymentIntentId}`);
-    
-    try {
-      // Prepara i dati da inviare a WooCommerce
-      const orderData = {
-        status: 'processing', // Usiamo 'processing' per i pagamenti pianificati
-        paid: true,         // Invece di set_paid che è per gli ordini normali
-        transaction_id: paymentIntentId,
-        payment_method: paymentMethod || 'stripe',
-        payment_method_title: paymentMethod === 'paypal' ? 'PayPal' : 'Carta di Credito (Stripe)'
-      };
 
-      console.log('API Complete Payment: Aggiornamento rata pianificata WooCommerce con dati:', orderData);
-      
+    try {
       // Utilizziamo l'API standard di WooCommerce ma con i parametri corretti
       // per aggiornare lo stato del pagamento pianificato
-      console.log(`Aggiornamento ordine WooCommerce con ID ${id} usando l'API standard`);
       
       // Aggiorniamo prima i metadati dell'ordine per segnalare che è stato pagato
       const metaData = {
@@ -144,7 +129,6 @@ export async function POST(request: NextRequest) {
       
       // Primo aggiornamento: aggiunge i metadati
       await api.put(`orders/${id}`, metaData);
-      console.log('Metadati aggiornati con successo');
       
       // Secondo aggiornamento: cambia lo stato
       // Nota: alcuni stati potrebbero richiedere permessi speciali nell'API WooCommerce
@@ -156,7 +140,6 @@ export async function POST(request: NextRequest) {
       // Aggiorna lo stato dell'ordine
       const response = await api.put(`orders/${id}`, statusUpdate);
       
-      console.log('API Complete Payment: Risposta aggiornamento WooCommerce:', response.data);
       
       return NextResponse.json({
         success: true,

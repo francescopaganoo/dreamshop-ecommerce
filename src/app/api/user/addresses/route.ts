@@ -39,7 +39,6 @@ interface WooCommerceUser {
 
 export async function GET(request: NextRequest) {
   try {
-    console.log('API addresses: Iniziata richiesta indirizzi');
     
     // Ottieni il token dall'header Authorization
     const authHeader = request.headers.get('Authorization');
@@ -55,19 +54,16 @@ export async function GET(request: NextRequest) {
     let decoded: DecodedToken;
     try {
       decoded = jwt.verify(token, JWT_SECRET) as DecodedToken;
-      console.log('Token verificato per userId:', decoded.id);
     } catch (jwtError) {
       console.error('Errore nella verifica del token JWT:', jwtError);
       return NextResponse.json({ error: 'Token non valido' }, { status: 401 });
     }
     
-    console.log('Recupero dati utente da WooCommerce per ID:', decoded.id);
     
     // Recupera i dati dell'utente da WooCommerce
     let userData;
     try {
       userData = await api.get(`customers/${decoded.id}`);
-      console.log('Risposta WooCommerce ricevuta');
     } catch (wooError) {
       console.error('Errore nella chiamata a WooCommerce:', wooError);
       return NextResponse.json({ 
@@ -80,10 +76,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Utente non trovato' }, { status: 404 });
     }
     
-    console.log('Dati utente recuperati con successo');
     const user = userData.data as WooCommerceUser;
     
-    console.log('Estrazione indirizzi...');
     // Estrai gli indirizzi
     const addresses = {
       billing: user.billing ? {
@@ -111,7 +105,6 @@ export async function GET(request: NextRequest) {
       } : null
     };
     
-    console.log('Indirizzi estratti e pronti per la risposta');
     return NextResponse.json(addresses);
     
   } catch (error) {
@@ -125,7 +118,6 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('API addresses: Iniziata richiesta salvataggio indirizzi');
     
     // Ottieni il token dall'header Authorization
     const authHeader = request.headers.get('Authorization');
@@ -141,7 +133,6 @@ export async function POST(request: NextRequest) {
     let decoded: DecodedToken;
     try {
       decoded = jwt.verify(token, JWT_SECRET) as DecodedToken;
-      console.log('Token verificato per userId:', decoded.id);
     } catch (jwtError) {
       console.error('Errore nella verifica del token JWT:', jwtError);
       return NextResponse.json({ error: 'Token non valido' }, { status: 401 });
@@ -149,7 +140,6 @@ export async function POST(request: NextRequest) {
     
     // Ottieni i dati dal body della richiesta
     const addressData = await request.json();
-    console.log('Dati indirizzo ricevuti per salvataggio');
     
     // Prepara i dati per WooCommerce
     const updateData: Partial<WooCommerceUser> = {};
@@ -185,12 +175,10 @@ export async function POST(request: NextRequest) {
       };
     }
     
-    console.log('Aggiornamento dati utente in WooCommerce per ID:', decoded.id);
     
     // Aggiorna i dati dell'utente in WooCommerce
     try {
       await api.put(`customers/${decoded.id}`, updateData);
-      console.log('Indirizzi aggiornati con successo in WooCommerce');
       
       return NextResponse.json({ 
         success: true, 

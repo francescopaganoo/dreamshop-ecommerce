@@ -33,7 +33,6 @@ export async function GET(request: NextRequest) {
       origin = request.headers.get('referer')?.replace(/\/[^/]*$/, '') || 'https://your-domain.com';
     }
 
-    console.log('Creazione sessione Satispay:', { orderId, amount, origin });
 
     // Crea la sessione di checkout Stripe con solo Satispay
     const session = await stripe.checkout.sessions.create({
@@ -61,7 +60,6 @@ export async function GET(request: NextRequest) {
       locale: 'it'
     });
 
-    console.log(`Sessione Satispay creata: ${session.id}`);
 
     // Reindirizza direttamente alla sessione di checkout
     return NextResponse.redirect(session.url!);

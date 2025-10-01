@@ -144,7 +144,6 @@ export const processScheduledOrderPayment = async (orderId: number): Promise<str
   }
   
   const apiUrl = `/api/scheduled-orders/${orderId}/pay`;
-  console.log(`Avvio processo di pagamento per la rata #${orderId}`);
   
   try {
     const response = await fetch(apiUrl, {
@@ -162,14 +161,12 @@ export const processScheduledOrderPayment = async (orderId: number): Promise<str
     }
     
     const data = await response.json();
-    console.log('Risposta API pagamento rata:', data);
     
     if (!data.success || !data.redirect) {
       console.error('Risposta API pagamento non valida:', data);
       throw new Error('URL di pagamento non disponibile');
     }
     
-    console.log('Reindirizzamento al checkout Stripe:', data.redirect);
     return data.redirect;
   } catch (error: unknown) {
     // Gestione sicura dell'errore con controllo di tipo
@@ -275,7 +272,6 @@ export const getDepositMetadata = (
   // Aggiungiamo l'ID del piano di pagamento se specificato
   if (paymentPlanId) {
     metadata.push({ key: '_deposit_payment_plan', value: paymentPlanId });
-    console.log(`Aggiunto piano di pagamento ID: ${paymentPlanId} ai metadati`);
   }
   
   // Restituiamo i metadati per l'acconto
@@ -324,10 +320,8 @@ export function getDepositInfo(product: ProductWithDeposit) {
     // Estrai l'ID del piano di pagamento dalle proprietà dirette
     if (product._deposit_payment_plan) {
       paymentPlanId = product._deposit_payment_plan;
-      console.log('ID piano pagamento trovato nelle proprietà dirette:', paymentPlanId);
     }
     
-    console.log('Trovato acconto dalle proprietà dirette:', { depositType, depositAmount, paymentPlanId });
   }
   // Fallback ai meta_data solo se non abbiamo trovato informazioni nelle proprietà dirette
   else if (product.meta_data && Array.isArray(product.meta_data)) {
@@ -340,25 +334,21 @@ export function getDepositInfo(product: ProductWithDeposit) {
       
       // Cerca il tipo di acconto
       const depositTypeObj = product.meta_data.find((meta: {key: string; value: string | number}) => meta.key === '_wc_deposit_type');
-      console.log('_wc_deposit_type trovato:', depositTypeObj);
       if (depositTypeObj && depositTypeObj.value) {
         depositType = String(depositTypeObj.value);
       }
       
       // Cerca l'importo dell'acconto
       const depositAmountObj = product.meta_data.find((meta: {key: string; value: string | number}) => meta.key === '_wc_deposit_amount');
-      console.log('_wc_deposit_amount trovato:', depositAmountObj);
       if (depositAmountObj && depositAmountObj.value) {
         const parsedAmount = parseInt(String(depositAmountObj.value), 10);
         depositAmount = !isNaN(parsedAmount) ? parsedAmount : 40; // Default a 40 se NaN
-        console.log('Importo acconto convertito in numero:', depositAmount);
       }
       
       // Cerca l'ID del piano di pagamento nei metadati
       const planIdObj = product.meta_data.find((meta: {key: string; value: string | number}) => meta.key === '_deposit_payment_plan');
       if (planIdObj && planIdObj.value) {
         paymentPlanId = String(planIdObj.value);
-        console.log('ID piano pagamento trovato nei metadati:', paymentPlanId);
       }
     }
   }
@@ -407,7 +397,6 @@ export const addToCartWithDeposit = async (
     return successResult;
 
   } catch (error) {
-    console.log(`Errore durante l'aggiunta al carrello: ${error instanceof Error ? error.message : String(error)}`);
     throw new Error(`Errore durante l'aggiunta al carrello: ${error instanceof Error ? error.message : String(error)}`);
   }
 };
@@ -432,15 +421,7 @@ export const getDepositCheckoutUrl = async (paymentPlanId?: string): Promise<str
     headers['Authorization'] = `Bearer ${token}`;
   }
   
-  // Log dettagliati per debug dell'ID piano di pagamento
-  console.log('============= FRONTEND CHECKOUT DEBUG =============');
-  console.log('getDepositCheckoutUrl chiamata con paymentPlanId:', paymentPlanId);
-  console.log('Tipo di paymentPlanId:', typeof paymentPlanId);
-  console.log('paymentPlanId è definito?', paymentPlanId !== undefined ? 'SÌ' : 'NO');
-  console.log('paymentPlanId è vuoto?', !paymentPlanId ? 'SÌ' : 'NO');
-  console.log('Valore effettivo che verrà inviato:', paymentPlanId || 'UNDEFINED/NULL');
-  console.log('================================================');
-  
+
   
   try {
     const response = await fetch(apiUrl, {
@@ -463,7 +444,6 @@ export const getDepositCheckoutUrl = async (paymentPlanId?: string): Promise<str
       throw new Error('URL di checkout non disponibile');
     }
     
-    console.log('Checkout URL ricevuto con piano di pagamento:', data.payment_plan_id);
     
     return data.checkout_url;
   } catch (error: unknown) {
@@ -511,7 +491,6 @@ export const getPaymentPlanDetails = async (planId: string, productId?: number):
     // Se abbiamo un productId, usiamo l'endpoint deposit-options che restituisce già tutti i dettagli del piano
     if (productId) {
       const depositOptionsUrl = `/api/products/${productId}/deposit-options`;
-      console.log(`Recupero dettagli piano ${planId} per prodotto ${productId}...`);
       
       const response = await fetch(depositOptionsUrl);
       
@@ -520,7 +499,6 @@ export const getPaymentPlanDetails = async (planId: string, productId?: number):
       }
       
       const options: ProductDepositOptions = await response.json();
-      console.log('Opzioni di acconto ricevute dal backend:', options);
       
       // Verifica che ci sia un piano di pagamento
       if (!options.payment_plan) {

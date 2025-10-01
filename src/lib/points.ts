@@ -86,7 +86,6 @@ export interface PointsResponse {
  */
 export async function addOrderPoints(userId: number, orderId: number, orderTotal: number, token: string): Promise<PointsResponse> {
   try {
-    console.log(`Aggiungo punti per ordine #${orderId}, utente ${userId}, totale ${orderTotal}€`);
     
     // Calcola i punti da aggiungere (1 punto ogni euro)
     const points = Math.floor(orderTotal);
@@ -112,7 +111,6 @@ export async function addOrderPoints(userId: number, orderId: number, orderTotal
     }
     
     const data = await response.json();
-    console.log('Punti aggiunti:', data);
     return data;
   } catch (error) {
     console.error('Errore durante l\'aggiunta dei punti:', error);
@@ -130,10 +128,7 @@ export async function addOrderPoints(userId: number, orderId: number, orderTotal
  */
 export async function redeemPoints(userId: number, points: number, orderId: number | null, token: string): Promise<PointsResponse> {
   try {
-    console.log(`[POINTS DEBUG] Inizio riscatto ${points} punti per utente ${userId}${orderId ? `, ordine #${orderId}` : ''}`);
-    console.log(`[POINTS DEBUG] Token presente: ${!!token}`);
-    console.log(`[POINTS DEBUG] Parametri: userId=${userId}, points=${points}, orderId=${orderId || 'null'}`);
-    
+
     // Validazione parametri
     if (!points || points <= 0) {
       console.error(`[POINTS DEBUG] Errore: punti non validi (${points})`);
@@ -146,7 +141,6 @@ export async function redeemPoints(userId: number, points: number, orderId: numb
     }
     
     // Usa l'API Next.js invece di chiamare direttamente WordPress
-    console.log('[POINTS DEBUG] Chiamata API /api/points/redeem');
     const response = await fetch(`/api/points/redeem`, {
       method: 'POST',
       headers: {
@@ -168,7 +162,6 @@ export async function redeemPoints(userId: number, points: number, orderId: numb
       })
     });
     
-    console.log(`[POINTS DEBUG] Risposta API: status ${response.status}`);
     
     if (!response.ok) {
       const errorText = await response.text();
@@ -177,7 +170,6 @@ export async function redeemPoints(userId: number, points: number, orderId: numb
     }
     
     const data = await response.json();
-    console.log('[POINTS DEBUG] Punti riscattati con successo:', data);
     return data;
   } catch (error) {
     console.error('[POINTS DEBUG] Errore durante il riscatto dei punti:', error);

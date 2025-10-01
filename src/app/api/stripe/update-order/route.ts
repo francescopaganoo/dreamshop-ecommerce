@@ -11,7 +11,6 @@ type OrderUpdateData = {
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json();
-    console.log('Dati ricevuti per aggiornamento ordine:', JSON.stringify(data, null, 2));
     
     const { orderId, paymentIntentId } = data;
     
@@ -31,7 +30,6 @@ export async function POST(request: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const updatedOrder = await updateOrder(parseInt(orderId), orderData as any);
     
-    console.log(`Ordine ${orderId} aggiornato come pagato`);
     
     return NextResponse.json({ 
       success: true,

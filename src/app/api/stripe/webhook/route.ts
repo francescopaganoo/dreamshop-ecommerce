@@ -67,7 +67,6 @@ export async function POST(request: NextRequest) {
           payment_method_title: `Stripe (Payment Intent: ${session.payment_intent})`,
         });
         
-        console.log(`Ordine ${orderId} aggiornato come pagato`);
       }
     }
     

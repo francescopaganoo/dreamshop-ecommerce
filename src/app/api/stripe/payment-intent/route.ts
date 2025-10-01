@@ -3,7 +3,6 @@ import Stripe from 'stripe';
 
 // Inizializza Stripe con la chiave segreta
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-console.log('Stripe Secret Key disponibile:', !!stripeSecretKey);
 
 if (!stripeSecretKey) {
   console.error('STRIPE_SECRET_KEY non è configurata nelle variabili d\'ambiente');
@@ -19,7 +18,6 @@ export async function POST(request: NextRequest) {
     }
     
     const data = await request.json();
-    console.log('Dati ricevuti per payment intent:', JSON.stringify(data, null, 2));
     
     const { amount, orderId } = data;
     
@@ -48,7 +46,6 @@ export async function POST(request: NextRequest) {
       }
     });
     
-    console.log(`Payment Intent creato con successo: ${paymentIntent.id}`);
     
     return NextResponse.json({ 
       clientSecret: paymentIntent.client_secret,

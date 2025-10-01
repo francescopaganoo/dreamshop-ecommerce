@@ -26,7 +26,6 @@ export default function OffertePage() {
         order: 'desc'
       });
 
-      console.log('Offerte Plugin Response:', response);
 
       setProducts(response.products);
       setTotalProducts(response.total);

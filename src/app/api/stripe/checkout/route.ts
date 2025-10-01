@@ -4,7 +4,6 @@ import { createOrder } from '../../../../lib/api';
 
 // Inizializza Stripe con la chiave segreta
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-console.log('Stripe Secret Key disponibile:', !!stripeSecretKey);
 
 if (!stripeSecretKey) {
   console.error('STRIPE_SECRET_KEY non è configurata nelle variabili d\'ambiente');
@@ -20,7 +19,6 @@ export async function POST(request: NextRequest) {
     }
     
     const data = await request.json();
-    console.log('Dati ricevuti:', JSON.stringify(data, null, 2));
     
     const { cartItems, customerInfo, notes } = data;
     
@@ -42,7 +40,6 @@ export async function POST(request: NextRequest) {
       quantity: item.quantity
     }));
     
-    console.log('Line items per WooCommerce:', line_items);
     
     const orderData = {
       payment_method: 'stripe',
@@ -79,7 +76,6 @@ export async function POST(request: NextRequest) {
     // Prepara gli elementi per la sessione Stripe
     const lineItems = cartItems.map((item: ProductCartItem) => {
       const price = typeof item.price === 'string' ? parseFloat(item.price) || 0 : item.price || 0;
-      console.log(`Item: ${item.name}, Price: ${price}, Unit Amount: ${Math.round(price * 100)}`);
       return {
         price_data: {
           currency: 'eur',
@@ -118,9 +114,7 @@ export async function POST(request: NextRequest) {
       origin = request.headers.get('referer')?.replace(/\/[^/]*$/, '') || 'https://your-domain.com';
     }
     
-    console.log('User Agent:', userAgent);
-    console.log('È iOS:', isIOS);
-    console.log('Origin:', origin);
+
     
     // Crea la sessione di checkout Stripe con configurazioni ottimizzate per iOS
     const session = await stripe.checkout.sessions.create({

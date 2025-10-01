@@ -12,7 +12,6 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
     
-    console.log(`Aggiornamento ordine ${orderId} con pagamento PayPal completato, ID transazione: ${paypalOrderId}`);
     
     try {
       // Estrai i dettagli della transazione PayPal
@@ -54,7 +53,6 @@ export async function POST(request: NextRequest) {
         throw new Error('Risposta non valida dall\'aggiornamento dell\'ordine');
       }
       
-      console.log(`Ordine ${orderId} aggiornato con successo a stato: ${updatedOrder.status || 'processing'}`);
       
       return NextResponse.json({
         success: true,

@@ -3,7 +3,6 @@ import Stripe from 'stripe';
 
 // Inizializza Stripe con la chiave segreta
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-console.log('Stripe Secret Key disponibile per conferma pagamento:', !!stripeSecretKey);
 
 if (!stripeSecretKey) {
   console.error('STRIPE_SECRET_KEY non è configurata nelle variabili d\'ambiente');
@@ -19,7 +18,6 @@ export async function POST(request: NextRequest) {
     }
     
     const data = await request.json();
-    console.log('Dati ricevuti per conferma pagamento:', JSON.stringify(data, null, 2));
     
     const { paymentIntentId, orderId } = data;
     
@@ -31,7 +29,6 @@ export async function POST(request: NextRequest) {
     // Conferma il pagamento intent
     const paymentIntent = await stripe.paymentIntents.confirm(paymentIntentId);
     
-    console.log(`Payment Intent confermato: ${paymentIntent.id}, status: ${paymentIntent.status}`);
     
     if (paymentIntent.status === 'succeeded') {
       // Aggiorna l'ordine come pagato
@@ -46,7 +43,6 @@ export async function POST(request: NextRequest) {
         }),
       });
       
-      console.log('Ordine aggiornato come pagato dopo conferma');
       
       return NextResponse.json({
         success: true,

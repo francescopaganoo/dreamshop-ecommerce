@@ -15,7 +15,6 @@ const PAYPAL_API_URL = process.env.NODE_ENV === 'production'
 export async function POST(request: NextRequest) {
   // Ottieni l'id dal percorso dell'URL invece di usare params
   const id = request.nextUrl.pathname.split('/').pop() || '';
-  console.log('API scheduled-order PayPal payment - Richiesta di pagamento ricevuta per ID:', id);
   
   try {
     // Ottieni il token dall'header Authorization
@@ -38,7 +37,6 @@ export async function POST(request: NextRequest) {
     
     // Ottieni il corpo della richiesta che dovrebbe contenere l'importo
     const data = await request.json();
-    console.log(`API PayPal Payment: Dati ricevuti:`, JSON.stringify(data, null, 2));
     
     // Estraiamo i dati necessari dalla richiesta
     const { amount } = data;
@@ -65,7 +63,6 @@ export async function POST(request: NextRequest) {
     
     // Pulisce e parsa l'importo
     const cleanedAmount = cleanAmount(amount);
-    console.log(`API PayPal Payment: Importo originale: ${amount}, pulito: ${cleanedAmount}`);
     
     // Assicuriamoci che l'importo sia una stringa valida con 2 decimali
     const parsedAmount = parseFloat(cleanedAmount);
@@ -79,7 +76,6 @@ export async function POST(request: NextRequest) {
     // Formatta l'importo con due decimali
     const formattedAmount = parsedAmount.toFixed(2);
     
-    console.log(`API PayPal Payment: Creazione ordine PayPal per la rata ${id}, importo: ${formattedAmount}`);
     
     // Ottieni il dominio per i redirect URL
     const origin = request.headers.get('origin') || 'http://localhost:3000';

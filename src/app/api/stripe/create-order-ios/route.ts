@@ -78,7 +78,6 @@ interface OrderData {
 
 // Inizializza Stripe con la chiave segreta
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-console.log('Stripe Secret Key disponibile per iOS:', !!stripeSecretKey);
 
 if (!stripeSecretKey) {
   console.error('STRIPE_SECRET_KEY non è configurata nelle variabili d\'ambiente');
@@ -94,11 +93,9 @@ export async function POST(request: NextRequest) {
     }
     
     const data = await request.json();
-    console.log('Dati ricevuti per ordine iOS:', JSON.stringify(data, null, 2));
     
     // Log specifico per i line_items e i loro metadati
     if (data.line_items) {
-      console.log('iOS - Dettaglio line_items ricevuti:');
       data.line_items.forEach((item: LineItemInput, index: number) => {
         console.log(`iOS - Item ${index}:`, {
           product_id: item.product_id || item.id,
@@ -110,14 +107,7 @@ export async function POST(request: NextRequest) {
       });
     }
     
-    // Log specifico per i punti e coupon
-    console.log('[iOS POINTS] Verifica dati punti e coupon:', { 
-      hasPointsToRedeem: 'pointsToRedeem' in data,
-      pointsToRedeemValue: data.pointsToRedeem,
-      hasToken: 'token' in data && !!data.token,
-      tokenLength: data.token ? data.token.length : 0,
-      couponPresente: 'couponCode' in data && !!data.couponCode
-    });
+
     
     const { 
       paymentMethodId, 
@@ -140,7 +130,6 @@ export async function POST(request: NextRequest) {
     // Usa directCustomerId se disponibile (inviato dal frontend)
     if (directCustomerId && isAuthenticated) {
       userId = directCustomerId;
-      console.log(`iOS: Usando ID utente salvato nel form: ${userId}`);
     } else {
       console.log('iOS: Nessun ID utente valido fornito, ordine sarà come guest');
     }
@@ -160,7 +149,6 @@ export async function POST(request: NextRequest) {
       confirm: true, // Conferma immediatamente
     });
     
-    console.log(`Payment Intent creato e confermato: ${paymentIntent.id}, status: ${paymentIntent.status}`);
     
     if (paymentIntent.status !== 'succeeded') {
       return NextResponse.json({ 
@@ -178,7 +166,6 @@ export async function POST(request: NextRequest) {
       meta_data: item.meta_data || []  // Preserva i metadati inclusi i dati per i pagamenti a rate
     }));
 
-    console.log('iOS - Line items processati:', JSON.stringify(processedLineItems, null, 2));
     
     // Log specifico per verificare che i metadati degli acconti siano stati preservati
     processedLineItems.forEach((item: { product_id?: number; quantity: number; variation_id?: number; meta_data?: MetaData[] }, index: number) => {
@@ -236,24 +223,19 @@ export async function POST(request: NextRequest) {
       payment_method: 'stripe'
     });
     
-    console.log('Creazione ordine in WooCommerce per iOS...');
-    console.log('iOS - OrderData inviata a WooCommerce:', JSON.stringify(orderData, null, 2));
+
     
     const order = await createOrder(orderData);
     
-    // Log per verificare che l'ordine sia stato creato correttamente
-    console.log('iOS - Ordine creato con risposta:', JSON.stringify(order, null, 2));
+
     
     if (!order || typeof order !== 'object' || !('id' in order)) {
       throw new Error('Errore nella creazione dell\'ordine');
     }
-    
-    console.log(`Ordine creato con successo: ${order.id}`);
-    console.log(`Ordine già impostato come pagato per l'utente ID: ${userId}`);
+
     
     // TENTATIVO 1: Chiamata diretta all'endpoint per forzare l'elaborazione degli acconti
     try {
-      console.log('iOS - Tentativo di attivazione manuale del plugin deposits...');
       
       const wordpressUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL!;
       const baseUrl = wordpressUrl.endsWith('/') ? wordpressUrl : `${wordpressUrl}/`;
@@ -286,7 +268,6 @@ export async function POST(request: NextRequest) {
     let pointsRedeemResult = null;
     if (pointsToRedeem && pointsToRedeem > 0 && userId > 0 && token) {
       try {
-        console.log(`[iOS POINTS] Inizia riscatto ${pointsToRedeem} punti per l'utente ${userId}, ordine #${order.id}`);
         
         // Piccolo ritardo per garantire che l'ordine sia stato completamente processato
         await new Promise(resolve => setTimeout(resolve, 1500));
@@ -298,13 +279,10 @@ export async function POST(request: NextRequest) {
         
         // Utilizziamo la variabile POINTS_API_KEY disponibile nell'env
         const apiKey = process.env.POINTS_API_KEY!; // Usa la chiave dalle variabili d'ambiente
-        console.log('[iOS POINTS] Usando variabile POINTS_API_KEY');
         
         // Usa l'endpoint sicuro che richiede solo API key senza autenticazione JWT
         const apiEndpoint = `${baseUrl}wp-json/dreamshop-points/v1/points/secure-redeem`;
         
-        console.log(`[iOS POINTS] Chiamata diretta a WordPress API: ${apiEndpoint}`);
-        console.log(`[iOS POINTS] API Key presente: ${!!apiKey} (${apiKey ? apiKey.substring(0, 3) + '...' : 'mancante'})`); 
         
         if (!apiKey) {
           console.error('[iOS POINTS] ERRORE CRITICO: API Key mancante! Verifica la variabile DREAMSHOP_POINTS_API_KEY');
@@ -327,8 +305,6 @@ export async function POST(request: NextRequest) {
         
         if (response.ok) {
           pointsRedeemResult = await response.json();
-          console.log(`[iOS POINTS] Riscatto punti completato con successo: ${pointsToRedeem} punti per l'utente ${userId}, ordine #${order.id}`);
-          console.log(`[iOS POINTS] Gestione coupon delegata completamente al plugin WordPress`);
           
           // Il plugin WordPress gestisce automaticamente l'applicazione dello sconto tramite l'endpoint secure-redeem
         } else {

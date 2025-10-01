@@ -400,7 +400,6 @@ async function RelatedProductsSection({ productSlug, productId, categories }: {
 
   // Se il nuovo endpoint non restituisce risultati, usa il fallback
   if (relatedProducts.length === 0) {
-    console.log('🔄 Fallback to category-based related products');
     const categoryIds = categories.map(cat => cat.id);
     relatedProducts = await getRelatedProducts(productId, categoryIds, 8);
   }

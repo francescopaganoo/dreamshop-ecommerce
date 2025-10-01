@@ -64,9 +64,7 @@ export default function PaymentRequestButton({
 
     // Controlla se Apple Pay/Google Pay sono disponibili
     pr.canMakePayment().then(result => {
-      console.log('Payment Request availability check:', result);
-      console.log('Browser:', navigator.userAgent);
-      console.log('HTTPS:', window.location.protocol === 'https:');
+
       
       if (result) {
         setPaymentRequest(pr);

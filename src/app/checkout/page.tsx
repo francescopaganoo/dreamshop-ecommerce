@@ -155,7 +155,6 @@ export default function CheckoutPage() {
     
     // Configurazione specifica per iOS
     if (isIOS && stripe && elements) {
-      console.log('Applicando configurazioni iniziali per iOS');
       
       // Funzione per gestire specifiche configurazioni per iOS
       const applyIOSFix = () => {
@@ -187,7 +186,6 @@ export default function CheckoutPage() {
       // Riapplica il fix quando la pagina diventa visibile
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible' && isIOS) {
-          console.log('Pagina tornata visibile su iOS, riapplicando fix');
           applyIOSFix();
         }
       });
@@ -467,7 +465,6 @@ export default function CheckoutPage() {
   
   // Funzione per resettare il form dopo il completamento dell'ordine
   const resetFormAfterSuccess = () => {
-    console.log('CHECKOUT: Reset form dopo successo ordine');
     
     // Reset del form data
     setFormData({
@@ -518,7 +515,6 @@ export default function CheckoutPage() {
       const cardElement = elements.getElement(CardElement);
       if (cardElement) {
         cardElement.clear();
-        console.log('CHECKOUT: CardElement Stripe resettato');
       }
     }
     
@@ -530,14 +526,12 @@ export default function CheckoutPage() {
   // Funzione per salvare gli indirizzi dell'utente
   const saveAddressData = async () => {
     if (!isAuthenticated || !user) {
-      console.log('CHECKOUT: Utente non autenticato, salvataggio indirizzi saltato');
       return;
     }
 
     try {
       const token = localStorage.getItem('woocommerce_token');
       if (!token) {
-        console.log('CHECKOUT: Token non disponibile, salvataggio indirizzi saltato');
         return;
       }
 
@@ -610,9 +604,7 @@ export default function CheckoutPage() {
         addressDataToSave.shipping = shippingData;
       }
 
-      console.log('CHECKOUT: Salvataggio indirizzi utente...');
       await saveUserAddresses(token, addressDataToSave);
-      console.log('CHECKOUT: Indirizzi salvati con successo');
 
     } catch (error) {
       console.error('CHECKOUT: Errore durante il salvataggio degli indirizzi:', error);
@@ -626,12 +618,10 @@ export default function CheckoutPage() {
     
     // Prevent resubmission if order is already completed
     if (orderSuccess) {
-      console.log('CHECKOUT DEBUG - Ordine già completato, evito risubmit');
       return;
     }
     
     // Debug visibile nel browser
-    console.log('CHECKOUT DEBUG - Form inviato');
     if (isAuthenticated && user) {
       console.log('CHECKOUT DEBUG - Dati utente:', {
         id: user.id,
@@ -707,7 +697,6 @@ export default function CheckoutPage() {
 
           // Aggiungi i metadati degli acconti se il prodotto li ha
           if (item.product._wc_convert_to_deposit === 'yes') {
-            console.log(`Checkout: Aggiungo metadati acconto al prodotto ${item.product.id}`);
 
             // Assicurati che meta_data sia un array
             if (!lineItem.meta_data) lineItem.meta_data = [];
@@ -719,8 +708,6 @@ export default function CheckoutPage() {
               { key: '_wc_deposit_amount', value: item.product._wc_deposit_amount || '40' }
             );
 
-            // Aggiungi metadati a livello di ordine per compatibilità con WooCommerce Deposits
-            console.log(`Checkout: Prodotto ${item.product.id} ha acconto: ${item.product._wc_deposit_type} ${item.product._wc_deposit_amount}`);
           }
           
           return lineItem;
@@ -756,7 +743,6 @@ export default function CheckoutPage() {
         // Recupera l'ID utente dalla form state per associarlo all'ordine
         const userIdFromForm = formData.userId || 0;
         
-        console.log(`PayPal: Utente autenticato? ${isAuthenticated}, ID utente: ${userIdFromForm}`);
         
         // Prepara i dati dell'ordine
         const orderData = {
@@ -802,7 +788,6 @@ export default function CheckoutPage() {
           ]
         };
         
-        console.log(`PayPal DEBUG: Dati ordine completi:`, JSON.stringify(orderData, null, 2));
         
         // Salva i dati dell'ordine per PayPal
         setPaypalOrderData(orderData);
@@ -874,7 +859,6 @@ export default function CheckoutPage() {
 
         // Aggiungi i metadati degli acconti se il prodotto li ha
         if (item.product._wc_convert_to_deposit === 'yes') {
-          console.log(`Checkout: Aggiungo metadati acconto al prodotto ${item.product.id}`);
 
           // Assicurati che meta_data sia un array
           if (!lineItem.meta_data) lineItem.meta_data = [];
@@ -886,8 +870,6 @@ export default function CheckoutPage() {
             { key: '_wc_deposit_amount', value: item.product._wc_deposit_amount || '40' }
           );
 
-          // Aggiungi metadati a livello di ordine per compatibilità con WooCommerce Deposits
-          console.log(`Checkout: Prodotto ${item.product.id} ha acconto: ${item.product._wc_deposit_type} ${item.product._wc_deposit_amount}`);
         }
         
         return lineItem;
@@ -925,13 +907,11 @@ export default function CheckoutPage() {
       if (formData.paymentMethod === 'stripe') {
         setIsStripeLoading(true);
         
-        console.log('Inizializzazione pagamento con Stripe...');
         
         // Se l'utente vuole creare un account, crealo prima dell'ordine
         let customerId = undefined;
         if (formData.createAccount && formData.password && !isAuthenticated) {
           try {
-            console.log('[CHECKOUT STRIPE] Creazione account customer...');
             const customer = await createCustomer({
               email: formData.email,
               password: formData.password,
@@ -941,7 +921,6 @@ export default function CheckoutPage() {
               shipping: shippingInfo
             });
             customerId = customer.id;
-            console.log('[CHECKOUT STRIPE] Customer creato con ID:', customerId);
           } catch (customerError) {
             console.error('[CHECKOUT STRIPE] Errore nella creazione del customer:', customerError);
             // Continua comunque con l'ordine come guest
@@ -957,7 +936,6 @@ export default function CheckoutPage() {
         
         // Gestione speciale per iOS
         if (isIOS) {
-          console.log('Utilizzo approccio alternativo per iOS...');
           
           try {
             // Otteniamo l'elemento carta
@@ -1001,7 +979,6 @@ export default function CheckoutPage() {
               throw new Error('Payment method non creato correttamente');
             }
             
-            console.log('Payment method creato con successo:', paymentMethod.id);
             
             // Prepara i line items per l'ordine
             console.log('iOS CHECKOUT - Analisi prodotti nel carrello:', cart.map(item => ({
@@ -1051,7 +1028,6 @@ export default function CheckoutPage() {
 
               // Aggiungi i metadati degli acconti se il prodotto li ha
               if (item.product._wc_convert_to_deposit === 'yes') {
-                console.log(`iOS CHECKOUT - ACCONTO RILEVATO: Aggiungo metadati acconto al prodotto ${item.product.id}`);
                 console.log(`iOS CHECKOUT - Dettagli acconto:`, {
                   _wc_convert_to_deposit: item.product._wc_convert_to_deposit,
                   _wc_deposit_type: item.product._wc_deposit_type,
@@ -1068,7 +1044,6 @@ export default function CheckoutPage() {
                   { key: '_wc_deposit_amount', value: item.product._wc_deposit_amount || '40' }
                 );
 
-                console.log(`iOS CHECKOUT - Metadati aggiunti al line_item:`, lineItem.meta_data);
               } else {
                 console.log(`iOS CHECKOUT - NESSUN ACCONTO per prodotto ${item.product.id}: _wc_convert_to_deposit = ${item.product._wc_convert_to_deposit}`);
               }
@@ -1080,9 +1055,7 @@ export default function CheckoutPage() {
             // Questo valore è stato impostato nell'useEffect quando l'utente è stato autenticato
             const userIdFromForm = formData.userId || 0;
             
-            // Per debug
-            console.log('iOS DEBUG - ID utente dal form:', userIdFromForm);
-            console.log('iOS DEBUG - Line items finali da inviare:', JSON.stringify(line_items, null, 2));
+
             
             // Crea un ordine con il payment method ID
             const orderResponse = await fetch('/api/stripe/create-order-ios', {
@@ -1143,7 +1116,6 @@ export default function CheckoutPage() {
               // CORREZIONE iOS: Ritarda il reset per permettere la visualizzazione
               setTimeout(() => {
                 resetFormAfterSuccess();
-                console.log('CHECKOUT: Reset ritardato eseguito dopo 3 secondi per sicurezza iOS');
               }, 3000);
               
               setIsSubmitting(false);
@@ -1153,7 +1125,6 @@ export default function CheckoutPage() {
             
             // Controlla se è necessaria l'autenticazione 3D Secure
             if (orderData.requires_action && orderData.payment_intent_client_secret) {
-              console.log('Autenticazione 3D Secure richiesta per iOS, gestione in-page...');
               
               // Gestisci l'autenticazione 3D Secure in-page
               const { error, paymentIntent } = await stripe.handleCardAction(
@@ -1207,13 +1178,11 @@ export default function CheckoutPage() {
                     return;
                   }
                   
-                  console.log(`[CHECKOUT] Inizia riscatto ${pointsToRedeem} punti per l'utente ${user.id}, ordine #${orderId}`);
                   
                   // Chiamata API per riscattare i punti
                   const pointsResponse = await redeemPoints(user.id, pointsToRedeem, orderId, token);
                   
                   if (pointsResponse && pointsResponse.success) {
-                    console.log(`[CHECKOUT] Riscatto punti completato con successo: ${pointsToRedeem} punti per l'utente ${user.id}, ordine #${orderId}`);
                     
                     // Rimuovi i punti riscattati dal localStorage
                     localStorage.removeItem('checkout_points_to_redeem');
@@ -1276,7 +1245,6 @@ export default function CheckoutPage() {
         const couponDiscount = coupon ? discount : 0;
         const subtotalForPoints = subtotal - couponDiscount - pointsDiscount; // Subtotale meno tutti gli sconti
         const pointsToEarn = Math.floor(Math.max(0, subtotalForPoints)); // 1 euro = 1 punto
-        console.log(`[CHECKOUT] CALCOLO PUNTI - Subtotale: €${subtotal.toFixed(2)}, Sconto coupon: €${couponDiscount.toFixed(2)}, Sconto punti: €${pointsDiscount.toFixed(2)}, Valore per punti: €${subtotalForPoints.toFixed(2)} → ${pointsToEarn} punti verranno assegnati`);
 
         // Crea un ordine in stato pending
         const orderData = {

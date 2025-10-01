@@ -100,7 +100,6 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
     priceRange: { min: number; max: number };
     excludeSoldOut: boolean;
   }) => {
-    console.log('🎯 Category applying filters with plugin:', filters);
 
     // Start loading state
     setIsApplyingFilters(true);
@@ -141,7 +140,6 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
       newSearchParams.delete('page');
 
       const newUrl = `/category/${categorySlug}?${newSearchParams.toString()}`;
-      console.log('🚀 Category applying filters, navigating to:', newUrl);
       router.push(newUrl);
     } finally {
       // Stop loading states after a short delay to prevent flashing
@@ -197,10 +195,7 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
           order: 'desc'
         };
 
-        console.log('Fetching category products with plugin filters:', filters);
-        console.log('🔍 DEBUG - excludeSoldOut state:', excludeSoldOut);
-        console.log('🔍 DEBUG - excludeSoldOutParam from URL:', excludeSoldOutParam);
-        console.log('🔍 DEBUG - filters.exclude_sold_out:', filters.exclude_sold_out);
+
 
         // Get products using plugin
         const productsResponse = await getFilteredProductsPlugin(filters);

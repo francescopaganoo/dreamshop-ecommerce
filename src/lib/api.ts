@@ -41,7 +41,6 @@ export async function getProductsByBrandSlugsOptimized(
   max_price?: number
 ): Promise<{ products: Product[], total: number }> {
   const requestId = Math.random().toString(36).substr(2, 9);
-  console.log(`🚀 [${requestId}] OPTIMIZED BRAND FILTER:`, { brandSlugs, page, per_page, min_price, max_price });
 
   try {
     if (brandSlugs.length === 0) {
@@ -66,7 +65,6 @@ export async function getProductsByBrandSlugsOptimized(
     }
 
     // Step 2: Get ALL product IDs matching brands (no pagination yet)
-    console.log(`🔍 [${requestId}] Getting all products for brands:`, brandIds);
     const allProductIds: number[] = [];
     let wpPage = 1;
     const wpPerPage = 100;
@@ -90,13 +88,11 @@ export async function getProductsByBrandSlugsOptimized(
       if (wpPage > 10) break; // Safety limit
     }
 
-    console.log(`📊 [${requestId}] Found ${allProductIds.length} products matching brands`);
 
     // Step 3: Apply price filter to get filtered product IDs
     let filteredProductIds = allProductIds;
 
     if (min_price !== undefined || max_price !== undefined) {
-      console.log(`🔍 [${requestId}] Applying price filter to all products...`);
 
       const filteredIds: number[] = [];
       const batchSize = 100;
@@ -126,7 +122,6 @@ export async function getProductsByBrandSlugsOptimized(
       }
 
       filteredProductIds = filteredIds;
-      console.log(`✅ [${requestId}] Price filter: ${filteredProductIds.length}/${allProductIds.length} products passed`);
     }
 
     // Step 4: Apply pagination to filtered IDs
@@ -135,7 +130,6 @@ export async function getProductsByBrandSlugsOptimized(
     const endIndex = startIndex + per_page;
     const paginatedIds = filteredProductIds.slice(startIndex, endIndex);
 
-    console.log(`🎯 [${requestId}] Page ${page}: showing products ${startIndex + 1}-${Math.min(endIndex, total)} of ${total}`);
 
     if (paginatedIds.length === 0) {
       return { products: [], total };
@@ -152,7 +146,6 @@ export async function getProductsByBrandSlugsOptimized(
 
     const products = response.data as Product[];
 
-    console.log(`✅ [${requestId}] SUCCESS: ${products.length} products returned, total: ${total}`);
 
     return { products, total };
 
@@ -173,7 +166,6 @@ export async function getProductsByCategorySlugWithTotalOptimized(
   max_price?: number
 ): Promise<{ products: Product[], total: number }> {
   const requestId = Math.random().toString(36).substr(2, 9);
-  console.log(`🚀 [${requestId}] OPTIMIZED CATEGORY FILTER:`, { categorySlug, page, per_page, min_price, max_price });
 
   try {
     // Step 1: Get category ID
@@ -185,7 +177,6 @@ export async function getProductsByCategorySlugWithTotalOptimized(
     }
 
     const categoryId = categoryResponse.data[0].id;
-    console.log(`🔍 [${requestId}] Category ID: ${categoryId}`);
 
     // Step 2: Get ALL product IDs in category
     const allProductIds: number[] = [];
@@ -211,13 +202,11 @@ export async function getProductsByCategorySlugWithTotalOptimized(
       if (wpPage > 10) break; // Safety limit
     }
 
-    console.log(`📊 [${requestId}] Found ${allProductIds.length} products in category`);
 
     // Step 3: Apply price filter to get filtered product IDs
     let filteredProductIds = allProductIds;
 
     if (min_price !== undefined || max_price !== undefined) {
-      console.log(`🔍 [${requestId}] Applying price filter to all products...`);
 
       const filteredIds: number[] = [];
       const batchSize = 100;
@@ -247,7 +236,6 @@ export async function getProductsByCategorySlugWithTotalOptimized(
       }
 
       filteredProductIds = filteredIds;
-      console.log(`✅ [${requestId}] Price filter: ${filteredProductIds.length}/${allProductIds.length} products passed`);
     }
 
     // Step 4: Apply pagination to filtered IDs
@@ -256,7 +244,6 @@ export async function getProductsByCategorySlugWithTotalOptimized(
     const endIndex = startIndex + per_page;
     const paginatedIds = filteredProductIds.slice(startIndex, endIndex);
 
-    console.log(`🎯 [${requestId}] Page ${page}: showing products ${startIndex + 1}-${Math.min(endIndex, total)} of ${total}`);
 
     if (paginatedIds.length === 0) {
       return { products: [], total };
@@ -273,7 +260,6 @@ export async function getProductsByCategorySlugWithTotalOptimized(
 
     const products = response.data as Product[];
 
-    console.log(`✅ [${requestId}] SUCCESS: ${products.length} products returned, total: ${total}`);
 
     return { products, total };
 
@@ -295,7 +281,6 @@ export async function getProductsByCategorySlugAndBrandSlugsOptimized(
   max_price?: number
 ): Promise<{ products: Product[], total: number }> {
   const requestId = Math.random().toString(36).substr(2, 9);
-  console.log(`🚀 [${requestId}] OPTIMIZED CATEGORY+BRANDS FILTER:`, { categorySlug, brandSlugs, page, per_page, min_price, max_price });
 
   try {
     // Step 1: Get category ID
@@ -323,7 +308,6 @@ export async function getProductsByCategorySlugAndBrandSlugsOptimized(
       return { products: [], total: 0 };
     }
 
-    console.log(`🔍 [${requestId}] Category ID: ${categoryId}, Brand IDs: [${brandIds.join(', ')}]`);
 
     // Step 3: Get ALL product IDs matching category AND brands
     const allProductIds: number[] = [];
@@ -350,13 +334,11 @@ export async function getProductsByCategorySlugAndBrandSlugsOptimized(
       if (wpPage > 10) break; // Safety limit
     }
 
-    console.log(`📊 [${requestId}] Found ${allProductIds.length} products matching category + brands`);
 
     // Step 4: Apply price filter to get filtered product IDs
     let filteredProductIds = allProductIds;
 
     if (min_price !== undefined || max_price !== undefined) {
-      console.log(`🔍 [${requestId}] Applying price filter to all products...`);
 
       const filteredIds: number[] = [];
       const batchSize = 100;
@@ -386,7 +368,6 @@ export async function getProductsByCategorySlugAndBrandSlugsOptimized(
       }
 
       filteredProductIds = filteredIds;
-      console.log(`✅ [${requestId}] Price filter: ${filteredProductIds.length}/${allProductIds.length} products passed`);
     }
 
     // Step 5: Apply pagination to filtered IDs
@@ -395,7 +376,6 @@ export async function getProductsByCategorySlugAndBrandSlugsOptimized(
     const endIndex = startIndex + per_page;
     const paginatedIds = filteredProductIds.slice(startIndex, endIndex);
 
-    console.log(`🎯 [${requestId}] Page ${page}: showing products ${startIndex + 1}-${Math.min(endIndex, total)} of ${total}`);
 
     if (paginatedIds.length === 0) {
       return { products: [], total };
@@ -412,7 +392,6 @@ export async function getProductsByCategorySlugAndBrandSlugsOptimized(
 
     const products = response.data as Product[];
 
-    console.log(`✅ [${requestId}] SUCCESS: ${products.length} products returned, total: ${total}`);
 
     return { products, total };
 
@@ -444,7 +423,6 @@ function cleanupProductCache() {
     if (productKeys.length > 20) {
       const keysToRemove = productKeys.slice(0, productKeys.length - 15);
       keysToRemove.forEach(key => sessionStorage.removeItem(key));
-      console.log(`Cleaned up ${keysToRemove.length} old cache entries`);
     }
   } catch (error) {
     console.warn('Error during cache cleanup:', error);
@@ -1405,7 +1383,6 @@ export async function createOrder(orderData: OrderData): Promise<WooCommerceOrde
       }
     }
     
-    console.log('API DEBUG - UserId recuperato direttamente dall\'API:', userId);
     
     // Prepariamo i dati dell'ordine con il customer_id esplicito
     // IMPORTANTE: Rispettiamo il customer_id se già presente in orderData
@@ -1415,17 +1392,12 @@ export async function createOrder(orderData: OrderData): Promise<WooCommerceOrde
       customer_id: orderData.customer_id || userId
     };
     
-    // Log speciale per tracciare il customer_id
-    console.log('API DEBUG - customer_id passato:', orderData.customer_id);
-    console.log('API DEBUG - customer_id recuperato da token:', userId);
-    console.log('API DEBUG - customer_id finale:', rawDataToSend.customer_id);
+
 
     // Convertiamo in un oggetto semplice per evitare problemi di serializzazione
     const orderDataToSend = JSON.parse(JSON.stringify(rawDataToSend));
 
-    // Log dell'ID utente recuperato direttamente dal localStorage
-    console.log('API DEBUG - OrderData originale:', orderData);
-    console.log('API DEBUG - OrderData preparato per invio:', orderDataToSend);
+
 
     // Log molto dettagliato per debug
     console.log('API DEBUG - Creazione ordine con dati:', {
@@ -1482,10 +1454,10 @@ export async function createOrder(orderData: OrderData): Promise<WooCommerceOrde
       }
     }
     
-    console.log('API DEBUG - Ordine contiene acconti:', hasDeposits);
+
     
     // Usa sempre l'endpoint standard WooCommerce per tutti gli ordini
-    console.log('API DEBUG - Utilizzo endpoint standard WooCommerce');
+
     const response = await api.post('orders', orderDataToSend);
     const orderResponse = response.data as WooCommerceOrderResponse;
     
@@ -1645,7 +1617,6 @@ export async function getShippingMethods(shippingAddress: ShippingAddress, cartT
   try {
     // Verifica che l'indirizzo sia valido
     if (!shippingAddress || !shippingAddress.country) {
-      console.log('Indirizzo di spedizione non valido per il recupero dei metodi');
       return [{
         id: 'flat_rate',
         title: 'Spedizione standard',
@@ -1717,7 +1688,6 @@ export async function calculateShipping(shippingAddress: ShippingAddress) {
   try {
     // Verifica che l'indirizzo sia valido
     if (!shippingAddress || !shippingAddress.country) {
-      console.log('Indirizzo di spedizione non valido');
       return 5.99; // Valore predefinito
     }
     
@@ -1748,7 +1718,6 @@ export async function calculateShipping(shippingAddress: ShippingAddress) {
       const data = await response.json();
       
       if (data && typeof data.shipping_cost === 'number') {
-        console.log(`Costo di spedizione calcolato dall'API: ${data.shipping_cost}`);
         return data.shipping_cost;
       }
       
@@ -1770,11 +1739,9 @@ export async function calculateShipping(shippingAddress: ShippingAddress) {
       
       const fallbackCost = fallbackRates[countryCode];
       if (fallbackCost !== undefined) {
-        console.log(`Utilizzo valore di fallback per ${countryCode}: ${fallbackCost}`);
         return fallbackCost;
       }
       
-      console.log('Utilizzo valore di fallback standard: 5.99');
       return 5.99; // Valore predefinito standard
     }
   } catch (error) {
@@ -1980,7 +1947,6 @@ export async function getBestSellingProducts(limit: number = 4): Promise<Product
     const baseUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL?.replace(/\/$/, '') || '';
     const bestSellingUrl = `${baseUrl}/wp-json/dreamshop/v1/products/best-selling?limit=${limit}`;
 
-    console.log('🔥 Getting best selling products from plugin:', bestSellingUrl);
 
     const response = await fetch(bestSellingUrl, {
       method: 'GET',
@@ -2044,7 +2010,6 @@ export async function getRelatedProductsBySlug(productSlug: string, limit: numbe
     const baseUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL?.replace(/\/$/, '') || '';
     const relatedUrl = `${baseUrl}/wp-json/dreamshop/v1/products/${productSlug}/related?limit=${limit}`;
 
-    console.log('⚡ Getting related products from plugin:', relatedUrl);
 
     const response = await fetch(relatedUrl, {
       method: 'GET',
@@ -2398,7 +2363,6 @@ export async function getPriceRangeByBrands(brandSlugs: string[]): Promise<{ min
       return await getPriceRange(); // Fallback to global range
     }
 
-    console.log('🔍 Calculating price range for brands:', brandSlugs);
 
     // Get brand IDs
     const brandIds: number[] = [];
@@ -2447,7 +2411,6 @@ export async function getPriceRangeByBrands(brandSlugs: string[]): Promise<{ min
       return { min: 0, max: 1000 };
     }
 
-    console.log(`📊 Found ${allProductIds.length} products for price range calculation`);
 
     // Get actual products in batches to calculate price range
     let minPrice = Infinity;
@@ -2484,7 +2447,6 @@ export async function getPriceRangeByBrands(brandSlugs: string[]): Promise<{ min
       max: Math.ceil(maxPrice)
     };
 
-    console.log(`💰 Price range for brands [${brandSlugs.join(', ')}]:`, result);
     return result;
 
   } catch (error) {
@@ -2619,7 +2581,6 @@ export async function getPriceRangeByCategory(categorySlug: string): Promise<{ m
     const minPrice = Math.min(...prices);
     const maxPrice = Math.max(...prices);
 
-    console.log(`Price range for category ${categorySlug}: €${minPrice} - €${maxPrice} (${prices.length} products)`);
 
     return {
       min: Math.floor(minPrice),
@@ -2682,7 +2643,6 @@ export async function getPriceRangeByCategoryAndBrands(categorySlug: string, bra
         const productBrandSlugs = product.brands.map(brand => brand.slug);
         const hasMatchingBrand = productBrandSlugs.some(slug => brandSlugs.includes(slug));
 
-        console.log(`Product: ${product.name}, Brands: [${productBrandSlugs.join(', ')}], Selected: [${brandSlugs.join(', ')}], Included: ${hasMatchingBrand}`);
 
         return hasMatchingBrand;
       });
@@ -2698,7 +2658,6 @@ export async function getPriceRangeByCategoryAndBrands(categorySlug: string, bra
     }
 
     if (allProducts.length === 0) {
-      console.log(`No products found for category ${categorySlug} with brands ${brandSlugs.join(', ')}`);
       return { min: 0, max: 100 };
     }
 
@@ -2729,7 +2688,6 @@ export async function getPriceRangeByCategoryAndBrands(categorySlug: string, bra
     const minPrice = Math.min(...prices);
     const maxPrice = Math.max(...prices);
 
-    console.log(`Price range for category ${categorySlug} + brands [${brandSlugs.join(', ')}]: €${minPrice} - €${maxPrice} (${prices.length} products)`);
 
     return {
       min: Math.floor(minPrice),
@@ -2790,7 +2748,6 @@ export async function getProductsByCategorySlugAndBrandsWithTotal(
         const productBrandSlugs = product.brands.map(brand => brand.slug);
         const hasMatchingBrand = productBrandSlugs.some(slug => brandSlugs.includes(slug));
 
-        console.log(`[PRODUCTS] Product: ${product.name}, Brands: [${productBrandSlugs.join(', ')}], Selected: [${brandSlugs.join(', ')}], Included: ${hasMatchingBrand}`);
 
         return hasMatchingBrand;
       });
@@ -2817,7 +2774,6 @@ export async function getProductsByCategorySlugAndBrandsWithTotal(
       });
     }
 
-    console.log(`Found ${allProducts.length} products for category ${categorySlug} + brands [${brandSlugs.join(', ')}]${min_price || max_price ? ` + price filter €${min_price || 0}-€${max_price || '∞'}` : ''}`);
 
     // Apply pagination to filtered results
     const startIndex = (page - 1) * per_page;
@@ -2849,23 +2805,19 @@ export async function getProductsByBrandSlugs(
 
   // Check if we already have this request in progress
   if (requestCache.has(cacheKey)) {
-    console.log(`🔄 Using cached request for brands filter`);
     return requestCache.get(cacheKey)!;
   }
 
   const requestId = Math.random().toString(36).substr(2, 9);
-  console.log(`🚀 [${requestId}] BRAND FILTER REQUEST:`, { brandSlugs, page, per_page, min_price, max_price });
 
   // Create the promise and cache it
   const requestPromise = (async (): Promise<{ products: Product[], total: number }> => {
   try {
     if (brandSlugs.length === 0) {
-      console.log(`🔄 [${requestId}] No brands selected, using getProducts`);
       // If no brands selected, return all products with price filter
       return await getProducts(page, per_page, orderby, order, min_price, max_price);
     }
 
-    console.log(`🚀 [${requestId}] HYBRID APPROACH: Using WordPress API for brand filtering + WooCommerce for product data`);
 
     // Step 1: Get brand IDs from slugs
     const brandIds: number[] = [];
@@ -2877,11 +2829,9 @@ export async function getProductsByBrandSlugs(
     }
 
     if (brandIds.length === 0) {
-      console.log('❌ No valid brands found');
       return { products: [], total: 0 };
     }
 
-    console.log('📋 Brand IDs:', brandIds);
 
     // Step 2: Use WordPress API to get product IDs filtered by brands
     const allProductIds: number[] = [];
@@ -2914,13 +2864,11 @@ export async function getProductsByBrandSlugs(
       }
     } catch (wpError) {
       console.error('❌ WordPress API failed:', wpError);
-      console.log('🔄 Falling back to WooCommerce manual filtering...');
 
       // Fallback to simple WooCommerce filtering with limited pages
       return await getProductsManuallyFilteredByBrand(brandSlugs, page, per_page, min_price, max_price);
     }
 
-    console.log(`📊 Found ${allProductIds.length} products matching brands [${brandSlugs.join(', ')}]`);
 
     if (allProductIds.length === 0) {
       return { products: [], total: 0 };
@@ -2931,7 +2879,6 @@ export async function getProductsByBrandSlugs(
     const endIndex = startIndex + per_page;
     const paginatedIds = allProductIds.slice(startIndex, endIndex);
 
-    console.log(`🎯 Getting products ${startIndex + 1}-${Math.min(endIndex, allProductIds.length)} of ${allProductIds.length}`);
 
     // Step 4: Get actual product data from WooCommerce API
     // IMPORTANT: Don't add price filters here if we have them, because it breaks pagination
@@ -2954,9 +2901,6 @@ export async function getProductsByBrandSlugs(
 
     // Step 5: Smart price filtering with pagination recovery
     if (min_price !== undefined || max_price !== undefined) {
-      console.log(`🔍 [${requestId}] Applying smart price filter: €${min_price || 0}-€${max_price || '∞'}`);
-
-      const beforeFilter = products.length;
       products = products.filter(product => {
         const productPrice = parseFloat(product.price) || 0;
         if (min_price !== undefined && productPrice < min_price) return false;
@@ -2964,11 +2908,9 @@ export async function getProductsByBrandSlugs(
         return true;
       });
 
-      console.log(`📊 [${requestId}] Price filter: ${products.length}/${beforeFilter} products passed`);
 
       // If we got 0 products, try to search more aggressively
       if (products.length === 0 && allProductIds.length > endIndex) {
-        console.log(`🔄 [${requestId}] No products in range, searching more aggressively...`);
 
         let searchOffset = endIndex;
         const maxSearchAttempts = 3;
@@ -2981,7 +2923,6 @@ export async function getProductsByBrandSlugs(
 
           if (searchIds.length === 0) break;
 
-          console.log(`🔍 [${requestId}] Attempt ${attemptCount}: Searching products ${searchOffset + 1}-${searchOffset + batchSize} of ${allProductIds.length}`);
 
           const searchParams = {
             include: searchIds.join(','),
@@ -3001,17 +2942,14 @@ export async function getProductsByBrandSlugs(
 
           if (candidateProducts.length > 0) {
             products = candidateProducts.slice(0, per_page);
-            console.log(`✅ [${requestId}] Found ${products.length} products in price range (attempt ${attemptCount})`);
             break;
           }
 
           searchOffset += batchSize;
-          console.log(`❌ [${requestId}] Attempt ${attemptCount}: No products found, continuing search...`);
         }
 
         // If still no products after aggressive search
         if (products.length === 0) {
-          console.log(`⚠️ [${requestId}] No products found in price range €${min_price}-€${max_price} for brands [${brandSlugs.join(', ')}] after searching ${Math.min(searchOffset, allProductIds.length)} products`);
         }
       }
     }
@@ -3020,7 +2958,6 @@ export async function getProductsByBrandSlugs(
     let finalTotal = allProductIds.length; // Default: use total from brand filtering
 
     if (min_price !== undefined || max_price !== undefined) {
-      console.log(`🔢 [${requestId}] Calculating accurate total with price filter...`);
 
       // Calculate accurate total using batching approach
 
@@ -3047,21 +2984,18 @@ export async function getProductsByBrandSlugs(
             return true;
           }).length;
 
-          console.log(`📊 [${requestId}] Batch ${Math.floor(batchStart / batchSize) + 1}: ${filteredCount}/${batchProducts.length} products passed price filter`);
 
           allFilteredProducts += filteredCount;
           batchStart += batchSize;
         }
 
         finalTotal = allFilteredProducts;
-        console.log(`✅ [${requestId}] Accurate total calculated: ${finalTotal} products pass all filters (from ${allProductIds.length} brand-matched products)`);
       } catch (error) {
         console.error(`⚠️ [${requestId}] Error calculating accurate total, using brand total:`, error);
         finalTotal = allProductIds.length;
       }
     }
 
-    console.log(`✅ [${requestId}] HYBRID SUCCESS: ${products.length} products returned (estimated total: ${finalTotal})`);
 
     return {
       products,
@@ -3093,7 +3027,6 @@ async function getProductsManuallyFilteredByBrand(
   min_price?: number,
   max_price?: number
 ): Promise<{ products: Product[], total: number }> {
-  console.log('🔧 Manual brand filtering (fallback mode)');
 
   // Get a reasonable number of products and filter manually
   const maxPages = 3; // Limit to prevent timeout
@@ -3129,7 +3062,6 @@ async function getProductsManuallyFilteredByBrand(
 
     allMatchingProducts.push(...matchingProducts);
 
-    console.log(`📄 Fallback page ${currentPage}: ${matchingProducts.length}/${products.length} products match`);
 
     // Stop early if we have enough results
     if (allMatchingProducts.length >= page * per_page) break;
@@ -3140,7 +3072,6 @@ async function getProductsManuallyFilteredByBrand(
   const endIndex = startIndex + per_page;
   const paginatedProducts = allMatchingProducts.slice(startIndex, endIndex);
 
-  console.log(`🎯 Fallback result: ${paginatedProducts.length} products (total found: ${allMatchingProducts.length})`);
 
   return {
     products: paginatedProducts,
@@ -3176,12 +3107,10 @@ export async function getMostPopularProducts(per_page = 5): Promise<Product[]> {
           .slice(0, per_page);
 
         if (products.length > 0) {
-          console.log('Using top sellers report data:', products.slice(0, 2).map(p => ({ name: p.name, id: p.id })));
           return products;
         }
       }
     } catch {
-      console.log('Reports endpoint failed, falling back to popularity ordering');
     }
 
     // Fallback to popularity ordering
@@ -3193,7 +3122,6 @@ export async function getMostPopularProducts(per_page = 5): Promise<Product[]> {
     });
 
     const products = (response.data as Product[]).filter(product => product.stock_status === 'instock').slice(0, per_page);
-    console.log('Using popularity ordering fallback:', products.slice(0, 2).map(p => ({ name: p.name, id: p.id })));
     return products;
   } catch (error) {
     console.error('Error fetching most popular products:', error);
@@ -3209,7 +3137,6 @@ export async function testPluginDebugEndpoint(productId: number) {
     const baseUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL?.replace(/\/$/, '') || '';
     const debugUrl = `${baseUrl}/wp-json/dreamshop/v1/debug/product/${productId}`;
 
-    console.log('🔍 Testing debug endpoint:', debugUrl);
 
     const response = await fetch(debugUrl, {
       method: 'GET',
@@ -3224,8 +3151,8 @@ export async function testPluginDebugEndpoint(productId: number) {
     }
 
     const data = await response.json();
-    console.log('🎉 Debug endpoint response:', data);
 
+    
     return data;
   } catch (error) {
     console.error('❌ Debug endpoint error:', error);
@@ -3361,7 +3288,6 @@ export async function getFilterOptionsPlugin(): Promise<{
     const baseUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL?.replace(/\/$/, '') || '';
     const optionsUrl = `${baseUrl}/wp-json/dreamshop/v1/filter-options`;
 
-    console.log('🚀 Getting filter options from plugin:', optionsUrl);
 
     const response = await fetch(optionsUrl, {
       method: 'GET',
@@ -3442,7 +3368,6 @@ export async function getCategoryFilterOptionsPlugin(categorySlug: string): Prom
     const baseUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL?.replace(/\/$/, '') || '';
     const optionsUrl = `${baseUrl}/wp-json/dreamshop/v1/filter-options/${categorySlug}`;
 
-    console.log('🚀 Getting category filter options from plugin:', optionsUrl);
 
     const response = await fetch(optionsUrl, {
       method: 'GET',
@@ -3496,7 +3421,6 @@ export async function getCategoryFilterOptionsPlugin(categorySlug: string): Prom
       count: item.count
     }));
 
-    console.log('Plugin category filter options response:', data);
 
     return {
       brands,
@@ -3510,7 +3434,6 @@ export async function getCategoryFilterOptionsPlugin(categorySlug: string): Prom
     console.error('❌ Error getting category filter options from plugin:', error);
 
     // Fallback to general filter options
-    console.log('🔄 Falling back to general filter options...');
     return await getFilterOptionsPlugin();
   }
 }
@@ -3535,7 +3458,6 @@ export async function testPluginFilterEndpoint(filters: PluginFilterParams = {})
 
     const filterUrl = `${baseUrl}/wp-json/dreamshop/v1/products/filter?${params.toString()}`;
 
-    console.log('🔍 Testing filter endpoint:', filterUrl);
 
     const response = await fetch(filterUrl, {
       method: 'GET',
@@ -3550,7 +3472,6 @@ export async function testPluginFilterEndpoint(filters: PluginFilterParams = {})
     }
 
     const data = await response.json();
-    console.log('🎉 Filter endpoint response:', data);
 
     return data;
   } catch (error) {

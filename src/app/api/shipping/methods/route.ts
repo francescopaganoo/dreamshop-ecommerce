@@ -177,7 +177,6 @@ export async function POST(request: NextRequest) {
       const zones = response.data as ShippingZone[];
       
       if (!zones || zones.length === 0) {
-        console.log('API: Nessuna zona di spedizione configurata');
         return NextResponse.json({ 
           methods: [{
             id: 'flat_rate',
@@ -219,7 +218,6 @@ export async function POST(request: NextRequest) {
 
           if (matchesCountry || matchesContinent) {
             matchingZone = { zone, methods };
-            console.log(`API: Zona trovata per ${shipping_address.country}: ${zone.name} (ID: ${zone.id})`);
             break;
           }
         }
@@ -273,7 +271,6 @@ export async function POST(request: NextRequest) {
       }
 
       // Se non è stata trovata nessuna zona, il paese non è supportato
-      console.log(`API: Paese ${shipping_address.country} non supportato nelle zone di spedizione`);
       return NextResponse.json({
         error: `Spedizione non disponibile per ${shipping_address.country}`,
         methods: []

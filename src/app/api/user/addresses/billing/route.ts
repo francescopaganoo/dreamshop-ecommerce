@@ -39,7 +39,6 @@ export async function POST(request: NextRequest) {
     let decoded: DecodedToken;
     try {
       decoded = jwt.verify(token, JWT_SECRET) as DecodedToken;
-      console.log('Token verificato per userId:', decoded.id);
     } catch (jwtError) {
       console.error('Errore nella verifica del token JWT:', jwtError);
       return NextResponse.json({ error: 'Token non valido' }, { status: 401 });
@@ -82,7 +81,6 @@ export async function POST(request: NextRequest) {
       throw new Error('Errore nell\'aggiornamento dell\'utente');
     }
     
-    console.log('Indirizzo di fatturazione salvato con successo per utente:', decoded.id);
     
     return NextResponse.json({ 
       success: true, 

@@ -217,7 +217,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                         couponApplied = true;
                       } else {
                         // Se fallisce l'endpoint specializzato, proviamo il metodo standard di aggiornamento dell'ordine
-                        console.log(`[POINTS API] Fallback al metodo standard di aggiornamento dell'ordine`);
                         
                         try {
                           // Questo approccio mantiene i coupon esistenti e aggiunge il nuovo
@@ -250,7 +249,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                               })
                             });
 
-                            // Log dettagliato della risposta per debug
+
                             const responseBody = await updateOrderResponse.text();
                             
                             // Verifichiamo solo se la risposta è un JSON valido
@@ -265,7 +264,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                             if (updateOrderResponse.ok) {
                               try {
                                 JSON.parse(responseBody); // Verifica che sia JSON valido
-                                console.log(`[POINTS API] Coupon ${couponCode} applicato con successo all'ordine ${orderId}`);
                                 couponApplied = true;
                               } catch {
                                 console.error(`[POINTS API] Risposta non JSON valido:`, responseBody.substring(0, 200));

@@ -63,7 +63,6 @@ export async function POST(request: NextRequest) {
       const zones = response.data as ShippingZone[];
       
       if (!zones || zones.length === 0) {
-        console.log('API: Nessuna zona di spedizione configurata');
         return NextResponse.json({ shipping_cost: 5.99 });
       }
       
@@ -108,7 +107,6 @@ export async function POST(request: NextRequest) {
           // Ottieni il costo di spedizione dal metodo
           if (activeMethod.settings && activeMethod.settings.cost) {
             const cost = parseFloat(activeMethod.settings.cost.value || '0');
-            console.log(`API: Costo di spedizione calcolato: ${cost}`);
             return NextResponse.json({ shipping_cost: cost });
           }
         }
@@ -126,11 +124,9 @@ export async function POST(request: NextRequest) {
       const fallbackCost = fallbackRates[countryCode];
       
       if (fallbackCost !== undefined) {
-        console.log(`API: Utilizzo valore di fallback per ${countryCode}: ${fallbackCost}`);
         return NextResponse.json({ shipping_cost: fallbackCost });
       }
       
-      console.log('API: Utilizzo valore di fallback standard: 5.99');
       return NextResponse.json({ shipping_cost: 5.99 });
       
     } catch (error) {

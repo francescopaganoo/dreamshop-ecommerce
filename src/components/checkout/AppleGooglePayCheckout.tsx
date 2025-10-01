@@ -165,7 +165,6 @@ export default function AppleGooglePayCheckout({
         setError(null);
         onPaymentStart?.();
 
-        console.log('Payment method ricevuto:', ev.paymentMethod);
 
         // Prepara i dati per l'API
         const orderData = {
@@ -223,11 +222,9 @@ export default function AppleGooglePayCheckout({
         });
 
         const result = await response.json();
-        console.log('Risultato ordine carrello:', result);
 
         if (response.ok && result.success) {
           // Pagamento completato con successo
-          console.log('✅ Ordine carrello completato:', result.order_id);
           
           ev.complete('success');
           

@@ -43,7 +43,6 @@ const CheckoutForm = ({
     
     // Previene conferme di pagamento multiple
     if (isProcessing || paymentCompleted) {
-      console.log('Elaborazione già in corso o pagamento completato, ignoro click');
       return;
     }
 
@@ -58,7 +57,6 @@ const CheckoutForm = ({
       }
 
       // Otteniamo il client secret solo al momento del pagamento
-      console.log(`Richiedendo client secret per la rata #${orderId}`);
       let secret: string | null = clientSecret;
       
       if (!secret) {
@@ -81,7 +79,6 @@ const CheckoutForm = ({
         if (data.success && data.clientSecret) {
           secret = data.clientSecret;
           setClientSecret(secret);
-          console.log('Client secret ottenuto con successo');
         } else {
           console.error('Client secret non trovato nella risposta API');
           throw new Error('Client secret non trovato');
@@ -94,7 +91,6 @@ const CheckoutForm = ({
       }
 
       // Conferma il pagamento con Stripe
-      console.log('Chiamata a confirmCardPayment...');
       const result = await stripe.confirmCardPayment(secret, {
         payment_method: {
           card: cardElement,
@@ -103,16 +99,13 @@ const CheckoutForm = ({
           },
         }
       });
-      console.log('Risposta da confirmCardPayment:', result);
 
       if (result.error) {
         throw new Error(result.error.message || 'Errore durante il pagamento');
       } else if (result.paymentIntent && result.paymentIntent.status === 'succeeded') {
-        console.log('Pagamento completato con successo, PaymentIntent ID:', result.paymentIntent.id);
         
         // Notifica a WooCommerce il completamento del pagamento
         try {
-          console.log(`Notifica completamento pagamento a WooCommerce per ordine ${orderId}`);
           const completeResponse = await fetch(`/api/scheduled-orders/${orderId}/complete-payment`, {
             method: 'POST',
             headers: {
@@ -129,9 +122,6 @@ const CheckoutForm = ({
             const completeError = await completeResponse.json();
             console.warn('Avviso: Notifica a WooCommerce fallita:', completeError);
             // Non blocchiamo il flusso, ma logghiamo l'errore
-          } else {
-            const completeData = await completeResponse.json();
-            console.log('Notifica a WooCommerce completata con successo:', completeData);
           }
         } catch (notifyError) {
           console.warn('Avviso: Errore durante la notifica a WooCommerce:', notifyError);
@@ -373,7 +363,6 @@ const PayPalButtonsWrapper = ({
       const cleanedAmount = orderTotal.replace(/[^0-9.,]/g, '').replace(',', '.');
       const parsedAmount = parseFloat(cleanedAmount).toFixed(2);
       
-      console.log(`Creazione ordine PayPal per la rata ${orderId}, importo: ${parsedAmount}`);
       
       // Creiamo l'ordine PayPal direttamente tramite l'SDK
       return actions.order.create({
@@ -393,14 +382,11 @@ const PayPalButtonsWrapper = ({
 
   // Gestisce la cattura del pagamento dopo l'approvazione PayPal
   // Usiamo type any per actions poiché i tipi PayPal sono complessi e specifici
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
   const onApprove = async (data: unknown, actions: any) => {
     setIsLoading(true);
     
     try {
-      // Prima catturiamo il pagamento con PayPal
-      const details = await actions.order.capture();
-      console.log('Pagamento PayPal catturato:', details);
       
       // Verifichiamo che data sia un oggetto e abbia la proprietà orderID
       if (!data || typeof data !== 'object' || !('orderID' in data)) {
@@ -427,7 +413,6 @@ const PayPalButtonsWrapper = ({
         throw new Error(errorData.message || errorData.error || 'Errore nel completamento del pagamento');
       }
 
-      console.log('Pagamento completato con successo');
       onSuccess();
     } catch (error: unknown) {
       console.error('Errore durante il pagamento PayPal:', error);

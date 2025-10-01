@@ -132,7 +132,6 @@ export default function CartPage() {
     // Calcola i punti massimi spendibili in base al subtotale (senza sconti)
     // Ogni 100 punti = 1€, quindi per €40 = massimo 4000 punti
     const subtotal = getSubtotal();
-    console.log('DEBUG: cartTotal =', cartTotal, 'subtotal =', subtotal, 'discount =', discount);
     const maxPointsByCartValue = Math.floor(subtotal * 100);
 
     // Verifica che non superi il valore del carrello
@@ -449,15 +448,12 @@ export default function CartPage() {
                           
                           // Se la percentuale è 0 o non valida, usiamo il 40% come predefinito
                           if (!depositPercentage || depositPercentage <= 0) {
-                            console.log('Percentuale acconto non valida, uso 40% predefinito');
                             depositPercentage = 0.4; // 40%
                           }
                           
-                          console.log(`Percentuale acconto per il calcolo: ${depositPercentage * 100}%`);
                           
                           // Calcoliamo il prezzo dell'acconto
                           const depositPrice = itemPrice * depositPercentage;
-                          console.log(`Prezzo acconto calcolato: ${depositPrice} (${itemPrice} * ${depositPercentage})`);
                           
                           // Aggiorniamo il prezzo visualizzato con quello dell'acconto
                           itemPrice = depositPrice;

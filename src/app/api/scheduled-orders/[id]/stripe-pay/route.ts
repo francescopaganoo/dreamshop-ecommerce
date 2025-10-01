@@ -39,7 +39,6 @@ export async function POST(request: NextRequest) {
   const pathSegments = request.nextUrl.pathname.split('/');
   // L'ID è il segmento prima di 'stripe-pay'
   const id = pathSegments[pathSegments.indexOf('stripe-pay') - 1] || '';
-  console.log('API scheduled-order Stripe payment - Richiesta di pagamento ricevuta per ID:', id);
   
   // Ottieni il token dall'header Authorization o dai cookie come fallback
   const authHeader = request.headers.get('Authorization');
@@ -47,7 +46,6 @@ export async function POST(request: NextRequest) {
   
   if (authHeader && authHeader.startsWith('Bearer ')) {
     token = authHeader.substring(7); // Rimuovi 'Bearer ' dal token
-    console.log('API Stripe Payment: Token ottenuto da header Authorization');
   } else {
     try {
       // In Next.js 14, cookies() restituisce una Promise
@@ -58,7 +56,6 @@ export async function POST(request: NextRequest) {
         console.error('API Stripe Payment: Token non fornito né negli header né nei cookie');
         return NextResponse.json({ error: 'Token non fornito o formato non valido' }, { status: 401 });
       }
-      console.log('API Stripe Payment: Token ottenuto da cookie');
     } catch (cookieError) {
       console.error('API Stripe Payment: Errore nel recupero del token dai cookie', cookieError);
       return NextResponse.json({ error: 'Errore nel recupero del token' }, { status: 401 });
@@ -80,12 +77,10 @@ export async function POST(request: NextRequest) {
       const nowDate = new Date();
       const timeRemaining = Math.floor((expDate.getTime() - nowDate.getTime()) / 1000 / 60); // minuti rimanenti
       
-      console.log(`API Stripe Payment: Token scade il ${expDate.toISOString()}, minuti rimanenti: ${timeRemaining}`);
       
       // Se il token sta per scadere (meno di 30 minuti), genera un nuovo token per le chiamate successive
       // Questo non influenza la richiesta corrente ma aiuta per le future
       if (timeRemaining < 30) {
-        console.log('API Stripe Payment: Token in scadenza, generazione di un nuovo token per future chiamate');
         
         // Aggiornamento non bloccante del token nei cookie
         const newToken = jwt.sign({ id: decoded.id, email: decoded.email }, JWT_SECRET, {
@@ -111,7 +106,6 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    console.log(`API Stripe Payment: Processando pagamento per utente ID ${decoded.id}, ordine ${id}`);
     
     try {
       // Ottiene i dettagli della rata pianificata
@@ -134,14 +128,12 @@ export async function POST(request: NextRequest) {
         throw new Error(`Rata pianificata con ID ${id} non trovata`);
       }
       
-      console.log('API Stripe Payment: Dettagli rata pianificata:', JSON.stringify(scheduledOrder, null, 2));
       
       // Converti l'importo in centesimi per Stripe
       const amount = Math.round(parseFloat(scheduledOrder.total) * 100);
       
       // Crea un nuovo PaymentIntent per questo pagamento
       const idempotencyKey = `scheduled_order_${id}_user_${decoded.id}_${Date.now()}`;
-      console.log(`API Stripe Payment: Usando idempotency key: ${idempotencyKey}`);
       
       // Crea un nuovo Payment Intent con Stripe
       const paymentIntent = await stripe.paymentIntents.create({
@@ -159,7 +151,6 @@ export async function POST(request: NextRequest) {
         idempotencyKey
       });
       
-      console.log(`API Stripe Payment: Payment Intent creato con ID ${paymentIntent.id}`);
       
       return NextResponse.json({
         success: true,
