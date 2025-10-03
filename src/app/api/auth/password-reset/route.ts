@@ -20,12 +20,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true });
     }
     
-    // Invia la richiesta di reset password al WordPress custom endpoint
+    // Innvia la richiesta di reset password al WordPress custom endpoint
     try {
       const backendUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL;
       const frontendUrl = process.env.NODE_ENV === 'production'
         ? 'https://dreamshop18.com' // Sostituisci con il tuo dominio frontend
         : 'http://localhost:3000';
+
 
       const response = await fetch(`${backendUrl}wp-json/custom/v1/password-reset`, {
         method: 'POST',
