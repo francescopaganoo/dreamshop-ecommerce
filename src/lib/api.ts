@@ -2030,21 +2030,23 @@ export async function getRelatedProductsBySlug(productSlug: string, limit: numbe
     const data = await response.json();
 
     if (data.success && data.data?.related_products) {
-      // Convert plugin response to Product format
-      return data.data.related_products.map((product: DreamShopProduct) => ({
-        id: typeof product.id === 'string' ? parseInt(product.id) : product.id,
-        name: product.name,
-        slug: product.slug,
-        permalink: product.permalink,
-        price: product.price,
-        regular_price: product.regular_price,
-        sale_price: product.sale_price,
-        on_sale: product.on_sale,
-        stock_status: product.stock_status,
-        short_description: product.short_description,
-        images: product.images || [],
-        categories: product.categories || []
-      }));
+      // Convert plugin response to Product format and filter only in stock products
+      return data.data.related_products
+        .filter((product: DreamShopProduct) => product.stock_status === 'instock')
+        .map((product: DreamShopProduct) => ({
+          id: typeof product.id === 'string' ? parseInt(product.id) : product.id,
+          name: product.name,
+          slug: product.slug,
+          permalink: product.permalink,
+          price: product.price,
+          regular_price: product.regular_price,
+          sale_price: product.sale_price,
+          on_sale: product.on_sale,
+          stock_status: product.stock_status,
+          short_description: product.short_description,
+          images: product.images || [],
+          categories: product.categories || []
+        }));
     }
 
     return [];
