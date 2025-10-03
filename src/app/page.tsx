@@ -301,32 +301,34 @@ export default async function Home() {
         }}
       />
 
-      {/* S.H.Figuarts Banner */}
+
+
+      {/* Pokemon Banner */}
       <section className="py-8 md:py-16 bg-gray-50">
         <div className="container mx-auto px-4 md:px-6">
           <div className="relative overflow-hidden rounded-2xl bg-gray-900 min-h-[200px] md:min-h-[250px]">
-            <div className="absolute inset-0 bg-cover bg-right opacity-80" style={{ backgroundImage: "url('/images/sh-figuarts.webp')" }}></div>
+            <div className="absolute inset-0 bg-cover bg-right opacity-80" style={{ backgroundImage: "url('/images/pokemon.webp')" }}></div>
             <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/10 to-transparent"></div>
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between p-6 md:p-16 h-full">
               <div className="text-center md:text-left w-full md:w-auto mb-6 md:mb-0">
-                <span className="bg-white/20 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-4">ACTION FIGURES PREMIUM</span>
-                <h2 className="text-2xl md:text-3xl lg:text-5xl font-bold text-white mb-4 leading-tight">S.H. Figuarts</h2>
-                <p className="text-white/80 max-w-md mx-auto md:mx-0 text-sm md:text-base">La massima espressione dell&apos;articolazione e del dettaglio</p>
+                <span className="bg-white/20 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-4">APPENA ARRIVATI</span>
+                <h2 className="text-2xl md:text-3xl lg:text-5xl font-bold text-white mb-4 leading-tight">Pokemon</h2>
+                <p className="text-white/80 max-w-md mx-auto md:mx-0 text-sm md:text-base">Tutto per i veri allenatori di Pokémon</p>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* S.H.Figuarts Products Section - Lazy Loading */}
+      {/* Pokemon Products Section - Lazy Loading */}
       <LazyProductSection
-        categorySlug="s-h-figuarts"
-        categoryLink="/category/s-h-figuarts"
-        buttonText="Vedi Tutte le S.H.Figuarts"
+        categorySlug="pokemon"
+        categoryLink="/category/pokemon"
+        buttonText="Vedi Tutti i Prodotti Pokémon"
         bgGradient="bg-gray-50"
         decorativeColors={{
-          primary: "bg-red-500/5",
-          secondary: "bg-orange-500/5"
+          primary: "bg-yellow-500/5",
+          secondary: "bg-red-500/5"
         }}
       />
 
@@ -359,32 +361,32 @@ export default async function Home() {
         }}
       />
 
-      {/* Pokemon Banner */}
+      {/* S.H.Figuarts Banner */}
       <section className="py-8 md:py-16 bg-gray-50">
         <div className="container mx-auto px-4 md:px-6">
           <div className="relative overflow-hidden rounded-2xl bg-gray-900 min-h-[200px] md:min-h-[250px]">
-            <div className="absolute inset-0 bg-cover bg-right opacity-80" style={{ backgroundImage: "url('/images/pokemon.webp')" }}></div>
+            <div className="absolute inset-0 bg-cover bg-right opacity-80" style={{ backgroundImage: "url('/images/sh-figuarts.webp')" }}></div>
             <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/10 to-transparent"></div>
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between p-6 md:p-16 h-full">
               <div className="text-center md:text-left w-full md:w-auto mb-6 md:mb-0">
-                <span className="bg-white/20 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-4">APPENA ARRIVATI</span>
-                <h2 className="text-2xl md:text-3xl lg:text-5xl font-bold text-white mb-4 leading-tight">Pokemon</h2>
-                <p className="text-white/80 max-w-md mx-auto md:mx-0 text-sm md:text-base">Tutto per i veri allenatori di Pokémon</p>
+                <span className="bg-white/20 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-4">ACTION FIGURES PREMIUM</span>
+                <h2 className="text-2xl md:text-3xl lg:text-5xl font-bold text-white mb-4 leading-tight">S.H. Figuarts</h2>
+                <p className="text-white/80 max-w-md mx-auto md:mx-0 text-sm md:text-base">La massima espressione dell&apos;articolazione e del dettaglio</p>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Pokemon Products Section - Lazy Loading */}
+      {/* S.H.Figuarts Products Section - Lazy Loading */}
       <LazyProductSection
-        categorySlug="pokemon"
-        categoryLink="/category/pokemon"
-        buttonText="Vedi Tutti i Prodotti Pokémon"
+        categorySlug="s-h-figuarts"
+        categoryLink="/category/s-h-figuarts"
+        buttonText="Vedi Tutte le S.H.Figuarts"
         bgGradient="bg-gray-50"
         decorativeColors={{
-          primary: "bg-yellow-500/5",
-          secondary: "bg-red-500/5"
+          primary: "bg-red-500/5",
+          secondary: "bg-orange-500/5"
         }}
       />
 

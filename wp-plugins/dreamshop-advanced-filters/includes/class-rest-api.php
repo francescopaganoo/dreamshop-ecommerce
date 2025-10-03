@@ -620,7 +620,8 @@ class DreamShop_Filters_REST_API {
                         'images' => $this->get_product_images($related_product),
                         'permalink' => get_permalink($related_id),
                         'short_description' => $related_product->get_short_description(),
-                        'categories' => $this->get_product_categories($related_product)
+                        'categories' => $this->get_product_categories($related_product),
+                        'attributes' => $this->get_product_attributes($related_product)
                     ];
                 }
             }
@@ -717,6 +718,7 @@ class DreamShop_Filters_REST_API {
                         'permalink' => get_permalink($result->ID),
                         'short_description' => $product->get_short_description(),
                         'categories' => $this->get_product_categories($product),
+                        'attributes' => $this->get_product_attributes($product),
                         'sales_count' => (int) $result->total_sales
                     ];
                 }

@@ -24,6 +24,19 @@ interface DreamShopProduct {
     name: string;
     slug: string;
   }>;
+  attributes?: Array<{
+    name: string;
+    slug: string;
+    options: Array<{
+      id?: number;
+      name: string;
+      slug: string;
+    }>;
+    position: number;
+    visible: boolean;
+    variation: boolean;
+    is_taxonomy: boolean;
+  }>;
   sales_count?: number;
 }
 
@@ -1980,6 +1993,7 @@ export async function getBestSellingProducts(limit: number = 4): Promise<Product
           short_description: product.short_description,
           images: product.images || [],
           categories: product.categories || [],
+          attributes: product.attributes || [],
           sales_count: product.sales_count || 0
         }))
         .slice(0, limit);
@@ -2045,7 +2059,8 @@ export async function getRelatedProductsBySlug(productSlug: string, limit: numbe
           stock_status: product.stock_status,
           short_description: product.short_description,
           images: product.images || [],
-          categories: product.categories || []
+          categories: product.categories || [],
+          attributes: product.attributes || []
         }));
     }
 
