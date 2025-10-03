@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     try {
       const backendUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL;
       const frontendUrl = process.env.NODE_ENV === 'production'
-        ? 'https://your-frontend-domain.com' // Sostituisci con il tuo dominio frontend
+        ? 'https://dreamshop18.com' // Sostituisci con il tuo dominio frontend
         : 'http://localhost:3000';
 
       const response = await fetch(`${backendUrl}wp-json/custom/v1/password-reset`, {
