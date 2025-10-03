@@ -42,15 +42,13 @@ export default function SimpleProductAddToCart({ product }: SimpleProductAddToCa
     if (!attr) return undefined;
 
     // Return the first option, handling both attribute types
-    if ('slug' in attr && Array.isArray(attr.options) && attr.options.length > 0) {
-      // PluginProductAttribute - options are objects
-      return attr.options[0];
-    } else if (Array.isArray(attr.options) && attr.options.length > 0) {
-      // ProductAttribute - options are strings
+    if (Array.isArray(attr.options) && attr.options.length > 0) {
       const firstOption = attr.options[0];
       if (typeof firstOption === 'string') {
         return { name: firstOption, slug: firstOption.toLowerCase().replace(/\s+/g, '-') };
       }
+      // If it's already an object with name/slug
+      return firstOption;
     }
 
     return undefined;

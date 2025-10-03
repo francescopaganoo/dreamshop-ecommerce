@@ -50,10 +50,18 @@ export default function ProductVariations({
   
   // Controlla se il prodotto è in pre-order basandosi sull'attributo Disponibilità
   const getAttribute = (name: string) => {
-    return attributes?.find(attr => attr.name === name)?.options?.[0];
+    const attr = attributes?.find(attr => attr.name === name);
+    if (!attr) return undefined;
+
+    const firstOption = attr.options?.[0];
+    if (typeof firstOption === 'string') {
+      return firstOption;
+    }
+    // If it's an object with name property
+    return (firstOption as any)?.name;
   };
-  
-  const disponibilita = getAttribute('Disponibilità');
+
+  const disponibilita = getAttribute('Disponibilità') || getAttribute('pa_disponibilita');
   const isPreOrder = disponibilita?.toLowerCase().includes('pre-order') || disponibilita?.toLowerCase().includes('preorder');
 
   // Verifica se è un prodotto gift card
