@@ -621,7 +621,8 @@ class DreamShop_Filters_REST_API {
                         'permalink' => get_permalink($related_id),
                         'short_description' => $related_product->get_short_description(),
                         'categories' => $this->get_product_categories($related_product),
-                        'attributes' => $this->get_product_attributes($related_product)
+                        'attributes' => $this->get_product_attributes($related_product),
+                        'has_deposit_option' => $this->check_deposit_enabled($related_product)
                     ];
                 }
             }
@@ -719,7 +720,8 @@ class DreamShop_Filters_REST_API {
                         'short_description' => $product->get_short_description(),
                         'categories' => $this->get_product_categories($product),
                         'attributes' => $this->get_product_attributes($product),
-                        'sales_count' => (int) $result->total_sales
+                        'sales_count' => (int) $result->total_sales,
+                        'has_deposit_option' => $this->check_deposit_enabled($product)
                     ];
                 }
             }
@@ -765,6 +767,38 @@ class DreamShop_Filters_REST_API {
         // Fallback alla prima categoria
         $category_ids = $product->get_category_ids();
         return !empty($category_ids) ? $category_ids[0] : null;
+    }
+
+    /**
+     * Check if product has deposit option enabled
+     */
+    private function check_deposit_enabled($product) {
+        // Check if WooCommerce Deposits plugin is active
+        if (!class_exists('WC_Deposits')) {
+            return false;
+        }
+
+        $product_id = $product->get_id();
+
+        // Check multiple meta keys for deposit options
+        $deposit_enabled = get_post_meta($product_id, '_wc_deposit_enabled', true);
+        if ($deposit_enabled === 'yes' || $deposit_enabled === 'optional') {
+            return true;
+        }
+
+        // Also check for _wc_convert_to_deposit which is used by some deposit configurations
+        $convert_to_deposit = get_post_meta($product_id, '_wc_convert_to_deposit', true);
+        if ($convert_to_deposit === 'yes') {
+            return true;
+        }
+
+        // Check if product has a deposit type set (plan, percent, or fixed)
+        $deposit_type = get_post_meta($product_id, '_wc_deposit_type', true);
+        if (!empty($deposit_type) && in_array($deposit_type, ['plan', 'percent', 'fixed'])) {
+            return true;
+        }
+
+        return false;
     }
 
     /**

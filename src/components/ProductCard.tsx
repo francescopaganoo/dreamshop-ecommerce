@@ -9,7 +9,6 @@ import { useState, useEffect, useMemo } from 'react';
 import WishlistButton from '@/components/WishlistButton';
 import { motion } from 'framer-motion';
 import { FaPlus } from 'react-icons/fa';
-import { getProductDepositOptions } from '@/lib/deposits';
 
 interface ProductCardProps {
   product: Product;
@@ -118,10 +117,17 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
 
   // Controlla asincronamente se il prodotto ha pagamenti a rate disponibili
   useEffect(() => {
-    const checkInstallments = async () => {
+    const checkInstallments = () => {
       if (installmentsChecked) return;
 
-      // Prima prova con i metadati esistenti
+      // Usa il campo has_deposit_option se disponibile (dal plugin)
+      if (product.has_deposit_option !== undefined) {
+        setHasInstallments(product.has_deposit_option);
+        setInstallmentsChecked(true);
+        return;
+      }
+
+      // Fallback: controlla i metadati esistenti
       const hasMetadataInstallments = () => {
         if (product._wc_convert_to_deposit === 'yes' ||
             product.wc_deposit_option === 'yes') {
@@ -142,26 +148,12 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
         return false;
       };
 
-      if (hasMetadataInstallments()) {
-        setHasInstallments(true);
-        setInstallmentsChecked(true);
-        return;
-      }
-
-      // Se non trovato nei metadati, fai una chiamata API (solo per i primi prodotti visibili)
-      try {
-        const options = await getProductDepositOptions(product.id);
-        setHasInstallments(options.deposit_enabled);
-      } catch {
-        // In caso di errore, imposta a false silenziosamente
-        setHasInstallments(false);
-      } finally {
-        setInstallmentsChecked(true);
-      }
+      setHasInstallments(hasMetadataInstallments());
+      setInstallmentsChecked(true);
     };
 
     checkInstallments();
-  }, [product.id, product._wc_convert_to_deposit, product.wc_deposit_option, product.meta_data, installmentsChecked]);
+  }, [product.id, product.has_deposit_option, product._wc_convert_to_deposit, product.wc_deposit_option, product.meta_data, installmentsChecked]);
 
   
   // Format price with currency symbol

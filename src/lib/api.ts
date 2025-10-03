@@ -38,6 +38,7 @@ interface DreamShopProduct {
     is_taxonomy: boolean;
   }>;
   sales_count?: number;
+  has_deposit_option?: boolean;
 }
 
 // Cache for preventing duplicate requests
@@ -532,6 +533,7 @@ export interface Product {
   _wc_convert_to_deposit?: string;
   _wc_deposit_type?: string;
   _wc_deposit_amount?: string;
+  has_deposit_option?: boolean; // Campo aggiunto dal plugin per evitare chiamate API multiple
   stock_status: string;
   stock_quantity?: number; // Quantità disponibile in magazzino
   manage_stock?: boolean; // Indica se il prodotto gestisce lo stock
@@ -1995,7 +1997,8 @@ export async function getBestSellingProducts(limit: number = 4): Promise<Product
           images: product.images || [],
           categories: product.categories || [],
           attributes: product.attributes || [],
-          sales_count: product.sales_count || 0
+          sales_count: product.sales_count || 0,
+          has_deposit_option: product.has_deposit_option
         }))
         .slice(0, limit);
     }
@@ -2061,7 +2064,8 @@ export async function getRelatedProductsBySlug(productSlug: string, limit: numbe
           short_description: product.short_description,
           images: product.images || [],
           categories: product.categories || [],
-          attributes: product.attributes || []
+          attributes: product.attributes || [],
+          has_deposit_option: product.has_deposit_option
         }));
     }
 
@@ -3264,6 +3268,7 @@ export async function getFilteredProductsPlugin(filters: {
       permalink: string;
       short_description: string;
       attributes: PluginProductAttribute[];
+      has_deposit_option?: boolean;
     }) => ({
       id: parseInt(product.id),
       name: product.name,
@@ -3276,6 +3281,7 @@ export async function getFilteredProductsPlugin(filters: {
       images: product.images,
       permalink: product.permalink,
       short_description: product.short_description,
+      has_deposit_option: product.has_deposit_option,
       // Add any missing fields with defaults
       description: '',
       categories: [],
