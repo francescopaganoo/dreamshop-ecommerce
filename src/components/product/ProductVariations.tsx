@@ -58,7 +58,7 @@ export default function ProductVariations({
       return firstOption;
     }
     // If it's an object with name property
-    return (firstOption as any)?.name;
+    return (firstOption as { name?: string })?.name;
   };
 
   const disponibilita = getAttribute('Disponibilità') || getAttribute('pa_disponibilita');

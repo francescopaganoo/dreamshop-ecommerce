@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaTimes, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
@@ -33,6 +33,14 @@ export default function ProductImageModal({
     }
   }, [initialIndex, isOpen]);
 
+  const goToNext = useCallback(() => {
+    setCurrentIndex((prev) => (prev + 1) % images.length);
+  }, [images.length]);
+
+  const goToPrevious = useCallback(() => {
+    setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
+  }, [images.length]);
+
   // Gestisci la navigazione con la tastiera
   useEffect(() => {
     if (!isOpen) return;
@@ -49,7 +57,7 @@ export default function ProductImageModal({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, currentIndex]);
+  }, [isOpen, goToNext, goToPrevious, onClose]);
 
   // Blocca lo scroll del body quando la modale è aperta
   useEffect(() => {
@@ -63,14 +71,6 @@ export default function ProductImageModal({
       document.body.style.overflow = 'unset';
     };
   }, [isOpen]);
-
-  const goToNext = () => {
-    setCurrentIndex((prev) => (prev + 1) % images.length);
-  };
-
-  const goToPrevious = () => {
-    setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
-  };
 
   if (!isOpen) return null;
 
