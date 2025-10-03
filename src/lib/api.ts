@@ -808,6 +808,7 @@ export async function getProductsByCategorySlug(categorySlug: string, page = 1, 
       per_page,
       page,
       status: 'publish',
+      stock_status: 'instock',
       orderby,
       order,
     });
@@ -1945,7 +1946,8 @@ export async function createCustomer(customerData: CreateCustomerData): Promise<
 export async function getBestSellingProducts(limit: number = 4): Promise<Product[]> {
   try {
     const baseUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL?.replace(/\/$/, '') || '';
-    const bestSellingUrl = `${baseUrl}/wp-json/dreamshop/v1/products/best-selling?limit=${limit}`;
+    // Richiediamo più prodotti per compensare quelli non disponibili
+    const bestSellingUrl = `${baseUrl}/wp-json/dreamshop/v1/products/best-selling?limit=${limit * 2}`;
 
 
     const response = await fetch(bestSellingUrl, {
@@ -1962,22 +1964,25 @@ export async function getBestSellingProducts(limit: number = 4): Promise<Product
     const data = await response.json();
 
     if (data.success && data.data?.products) {
-      // Convert plugin response to Product format
-      return data.data.products.map((product: DreamShopProduct) => ({
-        id: typeof product.id === 'string' ? parseInt(product.id) : product.id,
-        name: product.name,
-        slug: product.slug,
-        permalink: product.permalink,
-        price: product.price,
-        regular_price: product.regular_price,
-        sale_price: product.sale_price,
-        on_sale: product.on_sale,
-        stock_status: product.stock_status,
-        short_description: product.short_description,
-        images: product.images || [],
-        categories: product.categories || [],
-        sales_count: product.sales_count || 0
-      }));
+      // Convert plugin response to Product format and filter only in stock products
+      return data.data.products
+        .filter((product: DreamShopProduct) => product.stock_status === 'instock')
+        .map((product: DreamShopProduct) => ({
+          id: typeof product.id === 'string' ? parseInt(product.id) : product.id,
+          name: product.name,
+          slug: product.slug,
+          permalink: product.permalink,
+          price: product.price,
+          regular_price: product.regular_price,
+          sale_price: product.sale_price,
+          on_sale: product.on_sale,
+          stock_status: product.stock_status,
+          short_description: product.short_description,
+          images: product.images || [],
+          categories: product.categories || [],
+          sales_count: product.sales_count || 0
+        }))
+        .slice(0, limit);
     }
 
     return [];
