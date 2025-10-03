@@ -40,6 +40,26 @@ export default function RootLayout({
   return (
     <html lang="it">
       <head>
+        {/* Google Analytics */}
+        {process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
+          <>
+            <script
+              async
+              src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID}`}
+            />
+            <script
+              dangerouslySetInnerHTML={{
+                __html: `
+                  window.dataLayer = window.dataLayer || [];
+                  function gtag(){dataLayer.push(arguments);}
+                  gtag('js', new Date());
+                  gtag('config', '${process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID}');
+                `,
+              }}
+            />
+          </>
+        )}
+
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -51,7 +71,7 @@ export default function RootLayout({
                   return false;
                 }
               });
-              
+
               window.addEventListener('unhandledrejection', function(e) {
                 if (e.reason && e.reason.toString && e.reason.toString().includes('paypal')) {
                   console.warn('PayPal unhandled promise rejection intercepted:', e.reason);
