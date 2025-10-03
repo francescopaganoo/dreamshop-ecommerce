@@ -2367,6 +2367,111 @@ class DreamShop_Deposits_API {
     }
 }
 
+/**
+ * Nasconde i metadati interni non necessari dalla visualizzazione negli ordini WooCommerce
+ * Questo filtro impedisce la visualizzazione di metadati tecnici sotto ogni prodotto nell'admin
+ */
+function dreamshop_hide_internal_order_item_meta($formatted_meta, $item) {
+    // Lista completa di metadati da nascondere dalla visualizzazione negli ordini
+    $hidden_meta_keys = [
+        // Metadati Yoast SEO
+        '_yoast_wpseo_estimated-reading-time-minutes',
+        '_yoast_wpseo_content_score',
+        '_yoast_wpseo_focuskw',
+        '_yoast_wpseo_metadesc',
+        '_yoast_wpseo_linkdex',
+
+        // Metadati YITH Preorder
+        '_ywpo_preorder',
+        '_ywpo_availability_date_mode',
+        '_ywpo_price_mode',
+        '_ywpo_preorder_price',
+
+        // Metadati vari plugin
+        '_fz_country_restriction_type',
+        '_wcsob_hide',
+        'sp_wpsp_product_view_count',
+        '_xoo_waitlist_disable',
+        '_xoo_waitlist_force_show',
+
+        // Metadati Divi/Elegant Themes
+        '_et_pb_post_hide_nav',
+        '_et_pb_page_layout',
+        '_et_pb_side_nav',
+        '_eael_post_view_count',
+
+        // Metadati timer/countdown
+        '_sale_price_times_from',
+        '_sale_price_times_to',
+        '_woo_ctr_select_countdown_timer',
+
+        // Metadati WordPress core
+        '_wp_old_date',
+        '_wp_page_template',
+        '_edit_last',
+        '_edit_lock',
+
+        // Metadati PayPal
+        '_ppcp_button_position',
+
+        // Metadati ACF (Advanced Custom Fields) - solo campi interni
+        '_brand',
+        '_tipologia',
+        '_anime',
+        '_codice_a_barre',
+
+        // Metadati Woodmart theme
+        '_woodmart_whb_header',
+        '_woodmart_main_layout',
+        '_woodmart_sidebar_width',
+        '_woodmart_custom_sidebar',
+        '_woodmart_single_product_style',
+        '_woodmart_thums_position',
+        '_woodmart_extra_position',
+        '_woodmart_product_design',
+        '_woodmart_product_custom_tab_content_type',
+        '_woodmart_product_custom_tab_content_type_2',
+
+        // Altri metadati interni
+        '_eos_deactive_plugins_key',
+        'selected_images_categories',
+
+        // Mantieni visibili solo i metadati utili come brand, tipologia, anime (senza underscore)
+        // che sono i valori pubblici dei campi ACF
+    ];
+
+    // Filtra i metadati formattati per rimuovere quelli nella lista
+    if (is_array($formatted_meta)) {
+        $formatted_meta = array_filter($formatted_meta, function($meta) use ($hidden_meta_keys) {
+            // Nascondi i meta nella lista
+            if (in_array($meta->key, $hidden_meta_keys)) {
+                return false;
+            }
+
+            // Nascondi anche tutti i meta che iniziano con underscore eccetto quelli di WooCommerce Deposits
+            if (strpos($meta->key, '_') === 0) {
+                // Mantieni visibili i metadati importanti di WooCommerce Deposits
+                $keep_meta = [
+                    '_wc_deposit_enabled',
+                    '_wc_deposit_type',
+                    '_wc_deposit_amount',
+                    '_deposit_payment_plan'
+                ];
+
+                if (!in_array($meta->key, $keep_meta)) {
+                    // Nascondi tutti gli altri meta con underscore
+                    return false;
+                }
+            }
+
+            return true;
+        });
+    }
+
+    return $formatted_meta;
+}
+add_filter('woocommerce_order_item_get_formatted_meta_data', 'dreamshop_hide_internal_order_item_meta', 10, 2);
+
 // Inizializza il plugin
 function dreamshop_deposits_api() {
     return DreamShop_Deposits_API::get_instance();

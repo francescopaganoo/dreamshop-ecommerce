@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true });
     }
     
-    // Innvia la richiesta di reset password al WordPress custom endpoint
+    // Invia la richiesta di reset password al WordPress custom endpoint
     try {
       const backendUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL;
       const frontendUrl = process.env.NODE_ENV === 'production'
