@@ -249,7 +249,7 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* Newsletter */}
+        {/* Newsletter 
         <div className="mt-16 p-8 bg-gradient-to-r from-bred-500/10 to-purple-500/10 rounded-2xl border border-gray-700/50">
           <div className="text-center mb-6">
             <h3 className="text-2xl font-bold mb-2">Resta Sempre Aggiornato!</h3>
@@ -268,7 +268,7 @@ export default function Footer() {
             </button>
           </div>
         </div>
-
+*/}
         {/* Copyright */}
         <div className="border-t border-gray-700/50 mt-12 pt-8 text-center">
           <p className="text-gray-400">
