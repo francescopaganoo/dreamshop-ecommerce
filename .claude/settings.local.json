@@ -5,7 +5,7 @@
       "Bash(curl:*)",
       "Bash(npm run build:*)",
       "Bash(npm run dev:*)",
-      "WebFetch(domain:be2.dreamshop18.com)",
+      "WebFetch(domain:be.dreamshop18.com)",
       "WebSearch",
       "Bash(php:*)"
     ],

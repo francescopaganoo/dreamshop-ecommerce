@@ -12,15 +12,21 @@ interface ProductNotificationFormProps {
 export default function ProductNotificationForm({ productId, productName }: ProductNotificationFormProps) {
   const [email, setEmail] = useState('');
   const [customerName, setCustomerName] = useState('');
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [isSubscribed, setIsSubscribed] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!email.trim()) {
       setMessage({ type: 'error', text: 'Inserisci la tua email' });
+      return;
+    }
+
+    if (!privacyAccepted) {
+      setMessage({ type: 'error', text: 'Devi accettare l\'informativa sulla privacy per continuare' });
       return;
     }
 
@@ -133,9 +139,36 @@ export default function ProductNotificationForm({ productId, productName }: Prod
           </div>
         </div>
 
+        <div className="flex items-start">
+          <div className="flex items-center h-5">
+            <input
+              id="privacy-checkbox"
+              type="checkbox"
+              checked={privacyAccepted}
+              onChange={(e) => setPrivacyAccepted(e.target.checked)}
+              className="h-4 w-4 text-bred-500 focus:ring-bred-500 border-gray-300 rounded"
+              disabled={isSubmitting}
+            />
+          </div>
+          <div className="ml-2 text-sm">
+            <label htmlFor="privacy-checkbox" className="text-gray-700">
+              Accetto l&apos;informativa sulla{' '}
+              <a
+                href="/privacy-policy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-bred-500 hover:text-bred-700 underline"
+              >
+                privacy
+              </a>
+              {' '}*
+            </label>
+          </div>
+        </div>
+
         {message && (
-          <div className={`p-3 rounded-md ${message.type === 'success' 
-            ? 'bg-green-100 text-green-700 border border-green-200' 
+          <div className={`p-3 rounded-md ${message.type === 'success'
+            ? 'bg-green-100 text-green-700 border border-green-200'
             : 'bg-red-100 text-red-700 border border-red-200'
           }`}>
             {message.text}

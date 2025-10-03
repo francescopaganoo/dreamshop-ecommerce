@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'be2.dreamshop18.com',
+        hostname: 'be.dreamshop18.com',
         pathname: '/**',
       },
       {
