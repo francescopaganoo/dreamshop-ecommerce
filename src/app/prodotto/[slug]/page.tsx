@@ -411,22 +411,16 @@ async function RelatedProductsSection({ productSlug, productId, categories }: {
 
 // Componente per i prodotti più venduti
 async function BestSellingProductsSection() {
-  const bestSellingProducts = await getBestSellingProducts(4);
-  
+  const bestSellingProducts = await getBestSellingProducts(8);
+
   if (bestSellingProducts.length === 0) return null;
-  
+
   return (
     <div>
       <ProductCarousel
         products={bestSellingProducts}
         title="I Più Acquistati"
       />
-      {/* Badge popolari */}
-      <div className="flex justify-start mt-2">
-        <div className="px-2 py-1 bg-bred-100 text-bred-600 text-xs font-semibold rounded-full">
-          POPOLARI
-        </div>
-      </div>
     </div>
   );
 }
