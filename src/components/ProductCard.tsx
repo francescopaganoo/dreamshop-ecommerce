@@ -78,7 +78,7 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
   };
 
   // Controlla se il prodotto è in pre-order basandosi sull'attributo pa_disponibilita
-  const getAttribute = (name: string) => {
+  const getAttribute = (name: string): { name: string; slug: string } | undefined => {
     if (!product.attributes) return undefined;
 
     const attr = product.attributes.find(attr => {
@@ -93,12 +93,15 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
     if (!attr) return undefined;
 
     // Return the first option, handling both attribute types
-    if ('slug' in attr && Array.isArray(attr.options) && attr.options.length > 0) {
-      // PluginProductAttribute - options are objects
-      return attr.options[0];
-    } else if (Array.isArray(attr.options) && attr.options.length > 0) {
-      // ProductAttribute - options are strings
+    if (Array.isArray(attr.options) && attr.options.length > 0) {
       const firstOption = attr.options[0];
+
+      // PluginProductAttribute - options are objects
+      if (typeof firstOption === 'object' && firstOption !== null && 'name' in firstOption) {
+        return firstOption as { name: string; slug: string };
+      }
+
+      // ProductAttribute - options are strings
       if (typeof firstOption === 'string') {
         return { name: firstOption, slug: firstOption.toLowerCase().replace(/\s+/g, '-') };
       }

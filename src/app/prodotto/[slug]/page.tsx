@@ -312,7 +312,14 @@ async function ProductDetails({ slug }: { slug: string }) {
 
                     // Convert attributes to the expected format
                     return product.attributes.map((attr, index) => {
-                      if ('slug' in attr) {
+                      // Check if options are objects (PluginProductAttribute) or strings (ProductAttribute)
+                      const hasObjectOptions = Array.isArray(attr.options) &&
+                                              attr.options.length > 0 &&
+                                              typeof attr.options[0] === 'object' &&
+                                              attr.options[0] !== null &&
+                                              'name' in attr.options[0];
+
+                      if (hasObjectOptions) {
                         // PluginProductAttribute - convert to ProductAttribute format
                         return {
                           id: index, // Use index as ID since PluginProductAttribute doesn't have id
@@ -320,11 +327,18 @@ async function ProductDetails({ slug }: { slug: string }) {
                           position: attr.position,
                           visible: attr.visible,
                           variation: attr.variation,
-                          options: attr.options.map(opt => opt.name) // Convert objects to strings
+                          options: attr.options.map(opt => typeof opt === 'object' && opt !== null && 'name' in opt ? opt.name : String(opt))
                         };
                       } else {
                         // Already ProductAttribute format
-                        return attr;
+                        return 'id' in attr ? attr : {
+                          id: index,
+                          name: attr.name,
+                          position: attr.position,
+                          visible: attr.visible,
+                          variation: attr.variation,
+                          options: attr.options.map(opt => typeof opt === 'string' ? opt : String(opt))
+                        };
                       }
                     });
                   })()}
