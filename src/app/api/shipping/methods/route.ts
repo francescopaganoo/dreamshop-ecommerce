@@ -85,9 +85,10 @@ function calculateShippingCost(method: ShippingMethod, cartItems: CartItem[]): n
     return baseCost;
   }
 
-  // Se il tipo è 'class', calcola per ogni classe individualmente
+  // Se il tipo è 'class', trova il costo più alto tra le classi presenti
+  // La spedizione viene calcolata solo 1 volta per ordine
   if (calculationType === 'class') {
-    let totalCost = 0;
+    let maxCost = baseCost;
 
     for (const item of cartItems) {
       const shippingClassId = item.shipping_class_id || 0;
@@ -113,10 +114,10 @@ function calculateShippingCost(method: ShippingMethod, cartItems: CartItem[]): n
         }
       }
 
-      totalCost += classCost * item.quantity;
+      maxCost = Math.max(maxCost, classCost);
     }
 
-    return totalCost;
+    return maxCost;
   }
 
   // Se il tipo è 'order', trova la classe più costosa e applica una sola volta
