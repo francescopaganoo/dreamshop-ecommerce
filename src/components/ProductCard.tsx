@@ -26,52 +26,56 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
   const [hasInstallments, setHasInstallments] = useState(false);
   const [installmentsChecked, setInstallmentsChecked] = useState(false);
   const [currentImageUrl, setCurrentImageUrl] = useState<string>('');
-  const [fallbackIndex, setFallbackIndex] = useState(0);
+  const [imageChecked, setImageChecked] = useState(false);
 
-  // Genera array di URL da testare in ordine di preferenza
-  const getImageUrlsToTest = (originalUrl: string) => {
-    if (!originalUrl) return [];
+  // Genera URL immagine ottimizzata e originale
+  const getImageUrls = (originalUrl: string) => {
+    if (!originalUrl) return { optimized: '', original: '' };
 
-    const urls = [];
+    let optimized = '';
+    let original = originalUrl;
 
-    // Prima proviamo 800x800
+    // Se l'URL ha già una dimensione, rimuovila per ottenere l'originale
     if (originalUrl.includes('-')) {
-      // Se l'URL ha già una dimensione, sostituiscila con 800x800
-      urls.push(originalUrl.replace(/-\d+x\d+/, `-800x800`));
-      // Poi aggiungi l'URL originale rimuovendo la dimensione
-      urls.push(originalUrl.replace(/-\d+x\d+/, ''));
+      original = originalUrl.replace(/-\d+x\d+/, '');
+      optimized = originalUrl.replace(/-\d+x\d+/, '-800x800');
     } else {
       // Se non ha dimensione, prova ad aggiungere 800x800 prima dell'estensione
       const lastDot = originalUrl.lastIndexOf('.');
       if (lastDot > 0) {
-        urls.push(originalUrl.substring(0, lastDot) + `-800x800` + originalUrl.substring(lastDot));
+        optimized = originalUrl.substring(0, lastDot) + '-800x800' + originalUrl.substring(lastDot);
       }
-      // Aggiungi l'URL così com'è (già originale)
-      urls.push(originalUrl);
     }
 
-    return urls;
+    return { optimized, original };
   };
 
-  const imageUrlsToTest = useMemo(() => {
-    return product.images && product.images.length > 0 && product.images[0].src
-      ? getImageUrlsToTest(product.images[0].src)
-      : [];
-  }, [product.images]);
-
-  // Imposta l'URL dell'immagine corrente basandosi sull'indice di fallback
+  // Verifica quale immagine usare
   useEffect(() => {
-    if (imageUrlsToTest[fallbackIndex]) {
-      setCurrentImageUrl(imageUrlsToTest[fallbackIndex]);
-    }
-  }, [fallbackIndex, imageUrlsToTest]);
+    if (!product.images?.[0]?.src || imageChecked) return;
 
-  // Gestisce l'errore di caricamento dell'immagine
-  const handleImageError = () => {
-    if (fallbackIndex < imageUrlsToTest.length - 1) {
-      setFallbackIndex(prev => prev + 1);
+    const { optimized, original } = getImageUrls(product.images[0].src);
+
+    // Prova prima l'immagine ottimizzata
+    if (optimized) {
+      fetch(optimized, { method: 'HEAD' })
+        .then(response => {
+          if (response.ok) {
+            setCurrentImageUrl(optimized);
+          } else {
+            setCurrentImageUrl(original);
+          }
+          setImageChecked(true);
+        })
+        .catch(() => {
+          setCurrentImageUrl(original);
+          setImageChecked(true);
+        });
+    } else {
+      setCurrentImageUrl(original);
+      setImageChecked(true);
     }
-  };
+  }, [product.images, imageChecked]);
 
   // Controlla se il prodotto è in pre-order basandosi sull'attributo pa_disponibilita
   const getAttribute = (name: string): { name: string; slug: string } | undefined => {
@@ -308,7 +312,6 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
               style={{ objectFit: 'contain' }}
               className="transition-transform duration-300 hover:scale-105"
               priority={priority}
-              onError={handleImageError}
             />
           )}
         </div>
