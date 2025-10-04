@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const baseUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL;
-    const wpEndpoint = `${baseUrl}wp-json/dreamshop/v1/products/${productId}/deposit-options`;
+    const wpEndpoint = `${baseUrl}/wp-json/dreamshop/v1/products/${productId}/deposit-options`;
     
     
     const response = await fetch(wpEndpoint, {
