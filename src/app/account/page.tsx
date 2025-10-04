@@ -142,18 +142,16 @@ function AccountContent() {
         
         // Memorizziamo tutti gli ordini per poterli filtrare successivamente
         setAllOrders(data);
-        
-        // Inizializza i filtri con solo gli stati principali attivi per default
-        const defaultActiveStatuses = ['completed', 'processing', 'partial-payment', 'cancelled'];
+
+        // Inizializza i filtri con tutti gli stati attivi per default
         const initialStatusFilters: {[key: string]: boolean} = {};
         Object.keys(orderStates).forEach(status => {
-          initialStatusFilters[status] = defaultActiveStatuses.includes(status);
+          initialStatusFilters[status] = true;
         });
         setStatusFilters(initialStatusFilters);
-        
-        // Applica i filtri di default agli ordini
-        const filteredOrders = data.filter((order: Order) => initialStatusFilters[order.status]);
-        setOrders(filteredOrders);
+
+        // Mostra tutti gli ordini di default
+        setOrders(data);
                 
         // Se abbiamo meno di 100 ordini nel primo caricamento, non ci sono altri ordini da caricare
         if (data.length < 100) {
@@ -413,6 +411,8 @@ function AccountContent() {
                          status === 'scheduled-payment' ? 'Rata programmata' :
                          status === 'pending-deposit' ? 'In attesa di acconto' :
                          status === 'cancelled' ? 'Annullato' :
+                         status === 'inoltrato' ? 'Lavorazione' :
+                         status === 'forwarded' ? 'Lavorazione' :
                          status}
                       </span>
                       <span className="ml-1 text-xs text-gray-500">({allOrders.filter(o => o.status === status).length})</span>
@@ -455,6 +455,8 @@ function AccountContent() {
                               order.status === 'scheduled-payment' ? 'bg-blue-100 text-blue-800' :
                               order.status === 'pending-deposit' ? 'bg-yellow-100 text-yellow-800' :
                               order.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                              order.status === 'inoltrato' ? 'bg-blue-100 text-blue-800' :
+                              order.status === 'forwarded' ? 'bg-blue-100 text-blue-800' :
                               'bg-gray-100 text-gray-800'
                             }`}>
                               {order.status === 'completed' ? 'Completato' :
@@ -464,6 +466,8 @@ function AccountContent() {
                                order.status === 'scheduled-payment' ? 'Rata programmata' :
                                order.status === 'pending-deposit' ? 'In attesa di acconto' :
                                order.status === 'cancelled' ? 'Annullato' :
+                               order.status === 'inoltrato' ? 'Lavorazione' :
+                               order.status === 'forwarded' ? 'Lavorazione' :
                                order.status}
                             </span>
                           </td>
