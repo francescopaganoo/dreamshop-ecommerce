@@ -87,6 +87,7 @@ export default function PayPalExpressButton({
     const subtotalWithShipping = subtotal + shippingCost;
     const paypalFee = (subtotalWithShipping * 0.035) + 0.35; // 3.5% di commissione + €0.35 fisso su subtotale + spedizione
     const totalWithFeeAndShipping = subtotalWithShipping + paypalFee;
+
     return {
       subtotal: subtotal.toFixed(2),
       shipping: shippingCost.toFixed(2),
@@ -96,7 +97,7 @@ export default function PayPalExpressButton({
     };
   };
 
-  const { shipping, total } = calculatePayPalTotal();
+  const { total } = calculatePayPalTotal();
 
   // Crea l'ordine PayPal diretto
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -108,17 +109,17 @@ export default function PayPalExpressButton({
       // Usa il totale con commissione PayPal
       const totalAmount = total;
 
-      // Crea ordine PayPal usando actions.order.create
+      // Crea ordine PayPal - senza breakdown perché useremo onShippingChange
       return actions.order.create({
         intent: 'CAPTURE',
         purchase_units: [
           {
             amount: {
               currency_code: 'EUR',
-              value: totalAmount,
+              value: totalAmount
             },
-            description: `${product.name} x${quantity} + ${selectedShippingMethod?.title || 'Spedizione'} €${shipping} + Commissione PayPal 3.5% + €0.35`,
-            custom_id: `product_${product.id}_qty_${quantity}_deposit_${enableDeposit}_shipping_${selectedShippingMethod?.id || 'standard'}_paypal_fee`,
+            description: `${product.name} x${quantity}`,
+            custom_id: `product_${product.id}_qty_${quantity}_deposit_${enableDeposit}_paypal_fee`
           },
         ],
         application_context: {
@@ -146,7 +147,30 @@ export default function PayPalExpressButton({
       // Estrai i dati dell'acquirente da PayPal
       const payer = orderDetails.payer;
       const shipping = orderDetails.purchase_units[0]?.shipping;
-      
+
+      // Ricalcola il metodo di spedizione finale in base all'indirizzo PayPal
+      const finalShippingAddress: ShippingAddress = {
+        first_name: payer?.name?.given_name || '',
+        last_name: payer?.name?.surname || '',
+        address_1: shipping?.address?.address_line_1 || '',
+        city: shipping?.address?.admin_area_2 || '',
+        state: shipping?.address?.admin_area_1 || '',
+        postcode: shipping?.address?.postal_code || '',
+        country: shipping?.address?.country_code || 'IT'
+      };
+
+      const unitPrice = parseFloat(product.sale_price || product.price || '0');
+      const cartTotal = unitPrice * quantity;
+      const cartItems = [{
+        product_id: product.id,
+        quantity: quantity,
+        variation_id: 0,
+        shipping_class_id: product.shipping_class_id || 0
+      }];
+
+      const finalMethods = await getShippingMethods(finalShippingAddress, cartTotal, cartItems);
+      const finalShippingMethod = finalMethods.length > 0 ? finalMethods[0] : selectedShippingMethod;
+
       // Ora crea l'ordine in WooCommerce con i dati reali
       const response = await fetch('/api/paypal/product-express-complete', {
         method: 'POST',
@@ -160,6 +184,7 @@ export default function PayPalExpressButton({
           quantity: quantity,
           userId: user?.id || 0,
           enableDeposit: enableDeposit,
+          shippingMethod: finalShippingMethod,
           billingData: {
             first_name: payer?.name?.given_name || '',
             last_name: payer?.name?.surname || '',
@@ -200,6 +225,65 @@ export default function PayPalExpressButton({
     setIsProcessing(false);
   };
 
+  // Gestisce il cambio di indirizzo di spedizione in PayPal
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const onShippingChange = async (data: any, actions: any) => {
+    try {
+      // Estrai l'indirizzo di spedizione da PayPal
+      const paypalAddress = data.shipping_address;
+      const shippingAddress: ShippingAddress = {
+        first_name: '',
+        last_name: '',
+        address_1: paypalAddress.line1 || '',
+        city: paypalAddress.city || '',
+        state: paypalAddress.state || '',
+        postcode: paypalAddress.postal_code || '',
+        country: paypalAddress.country_code || 'IT'
+      };
+
+      // Calcola i metodi di spedizione per il nuovo indirizzo
+      const unitPrice = parseFloat(product.sale_price || product.price || '0');
+      const cartTotal = unitPrice * quantity;
+      const cartItems = [{
+        product_id: product.id,
+        quantity: quantity,
+        variation_id: 0,
+        shipping_class_id: product.shipping_class_id || 0
+      }];
+
+      const methods = await getShippingMethods(shippingAddress, cartTotal, cartItems);
+
+      if (methods.length > 0) {
+        const newShippingMethod = methods[0];
+        const shippingCost = newShippingMethod.cost || 0;
+
+        // Ricalcola il totale con la nuova spedizione
+        const subtotal = unitPrice * quantity;
+        const subtotalWithShipping = subtotal + shippingCost;
+        const paypalFee = (subtotalWithShipping * 0.035) + 0.35;
+        const totalWithFeeAndShipping = subtotalWithShipping + paypalFee;
+
+        // Aggiorna l'ordine PayPal con il nuovo totale (solo il valore, senza breakdown)
+        return actions.order.patch([
+          {
+            op: 'replace',
+            path: "/purchase_units/@reference_id=='default'/amount",
+            value: {
+              currency_code: 'EUR',
+              value: totalWithFeeAndShipping.toFixed(2)
+            }
+          }
+        ]);
+      }
+
+      // Se non ci sono metodi disponibili, rifiuta
+      return actions.reject();
+    } catch (error) {
+      console.error('Errore durante l\'aggiornamento della spedizione:', error);
+      return actions.reject();
+    }
+  };
+
   return (
     <div className="mb-4">
         {error && (
@@ -221,6 +305,7 @@ export default function PayPalExpressButton({
             }}
             createOrder={createPayPalOrder}
             onApprove={onApprove}
+            onShippingChange={onShippingChange}
             onError={onError}
             onCancel={onCancel}
             disabled={isProcessing}
@@ -254,6 +339,7 @@ export default function PayPalExpressButton({
             }}
             createOrder={createPayPalOrder}
             onApprove={onApprove}
+            onShippingChange={onShippingChange}
             onError={onError}
             onCancel={onCancel}
             disabled={isProcessing}

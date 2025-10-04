@@ -11,7 +11,8 @@ export async function POST(request: NextRequest) {
       userId,
       enableDeposit = 'no',
       billingData,
-      paypalOrderDetails
+      paypalOrderDetails,
+      shippingMethod
     } = data;
     
 
@@ -32,8 +33,8 @@ export async function POST(request: NextRequest) {
     const subtotalWithShipping = (totalAmountPaid - 0.35) / 1.035;
     const paypalFee = totalAmountPaid - subtotalWithShipping;
 
-    // Stimiamo la spedizione standard per l'Italia (sarà calcolata correttamente dal frontend)
-    const estimatedShipping = 7.00;
+    // Usa il metodo di spedizione passato dal frontend (calcolato in base alla classe di spedizione)
+    const shippingCost = shippingMethod?.cost || 7.00;
 
 
 
@@ -84,9 +85,9 @@ export async function POST(request: NextRequest) {
       line_items: lineItems,
       shipping_lines: [
         {
-          method_id: 'flat_rate',
-          method_title: 'Spedizione standard',
-          total: estimatedShipping.toFixed(2)
+          method_id: shippingMethod?.id || 'flat_rate',
+          method_title: shippingMethod?.title || 'Spedizione standard',
+          total: shippingCost.toFixed(2)
         }
       ],
       fee_lines: [
