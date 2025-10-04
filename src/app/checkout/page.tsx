@@ -233,6 +233,7 @@ export default function CheckoutPage() {
   const [shippingMethods, setShippingMethods] = useState<ShippingMethod[]>([]);
   const [selectedShippingMethod, setSelectedShippingMethod] = useState<ShippingMethod | null>(null);
   const [shippingCalculated, setShippingCalculated] = useState<boolean>(false);
+  const [isCalculatingShipping, setIsCalculatingShipping] = useState<boolean>(false);
 
   // Funzione per calcolare i metodi di spedizione
   const calculateShippingMethods = React.useCallback(async (addressData: typeof formData) => {
@@ -255,7 +256,6 @@ export default function CheckoutPage() {
           address_1: addressData.shipToDifferentAddress ? addressData.shippingAddress1 : addressData.address1,
           address_2: addressData.shipToDifferentAddress ? addressData.shippingAddress2 : addressData.address2
         };
-
 
         // Calcola il totale del carrello senza spedizione per verificare la spedizione gratuita
         const cartTotal = getSubtotal(); // Usa il totale del carrello
@@ -405,19 +405,6 @@ export default function CheckoutPage() {
     loadUserData();
   }, [isAuthenticated, user]); // Rimosso calculateShippingMethods per evitare loop
 
-  // Calcola automaticamente la spedizione quando il paese cambia
-  useEffect(() => {
-    // Per utenti loggati, richiedi più dati
-    if (isAuthenticated && formData.country && formData.city && formData.postcode && formData.address1) {
-      calculateShippingMethods(formData);
-    }
-    // Per guest, basta il paese
-    else if (!isAuthenticated && formData.country) {
-      calculateShippingMethods(formData);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.country, formData.shippingCountry]); // Triggerato solo al cambio paese - calculateShippingMethods e formData completo non inclusi intenzionalmente
-
   // Calculate totals
   const subtotal = getSubtotal(); // Usa getSubtotal per ottenere il prezzo base senza sconti
   const shipping = selectedShippingMethod ? selectedShippingMethod.cost : 0;
@@ -438,31 +425,42 @@ export default function CheckoutPage() {
   
 
   // Handle form input changes
-  const handleInputChange = async (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    const newFormData = { ...formData, [name]: value };
-    setFormData(newFormData);
+    setFormData({ ...formData, [name]: value });
+  };
 
-    // Calcola il costo di spedizione quando vengono modificati i campi dell'indirizzo
-    const addressFields = ['country', 'state', 'postcode', 'city', 'address1', 'address2', 'shippingCountry', 'shippingState', 'shippingPostcode', 'shippingCity', 'shippingAddress1', 'shippingAddress2'];
-    // Determina quale paese usare per la spedizione
-    const shippingCountry = newFormData.shipToDifferentAddress ? newFormData.shippingCountry : newFormData.country;
+  // Funzione per calcolare la spedizione manualmente
+  const handleCalculateShipping = async () => {
+    // Leggi il valore direttamente dal DOM per evitare problemi di timing su Safari
+    const countrySelect = document.getElementById('country') as HTMLSelectElement;
+    const shippingCountrySelect = document.getElementById('shippingCountry') as HTMLSelectElement;
 
-    if (addressFields.includes(name) && shippingCountry) {
-      // Per il calcolo della spedizione è sufficiente avere almeno il paese
-      // Altri campi opzionali: città e codice postale migliorano la precisione
-      const hasMinimumAddressData = shippingCountry && (
-        // Per il ricalcolo immediato quando cambia il paese
-        name === 'country' || name === 'shippingCountry' ||
-        // Per il ricalcolo completo quando abbiamo più dati
-        (!newFormData.shipToDifferentAddress && newFormData.city && newFormData.postcode) ||
-        (newFormData.shipToDifferentAddress && newFormData.shippingCity && newFormData.shippingPostcode)
-      );
+    const currentCountry = formData.shipToDifferentAddress
+      ? (shippingCountrySelect?.value || formData.shippingCountry)
+      : (countrySelect?.value || formData.country);
 
-      if (hasMinimumAddressData) {
-        // Usa la nuova funzione per calcolare i metodi di spedizione
-        calculateShippingMethods(newFormData);
-      }
+    if (!currentCountry) {
+      setFormError('Seleziona un paese prima di calcolare la spedizione');
+      return;
+    }
+
+    // Aggiorna il formData con il valore corretto dal DOM
+    const updatedFormData = {
+      ...formData,
+      ...(formData.shipToDifferentAddress
+        ? { shippingCountry: currentCountry }
+        : { country: currentCountry }
+      )
+    };
+
+    setIsCalculatingShipping(true);
+    setFormError(null);
+
+    try {
+      await calculateShippingMethods(updatedFormData);
+    } finally {
+      setIsCalculatingShipping(false);
     }
   };
   
@@ -641,6 +639,13 @@ export default function CheckoutPage() {
       return;
     }
     
+    // Verifica se la spedizione è stata calcolata
+    if (!selectedShippingMethod) {
+      setFormError('Calcola la spedizione prima di procedere con l\'ordine.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
     // Verifica se l'utente ha accettato i termini e condizioni
     if (!formData.acceptTerms) {
       setTermsError('È necessario accettare i termini e condizioni per completare l\'ordine.');
@@ -2137,8 +2142,26 @@ export default function CheckoutPage() {
                       <option value="IT">Italia</option>
                     )}
                   </select>
+                  <button
+                    type="button"
+                    onClick={handleCalculateShipping}
+                    disabled={isCalculatingShipping || countriesLoading}
+                    className="mt-3 w-full bg-bred-500 text-white py-2 px-4 rounded-md hover:bg-bred-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                  >
+                    {isCalculatingShipping ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Calcolo in corso...
+                      </>
+                    ) : (
+                      'Calcola Spedizione'
+                    )}
+                  </button>
                 </div>
-                
+
                 <div className="mb-6">
                   <div className="flex items-center">
                     <input
@@ -2312,8 +2335,26 @@ export default function CheckoutPage() {
                           <option value="IT">Italia</option>
                         )}
                       </select>
+                      <button
+                        type="button"
+                        onClick={handleCalculateShipping}
+                        disabled={isCalculatingShipping || countriesLoading}
+                        className="mt-3 w-full bg-bred-500 text-white py-2 px-4 rounded-md hover:bg-bred-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                      >
+                        {isCalculatingShipping ? (
+                          <>
+                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Calcolo in corso...
+                          </>
+                        ) : (
+                          'Calcola Spedizione'
+                        )}
+                      </button>
                     </div>
-                    
+
                     <div className="mb-6">
                       <label htmlFor="shippingPhone" className="block text-sm font-medium text-gray-700 mb-1">
                         Telefono *
@@ -2963,8 +3004,8 @@ export default function CheckoutPage() {
                             {selectedShippingMethod.free_shipping ? 'Gratuita' : `€${selectedShippingMethod.cost.toFixed(2)}`}
                           </span>
                         ) : (
-                          <span className="italic text-gray-500">
-                            Seleziona un metodo
+                          <span className="italic text-bred-500 font-medium">
+                            Calcola spedizione
                           </span>
                         )}
                       </div>

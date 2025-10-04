@@ -411,7 +411,8 @@ class DreamShop_Filters_Product_Query {
                     'permalink' => get_permalink($product_id),
                     'short_description' => $result['post_excerpt'],
                     'attributes' => $this->get_product_attributes($product),
-                    'has_deposit_option' => $this->check_deposit_enabled($product)
+                    'has_deposit_option' => $this->check_deposit_enabled($product),
+                    'shipping_class_id' => $product->get_shipping_class_id() ?: 0
                 ];
             } else {
                 // Log skipped product for debugging
