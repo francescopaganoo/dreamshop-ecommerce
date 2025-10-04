@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
       // Ora utilizziamo JWT per verificare la password
       try {
         // Chiamata all'API JWT di WordPress per autenticare l'utente
-        const jwtResponse = await axios.post(`${WP_URL}/wp-json/jwt-auth/v1/token`, {
+        const jwtResponse = await axios.post(`${WP_URL}wp-json/jwt-auth/v1/token`, {
           username: email,
           password: password
         });
