@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { Product } from '@/lib/api';
 import { useCart } from '@/context/CartContext';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import WishlistButton from '@/components/WishlistButton';
 import { motion } from 'framer-motion';
 import { FaPlus } from 'react-icons/fa';
