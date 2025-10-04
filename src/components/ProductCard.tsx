@@ -30,7 +30,7 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
 
   // Genera array di URL da testare in ordine di preferenza
   const getImageUrlsToTest = (originalUrl: string) => {
-    if (!originalUrl) return ['https://via.placeholder.com/800'];
+    if (!originalUrl) return [];
 
     const urls = [];
 
@@ -50,15 +50,13 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
       urls.push(originalUrl);
     }
 
-    urls.push('https://via.placeholder.com/800');
-
     return urls;
   };
 
   const imageUrlsToTest = useMemo(() => {
     return product.images && product.images.length > 0 && product.images[0].src
       ? getImageUrlsToTest(product.images[0].src)
-      : ['https://via.placeholder.com/800'];
+      : [];
   }, [product.images]);
 
   // Imposta l'URL dell'immagine corrente basandosi sull'indice di fallback
@@ -301,16 +299,18 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
       {/* Immagine prodotto semplificata - stile minimalista */}
       <Link href={`/prodotto/${product.slug}`} className="block mb-2 md:mb-5">
         <div className="relative h-40 md:h-52 w-full transition-all duration-300">
-          <Image
-            src={currentImageUrl || 'https://via.placeholder.com/800'}
-            alt={product.name}
-            fill
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-            style={{ objectFit: 'contain' }}
-            className="transition-transform duration-300 hover:scale-105"
-            priority={priority}
-            onError={handleImageError}
-          />
+          {currentImageUrl && (
+            <Image
+              src={currentImageUrl}
+              alt={product.name}
+              fill
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              style={{ objectFit: 'contain' }}
+              className="transition-transform duration-300 hover:scale-105"
+              priority={priority}
+              onError={handleImageError}
+            />
+          )}
         </div>
       </Link>
       
