@@ -8,6 +8,8 @@ import ProductNotificationForm from '../ProductNotificationForm';
 import GiftCardForm, { GiftCardData } from './GiftCardForm';
 import GiftCardCustomAmount from './GiftCardCustomAmount';
 import { variationImageEvents } from './ProductImagesSection';
+import ProductDepositOptionsComponent from './ProductDepositOptions';
+import { getDepositMetadata } from '@/lib/deposits';
 
 interface ProductVariationsProps {
   productId: number;
@@ -46,6 +48,7 @@ export default function ProductVariations({
   const [giftCardData, setGiftCardData] = useState<GiftCardData | null>(null);
   const [customAmount, setCustomAmount] = useState<number | undefined>(undefined);
   const [isGiftCardProduct, setIsGiftCardProduct] = useState<boolean>(false);
+  const [enableDeposit, setEnableDeposit] = useState<'yes' | 'no'>('no');
   const { addToCart } = useCart();
   
   // Controlla se il prodotto è in pre-order basandosi sull'attributo Disponibilità
@@ -225,7 +228,7 @@ export default function ProductVariations({
   };
   
   // Gestisce l'aggiunta al carrello di una variazione di prodotto
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     // Per le gift card con importo personalizzato, non è necessaria una variazione
     if (!selectedVariation && !(isGiftCardProduct && customAmount)) {
       setMessage('Seleziona una variazione prima di aggiungere al carrello');
@@ -250,7 +253,7 @@ export default function ProductVariations({
     }
 
     if (isAddingToCart) return;
-    
+
     // Controllo preliminare della quantità disponibile (solo se c'è una variazione selezionata)
     if (selectedVariation && selectedVariation.manage_stock && typeof selectedVariation.stock_quantity === 'number' &&
         quantity > selectedVariation.stock_quantity) {
@@ -258,134 +261,267 @@ export default function ProductVariations({
       setShowMessage(true);
       return;
     }
-    
+
     setIsAddingToCart(true);
-    
+
     try {
-      let variationDetails = '';
-      let productWithVariation: Product;
+      // Se l'acconto è abilitato, arricchiamo il prodotto con i metadati dell'acconto
+      if (enableDeposit === 'yes') {
+        try {
+          // Recupera le opzioni di acconto dal backend
+          const depositOptionsResponse = await fetch(`/api/products/${productId}/deposit-options`);
+          let depositAmount = '40';
+          let depositType = 'percent';
+          let paymentPlanId = '';
 
-      if (selectedVariation) {
-        // Caso normale con variazione selezionata
-        variationDetails = selectedVariation.attributes
-          ?.map(attr => `${attr.name}: ${attr.option}`)
-          .join(', ') || `Variazione #${selectedVariation.id}`;
+          if (depositOptionsResponse.ok) {
+            const depositOptions = await depositOptionsResponse.json();
 
-        productWithVariation = {
-          id: productId,
-          name: `${productName} - ${variationDetails}`,
-          price: selectedVariation.price,
-          regular_price: selectedVariation.regular_price,
-          sale_price: selectedVariation.sale_price,
-          description: '',
-          short_description: '',
-          permalink: '',
-          slug: '',
-          type: 'variation',
-          stock_status: selectedVariation.stock_status,
-          stock_quantity: selectedVariation.stock_quantity,
-          manage_stock: selectedVariation.manage_stock,
-          images: selectedVariation.image ? [{ id: 0, src: selectedVariation.image.src, alt: '' }] : [],
-          categories: []
-        };
+            // Verifica se l'acconto è abilitato per questo prodotto
+            if (depositOptions.success === true && depositOptions.deposit_enabled === false) {
+              // Disabilita l'opzione di acconto e procedi con acquisto normale
+              setEnableDeposit('no');
+
+              // Continua con l'aggiunta normale (ricorsione con enableDeposit = 'no')
+              setIsAddingToCart(false);
+              return handleAddToCart();
+            }
+
+            if (depositOptions.deposit_amount) {
+              depositAmount = depositOptions.deposit_amount.toString();
+            }
+
+            if (depositOptions.deposit_type) {
+              depositType = depositOptions.deposit_type;
+            }
+
+            if (depositOptions.payment_plan && depositOptions.payment_plan.id) {
+              paymentPlanId = depositOptions.payment_plan.id.toString();
+            }
+
+            if (depositOptions.is_pianoprova) {
+              paymentPlanId = '810';
+            }
+          } else {
+            console.warn('Impossibile recuperare le opzioni di acconto, utilizzo valori predefiniti');
+          }
+
+          let variationDetails = '';
+          let productWithVariation: Product;
+
+          if (selectedVariation) {
+            variationDetails = selectedVariation.attributes
+              ?.map(attr => `${attr.name}: ${attr.option}`)
+              .join(', ') || `Variazione #${selectedVariation.id}`;
+
+            productWithVariation = {
+              id: productId,
+              name: `${productName} - ${variationDetails}`,
+              price: selectedVariation.price,
+              regular_price: selectedVariation.regular_price,
+              sale_price: selectedVariation.sale_price,
+              description: '',
+              short_description: '',
+              permalink: '',
+              slug: '',
+              type: 'variation',
+              stock_status: selectedVariation.stock_status,
+              stock_quantity: selectedVariation.stock_quantity,
+              manage_stock: selectedVariation.manage_stock,
+              images: selectedVariation.image ? [{ id: 0, src: selectedVariation.image.src, alt: '' }] : [],
+              categories: []
+            };
+          } else {
+            variationDetails = `Importo personalizzato €${customAmount}`;
+            productWithVariation = {
+              id: productId,
+              name: `${productName} - ${variationDetails}`,
+              price: customAmount?.toString() || '0',
+              regular_price: customAmount?.toString() || '0',
+              sale_price: '',
+              description: '',
+              short_description: '',
+              permalink: '',
+              slug: '',
+              type: 'simple',
+              stock_status: 'instock',
+              stock_quantity: undefined,
+              manage_stock: false,
+              images: productImages || [],
+              categories: []
+            };
+          }
+
+          // Ottieni i metadati per l'acconto
+          const depositMetadata = getDepositMetadata('yes', depositAmount, depositType, paymentPlanId);
+
+          // Aggiungi i metadati al prodotto
+          productWithVariation.meta_data = [
+            ...(productWithVariation.meta_data || []),
+            ...(depositMetadata.meta_data || [])
+          ];
+
+          // Aggiungi altre proprietà dal depositMetadata
+          Object.assign(productWithVariation, {
+            wc_deposit_option: depositMetadata.wc_deposit_option,
+            _wc_convert_to_deposit: 'yes',
+            _wc_deposit_type: depositType,
+            _wc_deposit_amount: depositAmount,
+            _deposit_payment_plan: paymentPlanId
+          });
+
+          const formattedAttributes = selectedVariation?.attributes?.map(attr => ({
+            id: attr.id,
+            name: attr.name,
+            option: attr.option
+          })) || [];
+
+          const cartItem: CartItem = {
+            product: productWithVariation,
+            quantity: quantity,
+            variation_id: selectedVariation?.id || 0,
+            attributes: formattedAttributes,
+            meta_data: []
+          };
+
+          const result = addToCart(cartItem);
+
+          if (result.success) {
+            setMessage(`${quantity} ${quantity > 1 ? 'pezzi' : 'pezzo'} di ${productWithVariation.name} ${quantity > 1 ? 'aggiunti' : 'aggiunto'} al carrello con acconto!`);
+          } else {
+            setMessage(result.message || 'Errore durante l\'aggiunta al carrello con acconto');
+          }
+        } catch (error) {
+          console.error('Errore durante l\'aggiunta al carrello con acconto:', error);
+          setMessage('Errore durante l\'aggiunta al carrello con acconto');
+        }
       } else {
-        // Caso gift card con importo personalizzato senza variazione
-        variationDetails = `Importo personalizzato €${customAmount}`;
+        // Aggiunta normale senza acconto
+        let variationDetails = '';
+        let productWithVariation: Product;
 
-        productWithVariation = {
-          id: productId,
-          name: `${productName} - ${variationDetails}`,
-          price: customAmount?.toString() || '0',
-          regular_price: customAmount?.toString() || '0',
-          sale_price: '',
-          description: '',
-          short_description: '',
-          permalink: '',
-          slug: '',
-          type: 'simple',
-          stock_status: 'instock',
-          stock_quantity: undefined,
-          manage_stock: false,
-          images: productImages || [],
-          categories: []
-        };
-      }
+        if (selectedVariation) {
+          // Caso normale con variazione selezionata
+          variationDetails = selectedVariation.attributes
+            ?.map(attr => `${attr.name}: ${attr.option}`)
+            .join(', ') || `Variazione #${selectedVariation.id}`;
 
-      // Se è un prodotto gift card, aggiungi i metadati
-      if (isGiftCardProduct && giftCardData) {
-        const giftCardMetaData = [
-          { key: '_gift_card_recipient_email', value: giftCardData.recipientEmail },
-          { key: '_gift_card_recipient_name', value: giftCardData.recipientName || '' },
-          { key: '_gift_card_message', value: giftCardData.message || '' }
-        ];
-
-        // Se usa un importo personalizzato, aggiungilo ai metadati e modifica il prezzo
-        if (customAmount) {
-          giftCardMetaData.push({ key: '_gift_card_custom_amount', value: customAmount.toString() });
-
-          // Modifica il prezzo del prodotto per riflettere l'importo personalizzato
           productWithVariation = {
-            ...productWithVariation,
-            price: customAmount.toString(),
-            regular_price: customAmount.toString(),
-            sale_price: ''
+            id: productId,
+            name: `${productName} - ${variationDetails}`,
+            price: selectedVariation.price,
+            regular_price: selectedVariation.regular_price,
+            sale_price: selectedVariation.sale_price,
+            description: '',
+            short_description: '',
+            permalink: '',
+            slug: '',
+            type: 'variation',
+            stock_status: selectedVariation.stock_status,
+            stock_quantity: selectedVariation.stock_quantity,
+            manage_stock: selectedVariation.manage_stock,
+            images: selectedVariation.image ? [{ id: 0, src: selectedVariation.image.src, alt: '' }] : [],
+            categories: []
+          };
+        } else {
+          // Caso gift card con importo personalizzato senza variazione
+          variationDetails = `Importo personalizzato €${customAmount}`;
+
+          productWithVariation = {
+            id: productId,
+            name: `${productName} - ${variationDetails}`,
+            price: customAmount?.toString() || '0',
+            regular_price: customAmount?.toString() || '0',
+            sale_price: '',
+            description: '',
+            short_description: '',
+            permalink: '',
+            slug: '',
+            type: 'simple',
+            stock_status: 'instock',
+            stock_quantity: undefined,
+            manage_stock: false,
+            images: productImages || [],
+            categories: []
           };
         }
 
-        productWithVariation = {
-          ...productWithVariation,
-          meta_data: [
-            ...(productWithVariation.meta_data || []),
-            ...giftCardMetaData
-          ]
-        };
-      }
-      
-      const formattedAttributes = selectedVariation?.attributes?.map(attr => ({
-        id: attr.id,
-        name: attr.name,
-        option: attr.option
-      })) || [];
+        // Se è un prodotto gift card, aggiungi i metadati
+        if (isGiftCardProduct && giftCardData) {
+          const giftCardMetaData = [
+            { key: '_gift_card_recipient_email', value: giftCardData.recipientEmail },
+            { key: '_gift_card_recipient_name', value: giftCardData.recipientName || '' },
+            { key: '_gift_card_message', value: giftCardData.message || '' }
+          ];
 
-      const cartItemMetaData = isGiftCardProduct && giftCardData ? [
-        { key: '_gift_card_recipient_email', value: giftCardData.recipientEmail },
-        { key: '_gift_card_recipient_name', value: giftCardData.recipientName || '' },
-        { key: '_gift_card_message', value: giftCardData.message || '' }
-      ] : [];
+          // Se usa un importo personalizzato, aggiungilo ai metadati e modifica il prezzo
+          if (customAmount) {
+            giftCardMetaData.push({ key: '_gift_card_custom_amount', value: customAmount.toString() });
 
-      // Se usa importo personalizzato, aggiungilo ai meta_data del cart item
-      if (isGiftCardProduct && customAmount) {
-        cartItemMetaData.push({ key: '_gift_card_custom_amount', value: customAmount.toString() });
-      }
+            // Modifica il prezzo del prodotto per riflettere l'importo personalizzato
+            productWithVariation = {
+              ...productWithVariation,
+              price: customAmount.toString(),
+              regular_price: customAmount.toString(),
+              sale_price: ''
+            };
+          }
 
-      const cartItem: CartItem = {
-        product: productWithVariation,
-        quantity: quantity,
-        variation_id: selectedVariation?.id || 0,
-        attributes: formattedAttributes,
-        meta_data: cartItemMetaData
-      };
-      
-      // Utilizziamo il risultato restituito dalla funzione addToCart
-      const result = addToCart(cartItem);
-      
-      if (result.success) {
-        if (isGiftCardProduct) {
-          setMessage(`Gift card aggiunta al carrello! Verrà inviata a ${giftCardData?.recipientEmail}`);
-        } else {
-          setMessage(`${quantity} ${quantity > 1 ? 'pezzi' : 'pezzo'} di ${productWithVariation.name} ${quantity > 1 ? 'aggiunti' : 'aggiunto'} al carrello!`);
+          productWithVariation = {
+            ...productWithVariation,
+            meta_data: [
+              ...(productWithVariation.meta_data || []),
+              ...giftCardMetaData
+            ]
+          };
         }
-      } else {
-        // Mostriamo il messaggio di errore restituito dalla funzione addToCart
-        setMessage(result.message || 'Errore durante l\'aggiunta al carrello');
+
+        const formattedAttributes = selectedVariation?.attributes?.map(attr => ({
+          id: attr.id,
+          name: attr.name,
+          option: attr.option
+        })) || [];
+
+        const cartItemMetaData = isGiftCardProduct && giftCardData ? [
+          { key: '_gift_card_recipient_email', value: giftCardData.recipientEmail },
+          { key: '_gift_card_recipient_name', value: giftCardData.recipientName || '' },
+          { key: '_gift_card_message', value: giftCardData.message || '' }
+        ] : [];
+
+        // Se usa importo personalizzato, aggiungilo ai meta_data del cart item
+        if (isGiftCardProduct && customAmount) {
+          cartItemMetaData.push({ key: '_gift_card_custom_amount', value: customAmount.toString() });
+        }
+
+        const cartItem: CartItem = {
+          product: productWithVariation,
+          quantity: quantity,
+          variation_id: selectedVariation?.id || 0,
+          attributes: formattedAttributes,
+          meta_data: cartItemMetaData
+        };
+
+        // Utilizziamo il risultato restituito dalla funzione addToCart
+        const result = addToCart(cartItem);
+
+        if (result.success) {
+          if (isGiftCardProduct) {
+            setMessage(`Gift card aggiunta al carrello! Verrà inviata a ${giftCardData?.recipientEmail}`);
+          } else {
+            setMessage(`${quantity} ${quantity > 1 ? 'pezzi' : 'pezzo'} di ${productWithVariation.name} ${quantity > 1 ? 'aggiunti' : 'aggiunto'} al carrello!`);
+          }
+        } else {
+          // Mostriamo il messaggio di errore restituito dalla funzione addToCart
+          setMessage(result.message || 'Errore durante l\'aggiunta al carrello');
+        }
       }
-      
+
       setShowMessage(true);
     } catch {
       setMessage('Si è verificato un errore durante l\'aggiunta al carrello');
       setShowMessage(true);
     }
-    
+
     setTimeout(() => {
       setIsAddingToCart(false);
     }, 300);
@@ -439,6 +575,11 @@ export default function ProductVariations({
   // Gestisce il cambio dell'importo personalizzato
   const handleCustomAmountChange = (amount: number | undefined) => {
     setCustomAmount(amount);
+  };
+
+  // Gestisce il cambio dell'opzione di acconto
+  const handleDepositOptionChange = (option: 'yes' | 'no') => {
+    setEnableDeposit(option);
   };
 
   // Formatta il prezzo con il simbolo della valuta
@@ -583,8 +724,8 @@ export default function ProductVariations({
               </span>
               {selectedVariation.manage_stock && typeof selectedVariation.stock_quantity === 'number' && (
                 <span className="ml-2 text-sm text-gray-600">
-                  {selectedVariation.stock_quantity > 0 
-                    ? `${selectedVariation.stock_quantity} ${selectedVariation.stock_quantity === 1 ? 'pezzo' : 'pezzi'} disponibili` 
+                  {selectedVariation.stock_quantity > 0
+                    ? `${selectedVariation.stock_quantity} ${selectedVariation.stock_quantity === 1 ? 'pezzo' : 'pezzi'} disponibili`
                     : 'Esaurito'}
                 </span>
               )}
@@ -596,7 +737,31 @@ export default function ProductVariations({
           )}
         </div>
       )}
-      
+
+      {/* Opzioni di acconto se disponibili - solo per prodotti non gift card */}
+      {selectedVariation && selectedVariation.stock_status === 'instock' && hasValidPrice && !isGiftCardProduct && (
+        <ProductDepositOptionsComponent
+          product={{
+            id: productId,
+            name: productName,
+            price: selectedVariation.price,
+            regular_price: selectedVariation.regular_price,
+            sale_price: selectedVariation.sale_price,
+            description: '',
+            short_description: '',
+            permalink: '',
+            slug: '',
+            type: 'variation',
+            stock_status: selectedVariation.stock_status,
+            stock_quantity: selectedVariation.stock_quantity,
+            manage_stock: selectedVariation.manage_stock,
+            images: [],
+            categories: []
+          }}
+          onDepositOptionChange={handleDepositOptionChange}
+        />
+      )}
+
       {/* Selettore di quantità */}
       {selectedVariation && selectedVariation.stock_status === 'instock' && hasValidPrice && (
         <div className="mb-6">
@@ -693,9 +858,11 @@ export default function ProductVariations({
                 ? customAmount
                   ? `Acquista Gift Card €${customAmount} ${quantity > 1 ? quantity + ' pezzi' : ''}`
                   : `Acquista Gift Card ${quantity > 1 ? quantity + ' pezzi' : ''}`
-                : isPreOrder
-                  ? `Pre-ordina ora ${quantity > 1 ? quantity + ' pezzi' : ''}`
-                  : `Aggiungi ${quantity > 1 ? quantity + ' pezzi' : ''} al carrello`
+                : enableDeposit === 'yes'
+                  ? `Paga acconto per ${quantity > 1 ? quantity + ' pezzi' : ''}`
+                  : isPreOrder
+                    ? `Pre-ordina ora ${quantity > 1 ? quantity + ' pezzi' : ''}`
+                    : `Aggiungi ${quantity > 1 ? quantity + ' pezzi' : ''} al carrello`
               }
             </>
           )}
