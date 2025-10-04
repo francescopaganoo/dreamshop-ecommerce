@@ -33,24 +33,23 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
     if (!originalUrl) return ['https://via.placeholder.com/800'];
 
     const urls = [];
-    const sizes = ['800x800', '600x600', '300x300'];
 
-    // Prima aggiungiamo le dimensioni specifiche
-    sizes.forEach(size => {
-      if (originalUrl.includes('-')) {
-        // Se l'URL ha già una dimensione, sostituiscila
-        urls.push(originalUrl.replace(/-\d+x\d+/, `-${size}`));
-      } else {
-        // Se non ha dimensione, prova ad aggiungere prima dell'estensione
-        const lastDot = originalUrl.lastIndexOf('.');
-        if (lastDot > 0) {
-          urls.push(originalUrl.substring(0, lastDot) + `-${size}` + originalUrl.substring(lastDot));
-        }
+    // Prima proviamo 800x800
+    if (originalUrl.includes('-')) {
+      // Se l'URL ha già una dimensione, sostituiscila con 800x800
+      urls.push(originalUrl.replace(/-\d+x\d+/, `-800x800`));
+      // Poi aggiungi l'URL originale rimuovendo la dimensione
+      urls.push(originalUrl.replace(/-\d+x\d+/, ''));
+    } else {
+      // Se non ha dimensione, prova ad aggiungere 800x800 prima dell'estensione
+      const lastDot = originalUrl.lastIndexOf('.');
+      if (lastDot > 0) {
+        urls.push(originalUrl.substring(0, lastDot) + `-800x800` + originalUrl.substring(lastDot));
       }
-    });
+      // Aggiungi l'URL così com'è (già originale)
+      urls.push(originalUrl);
+    }
 
-    // Aggiungi l'URL originale come fallback finale
-    urls.push(originalUrl);
     urls.push('https://via.placeholder.com/800');
 
     return urls;

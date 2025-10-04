@@ -450,7 +450,7 @@ export default async function Home() {
                     <div className="w-12 h-12 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
                       {product.images && product.images.length > 0 && product.images[0].src && typeof product.images[0].src === 'string' ? (
                         <Image
-                          src={product.images[0].src.replace('-300x300', '-150x150')}
+                          src={product.images[0].src.replace(/-\d+x\d+/, '-800x800')}
                           alt={product.images[0].alt || product.name}
                           width={48}
                           height={48}
@@ -501,7 +501,7 @@ export default async function Home() {
                     <div className="w-12 h-12 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
                       {product.images && product.images.length > 0 && product.images[0].src && typeof product.images[0].src === 'string' ? (
                         <Image
-                          src={product.images[0].src.replace('-300x300', '-150x150')}
+                          src={product.images[0].src.replace(/-\d+x\d+/, '-800x800')}
                           alt={product.images[0].alt || product.name}
                           width={48}
                           height={48}
@@ -552,7 +552,7 @@ export default async function Home() {
                     <div className="w-12 h-12 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
                       {product.images && product.images.length > 0 && product.images[0].src && typeof product.images[0].src === 'string' ? (
                         <Image
-                          src={product.images[0].src.replace('-300x300', '-150x150')}
+                          src={product.images[0].src.replace(/-\d+x\d+/, '-800x800')}
                           alt={product.images[0].alt || product.name}
                           width={48}
                           height={48}
@@ -603,7 +603,7 @@ export default async function Home() {
                     <div className="w-12 h-12 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
                       {product.images && product.images.length > 0 && product.images[0].src && typeof product.images[0].src === 'string' ? (
                         <Image
-                          src={product.images[0].src.replace('-300x300', '-150x150')}
+                          src={product.images[0].src.replace(/-\d+x\d+/, '-800x800')}
                           alt={product.images[0].alt || product.name}
                           width={48}
                           height={48}
