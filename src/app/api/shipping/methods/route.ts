@@ -163,11 +163,11 @@ export async function POST(request: NextRequest) {
       cart_total: number,
       cart_items?: CartItem[]
     };
-    
+
     if (!shipping_address || !shipping_address.country) {
-      return NextResponse.json({ 
+      return NextResponse.json({
         error: 'Indirizzo di spedizione non valido',
-        methods: [] 
+        methods: []
       });
     }
     

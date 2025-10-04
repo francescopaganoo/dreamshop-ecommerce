@@ -274,8 +274,8 @@ export default function CheckoutPage() {
         // Imposta i metodi di spedizione disponibili
         setShippingMethods(availableMethods);
 
-        // Se non c'è un metodo selezionato, seleziona il primo disponibile
-        if (availableMethods.length > 0 && !selectedShippingMethod) {
+        // Seleziona sempre il primo metodo disponibile (per gestire i cambi di paese)
+        if (availableMethods.length > 0) {
           setSelectedShippingMethod(availableMethods[0]);
         }
 
@@ -296,7 +296,7 @@ export default function CheckoutPage() {
         setShippingCalculated(true);
       }
     }, 500); // Attendi 500ms prima di calcolare la spedizione
-  }, [getSubtotal, selectedShippingMethod, cart]);
+  }, [getSubtotal, cart]); // Rimosso selectedShippingMethod - non necessario
 
   // Precompila il form se l'utente è autenticato
   useEffect(() => {
@@ -384,17 +384,7 @@ export default function CheckoutPage() {
                 
                 return formUpdate;
               });
-
-              // Calcola i metodi di spedizione dopo aver precaricato i dati
-              setTimeout(() => {
-                // Ottieni i dati aggiornati dal form per il calcolo della spedizione
-                setFormData(currentFormData => {
-                  if (currentFormData.country && currentFormData.city && currentFormData.postcode && currentFormData.address1) {
-                    calculateShippingMethods(currentFormData);
-                  }
-                  return currentFormData; // Non modificare i dati, solo triggerare il calcolo
-                });
-              }, 200); // Delay per assicurarsi che lo stato sia aggiornato
+              // Il calcolo della spedizione verrà triggerato automaticamente dal useEffect che ascolta formData.country
 
             } else {
               // Se non ci sono indirizzi salvati, usa solo i dati base
@@ -413,8 +403,21 @@ export default function CheckoutPage() {
     };
     
     loadUserData();
-  }, [isAuthenticated, user, calculateShippingMethods]);
-  
+  }, [isAuthenticated, user]); // Rimosso calculateShippingMethods per evitare loop
+
+  // Calcola automaticamente la spedizione quando il paese cambia
+  useEffect(() => {
+    // Per utenti loggati, richiedi più dati
+    if (isAuthenticated && formData.country && formData.city && formData.postcode && formData.address1) {
+      calculateShippingMethods(formData);
+    }
+    // Per guest, basta il paese
+    else if (!isAuthenticated && formData.country) {
+      calculateShippingMethods(formData);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.country, formData.shippingCountry]); // Triggerato solo al cambio paese - calculateShippingMethods e formData completo non inclusi intenzionalmente
+
   // Calculate totals
   const subtotal = getSubtotal(); // Usa getSubtotal per ottenere il prezzo base senza sconti
   const shipping = selectedShippingMethod ? selectedShippingMethod.cost : 0;
