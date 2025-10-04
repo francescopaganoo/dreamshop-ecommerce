@@ -54,58 +54,35 @@ class DreamShop_Filters_Product_Query {
     }
 
     /**
-     * Get products with backfill logic to ensure we get the requested number
+     * Get products - simplified without backfill that breaks pagination
      */
     private function get_products_with_backfill($filters, $page, $per_page, $orderby, $order) {
-        $products = [];
-        $seen_ids = [];
-        $attempts = 0;
-        $max_attempts = 3;
-        // Start with extra products to account for potential duplicates and filtering
-        $current_per_page = $per_page + 5; // Start with 5 extra products
-        $current_page = $page;
+        // Simply execute the query with exact pagination parameters
+        $query = $this->build_products_query($filters, $page, $per_page, $per_page, $orderby, $order);
+        $results = $this->wpdb->get_results($query, ARRAY_A);
 
-        while (count($products) < $per_page && $attempts < $max_attempts) {
-            $attempts++;
+        error_log("DreamShop Filter: SQL query returned " . count($results) . " products for page $page");
 
-            // Build and execute query
-            $query = $this->build_products_query($filters, $current_page, $current_per_page, $orderby, $order);
-            $results = $this->wpdb->get_results($query, ARRAY_A);
+        // Format results
+        $products = $this->format_products($results);
 
-            error_log("DreamShop Filter: Attempt $attempts - SQL query returned " . count($results) . " products for page $current_page");
+        error_log("DreamShop Filter: Returning " . count($products) . " formatted products");
 
-            // Format results
-            $formatted_products = $this->format_products($results);
-
-            // Add new unique products to our collection
-            foreach ($formatted_products as $product) {
-                if (count($products) < $per_page && !in_array($product['id'], $seen_ids)) {
-                    $products[] = $product;
-                    $seen_ids[] = $product['id'];
-                }
-            }
-
-            error_log("DreamShop Filter: After attempt $attempts, we have " . count($products) . " unique products (need $per_page)");
-
-            // If we don't have enough products, try to get more
-            if (count($products) < $per_page && count($results) >= $current_per_page) {
-                // Increase the fetch size for next attempt
-                $current_per_page = $current_per_page + ($per_page - count($products)) + 10; // Add 10 extra buffer for duplicates
-                error_log("DreamShop Filter: Not enough products, increasing per_page to $current_per_page for next attempt");
-            } else {
-                // No more products available or we have enough
-                break;
-            }
-        }
-
-        error_log("DreamShop Filter: Final result - returning " . count($products) . " unique products after $attempts attempts");
         return $products;
     }
 
     /**
      * Build the main products query
+     *
+     * @param array $filters Filter criteria
+     * @param int $page Current page number
+     * @param int $per_page Items per page (used for offset calculation)
+     * @param int $fetch_count Actual number of items to fetch (may be higher for backfill)
+     * @param string $orderby Order by field
+     * @param string $order Order direction
      */
-    private function build_products_query($filters, $page, $per_page, $orderby, $order) {
+    private function build_products_query($filters, $page, $per_page, $fetch_count, $orderby, $order) {
+        // Calculate offset using per_page (the expected page size), not fetch_count
         $offset = ($page - 1) * $per_page;
 
         // Base query - use GROUP BY instead of DISTINCT to handle multiple joins better
@@ -188,8 +165,8 @@ class DreamShop_Filters_Product_Query {
         // Add ORDER BY
         $query .= $this->build_order_by($orderby, $order);
 
-        // Add LIMIT
-        $query .= $this->wpdb->prepare(" LIMIT %d OFFSET %d", $per_page, $offset);
+        // Add LIMIT - use fetch_count for LIMIT, per_page for OFFSET calculation
+        $query .= $this->wpdb->prepare(" LIMIT %d OFFSET %d", $fetch_count, $offset);
 
         // Prepare query with parameters
         $params = [];
