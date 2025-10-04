@@ -33,7 +33,11 @@ export async function POST(request: NextRequest) {
       // Ora utilizziamo JWT per verificare la password
       try {
         // Chiamata all'API JWT di WordPress per autenticare l'utente
-        const jwtResponse = await axios.post(`${WP_URL}/wp-json/jwt-auth/v1/token`, {
+        const jwtUrl = `${WP_URL}/wp-json/jwt-auth/v1/token`;
+        console.log('[LOGIN DEBUG] JWT URL:', jwtUrl);
+        console.log('[LOGIN DEBUG] Email:', email);
+
+        const jwtResponse = await axios.post(jwtUrl, {
           username: email,
           password: password
         });
@@ -84,7 +88,12 @@ export async function POST(request: NextRequest) {
         return responseObj;
         
       } catch (error) {
-        console.error('Errore durante l\'autenticazione:', error);
+        console.error('[LOGIN ERROR] Errore durante l\'autenticazione:', error);
+        if (axios.isAxiosError(error)) {
+          console.error('[LOGIN ERROR] Response:', error.response?.data);
+          console.error('[LOGIN ERROR] Status:', error.response?.status);
+          console.error('[LOGIN ERROR] Request URL:', error.config?.url);
+        }
         return NextResponse.json({ error: 'Errore di autenticazione' }, { status: 500 });
       }
       
