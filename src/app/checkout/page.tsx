@@ -9,7 +9,7 @@ import { PayPalButtons, usePayPalScriptReducer } from '@paypal/react-paypal-js';
 import Link from 'next/link';
 import AppleGooglePayCheckout from '@/components/checkout/AppleGooglePayCheckout';
 
-import { createOrder, createCustomer, getShippingMethods, ShippingMethod, getUserAddresses, saveUserAddresses } from '../../lib/api';
+import { createOrder, createCustomer, getShippingMethods, ShippingMethod, getUserAddresses, saveUserAddresses, getProductShippingClassId } from '../../lib/api';
 import { redeemPoints } from '../../lib/points';
 import { getAvailableCountries, CountryOption } from '../../lib/countries';
 
@@ -261,11 +261,23 @@ export default function CheckoutPage() {
         const cartTotal = getSubtotal(); // Usa il totale del carrello
 
         // Prepara i dati del carrello per il calcolo della spedizione
-        const cartItems = cart.map(item => ({
-          product_id: item.product.id,
-          quantity: item.quantity,
-          variation_id: item.variation_id,
-          shipping_class_id: item.product.shipping_class_id || 0
+        // Se un prodotto non ha shipping_class_id, recuperalo dal plugin
+        const cartItems = await Promise.all(cart.map(async (item) => {
+          let shippingClassId = item.product.shipping_class_id || 0;
+
+          // Se non ha shipping_class_id, recuperalo dal plugin
+          if (!shippingClassId || shippingClassId === 0) {
+            console.log(`Recupero shipping_class_id per prodotto ${item.product.id}`);
+            shippingClassId = await getProductShippingClassId(item.product.id);
+            console.log(`Shipping class ID recuperato: ${shippingClassId}`);
+          }
+
+          return {
+            product_id: item.product.id,
+            quantity: item.quantity,
+            variation_id: item.variation_id,
+            shipping_class_id: shippingClassId
+          };
         }));
 
         // Ottieni i metodi di spedizione disponibili

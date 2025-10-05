@@ -253,7 +253,8 @@ class DreamShop_Filters_REST_API {
                 'tags' => $this->get_product_tags($product),
                 'attributes' => $this->get_product_attributes($product),
                 'images' => $this->get_product_images($product),
-                'permalink' => get_permalink($product_id)
+                'permalink' => get_permalink($product_id),
+                'shipping_class_id' => $product->get_shipping_class_id() ?: 0
             ];
 
             return new WP_REST_Response([

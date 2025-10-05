@@ -3508,3 +3508,41 @@ export async function testPluginFilterEndpoint(filters: PluginFilterParams = {})
     throw error;
   }
 }
+
+/**
+ * Get shipping class ID for a product using the DreamShop Filters plugin
+ * This is used to ensure all products have shipping_class_id before checkout
+ */
+export async function getProductShippingClassId(productId: number): Promise<number> {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL?.replace(/\/$/, '') || '';
+
+    // Use the product details endpoint from the DreamShop plugin
+    const filterUrl = `${baseUrl}/wp-json/dreamshop/v1/products/${productId}`;
+
+    const response = await fetch(filterUrl, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      console.warn(`Failed to get shipping class for product ${productId}`);
+      return 0;
+    }
+
+    const result = await response.json();
+
+    // The plugin returns { success: true, data: { shipping_class_id: ... } }
+    if (result.success && result.data) {
+      return result.data.shipping_class_id || 0;
+    }
+
+    return 0;
+  } catch (error) {
+    console.error(`Error fetching shipping class for product ${productId}:`, error);
+    return 0;
+  }
+}
