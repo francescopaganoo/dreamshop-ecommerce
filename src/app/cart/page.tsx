@@ -416,19 +416,9 @@ export default function CartPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {/* Cart Items */}
               <div className="lg:col-span-2">
-                <div className="bg-white rounded-lg shadow-md overflow-hidden">
-                  <table className="w-full">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prodotti</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prezzo</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantità</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Totale</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {cart.map(item => {
+                {/* Vista Mobile - Cards */}
+                <div className="lg:hidden space-y-4">
+                  {cart.map(item => {
                         
                         // Otteniamo tutte le informazioni sull'acconto dal prodotto
                         const depositInfo = getDepositInfo(item.product as unknown as ProductWithDeposit);
@@ -464,7 +454,139 @@ export default function CartPage() {
                         }
                         
                         const itemTotal = itemPrice * item.quantity;
-                        
+
+                        return (
+                          <div key={item.product.id} className="bg-white rounded-lg shadow-md p-4">
+                            <div className="flex gap-4">
+                              {/* Immagine */}
+                              <div className="relative h-24 w-24 flex-shrink-0">
+                                <Image
+                                  src={item.product.images && item.product.images.length > 0
+                                    ? item.product.images[0].src
+                                    : 'https://via.placeholder.com/100'}
+                                  alt={item.product.name}
+                                  fill
+                                  sizes="96px"
+                                  style={{ objectFit: 'cover' }}
+                                  className="rounded-md"
+                                />
+                              </div>
+
+                              {/* Info prodotto */}
+                              <div className="flex-1 min-w-0">
+                                <Link
+                                  href={`/prodotto/${getProductSlug(item.product)}`}
+                                  className="text-sm font-medium text-gray-900 hover:text-blue-600 block mb-2"
+                                >
+                                  {item.product.name}
+                                </Link>
+
+                                <div className="text-sm text-gray-600 mb-2">
+                                  <div>{formatPrice(itemPrice)}</div>
+                                  {isDeposit && (
+                                    <div className="text-xs text-green-600 font-medium">{priceLabel}</div>
+                                  )}
+                                </div>
+
+                                {/* Quantità */}
+                                <div className="flex items-center gap-4 mb-2">
+                                  <div className="flex items-center border border-gray-300 rounded-md">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleQuantityChange(item.product.id, item.quantity - 1)}
+                                      className="px-3 py-1 text-gray-600 hover:bg-gray-100"
+                                    >
+                                      -
+                                    </button>
+                                    <span className="px-3 py-1 text-center min-w-[2rem]">{item.quantity}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleQuantityChange(item.product.id, item.quantity + 1)}
+                                      className="px-3 py-1 text-gray-600 hover:bg-gray-100"
+                                    >
+                                      +
+                                    </button>
+                                  </div>
+
+                                  <div className="text-sm font-medium text-gray-900">
+                                    Totale: {formatPrice(itemTotal)}
+                                  </div>
+                                </div>
+
+                                {isDeposit && (
+                                  <div className="text-xs text-green-600 mb-2">
+                                    Totale prodotto: {formatPrice(parseFloat(item.product.price || item.product.regular_price || '0') * item.quantity)}
+                                  </div>
+                                )}
+
+                                {/* Pulsante Rimuovi */}
+                                <button
+                                  onClick={() => handleRemoveItem(item.product.id)}
+                                  className="flex items-center text-sm text-red-600 hover:text-red-800 hover:bg-red-50 px-2 py-1 rounded transition-all"
+                                  aria-label="Rimuovi prodotto dal carrello"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                  Rimuovi
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                </div>
+
+                {/* Vista Desktop - Tabella */}
+                <div className="hidden lg:block bg-white rounded-lg shadow-md overflow-hidden">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prodotti</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prezzo</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantità</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Totale</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {cart.map(item => {
+
+                        // Otteniamo tutte le informazioni sull'acconto dal prodotto
+                        const depositInfo = getDepositInfo(item.product as unknown as ProductWithDeposit);
+                        const isDeposit = depositInfo.hasDeposit;
+
+
+                        // Calcola il prezzo in base ai metadati dell'acconto
+                        let itemPrice = parseFloat(item.product.price || item.product.regular_price || '0');
+                        let priceLabel = '';
+                        // const fullPrice = itemPrice; // Non utilizzato
+
+
+                        // Se il prodotto ha l'acconto attivo, dobbiamo mostrare il prezzo dell'acconto
+                        if (isDeposit) {
+                          // Forziamo l'uso della percentuale standard del 40% se non riusciamo a recuperarla dai metadati
+                          let depositPercentage = depositInfo.depositPercentage;
+
+                          // Se la percentuale è 0 o non valida, usiamo il 40% come predefinito
+                          if (!depositPercentage || depositPercentage <= 0) {
+                            depositPercentage = 0.4; // 40%
+                          }
+
+
+                          // Calcoliamo il prezzo dell'acconto
+                          const depositPrice = itemPrice * depositPercentage;
+
+                          // Aggiorniamo il prezzo visualizzato con quello dell'acconto
+                          itemPrice = depositPrice;
+
+                          // Creiamo l'etichetta appropriata
+                          const percentageDisplay = Math.round(depositPercentage * 100);
+                          priceLabel = `Acconto (${percentageDisplay}%)`;
+                        }
+
+                        const itemTotal = itemPrice * item.quantity;
+
                         return (
                           <tr key={item.product.id}>
                             <td className="px-6 py-4 ">
