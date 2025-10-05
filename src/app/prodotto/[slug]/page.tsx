@@ -99,7 +99,7 @@ async function ProductDetails({ slug }: { slug: string }) {
         </ol>
       </nav>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
         {/* Product Images & Specifications */}
         <div>
           <ProductImagesSection
@@ -122,7 +122,7 @@ async function ProductDetails({ slug }: { slug: string }) {
                   Specifiche
                 </h3>
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {acfFields.brand && (
                       <div className="bg-white rounded-md p-3 border border-gray-200">
                         <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Brand</div>
@@ -373,7 +373,7 @@ async function ProductDetails({ slug }: { slug: string }) {
         <Suspense fallback={
           <div className="animate-pulse">
             <div className="h-8 bg-gray-200 rounded w-48 mb-8"></div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
               {[...Array(4)].map((_, i) => (
                 <div key={i} className="bg-gray-200 h-64 rounded-lg"></div>
               ))}
@@ -383,13 +383,13 @@ async function ProductDetails({ slug }: { slug: string }) {
           <RelatedProductsSection productSlug={product.slug} productId={product.id} categories={product.categories || []} />
         </Suspense>
       </div>
-      
+
       {/* Best Selling Products Section */}
       <div className="mt-16 border-t border-gray-100 pt-16">
         <Suspense fallback={
           <div className="animate-pulse">
             <div className="h-8 bg-gray-200 rounded w-56 mb-8"></div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
               {[...Array(4)].map((_, i) => (
                 <div key={i} className="bg-gray-200 h-64 rounded-lg"></div>
               ))}
