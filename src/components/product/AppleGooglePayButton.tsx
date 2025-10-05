@@ -19,12 +19,20 @@ interface AppleGooglePayButtonProps {
   product: Product;
   quantity: number;
   enableDeposit?: 'yes' | 'no';
+  variationId?: number;
+  variationAttributes?: Array<{
+    id: number;
+    name: string;
+    option: string;
+  }>;
 }
 
-export default function AppleGooglePayButton({ 
-  product, 
-  quantity, 
-  enableDeposit = 'no' 
+export default function AppleGooglePayButton({
+  product,
+  quantity,
+  enableDeposit = 'no',
+  variationId,
+  variationAttributes
 }: AppleGooglePayButtonProps) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [paymentRequest, setPaymentRequest] = useState<any>(null);
@@ -100,6 +108,8 @@ export default function AppleGooglePayButton({
             userId: user?.id || 0,
             enableDeposit: enableDeposit,
             paymentMethodId: ev.paymentMethod.id,
+            variationId: variationId,
+            variationAttributes: variationAttributes,
             billingData: {
               first_name: ev.payerName?.split(' ')[0] || '',
               last_name: ev.payerName?.split(' ').slice(1).join(' ') || '',
@@ -145,7 +155,7 @@ export default function AppleGooglePayButton({
       }
     });
 
-  }, [stripe, product, quantity, enableDeposit, user, router, isInStock]);
+  }, [stripe, product, quantity, enableDeposit, user, router, isInStock, variationId, variationAttributes]);
 
   if (!isInStock) {
     return null;

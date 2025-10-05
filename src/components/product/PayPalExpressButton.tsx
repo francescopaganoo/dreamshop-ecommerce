@@ -10,12 +10,20 @@ interface PayPalExpressButtonProps {
   product: Product;
   quantity: number;
   enableDeposit?: 'yes' | 'no';
+  variationId?: number;
+  variationAttributes?: Array<{
+    id: number;
+    name: string;
+    option: string;
+  }>;
 }
 
 export default function PayPalExpressButton({
   product,
   quantity,
-  enableDeposit = 'no'
+  enableDeposit = 'no',
+  variationId,
+  variationAttributes
 }: PayPalExpressButtonProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,7 +57,7 @@ export default function PayPalExpressButton({
         const cartItems = [{
           product_id: product.id,
           quantity: quantity,
-          variation_id: 0,
+          variation_id: variationId || 0,
           shipping_class_id: product.shipping_class_id || 0
         }];
 
@@ -73,7 +81,7 @@ export default function PayPalExpressButton({
     };
 
     calculateDefaultShipping();
-  }, [product.id, product.price, product.sale_price, product.shipping_class_id, quantity]);
+  }, [product.id, product.price, product.sale_price, product.shipping_class_id, quantity, variationId]);
 
   if (!isInStock) {
     return null;
@@ -119,7 +127,7 @@ export default function PayPalExpressButton({
               value: totalAmount
             },
             description: `${product.name} x${quantity}`,
-            custom_id: `product_${product.id}_qty_${quantity}_deposit_${enableDeposit}_paypal_fee`
+            custom_id: `product_${product.id}_variation_${variationId || 0}_qty_${quantity}_deposit_${enableDeposit}_paypal_fee`
           },
         ],
         application_context: {
@@ -164,7 +172,7 @@ export default function PayPalExpressButton({
       const cartItems = [{
         product_id: product.id,
         quantity: quantity,
-        variation_id: 0,
+        variation_id: variationId || 0,
         shipping_class_id: product.shipping_class_id || 0
       }];
 
@@ -184,6 +192,8 @@ export default function PayPalExpressButton({
           quantity: quantity,
           userId: user?.id || 0,
           enableDeposit: enableDeposit,
+          variationId: variationId,
+          variationAttributes: variationAttributes,
           shippingMethod: finalShippingMethod,
           billingData: {
             first_name: payer?.name?.given_name || '',
@@ -247,7 +257,7 @@ export default function PayPalExpressButton({
       const cartItems = [{
         product_id: product.id,
         quantity: quantity,
-        variation_id: 0,
+        variation_id: variationId || 0,
         shipping_class_id: product.shipping_class_id || 0
       }];
 

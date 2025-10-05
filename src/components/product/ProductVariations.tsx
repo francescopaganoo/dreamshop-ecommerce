@@ -10,6 +10,8 @@ import GiftCardCustomAmount from './GiftCardCustomAmount';
 import { variationImageEvents } from './ProductImagesSection';
 import ProductDepositOptionsComponent from './ProductDepositOptions';
 import { getDepositMetadata } from '@/lib/deposits';
+import PayPalExpressButton from '@/components/product/PayPalExpressButton';
+import AppleGooglePayButton from '@/components/product/AppleGooglePayButton';
 
 interface ProductVariationsProps {
   productId: number;
@@ -825,6 +827,69 @@ export default function ProductVariations({
           productId={productId}
           onDataChange={handleGiftCardDataChange}
         />
+      )}
+
+      {/* Express Checkout Options - Sopra il pulsante aggiungi al carrello - Non per gift card */}
+      {!isGiftCardProduct && selectedVariation && selectedVariation.stock_status === 'instock' && hasValidPrice && (
+        <div className="space-y-3 mb-6">
+          {/* Apple Pay / Google Pay */}
+          <AppleGooglePayButton
+            product={{
+              id: productId,
+              name: `${productName} - ${selectedVariation.attributes?.map(attr => `${attr.name}: ${attr.option}`).join(', ') || ''}`,
+              price: selectedVariation.price,
+              regular_price: selectedVariation.regular_price,
+              sale_price: selectedVariation.sale_price,
+              description: '',
+              short_description: '',
+              permalink: '',
+              slug: '',
+              type: 'variation',
+              stock_status: selectedVariation.stock_status,
+              stock_quantity: selectedVariation.stock_quantity,
+              manage_stock: selectedVariation.manage_stock,
+              images: selectedVariation.image ? [{ id: 0, src: selectedVariation.image.src, alt: '' }] : [],
+              categories: []
+            }}
+            quantity={quantity}
+            enableDeposit={enableDeposit}
+            variationId={selectedVariation.id}
+            variationAttributes={selectedVariation.attributes?.map(attr => ({
+              id: attr.id,
+              name: attr.name,
+              option: attr.option
+            }))}
+          />
+
+          {/* PayPal Express - Gestisce internamente le condizioni di visibilità */}
+          <PayPalExpressButton
+            product={{
+              id: productId,
+              name: `${productName} - ${selectedVariation.attributes?.map(attr => `${attr.name}: ${attr.option}`).join(', ') || ''}`,
+              price: selectedVariation.price,
+              regular_price: selectedVariation.regular_price,
+              sale_price: selectedVariation.sale_price,
+              description: '',
+              short_description: '',
+              permalink: '',
+              slug: '',
+              type: 'variation',
+              stock_status: selectedVariation.stock_status,
+              stock_quantity: selectedVariation.stock_quantity,
+              manage_stock: selectedVariation.manage_stock,
+              images: selectedVariation.image ? [{ id: 0, src: selectedVariation.image.src, alt: '' }] : [],
+              categories: []
+            }}
+            quantity={quantity}
+            enableDeposit={enableDeposit}
+            variationId={selectedVariation.id}
+            variationAttributes={selectedVariation.attributes?.map(attr => ({
+              id: attr.id,
+              name: attr.name,
+              option: attr.option
+            }))}
+          />
+        </div>
       )}
 
       {/* Pulsante Aggiungi al carrello */}
