@@ -246,8 +246,8 @@ export default function Header() {
             />
           </Link>
 
-          {/* Icone sempre visibili su mobile (carrello e wishlist) */}
-          <div className="flex items-center space-x-3 md:hidden relative">
+          {/* Icone sempre visibili su mobile e tablet (carrello e wishlist) */}
+          <div className="flex items-center space-x-3 lg:hidden relative">
             <Link href="/wishlist" className="relative text-white hover:text-white">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
@@ -293,15 +293,15 @@ export default function Header() {
             </button>
           </div>
 
-          {/* Search Bar - visibile solo da tablet in su */}
-          <div className="hidden md:flex flex-1 mx-10">
+          {/* Search Bar - visibile solo da desktop in su */}
+          <div className="hidden lg:flex flex-1 mx-10">
             <div className="w-full max-w-xl">
               <SearchBar />
             </div>
           </div>
 
-          {/* Navigation Desktop - visibile solo da tablet in su */}
-          <nav className="hidden md:flex items-center space-x-6">
+          {/* Navigation Desktop - visibile solo da desktop in su */}
+          <nav className="hidden lg:flex items-center space-x-6">
             <div 
               className="relative"
               ref={megaMenuRef}
@@ -491,13 +491,13 @@ export default function Header() {
           
           {/* Mobile Menu Overlay - visibile solo quando attivo */}
           {isMobileMenuOpen && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 z-40"></div>
+            <div className="fixed inset-0 bg-white/80 backdrop-blur-sm z-40"></div>
           )}
           
           {/* Mobile Menu Panel */}
-          <div 
+          <div
             ref={mobileMenuRef}
-            className={`fixed top-0 right-0 h-full w-4/5 max-w-sm bg-white transform transition-transform duration-300 ease-in-out z-50 shadow-xl overflow-y-auto ${isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}
+            className={`fixed top-0 right-0 h-full w-4/5 max-w-sm bg-white/95 backdrop-blur-sm transform transition-transform duration-300 ease-in-out z-50 shadow-xl overflow-y-auto ${isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}
           >
             <div className="p-6">
               <div className="flex justify-between items-center mb-8">
