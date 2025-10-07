@@ -25,7 +25,10 @@ export default function CheckoutPage() {
   // Stato per i punti riscattati
   const [pointsToRedeem, setPointsToRedeem] = useState<number>(0);
   const [pointsDiscount, setPointsDiscount] = useState<number>(0);
-  
+
+  // Controlla se ci sono prodotti con deposit (rate) nel carrello
+  const hasDepositProducts = cart.some(item => item.product._wc_convert_to_deposit === 'yes');
+
   // Hook di Stripe
   const stripe = useStripe();
   const elements = useElements();
@@ -2625,33 +2628,36 @@ export default function CheckoutPage() {
                       )}
                     </div>
 
-                    <div>
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          name="paymentMethod"
-                          value="klarna"
-                          checked={formData.paymentMethod === 'klarna'}
-                          onChange={handleInputChange}
-                          className="mr-2"
-                        />
-                        <span className="text-gray-700">Klarna - Paga in 3 rate</span>
-                      </label>
-                      {formData.paymentMethod === 'klarna' && (
-                        <div className="mt-2 pl-6 text-sm text-gray-600">
-                          <p>Paga in 3 rate senza interessi con Klarna. Completa l&apos;acquisto ora e ricevi la merce immediatamente.</p>
-                          <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                            <div className="flex items-center text-blue-700">
-                              <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                              </svg>
-                              <span className="text-sm font-medium">Paga subito solo 1/3 dell&apos;importo</span>
+                    {/* Klarna - Disabilitato se ci sono prodotti con rate nel carrello */}
+                    {!hasDepositProducts && (
+                      <div>
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            name="paymentMethod"
+                            value="klarna"
+                            checked={formData.paymentMethod === 'klarna'}
+                            onChange={handleInputChange}
+                            className="mr-2"
+                          />
+                          <span className="text-gray-700">Klarna - Paga in 3 rate</span>
+                        </label>
+                        {formData.paymentMethod === 'klarna' && (
+                          <div className="mt-2 pl-6 text-sm text-gray-600">
+                            <p>Paga in 3 rate senza interessi con Klarna. Completa l&apos;acquisto ora e ricevi la merce immediatamente.</p>
+                            <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                              <div className="flex items-center text-blue-700">
+                                <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                                </svg>
+                                <span className="text-sm font-medium">Paga subito solo 1/3 dell&apos;importo</span>
+                              </div>
+                              <p className="text-xs text-blue-600 mt-1">Le rate rimanenti verranno addebitate automaticamente ogni 30 giorni</p>
                             </div>
-                            <p className="text-xs text-blue-600 mt-1">Le rate rimanenti verranno addebitate automaticamente ogni 30 giorni</p>
                           </div>
-                        </div>
-                      )}
-                    </div>
+                        )}
+                      </div>
+                    )}
 
                     <div>
                       <label className="flex items-center">
