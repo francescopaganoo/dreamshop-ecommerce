@@ -2060,10 +2060,23 @@ class DreamShop_Deposits_API {
                             
                             // Aggiorna il post_parent e post_date direttamente nel database
                             global $wpdb;
-                            
+
                             // Formatta la data di scadenza nel formato corretto per MySQL (Y-m-d H:i:s)
                             $mysql_date = date('Y-m-d 12:00:00', strtotime($payment_date));
-                            
+
+                            // IMPORTANTE: Con HPOS aggiorna wp_wc_orders invece di wp_posts
+                            $wpdb->update(
+                                $wpdb->prefix . 'wc_orders',
+                                array(
+                                    'parent_order_id' => $order->get_id(),
+                                    'date_created_gmt' => $mysql_date,
+                                ),
+                                array('id' => $installment_order_id),
+                                array('%d', '%s'),
+                                array('%d')
+                            );
+
+                            // Fallback per compatibilità con installazioni non-HPOS (anche se unlikely)
                             $wpdb->update(
                                 $wpdb->posts,
                                 array(
@@ -2075,8 +2088,8 @@ class DreamShop_Deposits_API {
                                 array('%d', '%s', '%s'),
                                 array('%d')
                             );
-                            
-                            error_log("[INFO] Ordine rata #{$installment_order_id} salvato con importo {$installment_amount}€, scadenza {$payment_date} (data MySQL: {$mysql_date}), e post_parent {$order->get_id()}");
+
+                            error_log("[INFO] Ordine rata #{$installment_order_id} salvato con importo {$installment_amount}€, scadenza {$payment_date} (data MySQL: {$mysql_date}), parent {$order->get_id()}");
                         } catch (Exception $e) {
                             error_log("[ERROR] Errore nella creazione della rata #{$index}: " . $e->getMessage());
                             continue;
