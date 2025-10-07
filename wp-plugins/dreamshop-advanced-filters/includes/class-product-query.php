@@ -106,6 +106,12 @@ class DreamShop_Filters_Product_Query {
         $where_conditions[] = "(pm_visibility.meta_value IS NULL OR pm_visibility.meta_value = 'visible')";
         $where_conditions[] = "(pm_catalog_visibility.meta_value IS NULL OR pm_catalog_visibility.meta_value = 'visible')";
 
+        // Search filter - search in product title
+        if (!empty($filters['search'])) {
+            $search_term = $this->wpdb->esc_like($filters['search']);
+            $where_conditions[] = $this->wpdb->prepare("p.post_title LIKE %s", '%' . $search_term . '%');
+        }
+
         // Category filter
         if (!empty($filters['category_slug'])) {
             $joins[] = "INNER JOIN {$this->wpdb->term_relationships} tr_cat ON p.ID = tr_cat.object_id";
@@ -274,6 +280,12 @@ class DreamShop_Filters_Product_Query {
         $joins[] = "LEFT JOIN {$this->wpdb->postmeta} pm_catalog_visibility ON p.ID = pm_catalog_visibility.post_id AND pm_catalog_visibility.meta_key = '_catalog_visibility'";
         $where_conditions[] = "(pm_visibility.meta_value IS NULL OR pm_visibility.meta_value = 'visible')";
         $where_conditions[] = "(pm_catalog_visibility.meta_value IS NULL OR pm_catalog_visibility.meta_value = 'visible')";
+
+        // Search filter - search in product title
+        if (!empty($filters['search'])) {
+            $search_term = $this->wpdb->esc_like($filters['search']);
+            $where_conditions[] = $this->wpdb->prepare("p.post_title LIKE %s", '%' . $search_term . '%');
+        }
 
         // Category filter
         if (!empty($filters['category_slug'])) {

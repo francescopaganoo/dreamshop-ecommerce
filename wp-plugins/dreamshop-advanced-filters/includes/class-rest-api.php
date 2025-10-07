@@ -132,7 +132,8 @@ class DreamShop_Filters_REST_API {
                 'min_price' => $request->get_param('min_price'),
                 'max_price' => $request->get_param('max_price'),
                 'exclude_sold_out' => $request->get_param('exclude_sold_out') === 'true' || $request->get_param('exclude_sold_out') === true,
-                'on_sale' => $request->get_param('on_sale') === 'true' || $request->get_param('on_sale') === true
+                'on_sale' => $request->get_param('on_sale') === 'true' || $request->get_param('on_sale') === true,
+                'search' => $request->get_param('search')
             ];
 
             $page = (int) $request->get_param('page') ?: 1;
@@ -422,6 +423,11 @@ class DreamShop_Filters_REST_API {
                 'description' => 'Filter only products on sale',
                 'type' => 'boolean',
                 'default' => false
+            ],
+            'search' => [
+                'description' => 'Search term for product name',
+                'type' => 'string',
+                'sanitize_callback' => 'sanitize_text_field'
             ]
         ];
     }

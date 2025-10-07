@@ -1,4 +1,4 @@
-import { searchProducts, Product } from '../../lib/api';
+import { getFilteredProductsPlugin, Product } from '../../lib/api';
 import ProductCard from '../../components/ProductCard';
 import { Metadata } from 'next';
 import Link from 'next/link';
@@ -26,8 +26,12 @@ export default async function SearchPage({ searchParams }: any) {
   
   // If no search query is provided, we'll show an empty state
   const searchResult = searchQuery
-    ? await searchProducts(searchQuery, page, perPage)
-    : { products: [], total: 0 };
+    ? await getFilteredProductsPlugin({
+        search: searchQuery,
+        page: page,
+        per_page: perPage
+      })
+    : { products: [], total: 0, total_pages: 0 };
 
   const products = searchResult.products;
   const totalProducts = searchResult.total;
@@ -45,11 +49,11 @@ export default async function SearchPage({ searchParams }: any) {
                 : 'Search Products'
               }
             </h1>
-            {searchQuery && (
+            {/*{searchQuery && (
               <p className="text-gray-600">
                 {products.length} {products.length === 1 ? 'prodotto' : 'prodotti'}
               </p>
-            )}
+            )}*/}
           </div>
           
           {/* Search Form */}

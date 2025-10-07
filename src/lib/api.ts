@@ -3211,6 +3211,7 @@ export async function getFilteredProductsPlugin(filters: {
   max_price?: number;
   exclude_sold_out?: boolean;
   on_sale?: boolean;
+  search?: string;
   page?: number;
   per_page?: number;
   orderby?: string;
@@ -3229,6 +3230,7 @@ export async function getFilteredProductsPlugin(filters: {
     if (filters.max_price !== undefined) params.append('max_price', filters.max_price.toString());
     if (filters.exclude_sold_out) params.append('exclude_sold_out', 'true');
     if (filters.on_sale) params.append('on_sale', 'true');
+    if (filters.search) params.append('search', filters.search);
     if (filters.page) params.append('page', filters.page.toString());
     if (filters.per_page) params.append('per_page', filters.per_page.toString());
     if (filters.orderby) params.append('orderby', filters.orderby);
