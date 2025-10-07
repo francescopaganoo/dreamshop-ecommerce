@@ -102,7 +102,10 @@ class DreamShop_Deposits_API {
         add_action('woocommerce_checkout_order_processed', array($this, 'ensure_deposits_processing'), 10, 3);
         add_action('woocommerce_store_api_checkout_order_processed', array($this, 'ensure_deposits_processing'), 10, 1);
         add_action('woocommerce_rest_insert_shop_order_object', array($this, 'ensure_deposits_processing_api'), 10, 3);
-        
+
+        // Hook specifici per HPOS (High-Performance Order Storage)
+        add_action('woocommerce_new_order', array($this, 'ensure_deposits_processing_hpos'), 10, 2);
+
         // Log per debug - gestito in process-deposit-meta.php
         
         // Aggiungi script e stili nel frontend
@@ -1589,7 +1592,7 @@ class DreamShop_Deposits_API {
             foreach ($meta_data as $meta) {
                 $meta_values[$meta->key] = $meta->value;
             }
-            
+
             // Verifica i diversi metadati possibili per gli acconti
             $is_deposit = $item->get_meta('is_deposit');
             $wc_deposit_option = $item->get_meta('wc_deposit_option');
@@ -1771,24 +1774,21 @@ class DreamShop_Deposits_API {
             
             // I metadati sono sufficienti, WooCommerce Deposits gestirà il resto
             
-            // Imposta lo stato dell'ordine come pagamento parziale usando l'API diretta per evitare problemi
-            error_log("[INFO] Aggiorno lo stato dell'ordine #{$order->get_id()} a 'partial-payment' usando wp_update_post");
-            
-            // Imposta prima lo stato dell'ordine usando wp_update_post per aggirare problemi con set_status
-            wp_update_post(array(
-                'ID'          => $order->get_id(),
-                'post_status' => 'wc-partial-payment'
-            ));
-            
-            // Imposta anche lo status nell'oggetto ordine per coerenza
+            // Imposta lo stato dell'ordine come pagamento parziale
+            error_log("[INFO] Aggiorno lo stato dell'ordine #{$order->get_id()} a 'partial-payment'");
+
+            // IMPORTANTE: Con HPOS, usa solo set_status (NON wp_update_post)
             try {
-                $order->set_status('partial-payment');
+                $order->set_status('partial-payment', 'Ordine con acconto - rate create automaticamente');
+                $order->save(); // Salva dopo aver cambiato lo stato
+                error_log("[INFO] Stato aggiornato e salvato correttamente");
             } catch (Exception $e) {
-                error_log("[WARN] Impossibile aggiornare lo stato nell'oggetto ordine: " . $e->getMessage());
+                error_log("[ERROR] Impossibile aggiornare lo stato dell'ordine: " . $e->getMessage());
             }
-            
+
             // Imposta un meta chiave aggiuntivo che indica che l'ordine è parziale
-            update_post_meta($order->get_id(), '_payment_status', 'partial');
+            $order->update_meta_data('_payment_status', 'partial');
+            $order->save_meta_data();
             
             
             // Verifica se la classe del plugin WooCommerce Deposits è disponibile
@@ -1805,27 +1805,44 @@ class DreamShop_Deposits_API {
                     $customer_id = $order->get_customer_id();
                     $billing_address = $order->get_address('billing');
                     $shipping_address = $order->get_address('shipping');
-                    $total_price = $order->get_total();
-                    
-                    // Recupera l'acconto pagato
-                    $deposit_amount = get_post_meta($order->get_id(), '_wc_deposits_deposit_amount', true);
-                    if (!$deposit_amount) {
-                        $deposit_amount = 0;
-                        foreach ($order->get_items() as $item_id => $item) {
-                            $item_deposit = $item->get_meta('_deposit_deposit_amount');
-                            if ($item_deposit) {
-                                $deposit_amount += floatval($item_deposit);
-                            }
+
+                    // CORREZIONE: Calcola il totale dai line items invece di usare $order->get_total()
+                    // perché con HPOS l'ordine potrebbe non avere ancora il totale calcolato
+                    $total_price = 0;
+                    $deposit_amount = 0;
+
+                    foreach ($order->get_items() as $item_id => $item) {
+                        // Usa _deposit_full_amount se disponibile (include il prezzo originale prima dello sconto)
+                        $item_full_amount = $item->get_meta('_deposit_full_amount');
+                        if ($item_full_amount && floatval($item_full_amount) > 0) {
+                            $total_price += floatval($item_full_amount);
+                        } else {
+                            // Fallback: usa il totale del line item
+                            $total_price += $item->get_total();
+                        }
+
+                        // Somma anche l'acconto
+                        $item_deposit = $item->get_meta('_deposit_deposit_amount');
+                        if ($item_deposit) {
+                            $deposit_amount += floatval($item_deposit);
+                        }
+                    }
+
+                    // Se non troviamo nessun totale, proviamo con get_total() come fallback
+                    if ($total_price == 0) {
+                        $total_price = $order->get_total();
+                    }
+
+                    // Recupera l'acconto pagato dai meta dell'ordine se non l'abbiamo già
+                    if ($deposit_amount == 0) {
+                        $deposit_amount = get_post_meta($order->get_id(), '_wc_deposits_deposit_amount', true);
+                        if (!$deposit_amount) {
+                            $deposit_amount = 0;
                         }
                     }
                     
-                    // IMPORTANTE: Aggiorniamo il totale dell'ordine principale per riflettere solo l'acconto
-                    // Questo risolve il problema dell'ordine visualizzato a prezzo pieno invece che al solo importo dell'acconto
-                    if ($deposit_amount > 0) {
-                        $original_total = $order->get_total();
-                        $order->set_total($deposit_amount);
-                        $order->save();
-                    }
+                    // NOTA: NON impostiamo il totale qui perché verrà sovrascritto da set_status('partial-payment')
+                    // Il totale verrà impostato correttamente alla fine della funzione, dopo process_deposits_in_order()
                     
                     // Controlla quale piano di pagamento è stato selezionato
                     $payment_plan = '';
@@ -1914,7 +1931,7 @@ class DreamShop_Deposits_API {
                     foreach ($installments as $key => $installment) {
                         $amount = 0;
                         $has_percent = isset($installment['percent']) && floatval($installment['percent']) > 0;
-                        
+
                         // Priorità 1: Usa la percentuale se è specificata, anche se amount è presente
                         if ($has_percent) {
                             $percent = floatval($installment['percent']);
@@ -1992,30 +2009,23 @@ class DreamShop_Deposits_API {
                             $installment_order->set_address($billing_address, 'billing');
                             $installment_order->set_address($shipping_address, 'shipping');
                             
-                            // Cerca un prodotto valido da usare come placeholder
+                            // CORREZIONE: Usa SOLO il prodotto dell'ordine originale
                             $product = null;
-                            
-                            // Prima prova con l'ID 1
-                            $product = wc_get_product(1);
-                            
-                            // Se non esiste, cerca un qualsiasi prodotto pubblicato
-                            if (!$product) {
-                                $products = wc_get_products(array('limit' => 1, 'status' => 'publish'));
-                                if (!empty($products)) {
-                                    $product = $products[0];
+                            $product_id_to_use = null;
+
+                            // Recupera i line items dell'ordine originale
+                            foreach ($order->get_items() as $original_item) {
+                                // Usa il primo prodotto dell'ordine originale
+                                $product_id_to_use = $original_item->get_product_id();
+                                $product = $original_item->get_product();
+                                if ($product) {
+                                    break; // Usa il primo prodotto trovato
                                 }
                             }
-                            
-                            // Ultimo tentativo: cerca qualsiasi prodotto
+
+                            // Se non troviamo il prodotto, errore critico
                             if (!$product) {
-                                $products = wc_get_products(array('limit' => 1));
-                                if (!empty($products)) {
-                                    $product = $products[0];
-                                }
-                            }
-                            
-                            if (!$product) {
-                                throw new Exception("Nessun prodotto disponibile per l'ordine rata");
+                                throw new Exception("Impossibile trovare il prodotto dell'ordine originale (ID: {$product_id_to_use}) per creare la rata");
                             }
                             
                             // Crea un item per questa rata
@@ -2124,9 +2134,52 @@ class DreamShop_Deposits_API {
                 error_log("[ERROR] Classe WC_Deposits_Order_Manager non trovata, verifica che il plugin WooCommerce Deposits sia attivo");
             }
         }
-        
-        // Salva l'ordine dopo il processamento degli acconti
-        $order->save();
+
+        // CORREZIONE FINALE: Forza il totale dell'ordine principale all'importo dell'acconto
+        // Questo deve essere fatto DOPO process_deposits_in_order perché potrebbe sovrascriverlo
+        if ($has_deposit) {
+            // Ricalcola il deposit_amount dai line items per sicurezza
+            $final_deposit_amount = 0;
+            foreach ($order->get_items() as $item_id => $item) {
+                $item_deposit = $item->get_meta('_deposit_deposit_amount');
+                if ($item_deposit) {
+                    $final_deposit_amount += floatval($item_deposit);
+                }
+            }
+
+            if ($final_deposit_amount > 0) {
+                // CORREZIONE CRITICA: Modifica anche il totale dei LINE ITEMS
+                // altrimenti il backend WordPress somma i line items e mostra il totale sbagliato
+                foreach ($order->get_items() as $item_id => $item) {
+                    $item_deposit = $item->get_meta('_deposit_deposit_amount');
+                    if ($item_deposit && floatval($item_deposit) > 0) {
+                        // Imposta il totale del line item all'importo dell'acconto
+                        $item->set_total($item_deposit);
+                        $item->set_subtotal($item_deposit);
+                        $item->save();
+                    }
+                }
+
+                // Imposta il totale nell'oggetto ordine
+                $order->set_total($final_deposit_amount);
+
+                // Salva immediatamente
+                $order->save();
+
+                // CORREZIONE HPOS: Forza anche direttamente nel database per sicurezza
+                global $wpdb;
+                $wpdb->update(
+                    $wpdb->prefix . 'wc_orders',
+                    array('total_amount' => $final_deposit_amount),
+                    array('id' => $order->get_id()),
+                    array('%f'),
+                    array('%d')
+                );
+            }
+        } else {
+            // Salva l'ordine dopo il processamento degli acconti (se non ha deposit)
+            $order->save();
+        }
     }
     
     /**
@@ -2232,7 +2285,37 @@ class DreamShop_Deposits_API {
             ), 500);
         }
     }
-    
+
+    /**
+     * Elaborazione acconti per ordini HPOS (High-Performance Order Storage)
+     *
+     * @param int $order_id ID dell'ordine
+     * @param WC_Order $order Oggetto ordine (opzionale)
+     */
+    public function ensure_deposits_processing_hpos($order_id, $order = null) {
+        // Se l'ordine non è stato passato, recuperalo
+        if (!$order || !($order instanceof WC_Order)) {
+            $order = wc_get_order($order_id);
+        }
+
+        if (!$order) {
+            return;
+        }
+
+        // IMPORTANTE: Controlla SUBITO per evitare loop
+        $already_processed = $order->get_meta('_deposits_processing_done');
+        if ($already_processed === 'yes') {
+            return; // Esci silenziosamente
+        }
+
+        // Segna IMMEDIATAMENTE come in elaborazione per evitare loop
+        $order->update_meta_data('_deposits_processing_done', 'yes');
+        $order->save_meta_data(); // Salva solo i metadati, non l'intero ordine
+
+        // Chiama la funzione principale di elaborazione
+        $this->ensure_deposits_processing($order);
+    }
+
     /**
      * OPZIONE B: Applica automaticamente il coupon dei punti all'ordine se sono presenti i metadati
      *
@@ -2366,111 +2449,6 @@ class DreamShop_Deposits_API {
         }
     }
 }
-
-/**
- * Nasconde i metadati interni non necessari dalla visualizzazione negli ordini WooCommerce
- * Questo filtro impedisce la visualizzazione di metadati tecnici sotto ogni prodotto nell'admin
- */
-function dreamshop_hide_internal_order_item_meta($formatted_meta, $item) {
-    // Lista completa di metadati da nascondere dalla visualizzazione negli ordini
-    $hidden_meta_keys = [
-        // Metadati Yoast SEO
-        '_yoast_wpseo_estimated-reading-time-minutes',
-        '_yoast_wpseo_content_score',
-        '_yoast_wpseo_focuskw',
-        '_yoast_wpseo_metadesc',
-        '_yoast_wpseo_linkdex',
-
-        // Metadati YITH Preorder
-        '_ywpo_preorder',
-        '_ywpo_availability_date_mode',
-        '_ywpo_price_mode',
-        '_ywpo_preorder_price',
-
-        // Metadati vari plugin
-        '_fz_country_restriction_type',
-        '_wcsob_hide',
-        'sp_wpsp_product_view_count',
-        '_xoo_waitlist_disable',
-        '_xoo_waitlist_force_show',
-
-        // Metadati Divi/Elegant Themes
-        '_et_pb_post_hide_nav',
-        '_et_pb_page_layout',
-        '_et_pb_side_nav',
-        '_eael_post_view_count',
-
-        // Metadati timer/countdown
-        '_sale_price_times_from',
-        '_sale_price_times_to',
-        '_woo_ctr_select_countdown_timer',
-
-        // Metadati WordPress core
-        '_wp_old_date',
-        '_wp_page_template',
-        '_edit_last',
-        '_edit_lock',
-
-        // Metadati PayPal
-        '_ppcp_button_position',
-
-        // Metadati ACF (Advanced Custom Fields) - solo campi interni
-        '_brand',
-        '_tipologia',
-        '_anime',
-        '_codice_a_barre',
-
-        // Metadati Woodmart theme
-        '_woodmart_whb_header',
-        '_woodmart_main_layout',
-        '_woodmart_sidebar_width',
-        '_woodmart_custom_sidebar',
-        '_woodmart_single_product_style',
-        '_woodmart_thums_position',
-        '_woodmart_extra_position',
-        '_woodmart_product_design',
-        '_woodmart_product_custom_tab_content_type',
-        '_woodmart_product_custom_tab_content_type_2',
-
-        // Altri metadati interni
-        '_eos_deactive_plugins_key',
-        'selected_images_categories',
-
-        // Mantieni visibili solo i metadati utili come brand, tipologia, anime (senza underscore)
-        // che sono i valori pubblici dei campi ACF
-    ];
-
-    // Filtra i metadati formattati per rimuovere quelli nella lista
-    if (is_array($formatted_meta)) {
-        $formatted_meta = array_filter($formatted_meta, function($meta) use ($hidden_meta_keys) {
-            // Nascondi i meta nella lista
-            if (in_array($meta->key, $hidden_meta_keys)) {
-                return false;
-            }
-
-            // Nascondi anche tutti i meta che iniziano con underscore eccetto quelli di WooCommerce Deposits
-            if (strpos($meta->key, '_') === 0) {
-                // Mantieni visibili i metadati importanti di WooCommerce Deposits
-                $keep_meta = [
-                    '_wc_deposit_enabled',
-                    '_wc_deposit_type',
-                    '_wc_deposit_amount',
-                    '_deposit_payment_plan'
-                ];
-
-                if (!in_array($meta->key, $keep_meta)) {
-                    // Nascondi tutti gli altri meta con underscore
-                    return false;
-                }
-            }
-
-            return true;
-        });
-    }
-
-    return $formatted_meta;
-}
-add_filter('woocommerce_order_item_get_formatted_meta_data', 'dreamshop_hide_internal_order_item_meta', 10, 2);
 
 // Inizializza il plugin
 function dreamshop_deposits_api() {
