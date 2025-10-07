@@ -728,6 +728,14 @@ export default function CheckoutPage() {
               { key: '_wc_deposit_amount', value: item.product._wc_deposit_amount || '40' }
             );
 
+            // Aggiungi il piano di pagamento se presente
+            if (item.product._deposit_payment_plan) {
+              lineItem.meta_data.push(
+                { key: '_wc_payment_plan', value: item.product._deposit_payment_plan },
+                { key: '_deposit_payment_plan', value: item.product._deposit_payment_plan }
+              );
+            }
+
           }
           
           return lineItem;
@@ -890,6 +898,14 @@ export default function CheckoutPage() {
             { key: '_wc_deposit_amount', value: item.product._wc_deposit_amount || '40' }
           );
 
+          // Aggiungi il piano di pagamento se presente
+          if (item.product._deposit_payment_plan) {
+            lineItem.meta_data.push(
+              { key: '_wc_payment_plan', value: item.product._deposit_payment_plan },
+              { key: '_deposit_payment_plan', value: item.product._deposit_payment_plan }
+            );
+          }
+
         }
         
         return lineItem;
@@ -1051,7 +1067,8 @@ export default function CheckoutPage() {
                 console.log(`iOS CHECKOUT - Dettagli acconto:`, {
                   _wc_convert_to_deposit: item.product._wc_convert_to_deposit,
                   _wc_deposit_type: item.product._wc_deposit_type,
-                  _wc_deposit_amount: item.product._wc_deposit_amount
+                  _wc_deposit_amount: item.product._wc_deposit_amount,
+                  _deposit_payment_plan: item.product._deposit_payment_plan
                 });
 
                 // Assicurati che meta_data sia un array
@@ -1063,6 +1080,14 @@ export default function CheckoutPage() {
                   { key: '_wc_deposit_type', value: item.product._wc_deposit_type || 'percent' },
                   { key: '_wc_deposit_amount', value: item.product._wc_deposit_amount || '40' }
                 );
+
+                // Aggiungi il piano di pagamento se presente
+                if (item.product._deposit_payment_plan) {
+                  lineItem.meta_data.push(
+                    { key: '_wc_payment_plan', value: item.product._deposit_payment_plan },
+                    { key: '_deposit_payment_plan', value: item.product._deposit_payment_plan }
+                  );
+                }
 
               } else {
                 console.log(`iOS CHECKOUT - NESSUN ACCONTO per prodotto ${item.product.id}: _wc_convert_to_deposit = ${item.product._wc_convert_to_deposit}`);

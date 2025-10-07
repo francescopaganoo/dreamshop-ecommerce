@@ -533,6 +533,7 @@ export interface Product {
   _wc_convert_to_deposit?: string;
   _wc_deposit_type?: string;
   _wc_deposit_amount?: string;
+  _deposit_payment_plan?: string;
   has_deposit_option?: boolean; // Campo aggiunto dal plugin per evitare chiamate API multiple
   stock_status: string;
   stock_quantity?: number; // Quantità disponibile in magazzino
