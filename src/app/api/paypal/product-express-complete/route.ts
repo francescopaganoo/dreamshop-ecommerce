@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     // Calcola il prezzo del prodotto sottraendo spedizione e fee dal totale pagato
     // In questo modo: prezzo_prodotto + spedizione + fee = totale_pagato
     const productSubtotal = subtotalWithShipping - shippingCost;
-    const productPrice = productSubtotal / quantity;
+
 
     // Prepara i line items con il prezzo custom
     const lineItems = [

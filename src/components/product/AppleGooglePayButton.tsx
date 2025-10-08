@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { PaymentRequestButtonElement, useStripe } from '@stripe/react-stripe-js';
-import { Product } from '@/lib/api';
+import { Product, getShippingMethods, ShippingAddress, ShippingMethod } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 
@@ -50,9 +50,15 @@ export default function AppleGooglePayButton({
     paymentPlanId?: string;
   } | null>(null);
 
+  // Stato per il metodo di spedizione
+  const [selectedShippingMethod, setSelectedShippingMethod] = useState<ShippingMethod | null>(null);
+
   // Verifica se il prodotto è valido per l'acquisto
   const hasValidPrice = product.price && parseFloat(product.price) > 0;
   const isInStock = product.stock_status === 'instock' && hasValidPrice;
+
+  // Debug: log quando enableDeposit cambia
+  console.log('🔷 AppleGooglePayButton render - enableDeposit:', enableDeposit);
 
   // Effetto per recuperare le opzioni di acconto se enableDeposit è 'yes'
   useEffect(() => {
@@ -95,46 +101,125 @@ export default function AppleGooglePayButton({
     fetchDepositOptions();
   }, [product.id, enableDeposit]);
 
+  // Effetto per calcolare i metodi di spedizione
+  useEffect(() => {
+    const calculateDefaultShipping = async () => {
+      try {
+        // Utilizziamo un indirizzo di default per l'Italia per il calcolo iniziale
+        const defaultAddress: ShippingAddress = {
+          first_name: '',
+          last_name: '',
+          address_1: 'Via Roma 1',
+          city: 'Roma',
+          state: 'RM',
+          postcode: '00100',
+          country: 'IT'
+        };
+
+        const unitPrice = parseFloat(product.sale_price || product.price || '0');
+        const cartTotal = unitPrice * quantity;
+
+        // Prepara gli item del carrello per il calcolo spedizione
+        const cartItems = [{
+          product_id: product.id,
+          quantity: quantity,
+          variation_id: variationId || 0,
+          shipping_class_id: product.shipping_class_id || 0
+        }];
+
+        const availableMethods = await getShippingMethods(defaultAddress, cartTotal, cartItems);
+
+        // Seleziona automaticamente il primo metodo disponibile
+        if (availableMethods.length > 0) {
+          setSelectedShippingMethod(availableMethods[0]);
+        } else {
+          // Nessun metodo disponibile = spedizione €0
+          setSelectedShippingMethod(null);
+        }
+      } catch (error) {
+        console.error('Errore nel calcolo della spedizione di default:', error);
+        // In caso di errore, nessuna spedizione
+        setSelectedShippingMethod(null);
+      }
+    };
+
+    calculateDefaultShipping();
+  }, [product.id, product.price, product.sale_price, product.shipping_class_id, quantity, variationId]);
+
   useEffect(() => {
     if (!stripe || !isInStock) {
       return;
     }
 
+    // Reset del payment request quando cambiano le opzioni
+    setPaymentRequest(null);
 
-    // Calcola il prezzo totale
-    const unitPrice = parseFloat(product.sale_price || product.price || '0');
-    let totalAmount = unitPrice * quantity;
-
-    // Se l'acconto è abilitato, calcola l'importo dell'acconto
-    if (enableDeposit === 'yes' && depositOptions) {
-      const depositAmount = parseFloat(depositOptions.depositAmount);
-      if (depositOptions.depositType === 'percent') {
-        // Calcola la percentuale dell'acconto
-        totalAmount = totalAmount * (depositAmount / 100);
-      } else {
-        // Acconto fisso
-        totalAmount = depositAmount * quantity;
-      }
+    // Se l'acconto è abilitato ma le opzioni non sono ancora state caricate, aspetta
+    if (enableDeposit === 'yes' && !depositOptions) {
+      console.log('⏳ Aspettando depositOptions...');
+      return;
     }
 
-    totalAmount = Math.round(totalAmount * 100); // Converti in centesimi
+    // Piccolo delay per assicurarsi che il vecchio bottone sia completamente distrutto
+    const timer = setTimeout(() => {
+      // Calcola il prezzo totale
+      const unitPrice = parseFloat(product.sale_price || product.price || '0');
+      let totalAmount = unitPrice * quantity;
 
-    // Crea il payment request con configurazione semplificata
-    const pr = stripe.paymentRequest({
+      console.log('🔵 Creazione Payment Request:', {
+        enableDeposit,
+        depositOptions,
+        unitPrice,
+        quantity,
+        totalAmountInitial: totalAmount
+      });
+
+      // Se l'acconto è abilitato, calcola l'importo dell'acconto
+      if (enableDeposit === 'yes' && depositOptions) {
+        const depositAmount = parseFloat(depositOptions.depositAmount);
+        if (depositOptions.depositType === 'percent') {
+          totalAmount = totalAmount * (depositAmount / 100);
+        } else {
+          totalAmount = depositAmount * quantity;
+        }
+        console.log('✅ Acconto calcolato:', { depositAmount, depositType: depositOptions.depositType, totalAmountWithDeposit: totalAmount });
+      }
+
+      // Calcola il costo della spedizione
+      const shippingCost = selectedShippingMethod?.cost ?? 0;
+      const shippingAmount = Math.round(shippingCost * 100);
+
+      // Totale finale = prodotto + spedizione
+      const finalAmount = Math.round(totalAmount * 100) + shippingAmount;
+      console.log('🟢 Creando Payment Request con importo:', {
+        prodotto: totalAmount,
+        spedizione: shippingCost,
+        totale: finalAmount / 100
+      });
+
+      // Crea il payment request con configurazione semplificata
+      const pr = stripe.paymentRequest({
       country: 'IT',
       currency: 'eur',
       total: {
-        label: `${product.name} x${quantity}`,
-        amount: totalAmount,
+        label: `${product.name} x${quantity}${enableDeposit === 'yes' ? ' (Acconto)' : ''}`,
+        amount: finalAmount,
       },
       requestPayerName: true,
       requestPayerEmail: true,
       requestShipping: true,
-      shippingOptions: [
+      shippingOptions: selectedShippingMethod ? [
         {
-          id: 'standard',
-          label: 'Spedizione Standard',
-          detail: '5-7 giorni lavorativi',
+          id: selectedShippingMethod.id,
+          label: selectedShippingMethod.title,
+          detail: selectedShippingMethod.description || '5-7 giorni lavorativi',
+          amount: shippingAmount,
+        },
+      ] : [
+        {
+          id: 'free',
+          label: 'Spedizione inclusa',
+          detail: 'Nessun costo aggiuntivo',
           amount: 0,
         },
       ],
@@ -142,7 +227,7 @@ export default function AppleGooglePayButton({
 
     // Controlla disponibilità con preferenza per Apple Pay
     pr.canMakePayment().then(result => {
-      
+
       if (result) {
         setPaymentRequest(pr);
         setDebugInfo(`Disponibile: ${result.applePay ? 'Apple Pay' : ''} ${result.googlePay ? 'Google Pay' : ''} ${result.link ? 'Link' : ''}`);
@@ -173,6 +258,7 @@ export default function AppleGooglePayButton({
             depositType: depositOptions?.depositType,
             paymentPlanId: depositOptions?.paymentPlanId,
             paymentMethodId: ev.paymentMethod.id,
+            shippingMethod: selectedShippingMethod,
             variationId: variationId,
             variationAttributes: variationAttributes,
             billingData: {
@@ -219,8 +305,10 @@ export default function AppleGooglePayButton({
         setIsProcessing(false);
       }
     });
+    }, 100); // 100ms delay
 
-  }, [stripe, product, quantity, enableDeposit, depositOptions, user, router, isInStock, variationId, variationAttributes]);
+    return () => clearTimeout(timer);
+  }, [stripe, product, quantity, enableDeposit, depositOptions, selectedShippingMethod, user, router, isInStock, variationId, variationAttributes]);
 
   if (!isInStock) {
     return null;
@@ -248,12 +336,13 @@ export default function AppleGooglePayButton({
       {paymentRequest && (
         <div className="space-y-2">
           <PaymentRequestButtonElement
+            key={`${enableDeposit}-${depositOptions?.depositAmount || 'full'}`}
             options={{
               paymentRequest,
               style: {
                 paymentRequestButton: {
                   type: 'buy', // 'default' | 'book' | 'buy' | 'checkout'
-                  theme: 'dark', // 'dark' | 'light' | 'light-outline' 
+                  theme: 'dark', // 'dark' | 'light' | 'light-outline'
                   height: '48px',
                 },
               },

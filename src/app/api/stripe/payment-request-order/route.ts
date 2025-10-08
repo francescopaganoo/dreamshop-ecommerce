@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
       depositType,
       paymentPlanId,
       paymentMethodId,
+      shippingMethod,
       billingData,
       shippingData
     }: {
@@ -51,6 +52,7 @@ export async function POST(request: NextRequest) {
       depositType?: string;
       paymentPlanId?: string;
       paymentMethodId: string;
+      shippingMethod?: { id: string; title: string; cost: number };
       billingData: BillingData;
       shippingData: BillingData;
     } = await request.json();
@@ -76,27 +78,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Prezzo prodotto non valido' }, { status: 400 });
     }
 
-    let totalAmount = unitPrice * quantity;
+    let productAmount = unitPrice * quantity;
 
     // Se l'acconto è abilitato, calcola l'importo dell'acconto
     if (enableDeposit === 'yes' && depositAmount) {
       const depositValue = parseFloat(depositAmount);
       if (depositType === 'percent') {
-        totalAmount = totalAmount * (depositValue / 100);
+        productAmount = productAmount * (depositValue / 100);
       } else {
-        totalAmount = depositValue * quantity;
+        productAmount = depositValue * quantity;
       }
     }
 
+    // Calcola il costo della spedizione
+    const shippingCost = shippingMethod?.cost ?? 0;
+
+    // Totale che l'utente paga = prodotto + spedizione
+    const totalAmount = productAmount + shippingCost;
     const stripeAmount = Math.round(totalAmount * 100); // Converti in centesimi
 
-    // Crea e conferma Payment Intent direttamente 
+    // Crea e conferma Payment Intent direttamente con il totale completo
     const paymentIntent = await stripe.paymentIntents.create({
       amount: stripeAmount,
       currency: 'eur',
       payment_method: paymentMethodId,
       confirmation_method: 'automatic',
-      confirm: true, // Conferma immediatamente 
+      confirm: true, // Conferma immediatamente
       return_url: `${origin}/checkout/success`,
       metadata: {
         product_id: productId.toString(),
@@ -107,6 +114,9 @@ export async function POST(request: NextRequest) {
       }
     });
 
+    // Il subtotale del prodotto (senza spedizione)
+    const productSubtotal = productAmount;
+
     // Prepara i dati dell'ordine WooCommerce
     const lineItems = [];
 
@@ -114,6 +124,8 @@ export async function POST(request: NextRequest) {
       lineItems.push({
         product_id: productId,
         quantity: quantity,
+        subtotal: productSubtotal.toFixed(2),
+        total: productSubtotal.toFixed(2),
         meta_data: [
           { key: '_wc_convert_to_deposit', value: 'yes' },
           { key: '_wc_deposit_type', value: depositType || 'percent' },
@@ -127,7 +139,9 @@ export async function POST(request: NextRequest) {
     } else {
       lineItems.push({
         product_id: productId,
-        quantity: quantity
+        quantity: quantity,
+        subtotal: productSubtotal.toFixed(2),
+        total: productSubtotal.toFixed(2)
       });
     }
 
@@ -162,9 +176,9 @@ export async function POST(request: NextRequest) {
       line_items: lineItems,
       shipping_lines: [
         {
-          method_id: 'flat_rate',
-          method_title: 'Spedizione Standard',
-          total: '0.00' // Spedizione già inclusa nell'importo pagato tramite Stripe
+          method_id: shippingMethod?.id || 'flat_rate',
+          method_title: shippingMethod?.title || 'Spedizione Standard',
+          total: (shippingMethod?.cost ?? 0).toFixed(2)
         }
       ],
       meta_data: [
@@ -179,6 +193,14 @@ export async function POST(request: NextRequest) {
         {
           key: '_stripe_amount_paid',
           value: totalAmount.toFixed(2)
+        },
+        {
+          key: '_stripe_product_amount',
+          value: productSubtotal.toFixed(2)
+        },
+        {
+          key: '_stripe_shipping_amount',
+          value: shippingCost.toFixed(2)
         }
       ]
     };
