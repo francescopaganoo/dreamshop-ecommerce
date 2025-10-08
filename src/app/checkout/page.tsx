@@ -1648,25 +1648,7 @@ export default function CheckoutPage() {
             throw new Error('Errore nella creazione dell\'ordine per Klarna');
           }
 
-          // Crea un Payment Intent con Klarna
-          const paymentResponse = await fetch('/api/stripe/payment-intent', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              amount: Math.round(total * 100),
-              orderId: order.id
-            }),
-          });
-
-          const paymentData = await paymentResponse.json();
-
-          if (!paymentResponse.ok || !paymentData.clientSecret) {
-            throw new Error(paymentData.error || 'Errore nella creazione del Payment Intent per Klarna');
-          }
-
-          // Per Klarna, reindirizza all'hosted payment page di Stripe che gestisce Klarna
+          // Per Klarna, reindirizza direttamente alla Checkout Session di Stripe
           window.location.href = `/api/stripe/checkout-klarna?order_id=${order.id}&amount=${Math.round(total * 100)}`;
 
         } catch (error) {

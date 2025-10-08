@@ -9,7 +9,8 @@ import { getOrder } from '../../../lib/api';
 function OrderSuccessContent() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get('order_id');
-  
+  const sessionId = searchParams.get('session_id');
+
   // Define a type for order details
   interface OrderDetails {
     id: number;
@@ -45,11 +46,11 @@ function OrderSuccessContent() {
       country: string;
     };
   }
-  
+
   const [orderDetails, setOrderDetails] = useState<OrderDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   useEffect(() => {
     async function fetchOrderDetails() {
       if (!orderId) {
@@ -57,8 +58,31 @@ function OrderSuccessContent() {
         setLoading(false);
         return;
       }
-      
+
       try {
+        // Se c'è un session_id (pagamento Klarna/Checkout Session), verifica e aggiorna l'ordine
+        if (sessionId) {
+          console.log('Verifica della sessione Stripe per ordine:', orderId);
+
+          const verifyResponse = await fetch('/api/stripe/verify-session', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              sessionId,
+              orderId,
+            }),
+          });
+
+          const verifyData = await verifyResponse.json();
+
+          if (!verifyResponse.ok || !verifyData.success) {
+            console.error('Errore nella verifica della sessione:', verifyData);
+            // Non blocchiamo la pagina, continuiamo comunque a mostrare l'ordine
+          }
+        }
+
         const order = await getOrder(parseInt(orderId, 10));
         setOrderDetails(order as OrderDetails);
       } catch (err) {
@@ -68,9 +92,9 @@ function OrderSuccessContent() {
         setLoading(false);
       }
     }
-    
+
     fetchOrderDetails();
-  }, [orderId]);
+  }, [orderId, sessionId]);
   
   // Format price with currency symbol
   const formatPrice = (price: string) => {
