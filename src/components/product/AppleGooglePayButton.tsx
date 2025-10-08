@@ -57,8 +57,6 @@ export default function AppleGooglePayButton({
   const hasValidPrice = product.price && parseFloat(product.price) > 0;
   const isInStock = product.stock_status === 'instock' && hasValidPrice;
 
-  // Debug: log quando enableDeposit cambia
-  console.log('🔷 AppleGooglePayButton render - enableDeposit:', enableDeposit);
 
   // Effetto per recuperare le opzioni di acconto se enableDeposit è 'yes'
   useEffect(() => {
@@ -166,13 +164,7 @@ export default function AppleGooglePayButton({
       const unitPrice = parseFloat(product.sale_price || product.price || '0');
       let totalAmount = unitPrice * quantity;
 
-      console.log('🔵 Creazione Payment Request:', {
-        enableDeposit,
-        depositOptions,
-        unitPrice,
-        quantity,
-        totalAmountInitial: totalAmount
-      });
+
 
       // Se l'acconto è abilitato, calcola l'importo dell'acconto
       if (enableDeposit === 'yes' && depositOptions) {
@@ -182,7 +174,6 @@ export default function AppleGooglePayButton({
         } else {
           totalAmount = depositAmount * quantity;
         }
-        console.log('✅ Acconto calcolato:', { depositAmount, depositType: depositOptions.depositType, totalAmountWithDeposit: totalAmount });
       }
 
       // Calcola il costo della spedizione
@@ -191,11 +182,7 @@ export default function AppleGooglePayButton({
 
       // Totale finale = prodotto + spedizione
       const finalAmount = Math.round(totalAmount * 100) + shippingAmount;
-      console.log('🟢 Creando Payment Request con importo:', {
-        prodotto: totalAmount,
-        spedizione: shippingCost,
-        totale: finalAmount / 100
-      });
+
 
       // Crea il payment request con configurazione semplificata
       const pr = stripe.paymentRequest({
