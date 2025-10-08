@@ -36,6 +36,9 @@ export async function POST(request: NextRequest) {
       quantity,
       userId,
       enableDeposit,
+      depositAmount,
+      depositType,
+      paymentPlanId,
       paymentMethodId,
       billingData,
       shippingData
@@ -44,6 +47,9 @@ export async function POST(request: NextRequest) {
       quantity: number;
       userId: number;
       enableDeposit: 'yes' | 'no';
+      depositAmount?: string;
+      depositType?: string;
+      paymentPlanId?: string;
       paymentMethodId: string;
       billingData: BillingData;
       shippingData: BillingData;
@@ -65,12 +71,23 @@ export async function POST(request: NextRequest) {
 
     // Calcola il prezzo
     const unitPrice = parseFloat(product.sale_price || product.price || '0');
-    
+
     if (unitPrice <= 0) {
       return NextResponse.json({ error: 'Prezzo prodotto non valido' }, { status: 400 });
     }
 
-    const totalAmount = unitPrice * quantity;
+    let totalAmount = unitPrice * quantity;
+
+    // Se l'acconto è abilitato, calcola l'importo dell'acconto
+    if (enableDeposit === 'yes' && depositAmount) {
+      const depositValue = parseFloat(depositAmount);
+      if (depositType === 'percent') {
+        totalAmount = totalAmount * (depositValue / 100);
+      } else {
+        totalAmount = depositValue * quantity;
+      }
+    }
+
     const stripeAmount = Math.round(totalAmount * 100); // Converti in centesimi
 
     // Crea e conferma Payment Intent direttamente 
@@ -92,23 +109,19 @@ export async function POST(request: NextRequest) {
 
     // Prepara i dati dell'ordine WooCommerce
     const lineItems = [];
-    
+
     if (enableDeposit === 'yes') {
-      // Logica per il deposito se necessaria
-      const depositAmount = totalAmount * 0.3; // 30% di deposito
-      
       lineItems.push({
         product_id: productId,
         quantity: quantity,
         meta_data: [
-          {
-            key: '_wc_deposit_meta',
-            value: {
-              enable: 'yes',
-              deposit: depositAmount.toFixed(2),
-              remaining: (totalAmount - depositAmount).toFixed(2)
-            }
-          }
+          { key: '_wc_convert_to_deposit', value: 'yes' },
+          { key: '_wc_deposit_type', value: depositType || 'percent' },
+          { key: '_wc_deposit_amount', value: depositAmount || '40' },
+          ...(paymentPlanId ? [
+            { key: '_wc_payment_plan', value: paymentPlanId },
+            { key: '_deposit_payment_plan', value: paymentPlanId }
+          ] : [])
         ]
       });
     } else {

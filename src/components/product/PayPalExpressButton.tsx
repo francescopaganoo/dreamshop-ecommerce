@@ -35,6 +35,54 @@ export default function PayPalExpressButton({
   const hasValidPrice = product.price && parseFloat(product.price) > 0;
   const isInStock = product.stock_status === 'instock' && hasValidPrice;
 
+  // Stato per le opzioni di acconto
+  const [depositOptions, setDepositOptions] = useState<{
+    depositAmount: string;
+    depositType: string;
+    paymentPlanId?: string;
+  } | null>(null);
+
+  // Effetto per recuperare le opzioni di acconto se enableDeposit è 'yes'
+  useEffect(() => {
+    const fetchDepositOptions = async () => {
+      if (enableDeposit !== 'yes') {
+        setDepositOptions(null);
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/products/${product.id}/deposit-options`);
+        if (response.ok) {
+          const options = await response.json();
+
+          if (options.success && options.deposit_enabled) {
+            // Recupera anche il payment plan ID se presente
+            const paymentPlanId = options.payment_plan?.id?.toString() ||
+                                  (options.is_pianoprova ? '810' : undefined);
+
+            setDepositOptions({
+              depositAmount: options.deposit_amount?.toString() || '40',
+              depositType: options.deposit_type || 'percent',
+              paymentPlanId: paymentPlanId
+            });
+          } else {
+            // Se l'acconto non è abilitato, usa null
+            setDepositOptions(null);
+          }
+        }
+      } catch (error) {
+        console.error('Errore nel recupero delle opzioni di acconto:', error);
+        // Fallback ai valori predefiniti
+        setDepositOptions({
+          depositAmount: '40',
+          depositType: 'percent'
+        });
+      }
+    };
+
+    fetchDepositOptions();
+  }, [product.id, enableDeposit]);
+
   // Effetto per calcolare i metodi di spedizione quando il componente viene montato
   useEffect(() => {
     const calculateDefaultShipping = async () => {
@@ -90,7 +138,20 @@ export default function PayPalExpressButton({
   // Calcola il totale con commissione PayPal del 3.5% + €0.35 e spedizione
   const calculatePayPalTotal = () => {
     const unitPrice = parseFloat(product.sale_price || product.price || '0');
-    const subtotal = unitPrice * quantity;
+    let subtotal = unitPrice * quantity;
+
+    // Se l'acconto è abilitato, calcola l'importo dell'acconto
+    if (enableDeposit === 'yes' && depositOptions) {
+      const depositAmount = parseFloat(depositOptions.depositAmount);
+      if (depositOptions.depositType === 'percent') {
+        // Calcola la percentuale dell'acconto
+        subtotal = subtotal * (depositAmount / 100);
+      } else {
+        // Acconto fisso
+        subtotal = depositAmount * quantity;
+      }
+    }
+
     const shippingCost = selectedShippingMethod?.cost || 0;
     const subtotalWithShipping = subtotal + shippingCost;
     const paypalFee = (subtotalWithShipping * 0.035) + 0.35; // 3.5% di commissione + €0.35 fisso su subtotale + spedizione
@@ -192,6 +253,9 @@ export default function PayPalExpressButton({
           quantity: quantity,
           userId: user?.id || 0,
           enableDeposit: enableDeposit,
+          depositAmount: depositOptions?.depositAmount,
+          depositType: depositOptions?.depositType,
+          paymentPlanId: depositOptions?.paymentPlanId,
           variationId: variationId,
           variationAttributes: variationAttributes,
           shippingMethod: finalShippingMethod,
@@ -268,7 +332,18 @@ export default function PayPalExpressButton({
         const shippingCost = newShippingMethod.cost || 0;
 
         // Ricalcola il totale con la nuova spedizione
-        const subtotal = unitPrice * quantity;
+        let subtotal = unitPrice * quantity;
+
+        // Se l'acconto è abilitato, calcola l'importo dell'acconto
+        if (enableDeposit === 'yes' && depositOptions) {
+          const depositAmount = parseFloat(depositOptions.depositAmount);
+          if (depositOptions.depositType === 'percent') {
+            subtotal = subtotal * (depositAmount / 100);
+          } else {
+            subtotal = depositAmount * quantity;
+          }
+        }
+
         const subtotalWithShipping = subtotal + shippingCost;
         const paypalFee = (subtotalWithShipping * 0.035) + 0.35;
         const totalWithFeeAndShipping = subtotalWithShipping + paypalFee;

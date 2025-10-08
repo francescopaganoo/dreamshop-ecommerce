@@ -43,9 +43,57 @@ export default function AppleGooglePayButton({
   const router = useRouter();
   const stripe = useStripe();
 
+  // Stato per le opzioni di acconto
+  const [depositOptions, setDepositOptions] = useState<{
+    depositAmount: string;
+    depositType: string;
+    paymentPlanId?: string;
+  } | null>(null);
+
   // Verifica se il prodotto è valido per l'acquisto
   const hasValidPrice = product.price && parseFloat(product.price) > 0;
   const isInStock = product.stock_status === 'instock' && hasValidPrice;
+
+  // Effetto per recuperare le opzioni di acconto se enableDeposit è 'yes'
+  useEffect(() => {
+    const fetchDepositOptions = async () => {
+      if (enableDeposit !== 'yes') {
+        setDepositOptions(null);
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/products/${product.id}/deposit-options`);
+        if (response.ok) {
+          const options = await response.json();
+
+          if (options.success && options.deposit_enabled) {
+            // Recupera anche il payment plan ID se presente
+            const paymentPlanId = options.payment_plan?.id?.toString() ||
+                                  (options.is_pianoprova ? '810' : undefined);
+
+            setDepositOptions({
+              depositAmount: options.deposit_amount?.toString() || '40',
+              depositType: options.deposit_type || 'percent',
+              paymentPlanId: paymentPlanId
+            });
+          } else {
+            // Se l'acconto non è abilitato, usa null
+            setDepositOptions(null);
+          }
+        }
+      } catch (error) {
+        console.error('Errore nel recupero delle opzioni di acconto:', error);
+        // Fallback ai valori predefiniti
+        setDepositOptions({
+          depositAmount: '40',
+          depositType: 'percent'
+        });
+      }
+    };
+
+    fetchDepositOptions();
+  }, [product.id, enableDeposit]);
 
   useEffect(() => {
     if (!stripe || !isInStock) {
@@ -55,7 +103,21 @@ export default function AppleGooglePayButton({
 
     // Calcola il prezzo totale
     const unitPrice = parseFloat(product.sale_price || product.price || '0');
-    const totalAmount = Math.round(unitPrice * quantity * 100); // Converti in centesimi
+    let totalAmount = unitPrice * quantity;
+
+    // Se l'acconto è abilitato, calcola l'importo dell'acconto
+    if (enableDeposit === 'yes' && depositOptions) {
+      const depositAmount = parseFloat(depositOptions.depositAmount);
+      if (depositOptions.depositType === 'percent') {
+        // Calcola la percentuale dell'acconto
+        totalAmount = totalAmount * (depositAmount / 100);
+      } else {
+        // Acconto fisso
+        totalAmount = depositAmount * quantity;
+      }
+    }
+
+    totalAmount = Math.round(totalAmount * 100); // Converti in centesimi
 
     // Crea il payment request con configurazione semplificata
     const pr = stripe.paymentRequest({
@@ -107,6 +169,9 @@ export default function AppleGooglePayButton({
             quantity: quantity,
             userId: user?.id || 0,
             enableDeposit: enableDeposit,
+            depositAmount: depositOptions?.depositAmount,
+            depositType: depositOptions?.depositType,
+            paymentPlanId: depositOptions?.paymentPlanId,
             paymentMethodId: ev.paymentMethod.id,
             variationId: variationId,
             variationAttributes: variationAttributes,
@@ -155,7 +220,7 @@ export default function AppleGooglePayButton({
       }
     });
 
-  }, [stripe, product, quantity, enableDeposit, user, router, isInStock, variationId, variationAttributes]);
+  }, [stripe, product, quantity, enableDeposit, depositOptions, user, router, isInStock, variationId, variationAttributes]);
 
   if (!isInStock) {
     return null;

@@ -10,6 +10,9 @@ export async function POST(request: NextRequest) {
       quantity,
       userId,
       enableDeposit = 'no',
+      depositAmount,
+      depositType,
+      paymentPlanId,
       billingData,
       paypalOrderDetails,
       shippingMethod
@@ -45,9 +48,13 @@ export async function POST(request: NextRequest) {
         quantity: quantity,
         ...(enableDeposit === 'yes' && {
           meta_data: [
-            { key: '_wc_deposit_option', value: 'yes' },
-            { key: '_wc_deposit_amount', value: '40' },
-            { key: '_wc_deposit_type', value: 'percent' }
+            { key: '_wc_convert_to_deposit', value: 'yes' },
+            { key: '_wc_deposit_type', value: depositType || 'percent' },
+            { key: '_wc_deposit_amount', value: depositAmount || '40' },
+            ...(paymentPlanId ? [
+              { key: '_wc_payment_plan', value: paymentPlanId },
+              { key: '_deposit_payment_plan', value: paymentPlanId }
+            ] : [])
           ]
         })
       }
