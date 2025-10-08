@@ -2456,38 +2456,17 @@ export default function CheckoutPage() {
                                 style={{ layout: 'vertical', color: 'blue', shape: 'rect', label: 'pay' }}
                                 createOrder={async (_data, actions) => {
                                   try {
-                                    // Crea l'ordine in WooCommerce e ottieni l'ID
-                                    const response = await fetch('/api/paypal/create-order', {
-                                      method: 'POST',
-                                      headers: {
-                                        'Content-Type': 'application/json',
-                                      },
-                                      body: JSON.stringify({
-                                        orderData: paypalOrderData
-                                      }),
-                                    });
-                                    
-                                    const data = await response.json();
-                                    
-                                    if (!data.success || !data.orderId) {
-                                      throw new Error(data.error || 'Errore nella creazione dell\'ordine');
-                                    }
-                                    
-                                    // Salva l'ID dell'ordine WooCommerce
-                                    setSuccessOrderId(String(data.orderId));
-                                    
-                                    // Crea l'ordine PayPal direttamente dal client
-                                    // Questo evita la necessità di PAYPAL_CLIENT_SECRET sul server
+                                    // Crea l'ordine PayPal direttamente dal client senza creare l'ordine WooCommerce
+                                    // L'ordine WooCommerce verrà creato solo dopo il successo del pagamento in onApprove
                                     return actions.order.create({
                                       intent: 'CAPTURE',
                                       purchase_units: [
                                         {
                                           amount: {
                                             currency_code: 'EUR',
-                                            value: data.total
+                                            value: total.toFixed(2)
                                           },
-                                          reference_id: data.orderId.toString(),
-                                          description: `Ordine #${data.orderId}`
+                                          description: `Ordine DreamShop`
                                         }
                                       ]
                                     });
@@ -2500,47 +2479,51 @@ export default function CheckoutPage() {
                                 onApprove={async (data, actions) => {
                                   try {
                                     console.log('Pagamento PayPal approvato:', data);
-                                    
+
                                     // Utilizziamo l'SDK PayPal per catturare il pagamento lato client
-                                    // Questo evita i problemi di permessi che possono verificarsi lato server
                                     if (actions.order) {
                                       try {
                                         const captureResult = await actions.order.capture();
                                         console.log('Pagamento catturato con successo:', captureResult);
-                                        
-                                        // Aggiorna l'ordine WooCommerce come pagato
-                                        const response = await fetch('/api/paypal/update-order', {
+
+                                        // Estrai l'ID della transazione PayPal
+                                        const transactionId = captureResult.purchase_units?.[0]?.payments?.captures?.[0]?.id || data.orderID;
+
+                                        // Ora crea l'ordine WooCommerce dopo il successo del pagamento
+                                        const response = await fetch('/api/paypal/create-order-after-payment', {
                                           method: 'POST',
                                           headers: {
                                             'Content-Type': 'application/json',
                                           },
                                           body: JSON.stringify({
-                                            orderId: successOrderId,
+                                            orderData: paypalOrderData,
                                             paypalOrderId: data.orderID,
-                                            paypalDetails: captureResult
+                                            paypalTransactionId: transactionId
                                           }),
                                         });
-                                        
-                                        const updateData = await response.json();
-                                        
-                                        if (!updateData.success) {
-                                          console.warn('Ordine WooCommerce non aggiornato correttamente, ma il pagamento è stato ricevuto:', updateData);
+
+                                        const createData = await response.json();
+
+                                        if (!createData.success || !createData.orderId) {
+                                          throw new Error(createData.error || 'Errore nella creazione dell\'ordine WooCommerce');
                                         }
-                                        
+
+                                        console.log('Ordine WooCommerce creato con successo:', createData.orderId);
+
+                                        // Salva l'ID dell'ordine per riferimento
+                                        setSuccessOrderId(String(createData.orderId));
+
                                         // Svuota il carrello
                                         clearCart();
-                                        
+
                                         // Riscatta i punti se necessario
                                         if (pointsToRedeem > 0 && user) {
                                           try {
-                                            // Recupera il token JWT da localStorage
                                             const token = localStorage.getItem('woocommerce_token');
                                             if (token) {
-                                              // Per PayPal, possiamo usare l'ID dell'ordine se disponibile
-                                              const orderId = updateData.order_id || null;
-                                              await redeemPoints(user.id, pointsToRedeem, orderId, token);
+                                              await redeemPoints(user.id, pointsToRedeem, createData.orderId, token);
                                               console.log(`Riscattati ${pointsToRedeem} punti per l'utente ${user.id}`);
-                                              
+
                                               // Rimuovi i punti riscattati dal localStorage
                                               localStorage.removeItem('checkout_points_to_redeem');
                                               localStorage.removeItem('checkout_points_discount');
@@ -2550,16 +2533,16 @@ export default function CheckoutPage() {
                                             // Non blocchiamo il checkout se il riscatto punti fallisce
                                           }
                                         }
-                                        
+
                                         // Salva gli indirizzi dell'utente
                                         await saveAddressData();
-                                        
+
                                         // Mostra il messaggio di successo
                                         setOrderSuccess(true);
-                                        
+
                                         // Reset del form dopo il successo
                                         resetFormAfterSuccess();
-                                        
+
                                         setIsSubmitting(false);
                                       } catch (captureError) {
                                         console.error('Errore durante la cattura del pagamento:', captureError);
@@ -2587,21 +2570,6 @@ export default function CheckoutPage() {
                                   setIsSubmitting(false);
                                   setIsProcessingPayment(false);
                                   setShowPayPalButtons(false);
-                                  
-                                  // Elimina l'ordine WooCommerce creato ma non completato
-                                  if (successOrderId) {
-                                    fetch('/api/paypal/cancel-order', {
-                                      method: 'POST',
-                                      headers: {
-                                        'Content-Type': 'application/json',
-                                      },
-                                      body: JSON.stringify({
-                                        orderId: successOrderId
-                                      })
-                                    }).catch(err => {
-                                      console.error('Errore durante la cancellazione dell\'ordine:', err);
-                                    });
-                                  }
                                 }}
                               />
                             </div>
