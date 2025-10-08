@@ -18,14 +18,29 @@ export async function POST(request: NextRequest) {
     }
     
     const data = await request.json();
-    
-    const { amount, orderId } = data;
-    
-    if (!amount || !orderId) {
-      console.error('Dati mancanti:', { amount, orderId });
-      return NextResponse.json({ error: 'Dati mancanti' }, { status: 400 });
+
+    const { amount, orderId, paymentMethod } = data;
+
+    if (!amount) {
+      console.error('Dati mancanti:', { amount });
+      return NextResponse.json({ error: 'Amount mancante' }, { status: 400 });
     }
-    
+
+    // Prepara i metadati
+    const metadata: Record<string, string> = {
+      platform: typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'ios' : 'other'
+    };
+
+    // Aggiungi orderId ai metadati solo se presente
+    if (orderId) {
+      metadata.order_id = orderId.toString();
+    }
+
+    // Aggiungi paymentMethod ai metadati se presente (per Satispay)
+    if (paymentMethod) {
+      metadata.payment_method = paymentMethod;
+    }
+
     // Configurazione per pagamenti standard (non Payment Request)
     // Apple Pay e Google Pay sono gestiti separatamente tramite Payment Request API
     const paymentIntent = await stripe.paymentIntents.create({
@@ -33,10 +48,7 @@ export async function POST(request: NextRequest) {
       currency: 'eur',
       // Supporto per carte di credito e Klarna
       payment_method_types: ['card', 'klarna'],
-      metadata: {
-        order_id: orderId.toString(),
-        platform: typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'ios' : 'other'
-      },
+      metadata,
       // Opzioni di base per il pagamento con carta
       payment_method_options: {
         card: {

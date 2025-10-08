@@ -1294,8 +1294,8 @@ export default function CheckoutPage() {
         const subtotalForPoints = subtotal - couponDiscount - pointsDiscount; // Subtotale meno tutti gli sconti
         const pointsToEarn = Math.floor(Math.max(0, subtotalForPoints)); // 1 euro = 1 punto
 
-        // Crea un ordine in stato pending
-        const orderData = {
+        // Prepara i dati dell'ordine (sarà creato dopo il successo del pagamento)
+        const orderDataForLater = {
           payment_method: 'stripe',
           payment_method_title: 'Carta di Credito (Stripe)',
           set_paid: false,
@@ -1327,28 +1327,10 @@ export default function CheckoutPage() {
           ]
         };
 
-        // Crea l'ordine in WooCommerce
-        const order = await createOrder(orderData);
-        
-        // Debug per iOS
-        if (isIOS) {
-          console.log(`[CHECKOUT iOS] Ordine creato con ID: ${order?.id || 'undefined'}`);
-        }
-        
-        // Su iOS, salviamo l'ordine ID immediatamente nel localStorage per garantire che sia disponibile dopo
-        if (isIOS && order && order.id) {
-          localStorage.setItem('ios_latest_order_id', order.id.toString());
-        }
-        
-        // Assicurati che l'ordine sia stato creato correttamente
-        if (!order || typeof order !== 'object' || !('id' in order)) {
-          throw new Error('Errore nella creazione dell\'ordine');
-        }
-        
         // Calcola il totale dell'ordine includendo lo sconto punti
         const amount = Math.round(total * 100); // in centesimi (include commissione PayPal se applicabile)
-        
-        // Crea un payment intent con configurazione standard
+
+        // Crea un payment intent senza ordine
         const response = await fetch('/api/stripe/payment-intent', {
           method: 'POST',
           headers: {
@@ -1356,12 +1338,12 @@ export default function CheckoutPage() {
           },
           body: JSON.stringify({
             amount,
-            orderId: order.id
+            orderId: null // Non passiamo più l'orderId perché l'ordine non esiste ancora
           }),
         });
-        
+
         const paymentData = await response.json();
-        
+
         if (paymentData.error) {
           throw new Error(paymentData.error);
         }
@@ -1454,105 +1436,76 @@ export default function CheckoutPage() {
         }
         
         // Verifica se il pagamento è stato completato con successo
-        if (result.paymentIntent && 
-            typeof result.paymentIntent === 'object' && 
-            'status' in result.paymentIntent && 
+        if (result.paymentIntent &&
+            typeof result.paymentIntent === 'object' &&
+            'status' in result.paymentIntent &&
             result.paymentIntent.status === 'succeeded') {
-          // Aggiorna l'ordine come pagato
-          await fetch(`/api/stripe/update-order`, {
+
+          console.log('Pagamento Stripe completato con successo, creazione ordine WooCommerce...');
+
+          // Crea l'ordine WooCommerce dopo il successo del pagamento
+          const createOrderResponse = await fetch(`/api/stripe/create-order-after-payment`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              orderId: order.id,
+              orderData: orderDataForLater,
               paymentIntentId: result.paymentIntent.id
             }),
           });
-          
+
+          const createOrderData = await createOrderResponse.json();
+
+          if (!createOrderData.success || !createOrderData.orderId) {
+            throw new Error(createOrderData.error || 'Errore nella creazione dell\'ordine WooCommerce');
+          }
+
+          console.log('Ordine WooCommerce creato con successo:', createOrderData.orderId);
+
+          const createdOrderId = createOrderData.orderId;
+
           // Svuota il carrello
           clearCart();
-          
+
           // Riscatta i punti se necessario
           if (pointsToRedeem > 0 && user) {
             try {
               // Recupera il token JWT da localStorage
               const token = localStorage.getItem('woocommerce_token');
               if (token) {
-                // Su iOS potrebbe essere necessario recuperare l'ID dell'ordine dal localStorage
-                let orderId = order.id;
-                
-                if (isIOS && (!orderId || orderId <= 0)) {
-                  // Recupera l'ID ordine dal localStorage
-                  const savedOrderId = localStorage.getItem('ios_latest_order_id');
-                  if (savedOrderId) {
-                    orderId = parseInt(savedOrderId, 10);
-                    console.log(`[CHECKOUT STRIPE iOS] Recuperato ID ordine dal localStorage: ${orderId}`);
-                  }
-                }
-                
-                // Verifica che l'ID ordine sia valido
-                if (!orderId) {
-                  console.error('[CHECKOUT STRIPE] Errore: Impossibile riscattare i punti senza un ID ordine valido');
-                  console.error(`[CHECKOUT DEBUG] Order object: ${JSON.stringify(order)}`);
-                  throw new Error('ID ordine mancante per il riscatto punti');
-                }
-                
-                console.log(`[CHECKOUT STRIPE] Inizia riscatto ${pointsToRedeem} punti per l'utente ${user.id}, ordine #${orderId}`);
-                
-                // Chiamata API per riscattare i punti con delay su iOS per assicurarsi che l'ordine sia completamente elaborato
-                if (isIOS) {
-                  console.log('[CHECKOUT STRIPE iOS] Aggiungendo delay prima del riscatto punti');
-                  await new Promise(resolve => setTimeout(resolve, 1000));
-                }
-                
-                const pointsResponse = await redeemPoints(user.id, pointsToRedeem, orderId, token);
-                
+                console.log(`[CHECKOUT STRIPE] Inizia riscatto ${pointsToRedeem} punti per l'utente ${user.id}, ordine #${createdOrderId}`);
+
+                const pointsResponse = await redeemPoints(user.id, pointsToRedeem, createdOrderId, token);
+
                 if (pointsResponse && pointsResponse.success) {
-                  console.log(`[CHECKOUT STRIPE] Riscatto punti completato con successo: ${pointsToRedeem} punti per l'utente ${user.id}, ordine #${orderId}`);
-                  
+                  console.log(`[CHECKOUT STRIPE] Riscatto punti completato con successo`);
+
                   // Rimuovi i punti riscattati dal localStorage
                   localStorage.removeItem('checkout_points_to_redeem');
                   localStorage.removeItem('checkout_points_discount');
-                  
-                  // Su iOS pulisci anche il localStorage dell'ordine
-                  if (isIOS) {
-                    localStorage.removeItem('ios_latest_order_id');
-                  }
                 } else {
                   console.error('[CHECKOUT STRIPE] Errore nella risposta API riscatto punti:', pointsResponse);
-                  
-                  if (isIOS) {
-                    console.log('[CHECKOUT STRIPE iOS] Errore durante il riscatto dei punti - continuiamo comunque con il checkout');
-                    // Su iOS non interrompiamo il flusso di checkout, ma segnaliamo l'errore
-                    // L'utente potrà riscattare i punti successivamente
-                    localStorage.removeItem('ios_latest_order_id');
-                  } else {
-                    throw new Error('Risposta API riscatto punti non valida');
-                  }
                 }
               } else {
                 console.error('[CHECKOUT STRIPE] Token JWT mancante, impossibile riscattare i punti');
-                throw new Error('Token JWT mancante');
               }
             } catch (pointsError) {
               console.error('[CHECKOUT STRIPE] Errore durante il riscatto dei punti:', pointsError);
               // Non blocchiamo il checkout se il riscatto punti fallisce
-              // Log dell'errore senza mostrare alert all'utente
             }
           }
-          
+
           // Salva gli indirizzi dell'utente
           await saveAddressData();
-          
-          // Invece di reindirizzare, mostriamo un messaggio di successo nella pagina
+
+          // Mostra il messaggio di successo
           setOrderSuccess(true);
-          // Assicuriamoci che order.id sia una stringa
-          setSuccessOrderId(typeof order.id === 'number' ? order.id.toString() : String(order.id));
-          
+          setSuccessOrderId(createdOrderId.toString());
+
           // Reset del form dopo il successo
           resetFormAfterSuccess();
-          
+
           setIsSubmitting(false);
           setIsStripeLoading(false);
           return;
