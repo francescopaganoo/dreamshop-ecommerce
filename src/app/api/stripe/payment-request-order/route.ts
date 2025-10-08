@@ -164,7 +164,7 @@ export async function POST(request: NextRequest) {
         {
           method_id: 'flat_rate',
           method_title: 'Spedizione Standard',
-          total: '0.00'
+          total: '0.00' // Spedizione già inclusa nell'importo pagato tramite Stripe
         }
       ],
       meta_data: [
@@ -175,6 +175,10 @@ export async function POST(request: NextRequest) {
         {
           key: '_payment_source',
           value: 'payment_request'
+        },
+        {
+          key: '_stripe_amount_paid',
+          value: totalAmount.toFixed(2)
         }
       ]
     };

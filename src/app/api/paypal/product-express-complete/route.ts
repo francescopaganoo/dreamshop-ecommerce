@@ -36,16 +36,22 @@ export async function POST(request: NextRequest) {
     const subtotalWithShipping = (totalAmountPaid - 0.35) / 1.035;
     const paypalFee = totalAmountPaid - subtotalWithShipping;
 
-    // Usa il metodo di spedizione passato dal frontend (calcolato in base alla classe di spedizione)
-    const shippingCost = shippingMethod?.cost || 7.00;
+    // Se il metodo di spedizione è presente e ha un costo, usa quello
+    // Altrimenti la spedizione è €0 (es. prodotti con spedizione gratuita inclusa)
+    const shippingCost = shippingMethod?.cost ?? 0;
 
+    // Calcola il prezzo del prodotto sottraendo spedizione e fee dal totale pagato
+    // In questo modo: prezzo_prodotto + spedizione + fee = totale_pagato
+    const productSubtotal = subtotalWithShipping - shippingCost;
+    const productPrice = productSubtotal / quantity;
 
-
-    // Prepara i line items
+    // Prepara i line items con il prezzo custom
     const lineItems = [
       {
         product_id: productId,
         quantity: quantity,
+        subtotal: productSubtotal.toFixed(2),
+        total: productSubtotal.toFixed(2),
         ...(enableDeposit === 'yes' && {
           meta_data: [
             { key: '_wc_convert_to_deposit', value: 'yes' },
@@ -112,6 +118,10 @@ export async function POST(request: NextRequest) {
         {
           key: '_paypal_express_checkout',
           value: 'yes'
+        },
+        {
+          key: '_paypal_amount_paid',
+          value: totalAmountPaid.toFixed(2)
         }
       ]
     };
