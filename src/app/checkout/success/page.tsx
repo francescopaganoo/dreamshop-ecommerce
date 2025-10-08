@@ -53,6 +53,92 @@ function OrderSuccessContent() {
 
   useEffect(() => {
     async function fetchOrderDetails() {
+      const paymentMethod = searchParams.get('payment_method');
+
+      // Se è un pagamento Satispay e non c'è orderId, dobbiamo creare l'ordine
+      if (paymentMethod === 'satispay' && !orderId && sessionId) {
+        try {
+          console.log('Pagamento Satispay completato, creazione ordine WooCommerce...');
+
+          // Recupera i dati dell'ordine da sessionStorage
+          const satispayDataStr = sessionStorage.getItem('satispay_checkout_data');
+          if (!satispayDataStr) {
+            setError('Dati dell\'ordine non trovati. Contatta il supporto clienti.');
+            setLoading(false);
+            return;
+          }
+
+          const satispayData = JSON.parse(satispayDataStr);
+
+          // Crea l'ordine WooCommerce dopo il successo del pagamento
+          const createResponse = await fetch('/api/stripe/create-satispay-order', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              sessionId,
+              orderData: satispayData.orderData,
+            }),
+          });
+
+          const createData = await createResponse.json();
+
+          if (!createResponse.ok || !createData.success) {
+            console.error('Errore nella creazione dell\'ordine Satispay:', createData);
+            setError('Errore nella creazione dell\'ordine. Contatta il supporto clienti.');
+            setLoading(false);
+            return;
+          }
+
+
+          // Pulisci i dati da sessionStorage
+          sessionStorage.removeItem('satispay_checkout_data');
+
+          // Svuota il carrello
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('cart');
+          }
+
+          // Riscatta i punti se necessario
+          if (satispayData.pointsToRedeem > 0 && satispayData.customerId) {
+            try {
+              const token = localStorage.getItem('woocommerce_token');
+              if (token) {
+                await fetch('/api/points/redeem', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    userId: satispayData.customerId,
+                    points: satispayData.pointsToRedeem,
+                    orderId: createData.orderId,
+                    token
+                  }),
+                });
+                localStorage.removeItem('checkout_points_to_redeem');
+                localStorage.removeItem('checkout_points_discount');
+              }
+            } catch (pointsError) {
+              console.error('Errore durante il riscatto dei punti:', pointsError);
+            }
+          }
+
+          // Recupera i dettagli dell'ordine creato
+          const order = await getOrder(createData.orderId);
+          setOrderDetails(order as OrderDetails);
+          setLoading(false);
+          return;
+
+        } catch (err) {
+          console.error('Errore nella creazione dell\'ordine Satispay:', err);
+          setError('Impossibile creare l\'ordine. Contatta il supporto clienti.');
+          setLoading(false);
+          return;
+        }
+      }
+
       if (!orderId) {
         setError('ID ordine non trovato');
         setLoading(false);
@@ -61,7 +147,7 @@ function OrderSuccessContent() {
 
       try {
         // Se c'è un session_id (pagamento Klarna/Checkout Session), verifica e aggiorna l'ordine
-        if (sessionId) {
+        if (sessionId && paymentMethod !== 'satispay') {
           console.log('Verifica della sessione Stripe per ordine:', orderId);
 
           const verifyResponse = await fetch('/api/stripe/verify-session', {
@@ -94,7 +180,7 @@ function OrderSuccessContent() {
     }
 
     fetchOrderDetails();
-  }, [orderId, sessionId]);
+  }, [orderId, sessionId, searchParams]);
   
   // Format price with currency symbol
   const formatPrice = (price: string) => {

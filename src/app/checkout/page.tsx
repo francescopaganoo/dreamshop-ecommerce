@@ -1461,7 +1461,6 @@ export default function CheckoutPage() {
             throw new Error(createOrderData.error || 'Errore nella creazione dell\'ordine WooCommerce');
           }
 
-          console.log('Ordine WooCommerce creato con successo:', createOrderData.orderId);
 
           const createdOrderId = createOrderData.orderId;
 
@@ -1654,11 +1653,12 @@ export default function CheckoutPage() {
         const pointsToEarn = Math.floor(Math.max(0, subtotalForPoints));
         console.log(`[CHECKOUT SATISPAY] CALCOLO PUNTI - Subtotale: €${subtotal.toFixed(2)}, Sconto coupon: €${couponDiscount.toFixed(2)}, Sconto punti: €${pointsDiscount.toFixed(2)}, Valore per punti: €${subtotalForPoints.toFixed(2)} → ${pointsToEarn} punti verranno assegnati`);
 
-        // Crea un ordine in stato pending
+        // Prepara i dati dell'ordine (sarà creato dopo il successo del pagamento)
         const orderData = {
           payment_method: 'satispay',
           payment_method_title: 'Satispay',
           set_paid: false,
+          customer_id: customerId || (isAuthenticated && user ? user.id : 0),
           customer_note: formData.notes,
           billing: billingInfo,
           shipping: shippingInfo,
@@ -1685,6 +1685,32 @@ export default function CheckoutPage() {
               lineItem.meta_data = [...(lineItem.meta_data || []), ...attributeMeta];
             }
 
+            // Aggiungi i metadati dal cart item (es. dati gift card)
+            if (item.meta_data && item.meta_data.length > 0) {
+              if (!lineItem.meta_data) lineItem.meta_data = [];
+              lineItem.meta_data.push(...item.meta_data);
+            }
+
+            // Aggiungi i metadati degli acconti se il prodotto li ha
+            if (item.product._wc_convert_to_deposit === 'yes') {
+              if (!lineItem.meta_data) lineItem.meta_data = [];
+
+              // Aggiungi i metadati degli acconti
+              lineItem.meta_data.push(
+                { key: '_wc_convert_to_deposit', value: 'yes' },
+                { key: '_wc_deposit_type', value: item.product._wc_deposit_type || 'percent' },
+                { key: '_wc_deposit_amount', value: item.product._wc_deposit_amount || '40' }
+              );
+
+              // Aggiungi il piano di pagamento se presente
+              if (item.product._deposit_payment_plan) {
+                lineItem.meta_data.push(
+                  { key: '_wc_payment_plan', value: item.product._deposit_payment_plan },
+                  { key: '_deposit_payment_plan', value: item.product._deposit_payment_plan }
+                );
+              }
+            }
+
             return lineItem;
           }),
           shipping_lines: selectedShippingMethod ? [{
@@ -1703,36 +1729,26 @@ export default function CheckoutPage() {
           ]
         };
 
-        console.log('Dati ordine Satispay per WooCommerce:', orderData);
+        console.log('Dati ordine Satispay preparati (sarà creato dopo il pagamento):', orderData);
 
         try {
-          const order = await createOrder(orderData);
-          console.log('Ordine Satispay creato:', order);
+          // Salva i dati dell'ordine in sessionStorage invece di creare l'ordine
+          // L'ordine verrà creato solo dopo il successo del pagamento
+          const satispayCheckoutData = {
+            orderData,
+            amount: Math.round(total * 100),
+            pointsToRedeem,
+            pointsDiscount,
+            customerId: customerId || (isAuthenticated && user ? user.id : undefined)
+          };
 
-          if (!order.id) {
-            throw new Error('Errore nella creazione dell\'ordine per Satispay');
-          }
+          sessionStorage.setItem('satispay_checkout_data', JSON.stringify(satispayCheckoutData));
 
-          // Crea un Payment Intent con Satispay
-          const paymentResponse = await fetch('/api/stripe/payment-intent', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              amount: Math.round(total * 100),
-              orderId: order.id,
-              paymentMethod: 'satispay'
-            }),
-          });
-
-          const paymentData = await paymentResponse.json();
-          if (!paymentResponse.ok) {
-            throw new Error(paymentData.error || 'Errore nella creazione del Payment Intent per Satispay');
-          }
+          console.log('Dati Satispay salvati in sessionStorage, reindirizzamento a Stripe Checkout...');
 
           // Per Satispay, reindirizza all'hosted payment page di Stripe che gestisce Satispay
-          window.location.href = `/api/stripe/checkout-satispay?order_id=${order.id}&amount=${Math.round(total * 100)}`;
+          // Non passiamo più order_id perché l'ordine non è ancora creato
+          window.location.href = `/api/stripe/checkout-satispay?amount=${Math.round(total * 100)}`;
 
         } catch (error) {
           console.error('Errore durante il pagamento con Satispay:', error);
@@ -2461,7 +2477,6 @@ export default function CheckoutPage() {
                                           throw new Error(createData.error || 'Errore nella creazione dell\'ordine WooCommerce');
                                         }
 
-                                        console.log('Ordine WooCommerce creato con successo:', createData.orderId);
 
                                         // Salva l'ID dell'ordine per riferimento
                                         setSuccessOrderId(String(createData.orderId));

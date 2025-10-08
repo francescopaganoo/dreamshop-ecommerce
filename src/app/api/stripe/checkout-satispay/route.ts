@@ -18,11 +18,10 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const orderId = searchParams.get('order_id');
     const amount = searchParams.get('amount');
 
-    if (!orderId || !amount) {
-      console.error('Parametri mancanti:', { orderId, amount });
+    if (!amount) {
+      console.error('Parametri mancanti:', { amount });
       return NextResponse.json({ error: 'Parametri mancanti' }, { status: 400 });
     }
 
@@ -42,7 +41,7 @@ export async function GET(request: NextRequest) {
           price_data: {
             currency: 'eur',
             product_data: {
-              name: `Ordine #${orderId}`,
+              name: `Ordine DreamShop`,
               description: 'Acquisto su DreamShop',
             },
             unit_amount: parseInt(amount),
@@ -51,10 +50,9 @@ export async function GET(request: NextRequest) {
         },
       ],
       mode: 'payment',
-      success_url: `${origin}/checkout/success?order_id=${orderId}&session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}&payment_method=satispay`,
       cancel_url: `${origin}/checkout?canceled=true`,
       metadata: {
-        order_id: orderId,
         payment_method: 'satispay'
       },
       locale: 'it'
