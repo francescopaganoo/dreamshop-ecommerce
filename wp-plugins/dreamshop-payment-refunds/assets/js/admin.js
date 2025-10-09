@@ -8,17 +8,18 @@ jQuery(document).ready(function($) {
         const button = $(this);
         const orderId = button.data('order-id');
         const paymentMethod = button.data('payment-method');
+        const paymentGateway = button.data('payment-gateway');
         const transactionId = button.data('transaction-id');
         const orderTotal = parseFloat(button.data('order-total'));
 
         // Mostra modal per il rimborso
-        showRefundModal(orderId, paymentMethod, transactionId, orderTotal);
+        showRefundModal(orderId, paymentMethod, paymentGateway, transactionId, orderTotal);
     });
 
     /**
      * Mostra modal per il rimborso
      */
-    function showRefundModal(orderId, paymentMethod, transactionId, orderTotal) {
+    function showRefundModal(orderId, paymentMethod, paymentGateway, transactionId, orderTotal) {
         // Crea il modal HTML
         const modalHtml = `
             <div id="dreamshop-refund-modal" class="dreamshop-modal">
@@ -100,7 +101,7 @@ jQuery(document).ready(function($) {
 
         // Gestione click su "Rimborsa"
         $('#dreamshop-process-refund').on('click', function() {
-            processRefund(orderId, paymentMethod, orderTotal);
+            processRefund(orderId, paymentMethod, paymentGateway, orderTotal);
         });
     }
 
@@ -116,7 +117,7 @@ jQuery(document).ready(function($) {
     /**
      * Processa il rimborso
      */
-    function processRefund(orderId, paymentMethod, orderTotal) {
+    function processRefund(orderId, paymentMethod, paymentGateway, orderTotal) {
         const modal = $('#dreamshop-refund-modal');
         const refundType = modal.find('input[name="refund_type"]:checked').val();
         const refundAmount = refundType === 'partial' ? parseFloat(modal.find('#refund_amount').val()) : 0;
@@ -149,6 +150,7 @@ jQuery(document).ready(function($) {
                 nonce: dreamshopRefunds.nonce,
                 order_id: orderId,
                 payment_method: paymentMethod,
+                payment_gateway: paymentGateway,
                 amount: refundAmount,
                 reason: refundReason
             },

@@ -250,8 +250,8 @@ class DreamShop_Payment_Refunds {
         // Ottieni il metodo di pagamento
         $payment_method = $order->get_payment_method();
 
-        // Verifica se l'ordine è stato pagato con Stripe o PayPal
-        if (!in_array($payment_method, array('stripe', 'paypal'))) {
+        // Verifica se l'ordine è stato pagato con Stripe, Klarna, Satispay o PayPal
+        if (!in_array($payment_method, array('stripe', 'klarna', 'satispay', 'paypal'))) {
             return;
         }
 
@@ -260,11 +260,18 @@ class DreamShop_Payment_Refunds {
             return;
         }
 
+        // Determina il gateway di pagamento effettivo (stripe, klarna e satispay usano Stripe)
+        $payment_gateway = in_array($payment_method, array('stripe', 'klarna', 'satispay')) ? 'stripe' : 'paypal';
+
         // Ottieni l'ID della transazione
         $transaction_id = '';
-        if ($payment_method === 'stripe') {
+        if ($payment_gateway === 'stripe') {
+            // Prova tutti i possibili meta_key per Stripe/Klarna/Satispay
             $transaction_id = $order->get_meta('_stripe_payment_intent_id');
-        } elseif ($payment_method === 'paypal') {
+            if (empty($transaction_id)) {
+                $transaction_id = $order->get_meta('_stripe_payment_intent');
+            }
+        } elseif ($payment_gateway === 'paypal') {
             $transaction_id = $order->get_meta('_paypal_transaction_id');
             if (empty($transaction_id)) {
                 $transaction_id = $order->get_meta('_paypal_order_id');
@@ -275,13 +282,24 @@ class DreamShop_Payment_Refunds {
             return;
         }
 
+        // Determina il label del bottone
+        $button_label = '';
+        if ($payment_method === 'klarna') {
+            $button_label = 'Klarna (Stripe)';
+        } elseif ($payment_method === 'satispay') {
+            $button_label = 'Satispay (Stripe)';
+        } else {
+            $button_label = ucfirst($payment_method);
+        }
+
         ?>
         <button type="button" class="button dreamshop-refund-button"
                 data-order-id="<?php echo esc_attr($order->get_id()); ?>"
                 data-payment-method="<?php echo esc_attr($payment_method); ?>"
+                data-payment-gateway="<?php echo esc_attr($payment_gateway); ?>"
                 data-transaction-id="<?php echo esc_attr($transaction_id); ?>"
                 data-order-total="<?php echo esc_attr($order->get_total()); ?>">
-            <?php _e('Rimborsa via', 'dreamshop-refunds'); ?> <?php echo ucfirst($payment_method); ?>
+            <?php _e('Rimborsa via', 'dreamshop-refunds'); ?> <?php echo esc_html($button_label); ?>
         </button>
         <?php
     }
@@ -298,6 +316,7 @@ class DreamShop_Payment_Refunds {
 
         $order_id = isset($_POST['order_id']) ? intval($_POST['order_id']) : 0;
         $payment_method = isset($_POST['payment_method']) ? sanitize_text_field($_POST['payment_method']) : '';
+        $payment_gateway = isset($_POST['payment_gateway']) ? sanitize_text_field($_POST['payment_gateway']) : '';
         $amount = isset($_POST['amount']) ? floatval($_POST['amount']) : 0;
         $reason = isset($_POST['reason']) ? sanitize_text_field($_POST['reason']) : '';
 
@@ -310,13 +329,18 @@ class DreamShop_Payment_Refunds {
             wp_send_json_error(array('message' => __('Ordine non trovato', 'dreamshop-refunds')));
         }
 
-        // Processa il rimborso in base al metodo di pagamento
-        if ($payment_method === 'stripe') {
-            $result = $this->process_stripe_refund($order, $amount, $reason);
-        } elseif ($payment_method === 'paypal') {
+        // Se payment_gateway non è specificato, determinalo dal payment_method
+        if (empty($payment_gateway)) {
+            $payment_gateway = in_array($payment_method, array('stripe', 'klarna', 'satispay')) ? 'stripe' : 'paypal';
+        }
+
+        // Processa il rimborso in base al gateway di pagamento
+        if ($payment_gateway === 'stripe') {
+            $result = $this->process_stripe_refund($order, $amount, $reason, $payment_method);
+        } elseif ($payment_gateway === 'paypal') {
             $result = $this->process_paypal_refund($order, $amount, $reason);
         } else {
-            wp_send_json_error(array('message' => __('Metodo di pagamento non supportato', 'dreamshop-refunds')));
+            wp_send_json_error(array('message' => __('Gateway di pagamento non supportato', 'dreamshop-refunds')));
         }
 
         if ($result['success']) {
@@ -327,19 +351,31 @@ class DreamShop_Payment_Refunds {
     }
 
     /**
-     * Processa rimborso Stripe
+     * Processa rimborso Stripe (include anche Klarna e Satispay)
      */
-    private function process_stripe_refund($order, $amount, $reason) {
+    private function process_stripe_refund($order, $amount, $reason, $payment_method = 'stripe') {
         $secret_key = get_option('dreamshop_stripe_secret_key');
 
         if (empty($secret_key)) {
             return array('success' => false, 'message' => __('Stripe Secret Key non configurata', 'dreamshop-refunds'));
         }
 
+        // Prova a recuperare il Payment Intent ID da diversi meta_key
         $payment_intent_id = $order->get_meta('_stripe_payment_intent_id');
+        if (empty($payment_intent_id)) {
+            $payment_intent_id = $order->get_meta('_stripe_payment_intent');
+        }
 
         if (empty($payment_intent_id)) {
-            return array('success' => false, 'message' => __('Payment Intent ID non trovato', 'dreamshop-refunds'));
+            return array('success' => false, 'message' => __('Payment Intent ID non trovato nei meta dell\'ordine', 'dreamshop-refunds'));
+        }
+
+        // Determina il nome del metodo di pagamento per i log
+        $payment_method_name = 'Stripe';
+        if ($payment_method === 'klarna') {
+            $payment_method_name = 'Klarna (Stripe)';
+        } elseif ($payment_method === 'satispay') {
+            $payment_method_name = 'Satispay (Stripe)';
         }
 
         // Determina l'importo del rimborso
@@ -372,43 +408,68 @@ class DreamShop_Payment_Refunds {
             return array('success' => false, 'message' => $response->get_error_message());
         }
 
+        $code = wp_remote_retrieve_response_code($response);
         $body = json_decode(wp_remote_retrieve_body($response), true);
+
+        // Log per debug
+        error_log('Stripe Refund Response Code: ' . $code);
+        error_log('Stripe Refund Response Body: ' . print_r($body, true));
 
         if (isset($body['error'])) {
             return array('success' => false, 'message' => $body['error']['message']);
         }
 
-        if (isset($body['id']) && $body['status'] === 'succeeded') {
-            // Crea il rimborso in WooCommerce
-            $refund_id = wc_create_refund(array(
-                'order_id' => $order->get_id(),
-                'amount' => $refund_amount,
-                'reason' => $reason,
-                'refund_payment' => false, // Già rimborsato tramite Stripe
-            ));
+        // Stripe può restituire diversi stati: succeeded, pending, failed, canceled, requires_action
+        // Per Klarna e altri metodi, il rimborso può essere 'pending' ma comunque valido
+        if (isset($body['id']) && isset($body['status'])) {
+            $valid_statuses = array('succeeded', 'pending');
 
-            if (is_wp_error($refund_id)) {
-                return array('success' => false, 'message' => $refund_id->get_error_message());
+            if (in_array($body['status'], $valid_statuses)) {
+                // Crea il rimborso in WooCommerce
+                $refund_id = wc_create_refund(array(
+                    'order_id' => $order->get_id(),
+                    'amount' => $refund_amount,
+                    'reason' => $reason,
+                    'refund_payment' => false, // Già rimborsato tramite Stripe
+                ));
+
+                if (is_wp_error($refund_id)) {
+                    return array('success' => false, 'message' => $refund_id->get_error_message());
+                }
+
+                // Messaggio differente in base allo stato
+                $status_message = '';
+                if ($body['status'] === 'pending') {
+                    $status_message = __(' (In elaborazione)', 'dreamshop-refunds');
+                }
+
+                // Aggiungi nota all'ordine
+                $order->add_order_note(
+                    sprintf(
+                        __('Rimborso %s processato con successo%s. Importo: %s. ID Rimborso: %s. Stato: %s. Motivo: %s', 'dreamshop-refunds'),
+                        $payment_method_name,
+                        $status_message,
+                        wc_price($refund_amount),
+                        $body['id'],
+                        $body['status'],
+                        $reason
+                    )
+                );
+
+                return array(
+                    'success' => true,
+                    'message' => sprintf(__('Rimborso %s completato con successo%s', 'dreamshop-refunds'), $payment_method_name, $status_message),
+                    'refund_id' => $body['id'],
+                    'status' => $body['status']
+                );
+            } elseif ($body['status'] === 'failed') {
+                return array('success' => false, 'message' => __('Il rimborso Stripe è fallito', 'dreamshop-refunds'));
+            } else {
+                return array('success' => false, 'message' => sprintf(__('Stato rimborso non valido: %s', 'dreamshop-refunds'), $body['status']));
             }
-
-            // Aggiungi nota all'ordine
-            $order->add_order_note(
-                sprintf(
-                    __('Rimborso Stripe processato con successo. Importo: %s. ID Rimborso: %s. Motivo: %s', 'dreamshop-refunds'),
-                    wc_price($refund_amount),
-                    $body['id'],
-                    $reason
-                )
-            );
-
-            return array(
-                'success' => true,
-                'message' => __('Rimborso Stripe completato con successo', 'dreamshop-refunds'),
-                'refund_id' => $body['id']
-            );
         }
 
-        return array('success' => false, 'message' => __('Errore durante il rimborso Stripe', 'dreamshop-refunds'));
+        return array('success' => false, 'message' => __('Risposta non valida da Stripe. Verifica nella dashboard Stripe se il rimborso è stato processato.', 'dreamshop-refunds'));
     }
 
     /**
