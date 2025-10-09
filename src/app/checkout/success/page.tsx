@@ -55,6 +55,97 @@ function OrderSuccessContent() {
     async function fetchOrderDetails() {
       const paymentMethod = searchParams.get('payment_method');
 
+      // Se è un pagamento Klarna e non c'è orderId, dobbiamo creare l'ordine
+      if (paymentMethod === 'klarna' && !orderId && sessionId) {
+        try {
+          console.log('[KLARNA] Pagamento completato, creazione ordine WooCommerce...');
+
+          // Recupera i dati dell'ordine da sessionStorage
+          const klarnaDataStr = sessionStorage.getItem('klarna_checkout_data');
+          if (!klarnaDataStr) {
+            setError('Dati dell\'ordine non trovati. Contatta il supporto clienti.');
+            setLoading(false);
+            return;
+          }
+
+          const klarnaData = JSON.parse(klarnaDataStr);
+
+          // Crea l'ordine WooCommerce dopo il successo del pagamento
+          const createResponse = await fetch('/api/stripe/create-order-after-klarna', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              sessionId,
+              orderData: klarnaData.orderData,
+              pointsToRedeem: klarnaData.pointsToRedeem,
+              pointsDiscount: klarnaData.pointsDiscount
+            }),
+          });
+
+          const createData = await createResponse.json();
+
+          if (!createResponse.ok || !createData.success) {
+            console.error('[KLARNA] Errore nella creazione dell\'ordine:', createData);
+            setError('Errore nella creazione dell\'ordine. Contatta il supporto clienti.');
+            setLoading(false);
+            return;
+          }
+
+          console.log('[KLARNA] Ordine creato:', createData.orderId);
+
+          // Pulisci i dati da sessionStorage
+          sessionStorage.removeItem('klarna_checkout_data');
+
+          // Svuota il carrello
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('cart');
+          }
+
+          // Riscatta i punti se necessario
+          if (createData.pointsToRedeem > 0 && klarnaData.customerId) {
+            try {
+              const token = localStorage.getItem('woocommerce_token');
+
+              if (token) {
+                console.log(`[KLARNA] Riscatto ${createData.pointsToRedeem} punti per l'utente ${klarnaData.customerId}`);
+
+                await fetch('/api/points/redeem', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    userId: klarnaData.customerId,
+                    points: createData.pointsToRedeem,
+                    orderId: createData.orderId,
+                    token
+                  }),
+                });
+
+                localStorage.removeItem('checkout_points_to_redeem');
+                localStorage.removeItem('checkout_points_discount');
+              }
+            } catch (pointsError) {
+              console.error('[KLARNA] Errore durante il riscatto dei punti:', pointsError);
+            }
+          }
+
+          // Recupera i dettagli dell'ordine creato
+          const order = await getOrder(createData.orderId);
+          setOrderDetails(order as OrderDetails);
+          setLoading(false);
+          return;
+
+        } catch (err) {
+          console.error('[KLARNA] Errore nella creazione dell\'ordine:', err);
+          setError('Impossibile creare l\'ordine. Contatta il supporto clienti.');
+          setLoading(false);
+          return;
+        }
+      }
+
       // Se è un pagamento Satispay e non c'è orderId, dobbiamo creare l'ordine
       if (paymentMethod === 'satispay' && !orderId && sessionId) {
         try {
@@ -146,8 +237,8 @@ function OrderSuccessContent() {
       }
 
       try {
-        // Se c'è un session_id (pagamento Klarna/Checkout Session), verifica e aggiorna l'ordine
-        if (sessionId && paymentMethod !== 'satispay') {
+        // Se c'è un session_id (pagamento con Checkout Session), verifica e aggiorna l'ordine
+        if (sessionId && paymentMethod !== 'satispay' && paymentMethod !== 'klarna') {
           console.log('Verifica della sessione Stripe per ordine:', orderId);
 
           const verifyResponse = await fetch('/api/stripe/verify-session', {

@@ -1519,7 +1519,7 @@ export default function CheckoutPage() {
 
         console.log('Inizializzazione pagamento con Klarna...');
 
-        // Se l'utente vuole creare un account, crealo prima dell'ordine
+        // Se l'utente vuole creare un account, crealo prima del pagamento
         let customerId = undefined;
         if (formData.createAccount && formData.password && !isAuthenticated) {
           try {
@@ -1550,7 +1550,7 @@ export default function CheckoutPage() {
         const pointsToEarn = Math.floor(Math.max(0, subtotalForPoints));
         console.log(`[CHECKOUT KLARNA] CALCOLO PUNTI - Subtotale: €${subtotal.toFixed(2)}, Sconto coupon: €${couponDiscount.toFixed(2)}, Sconto punti: €${pointsDiscount.toFixed(2)}, Valore per punti: €${subtotalForPoints.toFixed(2)} → ${pointsToEarn} punti verranno assegnati`);
 
-        // Crea un ordine in stato pending
+        // Prepara i dati dell'ordine (NON lo creiamo ancora, lo creeremo dopo il pagamento)
         const orderData = {
           payment_method: 'klarna',
           payment_method_title: 'Klarna',
@@ -1567,41 +1567,55 @@ export default function CheckoutPage() {
               total: String(shipping)
             }
           ],
-          // Aggiungi fee e sconti come line items aggiuntivi se presenti
-          fee_lines: [
-            // Sconti coupon se presenti
-            ...(coupon && discount > 0 ? [{
-              name: `Sconto Coupon: ${coupon.code}`,
-              total: String(-discount),
-              tax_class: '',
-              tax_status: 'none'
-            }] : []),
-            // Sconti punti se presenti
-            ...(pointsDiscount > 0 ? [{
-              name: 'Sconto Punti DreamShop',
-              total: String(-pointsDiscount),
-              tax_class: '',
-              tax_status: 'none'
-            }] : [])
-          ],
+          // Aggiungi coupon lines se presenti
+          coupon_lines: coupon ? [
+            {
+              code: coupon.code,
+              discount: String(discount)
+            }
+          ] : [],
           meta_data: [
             { key: '_checkout_points_earned', value: String(pointsToEarn) },
-            { key: '_checkout_payment_method', value: 'klarna' }
+            { key: '_checkout_payment_method', value: 'klarna' },
+            { key: '_points_to_earn_frontend', value: String(pointsToEarn) }
           ]
         };
 
-        console.log('Dati ordine Klarna per WooCommerce:', orderData);
+        console.log('Preparazione sessione Klarna con dati ordine:', orderData);
 
         try {
-          const order = await createOrder(orderData);
-          console.log('Ordine Klarna creato:', order);
+          // Salva i dati in sessionStorage (come Satispay) per evitare il limite di 500 caratteri dei metadata Stripe
+          const klarnaCheckoutData = {
+            orderData: orderData,
+            pointsToRedeem: pointsToRedeem > 0 ? pointsToRedeem : 0,
+            pointsDiscount: pointsDiscount,
+            customerId: user?.id || 0
+          };
 
-          if (!order || !order.id) {
-            throw new Error('Errore nella creazione dell\'ordine per Klarna');
+          sessionStorage.setItem('klarna_checkout_data', JSON.stringify(klarnaCheckoutData));
+          console.log('[KLARNA] Dati salvati in sessionStorage');
+
+          // Crea la Checkout Session
+          const sessionResponse = await fetch('/api/stripe/checkout-klarna', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              amount: Math.round(total * 100)
+            }),
+          });
+
+          const sessionData = await sessionResponse.json();
+
+          if (sessionData.error || !sessionData.url) {
+            throw new Error(sessionData.error || 'Errore nella creazione della sessione Klarna');
           }
 
-          // Per Klarna, reindirizza direttamente alla Checkout Session di Stripe
-          window.location.href = `/api/stripe/checkout-klarna?order_id=${order.id}&amount=${Math.round(total * 100)}`;
+          console.log('Sessione Klarna creata, reindirizzo a:', sessionData.url);
+
+          // Reindirizza alla Checkout Session di Stripe
+          window.location.href = sessionData.url;
 
         } catch (error) {
           console.error('Errore durante il pagamento con Klarna:', error);
@@ -1611,8 +1625,6 @@ export default function CheckoutPage() {
           return;
         }
 
-        setIsStripeLoading(false);
-        setIsSubmitting(false);
         return;
       }
 

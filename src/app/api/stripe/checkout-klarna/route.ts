@@ -10,20 +10,19 @@ if (!stripeSecretKey) {
 
 const stripe = new Stripe(stripeSecretKey || '');
 
-export async function GET(request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
     if (!stripeSecretKey) {
       console.error('Impossibile procedere: STRIPE_SECRET_KEY mancante');
       return NextResponse.json({ error: 'Configurazione Stripe mancante' }, { status: 500 });
     }
 
-    const { searchParams } = new URL(request.url);
-    const orderId = searchParams.get('order_id');
-    const amount = searchParams.get('amount');
+    const data = await request.json();
+    const { amount } = data;
 
-    if (!orderId || !amount) {
-      console.error('Parametri mancanti:', { orderId, amount });
-      return NextResponse.json({ error: 'Parametri mancanti' }, { status: 400 });
+    if (!amount) {
+      console.error('Parametri mancanti:', { amount });
+      return NextResponse.json({ error: 'Parametro amount mancante' }, { status: 400 });
     }
 
     // Ottieni l'origine in modo sicuro
@@ -33,6 +32,7 @@ export async function GET(request: NextRequest) {
       origin = request.headers.get('referer')?.replace(/\/[^/]*$/, '') || 'https://your-domain.com';
     }
 
+    console.log('[KLARNA] Creazione sessione checkout, amount:', amount);
 
     // Crea la sessione di checkout Stripe con solo Klarna
     const session = await stripe.checkout.sessions.create({
@@ -42,8 +42,8 @@ export async function GET(request: NextRequest) {
           price_data: {
             currency: 'eur',
             product_data: {
-              name: `Ordine #${orderId}`,
-              description: 'Acquisto su DreamShop',
+              name: 'Ordine DreamShop',
+              description: 'Acquisto su DreamShop con Klarna',
             },
             unit_amount: parseInt(amount),
           },
@@ -51,18 +51,21 @@ export async function GET(request: NextRequest) {
         },
       ],
       mode: 'payment',
-      success_url: `${origin}/checkout/success?order_id=${orderId}&session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}&payment_method=klarna`,
       cancel_url: `${origin}/checkout?canceled=true`,
       metadata: {
-        order_id: orderId,
         payment_method: 'klarna'
       },
       locale: 'it'
     });
 
+    console.log('[KLARNA] Sessione creata:', session.id);
 
-    // Reindirizza direttamente alla sessione di checkout
-    return NextResponse.redirect(session.url!);
+    // Ritorna l'URL della sessione
+    return NextResponse.json({
+      url: session.url,
+      sessionId: session.id
+    });
 
   } catch (error: unknown) {
     console.error('Errore durante la creazione della sessione Klarna:', error);
