@@ -15,7 +15,9 @@ export async function POST(request: NextRequest) {
       paymentPlanId,
       billingData,
       paypalOrderDetails,
-      shippingMethod
+      shippingMethod,
+      variationId,
+      variationAttributes
     } = data;
     
 
@@ -45,6 +47,18 @@ export async function POST(request: NextRequest) {
     const productSubtotal = subtotalWithShipping - shippingCost;
 
 
+    // Log per debug
+    console.log('[PayPal Express] Creating order with:', {
+      productId,
+      variationId,
+      quantity,
+      enableDeposit,
+      depositAmount,
+      depositType,
+      paymentPlanId,
+      productSubtotal: productSubtotal.toFixed(2)
+    });
+
     // Prepara i line items con il prezzo custom
     const lineItems = [
       {
@@ -52,8 +66,19 @@ export async function POST(request: NextRequest) {
         quantity: quantity,
         subtotal: productSubtotal.toFixed(2),
         total: productSubtotal.toFixed(2),
-        ...(enableDeposit === 'yes' && {
-          meta_data: [
+        // IMPORTANTE: Aggiungi variation_id se presente
+        ...(variationId && variationId > 0 && { variation_id: variationId }),
+        meta_data: [
+          // Aggiungi attributi della variazione se presenti
+          ...(variationAttributes && Array.isArray(variationAttributes)
+            ? variationAttributes.map((attr: { name: string; option: string }) => ({
+                key: attr.name,
+                value: attr.option
+              }))
+            : []
+          ),
+          // Aggiungi metadati dell'acconto se abilitato
+          ...(enableDeposit === 'yes' ? [
             { key: '_wc_convert_to_deposit', value: 'yes' },
             { key: '_wc_deposit_type', value: depositType || 'percent' },
             { key: '_wc_deposit_amount', value: depositAmount || '40' },
@@ -61,8 +86,8 @@ export async function POST(request: NextRequest) {
               { key: '_wc_payment_plan', value: paymentPlanId },
               { key: '_deposit_payment_plan', value: paymentPlanId }
             ] : [])
-          ]
-        })
+          ] : [])
+        ]
       }
     ];
     
