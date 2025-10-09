@@ -179,12 +179,15 @@ export const processScheduledOrderPayment = async (orderId: number): Promise<str
 /**
  * Ottiene le opzioni di acconto disponibili per un prodotto
  * @param productId ID del prodotto
+ * @param price Prezzo specifico per il calcolo (opzionale, per variazioni)
  * @returns Opzioni di acconto per il prodotto o null se non disponibili
  */
-export const getProductDepositOptions = async (productId: number): Promise<ProductDepositOptions> => {
+export const getProductDepositOptions = async (productId: number, price?: string): Promise<ProductDepositOptions> => {
   // Questo endpoint non richiede autenticazione
-  const apiUrl = `/api/products/${productId}/deposit-options`;
-  
+  const apiUrl = price
+    ? `/api/products/${productId}/deposit-options?price=${price}`
+    : `/api/products/${productId}/deposit-options`;
+
   try {
     const response = await fetch(apiUrl, {
       method: 'GET',

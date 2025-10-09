@@ -270,8 +270,12 @@ export default function ProductVariations({
       // Se l'acconto è abilitato, arricchiamo il prodotto con i metadati dell'acconto
       if (enableDeposit === 'yes') {
         try {
-          // Recupera le opzioni di acconto dal backend
-          const depositOptionsResponse = await fetch(`/api/products/${productId}/deposit-options`);
+          // Recupera le opzioni di acconto dal backend passando il prezzo della variazione
+          const variationPrice = selectedVariation?.price || customAmount?.toString();
+          const depositOptionsUrl = variationPrice
+            ? `/api/products/${productId}/deposit-options?price=${variationPrice}`
+            : `/api/products/${productId}/deposit-options`;
+          const depositOptionsResponse = await fetch(depositOptionsUrl);
           let depositAmount = '40';
           let depositType = 'percent';
           let paymentPlanId = '';

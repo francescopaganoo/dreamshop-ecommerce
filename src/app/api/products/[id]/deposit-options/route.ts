@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function GET(request: NextRequest) {
   // Estrai l'ID dal percorso URL come negli altri route handler del progetto
   const productId = request.nextUrl.pathname.split('/')[3]; // /api/products/[id]/deposit-options
-  
+
   if (!productId) {
     return NextResponse.json(
       { success: false, message: 'ID prodotto non fornito' },
@@ -13,9 +13,15 @@ export async function GET(request: NextRequest) {
 
   try {
     const baseUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL;
-    const wpEndpoint = `${baseUrl}/wp-json/dreamshop/v1/products/${productId}/deposit-options`;
-    
-    
+
+    // Estrai il parametro price dalla query string
+    const price = request.nextUrl.searchParams.get('price');
+
+    // Costruisci l'URL con il parametro price se disponibile
+    const wpEndpoint = price
+      ? `${baseUrl}/wp-json/dreamshop/v1/products/${productId}/deposit-options?price=${price}`
+      : `${baseUrl}/wp-json/dreamshop/v1/products/${productId}/deposit-options`;
+
     const response = await fetch(wpEndpoint, {
       method: 'GET',
       headers: {
@@ -23,6 +29,8 @@ export async function GET(request: NextRequest) {
       },
       cache: 'no-store',
     });
+
+    const data = await response.json();
 
     // Gestione speciale per errore 400 - Prodotto senza opzioni di acconto
     if (response.status === 400) {
@@ -36,15 +44,13 @@ export async function GET(request: NextRequest) {
     
     // Altri tipi di errori
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Errore API WordPress: ${response.status}`, errorText);
+      console.error(`Errore API WordPress: ${response.status}`);
       return NextResponse.json(
         { success: false, message: `Errore dal server WordPress: ${response.status}` },
         { status: response.status }
       );
     }
 
-    const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
     console.error('Errore durante il recupero delle opzioni di acconto:', error);

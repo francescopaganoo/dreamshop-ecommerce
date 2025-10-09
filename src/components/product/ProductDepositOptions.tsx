@@ -22,9 +22,9 @@ export default function ProductDepositOptionsComponent({ product, onDepositOptio
     const fetchDepositOptions = async () => {
       try {
         setLoading(true);
-        const options = await getProductDepositOptions(product.id);
+        const options = await getProductDepositOptions(product.id, product.price);
         setDepositOptions(options);
-        
+
         // Se l'utente non è autenticato, forza sempre il pagamento completo
         if (!isAuthenticated) {
           setSelectedOption('no');
@@ -44,7 +44,7 @@ export default function ProductDepositOptionsComponent({ product, onDepositOptio
     };
 
     fetchDepositOptions();
-  }, [product.id, onDepositOptionChange, isAuthenticated]);
+  }, [product.id, product.price, onDepositOptionChange, isAuthenticated]);
 
   // Se stiamo caricando e l'utente non è autenticato, non mostrare nulla durante il loading
   if (loading && !isAuthenticated) {
