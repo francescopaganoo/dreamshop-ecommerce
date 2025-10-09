@@ -46,12 +46,7 @@ export async function POST(request: NextRequest) {
       ]
     };
 
-    console.log('Creazione ordine WooCommerce dopo pagamento PayPal:', {
-      customer_id: userId,
-      paypal_order_id: paypalOrderId,
-      status: 'processing',
-      set_paid: true
-    });
+
 
     // Crea l'ordine in WooCommerce
     try {
@@ -71,7 +66,17 @@ export async function POST(request: NextRequest) {
 
       const wooOrder = order as WooOrder;
 
-      console.log(`Ordine WooCommerce ${wooOrder.id} creato con successo dopo pagamento PayPal ${paypalOrderId}`);
+
+      // Aggiungi una nota all'ordine WooCommerce con il riferimento PayPal
+      try {
+        await api.post(`orders/${wooOrder.id}/notes`, {
+          note: `Ordine pagato tramite PayPal. ID transazione PayPal: ${paypalOrderId}`,
+          customer_note: false
+        });
+      } catch (noteError) {
+        console.error('Errore nell\'aggiunta della nota all\'ordine:', noteError);
+        // Non blocchiamo il flusso se la nota fallisce
+      }
 
       return NextResponse.json({
         success: true,

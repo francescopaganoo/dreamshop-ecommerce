@@ -1732,6 +1732,17 @@ export default function CheckoutPage() {
         console.log('Dati ordine Satispay preparati (sarà creato dopo il pagamento):', orderData);
 
         try {
+          // Crea una descrizione dettagliata con i prodotti del carrello
+          const itemsDescription = cart.map(item => {
+            const productName = item.product.name;
+            const quantity = item.quantity;
+            return `${productName} x${quantity}`;
+          }).join(', ');
+
+          const orderDescription = `DreamShop - ${itemsDescription}`;
+
+          console.log('📧 Descrizione ordine Satispay che apparirà nella transazione:', orderDescription);
+
           // Salva i dati dell'ordine in sessionStorage invece di creare l'ordine
           // L'ordine verrà creato solo dopo il successo del pagamento
           const satispayCheckoutData = {
@@ -1739,7 +1750,8 @@ export default function CheckoutPage() {
             amount: Math.round(total * 100),
             pointsToRedeem,
             pointsDiscount,
-            customerId: customerId || (isAuthenticated && user ? user.id : undefined)
+            customerId: customerId || (isAuthenticated && user ? user.id : undefined),
+            orderDescription
           };
 
           sessionStorage.setItem('satispay_checkout_data', JSON.stringify(satispayCheckoutData));
@@ -1747,8 +1759,9 @@ export default function CheckoutPage() {
           console.log('Dati Satispay salvati in sessionStorage, reindirizzamento a Stripe Checkout...');
 
           // Per Satispay, reindirizza all'hosted payment page di Stripe che gestisce Satispay
-          // Non passiamo più order_id perché l'ordine non è ancora creato
-          window.location.href = `/api/stripe/checkout-satispay?amount=${Math.round(total * 100)}`;
+          // Passa la descrizione come parametro URL (encoded)
+          const encodedDescription = encodeURIComponent(orderDescription);
+          window.location.href = `/api/stripe/checkout-satispay?amount=${Math.round(total * 100)}&description=${encodedDescription}`;
 
         } catch (error) {
           console.error('Errore durante il pagamento con Satispay:', error);
@@ -2427,6 +2440,17 @@ export default function CheckoutPage() {
                                   try {
                                     // Crea l'ordine PayPal direttamente dal client senza creare l'ordine WooCommerce
                                     // L'ordine WooCommerce verrà creato solo dopo il successo del pagamento in onApprove
+
+                                    // Crea una descrizione dettagliata con i prodotti del carrello
+                                    const itemsDescription = cart.map(item => {
+                                      const productName = item.product.name;
+                                      const quantity = item.quantity;
+                                      return `${productName} x${quantity}`;
+                                    }).join(', ');
+
+                                    const orderDescription = `DreamShop - ${itemsDescription}`;
+
+
                                     return actions.order.create({
                                       intent: 'CAPTURE',
                                       purchase_units: [
@@ -2435,7 +2459,7 @@ export default function CheckoutPage() {
                                             currency_code: 'EUR',
                                             value: total.toFixed(2)
                                           },
-                                          description: `Ordine DreamShop`
+                                          description: orderDescription
                                         }
                                       ]
                                     });

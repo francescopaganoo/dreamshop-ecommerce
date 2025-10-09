@@ -179,6 +179,16 @@ export default function PayPalExpressButton({
       const totalAmount = total;
 
       // Crea ordine PayPal - senza breakdown perché useremo onShippingChange
+      // Crea una descrizione dettagliata
+      const productDescription = variationAttributes && variationAttributes.length > 0
+        ? `${product.name} (${variationAttributes.map(attr => attr.option).join(', ')}) x${quantity}`
+        : `${product.name} x${quantity}`;
+
+      const depositInfo = enableDeposit === 'yes' ? ' - Acconto' : '';
+      const orderDescription = `DreamShop - ${productDescription}${depositInfo}`;
+
+      console.log('📧 Descrizione ordine PayPal Express che apparirà nelle email:', orderDescription);
+
       return actions.order.create({
         intent: 'CAPTURE',
         purchase_units: [
@@ -187,7 +197,7 @@ export default function PayPalExpressButton({
               currency_code: 'EUR',
               value: totalAmount
             },
-            description: `${product.name} x${quantity}`,
+            description: orderDescription,
             custom_id: `product_${product.id}_variation_${variationId || 0}_qty_${quantity}_deposit_${enableDeposit}_paypal_fee`
           },
         ],

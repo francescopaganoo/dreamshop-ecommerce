@@ -19,11 +19,15 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const amount = searchParams.get('amount');
+    const description = searchParams.get('description');
 
     if (!amount) {
       console.error('Parametri mancanti:', { amount });
       return NextResponse.json({ error: 'Parametri mancanti' }, { status: 400 });
     }
+
+    // Usa la descrizione passata o un fallback
+    const orderDescription = description || 'Ordine DreamShop';
 
     // Ottieni l'origine in modo sicuro
     let origin = request.headers.get('origin');
@@ -41,7 +45,7 @@ export async function GET(request: NextRequest) {
           price_data: {
             currency: 'eur',
             product_data: {
-              name: `Ordine DreamShop`,
+              name: orderDescription,
               description: 'Acquisto su DreamShop',
             },
             unit_amount: parseInt(amount),
@@ -53,7 +57,8 @@ export async function GET(request: NextRequest) {
       success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}&payment_method=satispay`,
       cancel_url: `${origin}/checkout?canceled=true`,
       metadata: {
-        payment_method: 'satispay'
+        payment_method: 'satispay',
+        order_description: orderDescription
       },
       locale: 'it'
     });
