@@ -67,7 +67,11 @@ export default function AppleGooglePayButton({
       }
 
       try {
-        const response = await fetch(`/api/products/${product.id}/deposit-options`);
+        // Passa il prezzo del prodotto/variazione per calcolare correttamente l'acconto
+        const depositOptionsUrl = product.price
+          ? `/api/products/${product.id}/deposit-options?price=${product.price}`
+          : `/api/products/${product.id}/deposit-options`;
+        const response = await fetch(depositOptionsUrl);
         if (response.ok) {
           const options = await response.json();
 
@@ -97,7 +101,7 @@ export default function AppleGooglePayButton({
     };
 
     fetchDepositOptions();
-  }, [product.id, enableDeposit]);
+  }, [product.id, product.price, enableDeposit]);
 
   // Effetto per calcolare i metodi di spedizione
   useEffect(() => {

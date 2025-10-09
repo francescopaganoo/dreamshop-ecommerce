@@ -42,7 +42,9 @@ export async function POST(request: NextRequest) {
       paymentMethodId,
       shippingMethod,
       billingData,
-      shippingData
+      shippingData,
+      variationId,
+      variationAttributes
     }: {
       productId: number;
       quantity: number;
@@ -55,6 +57,8 @@ export async function POST(request: NextRequest) {
       shippingMethod?: { id: string; title: string; cost: number };
       billingData: BillingData;
       shippingData: BillingData;
+      variationId?: number;
+      variationAttributes?: Array<{ name: string; option: string }>;
     } = await request.json();
 
     // Ottieni i dettagli del prodotto
@@ -117,6 +121,18 @@ export async function POST(request: NextRequest) {
     // Il subtotale del prodotto (senza spedizione)
     const productSubtotal = productAmount;
 
+    // Log per debug
+    console.log('[Apple/Google Pay] Creating order with:', {
+      productId,
+      variationId,
+      quantity,
+      enableDeposit,
+      depositAmount,
+      depositType,
+      paymentPlanId,
+      productSubtotal: productSubtotal.toFixed(2)
+    });
+
     // Prepara i dati dell'ordine WooCommerce
     const lineItems = [];
 
@@ -126,7 +142,17 @@ export async function POST(request: NextRequest) {
         quantity: quantity,
         subtotal: productSubtotal.toFixed(2),
         total: productSubtotal.toFixed(2),
+        // IMPORTANTE: Aggiungi variation_id se presente
+        ...(variationId && variationId > 0 && { variation_id: variationId }),
         meta_data: [
+          // Aggiungi attributi della variazione se presenti
+          ...(variationAttributes && Array.isArray(variationAttributes)
+            ? variationAttributes.map((attr: { name: string; option: string }) => ({
+                key: attr.name,
+                value: attr.option
+              }))
+            : []
+          ),
           { key: '_wc_convert_to_deposit', value: 'yes' },
           { key: '_wc_deposit_type', value: depositType || 'percent' },
           { key: '_wc_deposit_amount', value: depositAmount || '40' },
@@ -141,7 +167,19 @@ export async function POST(request: NextRequest) {
         product_id: productId,
         quantity: quantity,
         subtotal: productSubtotal.toFixed(2),
-        total: productSubtotal.toFixed(2)
+        total: productSubtotal.toFixed(2),
+        // IMPORTANTE: Aggiungi variation_id se presente
+        ...(variationId && variationId > 0 && { variation_id: variationId }),
+        meta_data: [
+          // Aggiungi attributi della variazione se presenti
+          ...(variationAttributes && Array.isArray(variationAttributes)
+            ? variationAttributes.map((attr: { name: string; option: string }) => ({
+                key: attr.name,
+                value: attr.option
+              }))
+            : []
+          )
+        ]
       });
     }
 
