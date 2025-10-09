@@ -173,7 +173,7 @@ function OrderSuccessContent() {
         setOrderDetails(order as OrderDetails);
       } catch (err) {
         console.error('Error fetching order details:', err);
-        setError('Impossibile recuperare i dettagli dell\'ordine');
+        // Non impostiamo l'errore, mostriamo solo un messaggio generico di successo
       } finally {
         setLoading(false);
       }
@@ -213,7 +213,7 @@ function OrderSuccessContent() {
             <div className="text-center py-12 bg-red-50 rounded-lg">
               <h2 className="text-2xl font-semibold text-red-700 mb-4">Si è verificato un errore</h2>
               <p className="text-gray-700 mb-6">{error}</p>
-              <Link 
+              <Link
                 href="/"
                 className="bg-blue-600 text-white px-6 py-3 rounded-md font-medium hover:bg-blue-700 transition-colors"
               >
@@ -229,11 +229,19 @@ function OrderSuccessContent() {
                   </svg>
                 </div>
                 <h1 className="text-3xl font-bold text-gray-900 mb-2">Ordine Confermato!</h1>
-                <p className="text-gray-600">
-                  Grazie per il tuo ordine. Ti abbiamo inviato una email di conferma.
+                <p className="text-gray-600 mb-2">
+                  Grazie per il tuo ordine. Il pagamento è stato completato con successo.
+                </p>
+                {orderId && (
+                  <p className="text-gray-600">
+                    Numero ordine: <span className="font-semibold">#{orderId}</span>
+                  </p>
+                )}
+                <p className="text-gray-600 mt-4">
+                  Riceverai una email di conferma con tutti i dettagli del tuo ordine.
                 </p>
               </div>
-              
+
               {orderDetails && (
                 <div className="border-t border-gray-200 pt-6">
                   <div className="mb-6">

@@ -223,13 +223,13 @@ export const getProductDepositOptions = async (productId: number, price?: string
     }
     
     // Log dei dati principali (solo in sviluppo)
-    if (process.env.NODE_ENV === 'development') {
+    /*if (process.env.NODE_ENV === 'development') {
       console.log(`Dettagli deposito per prodotto ${productId}:`, { 
         deposit_enabled: data.deposit_enabled, 
         deposit_type: data.deposit_type,
         payment_plan: data.payment_plan ? 'presente' : 'assente'
       });
-    }
+    }*/
     
     return data as ProductDepositOptions;
   } catch (error: unknown) {

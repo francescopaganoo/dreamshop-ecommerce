@@ -158,7 +158,6 @@ export default function AppleGooglePayButton({
 
     // Se l'acconto è abilitato ma le opzioni non sono ancora state caricate, aspetta
     if (enableDeposit === 'yes' && !depositOptions) {
-      console.log('⏳ Aspettando depositOptions...');
       return;
     }
 
