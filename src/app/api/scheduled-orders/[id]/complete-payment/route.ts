@@ -3,6 +3,7 @@ import { verify, sign } from 'jsonwebtoken';
 import api from '@/lib/woocommerce'; // Importa l'istanza API WooCommerce configurata
 import { AxiosError } from 'axios';
 import { cookies } from 'next/headers';
+import Stripe from 'stripe';
 
 // Interfaccia per il payload JWT decodificato
 interface JwtPayload {
@@ -23,10 +24,26 @@ interface WooCommerceErrorResponse {
   [key: string]: unknown;
 }
 
+// Interfaccia per l'ordine WooCommerce
+interface WooCommerceOrder {
+  id: number;
+  status: string;
+  meta_data?: Array<{
+    key: string;
+    value: string;
+  }>;
+  [key: string]: unknown;
+}
+
 const JWT_SECRET = process.env.JWT_SECRET || 'dwi37ljio_5tk_3jt3';
 
 // Durata del token in secondi (24 ore invece di default 1 ora)
 const TOKEN_EXPIRY = 86400;
+
+// Inizializza Stripe
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+  apiVersion: '2025-04-30.basil',
+});
 
 // Tipizzazione corretta per Next.js 14+ route handler
 export async function POST(request: NextRequest) {
@@ -100,19 +117,97 @@ export async function POST(request: NextRequest) {
     }
     
 
-    
+
     // Ottieni i dati dal corpo della richiesta
-    const { paymentIntentId } = await request.json();
-    
+    const { paymentIntentId, paymentMethod } = await request.json();
+
     if (!paymentIntentId) {
       return NextResponse.json({ error: 'ID transazione mancante' }, { status: 400 });
     }
-    
+
+    if (!paymentMethod || !['stripe', 'paypal'].includes(paymentMethod)) {
+      return NextResponse.json({ error: 'Metodo di pagamento non valido' }, { status: 400 });
+    }
+
+    // SICUREZZA: Verifica che il pagamento sia effettivamente completato prima di aggiornare l'ordine
+    try {
+      if (paymentMethod === 'stripe') {
+        // Verifica il Payment Intent su Stripe
+        const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+
+        // Verifica che il pagamento sia confermato
+        if (paymentIntent.status !== 'succeeded') {
+          console.error(`API Complete Payment: Pagamento Stripe non confermato. Status: ${paymentIntent.status}`);
+          return NextResponse.json({
+            error: 'Pagamento non confermato',
+            details: `Lo stato del pagamento è "${paymentIntent.status}" invece di "succeeded"`
+          }, { status: 400 });
+        }
+
+        // Verifica che il Payment Intent sia per questo ordine specifico
+        if (paymentIntent.metadata.order_id !== id) {
+          console.error(`API Complete Payment: Payment Intent non corrisponde all'ordine. PI order_id: ${paymentIntent.metadata.order_id}, Expected: ${id}`);
+          return NextResponse.json({
+            error: 'Payment Intent non valido per questo ordine',
+            details: 'L\'ID ordine nel Payment Intent non corrisponde'
+          }, { status: 400 });
+        }
+
+        // Verifica che l'utente sia il proprietario dell'ordine
+        if (paymentIntent.metadata.user_id !== decoded.id.toString()) {
+          console.error(`API Complete Payment: Payment Intent appartiene a un altro utente. PI user_id: ${paymentIntent.metadata.user_id}, Expected: ${decoded.id}`);
+          return NextResponse.json({
+            error: 'Non autorizzato',
+            details: 'Il Payment Intent appartiene a un altro utente'
+          }, { status: 403 });
+        }
+
+        console.log(`API Complete Payment: Payment Intent Stripe verificato con successo. PI: ${paymentIntentId}, Order: ${id}, Amount: ${paymentIntent.amount / 100} EUR`);
+      } else if (paymentMethod === 'paypal') {
+        // Per PayPal, per ora logghiamo solo l'ID transazione
+        // In futuro si potrebbe implementare la verifica tramite PayPal API
+        console.log(`API Complete Payment: Pagamento PayPal ricevuto. Order ID: ${paymentIntentId}, Ordine: ${id}`);
+        console.warn('API Complete Payment: La verifica del pagamento PayPal non è implementata. Considerare l\'implementazione per maggiore sicurezza.');
+      }
+    } catch (verificationError: unknown) {
+      const error = verificationError as Error;
+      console.error('API Complete Payment: Errore durante la verifica del pagamento:', error.message);
+      return NextResponse.json({
+        error: 'Errore durante la verifica del pagamento',
+        details: error.message
+      }, { status: 500 });
+    }
+
+    // Verifica che questo Payment Intent non sia già stato utilizzato per completare un ordine
+    try {
+      // Recupera l'ordine per verificare se ha già un transaction_id
+      const orderResponse = await api.get(`orders/${id}`);
+      const order = orderResponse.data as WooCommerceOrder;
+
+      // Cerca il meta _transaction_id esistente
+      const existingTransactionId = order.meta_data?.find(
+        (meta: { key: string; value: string }) => meta.key === '_transaction_id'
+      )?.value;
+
+      if (existingTransactionId && existingTransactionId === paymentIntentId) {
+        console.warn(`API Complete Payment: Payment Intent già utilizzato per questo ordine. PI: ${paymentIntentId}, Order: ${id}`);
+        // Non è un errore grave, potrebbe essere un retry legittimo
+      } else if (existingTransactionId && existingTransactionId !== paymentIntentId) {
+        console.error(`API Complete Payment: L'ordine ha già un transaction_id diverso. Existing: ${existingTransactionId}, New: ${paymentIntentId}`);
+        return NextResponse.json({
+          error: 'Ordine già pagato con una transazione diversa',
+          details: 'Questo ordine risulta già pagato'
+        }, { status: 400 });
+      }
+    } catch (checkError: unknown) {
+      // Se non riusciamo a verificare, logghiamo ma continuiamo
+      console.warn('API Complete Payment: Impossibile verificare transaction_id esistente:', checkError);
+    }
 
     try {
       // Utilizziamo l'API standard di WooCommerce ma con i parametri corretti
       // per aggiornare lo stato del pagamento pianificato
-      
+
       // Aggiorniamo prima i metadati dell'ordine per segnalare che è stato pagato
       const metaData = {
         meta_data: [

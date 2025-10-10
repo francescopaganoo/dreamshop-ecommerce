@@ -103,7 +103,7 @@ const CheckoutForm = ({
       if (result.error) {
         throw new Error(result.error.message || 'Errore durante il pagamento');
       } else if (result.paymentIntent && result.paymentIntent.status === 'succeeded') {
-        
+
         // Notifica a WooCommerce il completamento del pagamento
         try {
           const completeResponse = await fetch(`/api/scheduled-orders/${orderId}/complete-payment`, {
@@ -114,7 +114,7 @@ const CheckoutForm = ({
             },
             body: JSON.stringify({
               paymentIntentId: result.paymentIntent.id,
-              paymentMethod: 'stripe'
+              paymentMethod: 'stripe' // Specifica il metodo di pagamento per la verifica di sicurezza
             })
           });
           
@@ -404,7 +404,7 @@ const PayPalButtonsWrapper = ({
         },
         body: JSON.stringify({
           paymentIntentId: paypalData.orderID,  // ID dell'ordine PayPal come transaction ID
-          paymentMethod: 'paypal'
+          paymentMethod: 'paypal' // Specifica il metodo di pagamento per la verifica di sicurezza
         })
       });
 
