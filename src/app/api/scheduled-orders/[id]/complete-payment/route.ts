@@ -162,12 +162,8 @@ export async function POST(request: NextRequest) {
           }, { status: 403 });
         }
 
-        console.log(`API Complete Payment: Payment Intent Stripe verificato con successo. PI: ${paymentIntentId}, Order: ${id}, Amount: ${paymentIntent.amount / 100} EUR`);
       } else if (paymentMethod === 'paypal') {
         // Per PayPal, per ora logghiamo solo l'ID transazione
-        // In futuro si potrebbe implementare la verifica tramite PayPal API
-        console.log(`API Complete Payment: Pagamento PayPal ricevuto. Order ID: ${paymentIntentId}, Ordine: ${id}`);
-        console.warn('API Complete Payment: La verifica del pagamento PayPal non è implementata. Considerare l\'implementazione per maggiore sicurezza.');
       }
     } catch (verificationError: unknown) {
       const error = verificationError as Error;
@@ -218,28 +214,37 @@ export async function POST(request: NextRequest) {
           {
             key: '_transaction_id',
             value: paymentIntentId
+          },
+          {
+            key: '_payment_method',
+            value: paymentMethod
+          },
+          {
+            key: '_payment_method_title',
+            value: paymentMethod === 'stripe' ? 'Carta di Credito/Debito (Stripe)' : 'PayPal'
           }
         ]
       };
-      
+
       // Primo aggiornamento: aggiunge i metadati
       await api.put(`orders/${id}`, metaData);
-      
-      // Secondo aggiornamento: cambia lo stato
+
+      // Secondo aggiornamento: cambia lo stato e il payment_method a livello di ordine
       // Nota: alcuni stati potrebbero richiedere permessi speciali nell'API WooCommerce
-      // Proviamo sia con 'completed' che con 'processing' se il primo fallisce
       const statusUpdate = {
-        status: 'processing'
+        status: 'processing',
+        payment_method: paymentMethod,
+        payment_method_title: paymentMethod === 'stripe' ? 'Carta di Credito/Debito (Stripe)' : 'PayPal'
       };
-      
+
       // Aggiorna lo stato dell'ordine
       const response = await api.put(`orders/${id}`, statusUpdate);
-      
-      
+
       return NextResponse.json({
         success: true,
         message: 'Pagamento completato e notificato con successo',
-        order: response.data
+        order: response.data,
+        payment_method: paymentMethod
       });
       
     } catch (error: unknown) {
