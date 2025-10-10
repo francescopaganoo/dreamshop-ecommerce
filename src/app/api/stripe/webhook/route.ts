@@ -70,20 +70,62 @@ export async function POST(request: NextRequest) {
 
       // Verifica se l'ordine esiste già (creato dal frontend)
       if (refreshedPaymentIntent.metadata?.order_id) {
-        console.log('[WEBHOOK] Ordine già esistente (creato dal frontend):', refreshedPaymentIntent.metadata.order_id);
         return NextResponse.json({ received: true, message: 'Ordine già esistente' });
       }
 
-      console.log('[WEBHOOK] Nessun ordine esistente, procedo con creazione dal webhook');
 
-      // Verifica se abbiamo i dati dell'ordine nello store
-      const orderDataId = paymentIntent.metadata?.order_data_id;
+      // Gestisce Payment Intent da Apple/Google Pay (payment_request_cart e payment_request)
+      const paymentSource = refreshedPaymentIntent.metadata?.payment_source;
+      if (paymentSource === 'payment_request_cart' || paymentSource === 'payment_request') {
+        const wcOrderId = refreshedPaymentIntent.metadata?.wc_order_id;
+
+        if (!wcOrderId) {
+          console.error('[WEBHOOK] Payment Request: wc_order_id mancante nei metadata');
+          return NextResponse.json({ received: true, error: 'Order ID mancante' });
+        }
+
+
+        try {
+          // Aggiorna l'ordine WooCommerce esistente come pagato
+          await api.put(`orders/${wcOrderId}`, {
+            status: 'processing',
+            set_paid: true,
+            transaction_id: refreshedPaymentIntent.id,
+            meta_data: [
+              {
+                key: '_webhook_updated',
+                value: 'true'
+              },
+              {
+                key: '_webhook_update_time',
+                value: new Date().toISOString()
+              }
+            ]
+          });
+
+          // Aggiorna Payment Intent per evitare duplicati
+          await stripe.paymentIntents.update(refreshedPaymentIntent.id, {
+            metadata: {
+              ...refreshedPaymentIntent.metadata,
+              order_id: wcOrderId,
+              webhook_processed: 'true'
+            }
+          });
+
+          return NextResponse.json({ received: true, message: 'Ordine aggiornato' });
+
+        } catch (error) {
+          console.error('[WEBHOOK] Errore aggiornamento ordine Payment Request:', error);
+          return NextResponse.json({ received: true, error: 'Errore aggiornamento ordine' });
+        }
+      }
+
+      // Verifica se abbiamo i dati dell'ordine nello store (per pagamenti Stripe normali)
+      const orderDataId = refreshedPaymentIntent.metadata?.order_data_id;
       if (!orderDataId) {
         console.log('[WEBHOOK] Nessun order_data_id nei metadata, skip');
         return NextResponse.json({ received: true, message: 'Nessun dato ordine' });
       }
-
-      console.log('[WEBHOOK] Recupero dati ordine con ID:', orderDataId);
 
       // Recupera i dati dell'ordine dallo store
       const storedData = orderDataStore.get(orderDataId);
@@ -98,7 +140,6 @@ export async function POST(request: NextRequest) {
       // Elimina i dati dallo store dopo il recupero
       orderDataStore.delete(orderDataId);
 
-      console.log('[WEBHOOK] Creazione ordine da payment_intent.succeeded');
 
       // Type-safe spread
       const baseOrderData = orderData as Record<string, unknown>;
@@ -157,7 +198,6 @@ export async function POST(request: NextRequest) {
         }
 
         const wooOrder = order as WooOrder;
-        console.log(`[WEBHOOK] Ordine WooCommerce ${wooOrder.id} creato con successo dal webhook (payment_intent)`);
 
         // Aggiorna il Payment Intent con l'order_id
         await stripe.paymentIntents.update(paymentIntent.id, {
@@ -168,7 +208,6 @@ export async function POST(request: NextRequest) {
           }
         });
 
-        console.log('[WEBHOOK] Payment Intent aggiornato con order_id:', wooOrder.id);
 
       } catch (error) {
         console.error('[WEBHOOK] Errore durante la creazione dell\'ordine da payment_intent:', error);
@@ -178,18 +217,13 @@ export async function POST(request: NextRequest) {
     else if (event.type === 'checkout.session.completed') {
       const session = event.data.object as Stripe.Checkout.Session;
 
-      console.log('[WEBHOOK] checkout.session.completed ricevuto:', {
-        sessionId: session.id,
-        paymentStatus: session.payment_status,
-        paymentMethod: session.metadata?.payment_method
-      });
+
 
       // Controlla se è un pagamento che richiede creazione ordine (Klarna, Stripe, Satispay senza order_id preesistente)
       const paymentMethod = session.metadata?.payment_method;
       const hasOrderId = !!session.metadata?.order_id;
 
       if ((paymentMethod === 'klarna' || paymentMethod === 'stripe' || paymentMethod === 'satispay') && !hasOrderId) {
-        console.log(`[WEBHOOK] Pagamento ${paymentMethod} completato, creazione ordine WooCommerce...`);
 
         // Verifica che il pagamento sia stato completato
         if (session.payment_status !== 'paid') {
@@ -206,7 +240,6 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ received: true, error: 'ID dati ordine mancante' });
           }
 
-          console.log('[WEBHOOK] Recupero dati ordine con ID:', orderDataId);
 
           // Recupera i dati completi dallo store in memoria
           const storedData = orderDataStore.get(orderDataId);
@@ -216,16 +249,12 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ received: true, error: 'Dati ordine non trovati o scaduti' });
           }
 
-          const { orderData, pointsToRedeem, pointsDiscount } = storedData;
+          const { orderData, pointsDiscount } = storedData;
 
           // Elimina i dati dallo store dopo il recupero (uso singolo)
           orderDataStore.delete(orderDataId);
 
-          console.log('[WEBHOOK] Dati ordine recuperati:', {
-            customerId: (orderData as { customer_id?: number }).customer_id,
-            pointsToRedeem,
-            pointsDiscount
-          });
+
 
           // Determina il titolo del metodo di pagamento
           let paymentMethodTitle = 'Pagamento Online';
@@ -278,15 +307,7 @@ export async function POST(request: NextRequest) {
             ];
           }
 
-          console.log('[WEBHOOK] Creazione ordine WooCommerce:', {
-            customer_id: orderDataToSend.customer_id,
-            payment_intent_id: session.payment_intent,
-            session_id: session.id,
-            status: 'processing',
-            set_paid: true,
-            pointsToRedeem,
-            pointsDiscount
-          });
+
 
           // Crea l'ordine in WooCommerce
           const response = await api.post('orders', orderDataToSend);
@@ -303,7 +324,6 @@ export async function POST(request: NextRequest) {
           }
 
           const wooOrder = order as WooOrder;
-          console.log(`[WEBHOOK] Ordine WooCommerce ${wooOrder.id} creato con successo dal webhook (${paymentMethod})`);
 
           // Salva l'order_id nei metadata della sessione per riferimento futuro
           await stripe.checkout.sessions.update(session.id, {
@@ -314,7 +334,6 @@ export async function POST(request: NextRequest) {
             }
           });
 
-          console.log('[WEBHOOK] Metadata sessione aggiornati con order_id:', wooOrder.id);
 
         } catch (error) {
           console.error(`[WEBHOOK] Errore durante la creazione dell'ordine ${paymentMethod}:`, error);
@@ -333,7 +352,6 @@ export async function POST(request: NextRequest) {
           payment_method_title: `Stripe (Payment Intent: ${session.payment_intent})`,
         });
 
-        console.log(`[WEBHOOK] Ordine ${orderId} aggiornato come pagato`);
       }
     }
     
