@@ -55,45 +55,104 @@ function OrderSuccessContent() {
     async function fetchOrderDetails() {
       const paymentMethod = searchParams.get('payment_method');
 
-      // Se è un pagamento Klarna e non c'è orderId, dobbiamo creare l'ordine
-      if (paymentMethod === 'klarna' && !orderId && sessionId) {
+      // Se è un pagamento con webhook (Klarna, Stripe, Satispay) e non c'è orderId, recupera l'ordine creato dal webhook
+      if ((paymentMethod === 'klarna' || paymentMethod === 'stripe' || paymentMethod === 'satispay') && !orderId && sessionId) {
         try {
-          console.log('[KLARNA] Pagamento completato, creazione ordine WooCommerce...');
 
-          // Recupera i dati dell'ordine da sessionStorage
-          const klarnaDataStr = sessionStorage.getItem('klarna_checkout_data');
-          if (!klarnaDataStr) {
-            setError('Dati dell\'ordine non trovati. Contatta il supporto clienti.');
-            setLoading(false);
-            return;
+          // Prima verifica se il webhook ha già creato l'ordine
+          let retrievedOrderId: number | null = null;
+
+          try {
+
+            // Recupera la sessione Stripe per vedere se l'order_id è già stato salvato dal webhook
+            const checkResponse = await fetch(`/api/stripe/check-session?sessionId=${sessionId}`);
+            if (checkResponse.ok) {
+              const checkData = await checkResponse.json();
+              if (checkData.orderId) {
+                retrievedOrderId = checkData.orderId;
+              }
+            }
+          } catch (checkError) {
+            console.log('[PAYMENT] Errore nel check webhook, procedo con creazione manuale:', checkError);
           }
 
-          const klarnaData = JSON.parse(klarnaDataStr);
+          let finalOrderId: number;
 
-          // Crea l'ordine WooCommerce dopo il successo del pagamento
-          const createResponse = await fetch('/api/stripe/create-order-after-klarna', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              sessionId,
-              orderData: klarnaData.orderData,
-              pointsToRedeem: klarnaData.pointsToRedeem,
-              pointsDiscount: klarnaData.pointsDiscount
-            }),
-          });
+          // Se il webhook ha già creato l'ordine, usalo
+          if (retrievedOrderId) {
+            finalOrderId = typeof retrievedOrderId === 'string' ? parseInt(retrievedOrderId) : retrievedOrderId;
+          } else {
+            // Altrimenti crea l'ordine manualmente (fallback)
+            console.log('[PAYMENT] Webhook non ha creato l\'ordine, creazione manuale...');
 
-          const createData = await createResponse.json();
+            // Recupera i dati dell'ordine da sessionStorage
+            const klarnaDataStr = sessionStorage.getItem('klarna_checkout_data');
+            if (!klarnaDataStr) {
+              // I dati non ci sono più, ma il pagamento è stato completato
+              // Mostra un messaggio generico di successo
+              setError(null);
+              setOrderDetails(null);
+              setLoading(false);
+              return;
+            }
 
-          if (!createResponse.ok || !createData.success) {
-            console.error('[KLARNA] Errore nella creazione dell\'ordine:', createData);
-            setError('Errore nella creazione dell\'ordine. Contatta il supporto clienti.');
-            setLoading(false);
-            return;
+            const klarnaData = JSON.parse(klarnaDataStr);
+
+            // Crea l'ordine WooCommerce dopo il successo del pagamento
+            const createResponse = await fetch('/api/stripe/create-order-after-klarna', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                sessionId,
+                orderData: klarnaData.orderData,
+                pointsToRedeem: klarnaData.pointsToRedeem,
+                pointsDiscount: klarnaData.pointsDiscount
+              }),
+            });
+
+            const createData = await createResponse.json();
+
+            if (!createResponse.ok || !createData.success) {
+              console.error('[PAYMENT] Errore nella creazione dell\'ordine:', createData);
+              setError('Errore nella creazione dell\'ordine. Contatta il supporto clienti.');
+              setLoading(false);
+              return;
+            }
+
+            finalOrderId = createData.orderId;
+            console.log('[PAYMENT] Ordine creato manualmente:', finalOrderId);
+
+            // Riscatta i punti se necessario (solo se creato manualmente)
+            if (createData.pointsToRedeem > 0 && klarnaData.customerId) {
+              try {
+                const token = localStorage.getItem('woocommerce_token');
+
+                if (token) {
+
+                  await fetch('/api/points/redeem', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      userId: klarnaData.customerId,
+                      points: createData.pointsToRedeem,
+                      orderId: finalOrderId,
+                      token
+                    }),
+                  });
+
+                  localStorage.removeItem('checkout_points_to_redeem');
+                  localStorage.removeItem('checkout_points_discount');
+                }
+              } catch (pointsError) {
+                console.error('[PAYMENT] Errore durante il riscatto dei punti:', pointsError);
+              }
+            }
           }
 
-          console.log('[KLARNA] Ordine creato:', createData.orderId);
 
           // Pulisci i dati da sessionStorage
           sessionStorage.removeItem('klarna_checkout_data');
@@ -103,132 +162,42 @@ function OrderSuccessContent() {
             localStorage.removeItem('cart');
           }
 
-          // Riscatta i punti se necessario
-          if (createData.pointsToRedeem > 0 && klarnaData.customerId) {
+          // Recupera i dettagli dell'ordine creato con retry
+          let order = null;
+          const retries = 3;
+
+          for (let i = 0; i < retries; i++) {
             try {
-              const token = localStorage.getItem('woocommerce_token');
 
-              if (token) {
-                console.log(`[KLARNA] Riscatto ${createData.pointsToRedeem} punti per l'utente ${klarnaData.customerId}`);
-
-                await fetch('/api/points/redeem', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    userId: klarnaData.customerId,
-                    points: createData.pointsToRedeem,
-                    orderId: createData.orderId,
-                    token
-                  }),
-                });
-
-                localStorage.removeItem('checkout_points_to_redeem');
-                localStorage.removeItem('checkout_points_discount');
+              // Aggiungi un delay progressivo
+              if (i > 0) {
+                const delay = i * 1000; // 1s, 2s, 3s
+                await new Promise(resolve => setTimeout(resolve, delay));
               }
-            } catch (pointsError) {
-              console.error('[KLARNA] Errore durante il riscatto dei punti:', pointsError);
+
+              order = await getOrder(finalOrderId);
+              break; // Successo, esci dal loop
+            } catch {
+              if (i === retries - 1) {
+                // Ultimo tentativo fallito
+              }
             }
           }
 
-          // Recupera i dettagli dell'ordine creato
-          const order = await getOrder(createData.orderId);
-          setOrderDetails(order as OrderDetails);
+          setOrderDetails(order as OrderDetails | null);
+
           setLoading(false);
           return;
 
         } catch (err) {
-          console.error('[KLARNA] Errore nella creazione dell\'ordine:', err);
+          console.error('[PAYMENT] Errore generico:', err);
           setError('Impossibile creare l\'ordine. Contatta il supporto clienti.');
           setLoading(false);
           return;
         }
       }
 
-      // Se è un pagamento Satispay e non c'è orderId, dobbiamo creare l'ordine
-      if (paymentMethod === 'satispay' && !orderId && sessionId) {
-        try {
-          console.log('Pagamento Satispay completato, creazione ordine WooCommerce...');
-
-          // Recupera i dati dell'ordine da sessionStorage
-          const satispayDataStr = sessionStorage.getItem('satispay_checkout_data');
-          if (!satispayDataStr) {
-            setError('Dati dell\'ordine non trovati. Contatta il supporto clienti.');
-            setLoading(false);
-            return;
-          }
-
-          const satispayData = JSON.parse(satispayDataStr);
-
-          // Crea l'ordine WooCommerce dopo il successo del pagamento
-          const createResponse = await fetch('/api/stripe/create-satispay-order', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              sessionId,
-              orderData: satispayData.orderData,
-            }),
-          });
-
-          const createData = await createResponse.json();
-
-          if (!createResponse.ok || !createData.success) {
-            console.error('Errore nella creazione dell\'ordine Satispay:', createData);
-            setError('Errore nella creazione dell\'ordine. Contatta il supporto clienti.');
-            setLoading(false);
-            return;
-          }
-
-
-          // Pulisci i dati da sessionStorage
-          sessionStorage.removeItem('satispay_checkout_data');
-
-          // Svuota il carrello
-          if (typeof window !== 'undefined') {
-            localStorage.removeItem('cart');
-          }
-
-          // Riscatta i punti se necessario
-          if (satispayData.pointsToRedeem > 0 && satispayData.customerId) {
-            try {
-              const token = localStorage.getItem('woocommerce_token');
-              if (token) {
-                await fetch('/api/points/redeem', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    userId: satispayData.customerId,
-                    points: satispayData.pointsToRedeem,
-                    orderId: createData.orderId,
-                    token
-                  }),
-                });
-                localStorage.removeItem('checkout_points_to_redeem');
-                localStorage.removeItem('checkout_points_discount');
-              }
-            } catch (pointsError) {
-              console.error('Errore durante il riscatto dei punti:', pointsError);
-            }
-          }
-
-          // Recupera i dettagli dell'ordine creato
-          const order = await getOrder(createData.orderId);
-          setOrderDetails(order as OrderDetails);
-          setLoading(false);
-          return;
-
-        } catch (err) {
-          console.error('Errore nella creazione dell\'ordine Satispay:', err);
-          setError('Impossibile creare l\'ordine. Contatta il supporto clienti.');
-          setLoading(false);
-          return;
-        }
-      }
+      // Satispay, Stripe e Klarna ora sono gestiti tutti dal blocco sopra con il webhook
 
       if (!orderId) {
         setError('ID ordine non trovato');

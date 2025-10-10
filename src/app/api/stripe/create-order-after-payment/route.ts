@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import api from '../../../../lib/woocommerce';
+import Stripe from 'stripe';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 export async function POST(request: NextRequest) {
   try {
@@ -58,6 +61,21 @@ export async function POST(request: NextRequest) {
       const wooOrder = order as WooOrder;
 
       console.log(`Ordine WooCommerce ${wooOrder.id} creato con successo dopo pagamento Stripe ${paymentIntentId}`);
+
+      // Aggiorna il Payment Intent con l'order_id per evitare che il webhook crei un ordine duplicato
+      try {
+        await stripe.paymentIntents.update(paymentIntentId, {
+          metadata: {
+            order_id: String(wooOrder.id),
+            frontend_created: 'true'
+          }
+        });
+
+        console.log('[CREATE-ORDER] Payment Intent aggiornato con order_id:', wooOrder.id);
+      } catch (updateError) {
+        console.error('[CREATE-ORDER] Errore aggiornamento Payment Intent (non bloccante):', updateError);
+        // Non blocchiamo il flusso se l'aggiornamento fallisce
+      }
 
       return NextResponse.json({
         success: true,

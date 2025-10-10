@@ -1330,7 +1330,7 @@ export default function CheckoutPage() {
         // Calcola il totale dell'ordine includendo lo sconto punti
         const amount = Math.round(total * 100); // in centesimi (include commissione PayPal se applicabile)
 
-        // Crea un payment intent senza ordine
+        // Crea un payment intent e salva i dati dell'ordine per il webhook
         const response = await fetch('/api/stripe/payment-intent', {
           method: 'POST',
           headers: {
@@ -1338,7 +1338,10 @@ export default function CheckoutPage() {
           },
           body: JSON.stringify({
             amount,
-            orderId: null // Non passiamo più l'orderId perché l'ordine non esiste ancora
+            orderId: null, // Non passiamo più l'orderId perché l'ordine non esiste ancora
+            orderData: orderDataForLater, // Passa i dati dell'ordine per il webhook
+            pointsToRedeem: pointsToRedeem,
+            pointsDiscount: pointsDiscount
           }),
         });
 
@@ -1593,16 +1596,18 @@ export default function CheckoutPage() {
           };
 
           sessionStorage.setItem('klarna_checkout_data', JSON.stringify(klarnaCheckoutData));
-          console.log('[KLARNA] Dati salvati in sessionStorage');
 
-          // Crea la Checkout Session
+          // Crea la Checkout Session passando anche i dati dell'ordine per il webhook
           const sessionResponse = await fetch('/api/stripe/checkout-klarna', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              amount: Math.round(total * 100)
+              amount: Math.round(total * 100),
+              orderData: orderData,
+              pointsToRedeem: pointsToRedeem > 0 ? pointsToRedeem : 0,
+              pointsDiscount: pointsDiscount
             }),
           });
 
@@ -1768,12 +1773,32 @@ export default function CheckoutPage() {
 
           sessionStorage.setItem('satispay_checkout_data', JSON.stringify(satispayCheckoutData));
 
-          console.log('Dati Satispay salvati in sessionStorage, reindirizzamento a Stripe Checkout...');
+          console.log('[SATISPAY] Dati salvati in sessionStorage, salvataggio nello store...');
+
+          // Salva i dati anche nello store per il webhook
+          const storeResponse = await fetch('/api/stripe/store-order-data', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              orderData: orderData,
+              pointsToRedeem: pointsToRedeem,
+              pointsDiscount: pointsDiscount
+            }),
+          });
+
+          if (!storeResponse.ok) {
+            throw new Error('Errore nel salvataggio dei dati dell\'ordine');
+          }
+
+          const { dataId } = await storeResponse.json();
+          console.log('[SATISPAY] Dati salvati nello store con ID:', dataId);
 
           // Per Satispay, reindirizza all'hosted payment page di Stripe che gestisce Satispay
-          // Passa la descrizione come parametro URL (encoded)
+          // Passa la descrizione e il dataId come parametri URL (encoded)
           const encodedDescription = encodeURIComponent(orderDescription);
-          window.location.href = `/api/stripe/checkout-satispay?amount=${Math.round(total * 100)}&description=${encodedDescription}`;
+          window.location.href = `/api/stripe/checkout-satispay?amount=${Math.round(total * 100)}&description=${encodedDescription}&dataId=${dataId}`;
 
         } catch (error) {
           console.error('Errore durante il pagamento con Satispay:', error);

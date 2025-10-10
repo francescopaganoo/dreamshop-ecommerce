@@ -15,7 +15,6 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    console.log('[KLARNA] Recupero sessione:', sessionId);
 
     // Recupera la sessione da Stripe per verificare il pagamento
     const session = await stripe.checkout.sessions.retrieve(sessionId);
@@ -28,14 +27,12 @@ export async function POST(request: NextRequest) {
 
     // Verifica che il pagamento sia stato completato
     if (session.payment_status !== 'paid') {
-      console.log('[KLARNA] Pagamento non completato:', session.payment_status);
       return NextResponse.json({
         error: 'Pagamento non completato',
         paymentStatus: session.payment_status
       }, { status: 400 });
     }
 
-    console.log('[KLARNA] Pagamento completato, creazione ordine...');
 
     // Prepara i dati dell'ordine WooCommerce con status "processing" e set_paid true
     const orderDataToSend = {
@@ -71,15 +68,7 @@ export async function POST(request: NextRequest) {
       ];
     }
 
-    console.log('[KLARNA] Creazione ordine WooCommerce:', {
-      customer_id: orderDataToSend.customer_id,
-      payment_intent_id: session.payment_intent,
-      session_id: session.id,
-      status: 'processing',
-      set_paid: true,
-      pointsToRedeem,
-      pointsDiscount
-    });
+
 
     // Crea l'ordine in WooCommerce
     try {
@@ -99,7 +88,6 @@ export async function POST(request: NextRequest) {
 
       const wooOrder = order as WooOrder;
 
-      console.log(`[KLARNA] Ordine WooCommerce ${wooOrder.id} creato con successo dopo pagamento Klarna`);
 
       return NextResponse.json({
         success: true,

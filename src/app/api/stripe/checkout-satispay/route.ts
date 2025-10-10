@@ -20,14 +20,17 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const amount = searchParams.get('amount');
     const description = searchParams.get('description');
+    const dataId = searchParams.get('dataId'); // ID dei dati salvati nello store
 
-    if (!amount) {
-      console.error('Parametri mancanti:', { amount });
+    if (!amount || !dataId) {
+      console.error('Parametri mancanti:', { amount, dataId });
       return NextResponse.json({ error: 'Parametri mancanti' }, { status: 400 });
     }
 
     // Usa la descrizione passata o un fallback
     const orderDescription = description || 'Ordine DreamShop';
+
+    console.log('[SATISPAY] Creazione sessione checkout, dataId:', dataId);
 
     // Ottieni l'origine in modo sicuro
     let origin = request.headers.get('origin');
@@ -58,10 +61,13 @@ export async function GET(request: NextRequest) {
       cancel_url: `${origin}/checkout?canceled=true`,
       metadata: {
         payment_method: 'satispay',
+        order_data_id: dataId,
         order_description: orderDescription
       },
       locale: 'it'
     });
+
+    console.log('[SATISPAY] Sessione creata:', session.id);
 
 
     // Reindirizza direttamente alla sessione di checkout

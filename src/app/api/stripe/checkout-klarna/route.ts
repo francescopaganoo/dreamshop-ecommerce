@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await request.json();
-    const { amount } = data;
+    const { amount, orderData, pointsToRedeem, pointsDiscount } = data;
 
     if (!amount) {
       console.error('Parametri mancanti:', { amount });
@@ -32,7 +32,31 @@ export async function POST(request: NextRequest) {
       origin = request.headers.get('referer')?.replace(/\/[^/]*$/, '') || 'https://your-domain.com';
     }
 
-    console.log('[KLARNA] Creazione sessione checkout, amount:', amount);
+
+    // Salva i dati dell'ordine nel nostro store temporaneo (i metadata Stripe hanno limite di 500 caratteri)
+    const storeResponse = await fetch(`${origin}/api/stripe/store-order-data`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        orderData,
+        pointsToRedeem: pointsToRedeem || 0,
+        pointsDiscount: pointsDiscount || 0
+      }),
+    });
+
+    if (!storeResponse.ok) {
+      throw new Error('Errore nel salvataggio dei dati dell\'ordine');
+    }
+
+    const { dataId } = await storeResponse.json();
+
+    // Prepara i metadata con solo l'ID di riferimento (molto più piccolo)
+    const metadata: Record<string, string> = {
+      payment_method: 'klarna',
+      order_data_id: dataId
+    };
 
     // Crea la sessione di checkout Stripe con solo Klarna
     const session = await stripe.checkout.sessions.create({
@@ -53,13 +77,10 @@ export async function POST(request: NextRequest) {
       mode: 'payment',
       success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}&payment_method=klarna`,
       cancel_url: `${origin}/checkout?canceled=true`,
-      metadata: {
-        payment_method: 'klarna'
-      },
+      metadata,
       locale: 'it'
     });
 
-    console.log('[KLARNA] Sessione creata:', session.id);
 
     // Ritorna l'URL della sessione
     return NextResponse.json({

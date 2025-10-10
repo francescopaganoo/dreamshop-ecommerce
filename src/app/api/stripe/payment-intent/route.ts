@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { orderDataStore } from '../../../../lib/orderDataStore';
 
 // Inizializza Stripe con la chiave segreta
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
@@ -16,10 +17,10 @@ export async function POST(request: NextRequest) {
       console.error('Impossibile procedere: STRIPE_SECRET_KEY mancante');
       return NextResponse.json({ error: 'Configurazione Stripe mancante' }, { status: 500 });
     }
-    
+
     const data = await request.json();
 
-    const { amount, orderId, paymentMethod } = data;
+    const { amount, orderId, paymentMethod, orderData, pointsToRedeem, pointsDiscount } = data;
 
     if (!amount) {
       console.error('Dati mancanti:', { amount });
@@ -28,17 +29,26 @@ export async function POST(request: NextRequest) {
 
     // Prepara i metadati
     const metadata: Record<string, string> = {
-      platform: typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'ios' : 'other'
+      platform: typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'ios' : 'other',
+      payment_method: paymentMethod || 'stripe' // Default a stripe se non specificato
     };
 
-    // Aggiungi orderId ai metadati solo se presente
-    if (orderId) {
-      metadata.order_id = orderId.toString();
+    // Se abbiamo i dati dell'ordine, salvali nello store per il webhook
+    if (orderData) {
+      const dataId = orderDataStore.generateId();
+      orderDataStore.set(dataId, {
+        orderData,
+        pointsToRedeem: pointsToRedeem || 0,
+        pointsDiscount: pointsDiscount || 0
+      });
+
+      metadata.order_data_id = dataId;
+      console.log('[PAYMENT-INTENT] Dati ordine salvati nello store con ID:', dataId);
     }
 
-    // Aggiungi paymentMethod ai metadati se presente (per Satispay)
-    if (paymentMethod) {
-      metadata.payment_method = paymentMethod;
+    // Aggiungi orderId ai metadati solo se presente (per ordini già creati)
+    if (orderId) {
+      metadata.order_id = orderId.toString();
     }
 
     // Configurazione per pagamenti standard (non Payment Request)
@@ -57,9 +67,10 @@ export async function POST(request: NextRequest) {
         }
       }
     });
-    
-    
-    return NextResponse.json({ 
+
+    console.log('[PAYMENT-INTENT] Payment Intent creato:', paymentIntent.id);
+
+    return NextResponse.json({
       clientSecret: paymentIntent.client_secret,
       paymentIntentId: paymentIntent.id
     });
