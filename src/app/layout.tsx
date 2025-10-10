@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Bangers } from 'next/font/google'
 
@@ -39,15 +40,46 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="it">
-      <head>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} ${bangers.variable} antialiased`}
+      >
+        {/* Google Tag Manager */}
+        <Script
+          id="gtm-script"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+              new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+              j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+              'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+              })(window,document,'script','dataLayer','GTM-PXPKPJDR');
+            `,
+          }}
+        />
+        {/* End Google Tag Manager */}
+
+        {/* Google Tag Manager (noscript) */}
+        <noscript>
+          <iframe
+            src="https://www.googletagmanager.com/ns.html?id=GTM-PXPKPJDR"
+            height="0"
+            width="0"
+            style={{ display: 'none', visibility: 'hidden' }}
+          />
+        </noscript>
+        {/* End Google Tag Manager (noscript) */}
+
         {/* Google Analytics */}
         {process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
           <>
-            <script
-              async
+            <Script
+              strategy="afterInteractive"
               src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID}`}
             />
-            <script
+            <Script
+              id="ga-script"
+              strategy="afterInteractive"
               dangerouslySetInnerHTML={{
                 __html: `
                   window.dataLayer = window.dataLayer || [];
@@ -60,7 +92,9 @@ export default function RootLayout({
           </>
         )}
 
-        <script
+        <Script
+          id="paypal-error-handler"
+          strategy="afterInteractive"
           dangerouslySetInnerHTML={{
             __html: `
               // Gestore di errori globale per PayPal
@@ -82,10 +116,7 @@ export default function RootLayout({
             `,
           }}
         />
-      </head>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} ${bangers.variable} antialiased`}
-      >
+
         <ClientProviders>
           <div className="flex flex-col min-h-screen">
             <Header />
