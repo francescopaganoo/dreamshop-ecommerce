@@ -63,9 +63,11 @@ function dreamshop_process_deposit_meta($cart_item_data, $product_id, $variation
                 $cart_item_data['_wc_deposit_amount'] = $deposit_amount;
                 
                 // Calcola l'importo dell'acconto
-                $product = wc_get_product($variation_id ? $variation_id : $product_id);
+                $product_id_to_use = $variation_id ? $variation_id : $product_id;
+                $product = wc_get_product($product_id_to_use);
                 $product_price = $product->get_price();
-                
+                error_log("[INFO] Calcolo acconto al carrello - Prodotto ID: {$product_id_to_use}, Prezzo: {$product_price}, Tipo: {$deposit_type}, Importo: {$deposit_amount}");
+
                 // Calcola importo acconto e importo totale
                 if ($deposit_type === 'percent') {
                     $deposit_value = ($product_price * floatval($deposit_amount)) / 100;
@@ -160,12 +162,19 @@ function dreamshop_process_order_item_deposit_meta($item_data) {
     
     // Se questo articolo deve essere convertito in acconto
     if ($convert_to_deposit) {
-        $product = wc_get_product($item_data['product_id']);
+        // Usa variation_id se disponibile, altrimenti usa product_id
+        $product_id_to_use = isset($item_data['variation_id']) && $item_data['variation_id'] > 0
+            ? $item_data['variation_id']
+            : $item_data['product_id'];
+
+        $product = wc_get_product($product_id_to_use);
         if (!$product) {
+            error_log("[ERROR] Prodotto non trovato per ID: {$product_id_to_use}");
             return $item_data;
         }
-        
+
         $product_price = $product->get_price();
+        error_log("[INFO] Calcolo acconto per prodotto ID: {$product_id_to_use}, Prezzo: {$product_price}");
         
         // Calcola importo acconto
         if ($deposit_type === 'percent') {

@@ -121,6 +121,9 @@ class DreamShop_Deposits_API {
         
         // Hook per controllare quando una rata viene pagata
         add_action('woocommerce_order_status_changed', array($this, 'check_installment_completion'), 10, 4);
+
+        // Hook per forzare i prezzi corretti quando si crea un order item via API REST
+        add_action('woocommerce_new_order_item', array($this, 'fix_order_item_prices_on_creation'), 10, 3);
     }
     
     /**
@@ -368,14 +371,14 @@ class DreamShop_Deposits_API {
     public function get_product_deposit_options($request) {
         $product_id = $request->get_param('product_id');
         $product = wc_get_product($product_id);
-        
+
         if (!$product) {
             return new WP_REST_Response(array(
                 'success' => false,
                 'message' => 'Prodotto non trovato'
             ), 404);
         }
-        
+
         // Verifica se il prodotto supporta gli acconti
         $has_deposit = get_post_meta($product_id, '_wc_deposit_enabled', true);
         if ($has_deposit !== 'yes' && $has_deposit !== 'optional') {
@@ -384,23 +387,30 @@ class DreamShop_Deposits_API {
                 'message' => 'Questo prodotto non supporta gli acconti'
             ), 400);
         }
-        
+
         $deposit_type = get_post_meta($product_id, '_wc_deposit_type', true);
         $force_deposit = get_post_meta($product_id, '_wc_deposit_force_deposit', true);
         $deposit_amount = get_post_meta($product_id, '_wc_deposit_amount', true);
-        
+
         // Debug: Log tutti i meta del prodotto per vedere cosa c'è effettivamente
         $all_meta = get_post_meta($product_id);
-        
+
 
 
         // Assicurati che $deposit_amount sia un numero
         if (empty($deposit_amount) || !is_numeric($deposit_amount)) {
             $deposit_amount = 0; // Oppure un valore predefinito appropriato
         }
-        
+
         // Calcola l'importo dell'acconto in base al tipo
-        $product_price = $product->get_price();
+        // MODIFICA: Usa il parametro price dalla query string se disponibile (per variazioni)
+        $custom_price = $request->get_param('price');
+        if ($custom_price && is_numeric($custom_price)) {
+            $product_price = floatval($custom_price);
+            error_log('Usando prezzo personalizzato per il prodotto ' . $product_id . ': ' . $product_price);
+        } else {
+            $product_price = $product->get_price();
+        }
         $deposit_value = 0;
         
         
@@ -1607,11 +1617,16 @@ class DreamShop_Deposits_API {
                     $deposit_amount = $item->get_meta('_wc_deposit_amount');
                     
                     // Recupera il prezzo e la quantità dell'item per calcoli corretti
-                    $product_id = $item->get_product_id();
+                    // CORREZIONE: Usa get_variation_id() per le variazioni, altrimenti get_product_id()
+                    $variation_id = $item->get_variation_id();
+                    $product_id = $variation_id ? $variation_id : $item->get_product_id();
                     $product = wc_get_product($product_id);
                     $quantity = $item->get_quantity();
                     $product_price = $product ? $product->get_price() : $item->get_total() / $quantity;
+
                     $line_total = $item->get_total();
+                    $line_subtotal = $item->get_subtotal();
+                    error_log("[INFO] Calcolo acconto ordine - Product ID: " . $item->get_product_id() . ", Variation ID: {$variation_id}, Using ID: {$product_id}, Price: {$product_price}, Item Total: {$line_total}, Item Subtotal: {$line_subtotal}");
                     
                     // CORREZIONE: Calcola le rate sul prezzo originale (senza sconti)
                     // poi applica gli sconti solo alla prima rata (acconto)
@@ -1665,16 +1680,17 @@ class DreamShop_Deposits_API {
                     $item->update_meta_data('_deposit_deposit_amount', $deposit_value);
                     $item->update_meta_data('_deposit_future_amount', $future_amount);
                     // NUOVO APPROCCIO: Determinare il piano di pagamento direttamente dal prodotto
-                    $product_id = $item->get_product_id();
-                    $product = wc_get_product($product_id);
+                    // CORREZIONE: Usa il product_id del prodotto principale (non variazione) per i meta del piano
+                    $main_product_id = $item->get_product_id();
+                    $product = wc_get_product($main_product_id);
                     
-                    error_log("!!!!!!! NUOVO APPROCCIO !!!!!!!! Determinazione piano pagamento per prodotto #{$product_id}");
-                    
+                    error_log("!!!!!!! NUOVO APPROCCIO !!!!!!!! Determinazione piano pagamento per prodotto #{$main_product_id}");
+
                     // Prova a ottenere i piani di pagamento configurati per questo prodotto
-                    $payment_plans = get_post_meta($product_id, '_wc_deposit_payment_plans', true);
+                    $payment_plans = get_post_meta($main_product_id, '_wc_deposit_payment_plans', true);
                     
                     // Log dei piani trovati per il prodotto
-                    error_log("!!!!!!! DEBUG PIANI !!!!!!!! Piani disponibili per prodotto #{$product_id}: " . var_export($payment_plans, true));
+                    error_log("!!!!!!! DEBUG PIANI !!!!!!!! Piani disponibili per prodotto #{$main_product_id}: " . var_export($payment_plans, true));
                     
                     $payment_plan_id = '';
                     
@@ -1724,9 +1740,9 @@ class DreamShop_Deposits_API {
                     $item->update_meta_data('_original_deposit_full_amount_meta', '_deposit_full_amount');
                     $item->update_meta_data('_original_deposit_deposit_amount_meta', '_deposit_deposit_amount');
                     $item->update_meta_data('_original_deposit_future_amount_meta', '_deposit_future_amount');
-                    
+
                     $item->save();
-                    error_log("[INFO] Metadati aggiornati per compatibilità con WooCommerce Deposits. Acconto: {$deposit_value}, Totale: {$line_total}");
+                    error_log("[INFO] Metadati aggiornati per compatibilità con WooCommerce Deposits. Acconto: {$deposit_value}, Totale originale: {$original_line_total}");
                 }
                 
                 break;
@@ -1735,7 +1751,7 @@ class DreamShop_Deposits_API {
         
         if ($has_deposit) {
             error_log("[INFO] L'ordine #{$order->get_id()} contiene acconti, avvio processamento");
-            
+
             // Calcola gli importi totali dell'ordine
             $order_total = $order->get_total();
             $deposit_total = 0;
@@ -1961,12 +1977,36 @@ class DreamShop_Deposits_API {
                     }
                     
                     error_log("[INFO] Creazione di " . count($installments) . " rate future");
-                    
-                    $order_ids = array();
-                    $current_time = current_time('timestamp');
-                    
-                    // Crea un ordine per ogni rata
-                    foreach ($installments as $index => $installment) {
+
+                    // CONTROLLO ANTI-DUPLICAZIONE: Verifica se le rate esistono già
+                    $existing_schedule = get_post_meta($order->get_id(), '_wc_deposits_payment_schedule_orders', true);
+                    $skip_creation = false;
+
+                    if (!empty($existing_schedule) && is_array($existing_schedule)) {
+                        // Verifica che gli ordini esistano ancora nel database
+                        $valid_orders = array();
+                        foreach ($existing_schedule as $existing_order_id) {
+                            $existing_order = wc_get_order($existing_order_id);
+                            if ($existing_order && $existing_order->get_parent_id() == $order->get_id()) {
+                                $valid_orders[] = $existing_order_id;
+                            }
+                        }
+
+                        if (!empty($valid_orders)) {
+                            error_log("[ANTI-DUPLICATION] L'ordine #{$order->get_id()} ha già " . count($valid_orders) . " rate valide. Skip creazione.");
+                            $order_ids = $valid_orders; // Usa le rate esistenti
+                            $skip_creation = true;
+                        } else {
+                            error_log("[INFO] Rate trovate ma non valide, procedo con ricreazione");
+                        }
+                    }
+
+                    if (!$skip_creation) {
+                        $order_ids = array();
+                        $current_time = current_time('timestamp');
+
+                        // Crea un ordine per ogni rata
+                        foreach ($installments as $index => $installment) {
                         // Verifica che l'importo sia valido - a questo punto dovrebbe sempre essere valido
                         // grazie ai controlli precedenti, ma per sicurezza controlliamo di nuovo
                         $installment_amount = floatval($installment['amount']);
@@ -2009,15 +2049,19 @@ class DreamShop_Deposits_API {
                             $installment_order->set_address($billing_address, 'billing');
                             $installment_order->set_address($shipping_address, 'shipping');
                             
-                            // CORREZIONE: Usa SOLO il prodotto dell'ordine originale
+                            // CORREZIONE: Usa il prodotto/variazione dell'ordine originale
                             $product = null;
                             $product_id_to_use = null;
 
                             // Recupera i line items dell'ordine originale
                             foreach ($order->get_items() as $original_item) {
-                                // Usa il primo prodotto dell'ordine originale
-                                $product_id_to_use = $original_item->get_product_id();
+                                // CORREZIONE: Usa variation_id se disponibile, altrimenti product_id
+                                $variation_id = $original_item->get_variation_id();
+                                $product_id_to_use = $variation_id ? $variation_id : $original_item->get_product_id();
                                 $product = $original_item->get_product();
+
+                                error_log("[INFO] Creazione rata - Product ID: " . $original_item->get_product_id() . ", Variation ID: {$variation_id}, Using ID: {$product_id_to_use}");
+
                                 if ($product) {
                                     break; // Usa il primo prodotto trovato
                                 }
@@ -2095,7 +2139,8 @@ class DreamShop_Deposits_API {
                             continue;
                         }
                     }
-                    
+                    } // Fine blocco if (!$skip_creation)
+
                     // Salva gli ID degli ordini delle rate nell'ordine principale
                     if (!empty($order_ids)) {
                         // Calcola l'importo totale delle rate
@@ -2378,8 +2423,66 @@ class DreamShop_Deposits_API {
     }
     
     /**
+     * Forza i prezzi corretti quando viene creato un order item via API REST
+     * Questo hook viene chiamato PRIMA che WooCommerce calcoli i totali automaticamente
+     *
+     * @param int $item_id ID dell'item
+     * @param WC_Order_Item $item Oggetto item
+     * @param int $order_id ID dell'ordine
+     */
+    public function fix_order_item_prices_on_creation($item_id, $item, $order_id) {
+        // Verifica che sia un line item (prodotto)
+        if (!$item instanceof WC_Order_Item_Product) {
+            return;
+        }
+
+        // Controlla se questo item ha metadati di acconto
+        $convert_to_deposit = $item->get_meta('_wc_convert_to_deposit');
+        if ($convert_to_deposit !== 'yes') {
+            return;
+        }
+
+        // Ottieni i dati necessari per il calcolo
+        $deposit_type = $item->get_meta('_wc_deposit_type');
+        $deposit_amount = $item->get_meta('_wc_deposit_amount');
+
+        if (!$deposit_type || !$deposit_amount) {
+            return;
+        }
+
+        // Ottieni il prodotto (variazione se presente)
+        $variation_id = $item->get_variation_id();
+        $product_id = $variation_id ? $variation_id : $item->get_product_id();
+        $product = wc_get_product($product_id);
+
+        if (!$product) {
+            return;
+        }
+
+        $quantity = $item->get_quantity();
+        $product_price = $product->get_price();
+        $line_total_full = $product_price * $quantity;
+
+        // Calcola l'importo dell'acconto
+        if ($deposit_type === 'percent') {
+            $deposit_value = ($line_total_full * floatval($deposit_amount)) / 100;
+        } else {
+            $deposit_value = floatval($deposit_amount) * $quantity;
+        }
+
+        error_log("[FIX PRICES] Order Item #{$item_id} - Product: {$product_id}, Prezzo pieno: {$line_total_full}, Acconto: {$deposit_value}");
+
+        // IMPORTANTE: Imposta subtotal e total PRIMA che WooCommerce li ricalcoli
+        $item->set_subtotal($deposit_value);
+        $item->set_total($deposit_value);
+        $item->save();
+
+        error_log("[FIX PRICES] Prezzi forzati per item #{$item_id}: subtotal={$deposit_value}, total={$deposit_value}");
+    }
+
+    /**
      * Controlla quando una rata viene pagata e aggiorna l'ordine principale se tutte le rate sono pagate
-     * 
+     *
      * @param int $order_id ID dell'ordine
      * @param string $old_status Vecchio status
      * @param string $new_status Nuovo status
