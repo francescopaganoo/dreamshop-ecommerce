@@ -2072,7 +2072,14 @@ export async function getRelatedProductsBySlug(productSlug: string, limit: numbe
 
     return [];
   } catch (error) {
-    console.error('Errore nel recupero dei prodotti correlati dal plugin:', error);
+    const is404 = error instanceof Error && error.message.includes('status: 404');
+
+    if (is404) {
+      console.warn(`[RELATED-PRODUCTS] Prodotto non trovato dal plugin - slug: "${productSlug}" - Usando fallback WooCommerce API`);
+    } else {
+      console.error('Errore nel recupero dei prodotti correlati dal plugin:', error);
+    }
+
     return [];
   }
 }

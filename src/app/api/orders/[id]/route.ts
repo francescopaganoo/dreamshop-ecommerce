@@ -86,15 +86,7 @@ export async function GET(
 
       try {
         // Verifica il token
-        const decoded = jwt.verify(token, JWT_SECRET) as jwt.JwtPayload;
-
-        // Verifica che l'ordine appartenga all'utente autenticato
-        console.log('Confronto ID:', {
-          orderCustomerId: order.customer_id,
-          decodedId: decoded.id,
-          orderCustomerIdType: typeof order.customer_id,
-          decodedIdType: typeof decoded.id
-        });
+        jwt.verify(token, JWT_SECRET) as jwt.JwtPayload;
 
         // Token valido, procedi con l'arricchimento
       } catch (error) {
@@ -122,6 +114,11 @@ export async function GET(
     // Arricchisci i line_items con le immagini dei prodotti
     const enrichedLineItems = await Promise.all(
       order.line_items.map(async (item) => {
+        // Skip se product_id è 0 o non valido (es. ordini rate/deposits eliminati)
+        if (!item.product_id || item.product_id === 0) {
+          return item; // Ritorna item senza immagine
+        }
+
         try {
           const productResponse = await api.get(`products/${item.product_id}`);
           const product = productResponse.data as Product;
@@ -130,7 +127,19 @@ export async function GET(
             image: product.images && product.images.length > 0 ? product.images[0] : null
           };
         } catch (error) {
-          console.error(`Error fetching product ${item.product_id}:`, error);
+          // Log solo se non è 404 (prodotto eliminato è normale)
+          const is404 = error &&
+                        typeof error === 'object' &&
+                        'response' in error &&
+                        error.response &&
+                        typeof error.response === 'object' &&
+                        'status' in error.response &&
+                        error.response.status === 404;
+
+          if (!is404) {
+            console.error(`Error fetching product ${item.product_id}:`, error);
+          }
+
           return item;
         }
       })

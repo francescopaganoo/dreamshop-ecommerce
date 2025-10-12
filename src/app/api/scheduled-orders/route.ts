@@ -75,13 +75,6 @@ export async function GET(request: NextRequest) {
       
       // Verifichiamo che data sia un array e gestiamo il tipo unknown
       const orders = Array.isArray(ordersResponse.data) ? ordersResponse.data : [];
-      
-      // Log completo dei meta_data per diagnostica
-      orders.slice(0, 3).forEach((order: WooOrder, index: number) => {
-        if (order.meta_data) {
-          console.log(`Ordine ${index+1} (${order.id}):`, order.meta_data.map((m: OrderMetaData) => ({ key: m.key, value: m.value })));
-        }
-      });
 
       // Filtriamo TUTTI gli ordini e poi facciamo debug per capire quali sono pianificati
       // Non escludiamo nulla inizialmente per debugging
