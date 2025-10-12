@@ -59,25 +59,21 @@ export async function POST(request: NextRequest) {
       console.log('[WEBHOOK] payment_intent.succeeded ricevuto:', {
         paymentIntentId: paymentIntent.id,
         amount: paymentIntent.amount,
-        status: paymentIntent.status
+        status: paymentIntent.status,
+        metadata: paymentIntent.metadata
       });
 
-      // Aspetta un po' per dare tempo al frontend di aggiornare il Payment Intent
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // Ricarica il Payment Intent per vedere se nel frattempo è stato aggiornato dal frontend
-      const refreshedPaymentIntent = await stripe.paymentIntents.retrieve(paymentIntent.id);
-
-      // Verifica se l'ordine esiste già (creato dal frontend)
-      if (refreshedPaymentIntent.metadata?.order_id) {
+      // Verifica se l'ordine esiste già nei metadata
+      if (paymentIntent.metadata?.order_id) {
+        console.log('[WEBHOOK] Ordine già esistente nel Payment Intent:', paymentIntent.metadata.order_id);
         return NextResponse.json({ received: true, message: 'Ordine già esistente' });
       }
 
 
       // Gestisce Payment Intent da Apple/Google Pay (payment_request_cart e payment_request)
-      const paymentSource = refreshedPaymentIntent.metadata?.payment_source;
+      const paymentSource = paymentIntent.metadata?.payment_source;
       if (paymentSource === 'payment_request_cart' || paymentSource === 'payment_request') {
-        const wcOrderId = refreshedPaymentIntent.metadata?.wc_order_id;
+        const wcOrderId = paymentIntent.metadata?.wc_order_id;
 
         if (!wcOrderId) {
           console.error('[WEBHOOK] Payment Request: wc_order_id mancante nei metadata');
@@ -90,7 +86,7 @@ export async function POST(request: NextRequest) {
           await api.put(`orders/${wcOrderId}`, {
             status: 'processing',
             set_paid: true,
-            transaction_id: refreshedPaymentIntent.id,
+            transaction_id: paymentIntent.id,
             meta_data: [
               {
                 key: '_webhook_updated',
@@ -104,9 +100,9 @@ export async function POST(request: NextRequest) {
           });
 
           // Aggiorna Payment Intent per evitare duplicati
-          await stripe.paymentIntents.update(refreshedPaymentIntent.id, {
+          await stripe.paymentIntents.update(paymentIntent.id, {
             metadata: {
-              ...refreshedPaymentIntent.metadata,
+              ...paymentIntent.metadata,
               order_id: wcOrderId,
               webhook_processed: 'true'
             }
@@ -121,7 +117,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Verifica se abbiamo i dati dell'ordine nello store (per pagamenti Stripe normali)
-      const orderDataId = refreshedPaymentIntent.metadata?.order_data_id;
+      const orderDataId = paymentIntent.metadata?.order_data_id;
       if (!orderDataId) {
         console.log('[WEBHOOK] Nessun order_data_id nei metadata, skip');
         return NextResponse.json({ received: true, message: 'Nessun dato ordine' });
@@ -135,7 +131,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ received: true, error: 'Dati ordine non trovati' });
       }
 
-      const { orderData, pointsDiscount } = storedData;
+      const { orderData, pointsToRedeem, pointsDiscount } = storedData;
 
       // Elimina i dati dallo store dopo il recupero
       orderDataStore.delete(orderDataId);
@@ -199,6 +195,8 @@ export async function POST(request: NextRequest) {
 
         const wooOrder = order as WooOrder;
 
+        console.log(`[WEBHOOK] Ordine WooCommerce ${wooOrder.id} creato con successo da payment_intent ${paymentIntent.id}`);
+
         // Aggiorna il Payment Intent con l'order_id
         await stripe.paymentIntents.update(paymentIntent.id, {
           metadata: {
@@ -208,6 +206,39 @@ export async function POST(request: NextRequest) {
           }
         });
 
+        // Riscatta i punti se necessario
+        if (pointsToRedeem > 0) {
+          try {
+            const customerId = (baseOrderData.customer_id as number) || 0;
+
+            if (customerId) {
+              console.log(`[WEBHOOK] Riscatto ${pointsToRedeem} punti per utente ${customerId}, ordine #${wooOrder.id}`);
+
+              // Chiama l'API interna per riscattare i punti
+              const pointsResponse = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/points/redeem`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  userId: customerId,
+                  points: pointsToRedeem,
+                  orderId: wooOrder.id,
+                  internal: true // Flag per indicare chiamata interna dal webhook
+                }),
+              });
+
+              if (pointsResponse.ok) {
+                console.log('[WEBHOOK] Punti riscattati con successo');
+              } else {
+                console.error('[WEBHOOK] Errore nel riscatto punti:', await pointsResponse.text());
+              }
+            }
+          } catch (pointsError) {
+            console.error('[WEBHOOK] Errore durante il riscatto dei punti:', pointsError);
+            // Non blocchiamo il webhook se il riscatto punti fallisce
+          }
+        }
 
       } catch (error) {
         console.error('[WEBHOOK] Errore durante la creazione dell\'ordine da payment_intent:', error);

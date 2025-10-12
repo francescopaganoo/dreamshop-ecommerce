@@ -54,9 +54,76 @@ function OrderSuccessContent() {
   useEffect(() => {
     async function fetchOrderDetails() {
       const paymentMethod = searchParams.get('payment_method');
+      const paymentIntentId = searchParams.get('payment_intent');
 
-      // Se è un pagamento con webhook (Klarna, Stripe, Satispay) e non c'è orderId, recupera l'ordine creato dal webhook
-      if ((paymentMethod === 'klarna' || paymentMethod === 'stripe' || paymentMethod === 'satispay') && !orderId && sessionId) {
+      // Gestione pagamento Stripe con Payment Intent (nuovo flusso con solo webhook)
+      if (paymentMethod === 'stripe' && paymentIntentId && !orderId) {
+        try {
+          console.log('[SUCCESS-PAGE] Pagamento Stripe, attendo creazione ordine dal webhook...');
+
+          let retrievedOrderId: number | null = null;
+          const maxAttempts = 30; // 30 tentativi = 30 secondi max
+          const delayMs = 1000; // 1 secondo tra i tentativi
+
+          for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            console.log(`[SUCCESS-PAGE] Tentativo ${attempt}/${maxAttempts} di recupero ordine...`);
+
+            try {
+              const response = await fetch(`/api/stripe/get-order-by-payment-intent?payment_intent_id=${paymentIntentId}`);
+              const data = await response.json();
+
+              if (response.ok && data.success && data.orderId) {
+                retrievedOrderId = data.orderId;
+                console.log('[SUCCESS-PAGE] Ordine recuperato dal webhook:', retrievedOrderId);
+                break;
+              } else if (response.status === 202) {
+                // 202 = Ordine ancora in elaborazione, ritenta
+                console.log('[SUCCESS-PAGE] Ordine ancora in elaborazione, attendo...');
+              } else {
+                console.error('[SUCCESS-PAGE] Errore nel recupero ordine:', data);
+              }
+            } catch (fetchError) {
+              console.error('[SUCCESS-PAGE] Errore nella richiesta:', fetchError);
+            }
+
+            // Attendi prima del prossimo tentativo
+            if (attempt < maxAttempts) {
+              await new Promise(resolve => setTimeout(resolve, delayMs));
+            }
+          }
+
+          if (retrievedOrderId) {
+            // Ordine recuperato con successo
+            try {
+              const order = await getOrder(retrievedOrderId);
+              setOrderDetails(order as OrderDetails);
+            } catch (orderError) {
+              console.error('[SUCCESS-PAGE] Errore nel recupero dettagli ordine:', orderError);
+              // Mostra comunque il messaggio di successo con l'ID ordine
+              setError(null);
+              setOrderDetails(null);
+            }
+          } else {
+            // Timeout raggiunto, mostra messaggio generico
+            console.log('[SUCCESS-PAGE] Timeout raggiunto, webhook probabilmente in ritardo');
+            setError(null);
+            setOrderDetails(null);
+          }
+
+          setLoading(false);
+          return;
+
+        } catch (err) {
+          console.error('[SUCCESS-PAGE] Errore generico nel flusso Stripe:', err);
+          setError(null); // Non mostrare errore, mostra solo messaggio generico
+          setOrderDetails(null);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Se è un pagamento con webhook (Klarna, Satispay) e non c'è orderId, recupera l'ordine creato dal webhook
+      if ((paymentMethod === 'klarna' || paymentMethod === 'satispay') && !orderId && sessionId) {
         try {
 
           // Prima verifica se il webhook ha già creato l'ordine

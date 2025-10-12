@@ -1444,69 +1444,17 @@ export default function CheckoutPage() {
             'status' in result.paymentIntent &&
             result.paymentIntent.status === 'succeeded') {
 
-          console.log('Pagamento Stripe completato con successo, creazione ordine WooCommerce...');
-
-          // Crea l'ordine WooCommerce dopo il successo del pagamento
-          const createOrderResponse = await fetch(`/api/stripe/create-order-after-payment`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              orderData: orderDataForLater,
-              paymentIntentId: result.paymentIntent.id
-            }),
-          });
-
-          const createOrderData = await createOrderResponse.json();
-
-          if (!createOrderData.success || !createOrderData.orderId) {
-            throw new Error(createOrderData.error || 'Errore nella creazione dell\'ordine WooCommerce');
-          }
-
-
-          const createdOrderId = createOrderData.orderId;
+          console.log('[STRIPE] Pagamento completato con successo, webhook creerà l\'ordine');
+          console.log('[STRIPE] Payment Intent ID:', result.paymentIntent.id);
 
           // Svuota il carrello
           clearCart();
 
-          // Riscatta i punti se necessario
-          if (pointsToRedeem > 0 && user) {
-            try {
-              // Recupera il token JWT da localStorage
-              const token = localStorage.getItem('woocommerce_token');
-              if (token) {
-                console.log(`[CHECKOUT STRIPE] Inizia riscatto ${pointsToRedeem} punti per l'utente ${user.id}, ordine #${createdOrderId}`);
-
-                const pointsResponse = await redeemPoints(user.id, pointsToRedeem, createdOrderId, token);
-
-                if (pointsResponse && pointsResponse.success) {
-                  console.log(`[CHECKOUT STRIPE] Riscatto punti completato con successo`);
-
-                  // Rimuovi i punti riscattati dal localStorage
-                  localStorage.removeItem('checkout_points_to_redeem');
-                  localStorage.removeItem('checkout_points_discount');
-                } else {
-                  console.error('[CHECKOUT STRIPE] Errore nella risposta API riscatto punti:', pointsResponse);
-                }
-              } else {
-                console.error('[CHECKOUT STRIPE] Token JWT mancante, impossibile riscattare i punti');
-              }
-            } catch (pointsError) {
-              console.error('[CHECKOUT STRIPE] Errore durante il riscatto dei punti:', pointsError);
-              // Non blocchiamo il checkout se il riscatto punti fallisce
-            }
-          }
-
           // Salva gli indirizzi dell'utente
           await saveAddressData();
 
-          // Mostra il messaggio di successo
-          setOrderSuccess(true);
-          setSuccessOrderId(createdOrderId.toString());
-
-          // Reset del form dopo il successo
-          resetFormAfterSuccess();
+          // Redirect alla thank you page che attenderà la creazione dell'ordine dal webhook
+          router.push(`/checkout/success?payment_intent=${result.paymentIntent.id}&payment_method=stripe`);
 
           setIsSubmitting(false);
           setIsStripeLoading(false);
