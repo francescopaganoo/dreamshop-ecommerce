@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import ProductImageModal from './ProductImageModal';
 import { FaSearchPlus } from 'react-icons/fa';
+import { PLACEHOLDER_IMAGE } from '@/lib/placeholderImage';
 
 interface ProductImage {
   id: number;
@@ -35,7 +36,7 @@ export default function ProductImageGallery({
   // Se non ci sono immagini, usa un placeholder
   const displayImages = images.length > 0
     ? images
-    : [{ id: 0, src: 'https://via.placeholder.com/600', alt: productName }];
+    : [{ id: 0, src: PLACEHOLDER_IMAGE, alt: productName }];
 
   const selectedImage = displayImages[selectedImageIndex];
 

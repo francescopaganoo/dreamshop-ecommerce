@@ -8,6 +8,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { getDepositInfo, ProductWithDeposit } from '@/lib/deposits';
 import GiftCardCartWidget from '@/components/GiftCardCartWidget';
+import { PLACEHOLDER_IMAGE_SMALL } from '@/lib/placeholderImage';
 
 // Interfaccia per gli errori di stock
 interface StockIssue {
@@ -463,7 +464,7 @@ export default function CartPage() {
                                 <Image
                                   src={item.product.images && item.product.images.length > 0
                                     ? item.product.images[0].src
-                                    : 'https://via.placeholder.com/100'}
+                                    : PLACEHOLDER_IMAGE_SMALL}
                                   alt={item.product.name}
                                   fill
                                   sizes="96px"
@@ -593,9 +594,9 @@ export default function CartPage() {
                               <div className="flex items-center">
                                 <div className="relative h-16 w-16 flex-shrink-0 mr-4">
                                   <Image
-                                    src={item.product.images && item.product.images.length > 0 
-                                      ? item.product.images[0].src 
-                                      : 'https://via.placeholder.com/100'}
+                                    src={item.product.images && item.product.images.length > 0
+                                      ? item.product.images[0].src
+                                      : PLACEHOLDER_IMAGE_SMALL}
                                     alt={item.product.name}
                                     fill
                                     sizes="64px"
