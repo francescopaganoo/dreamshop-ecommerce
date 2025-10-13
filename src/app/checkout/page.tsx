@@ -2467,6 +2467,15 @@ export default function CheckoutPage() {
                                         // Estrai l'ID della transazione PayPal
                                         const transactionId = captureResult.purchase_units?.[0]?.payments?.captures?.[0]?.id || data.orderID;
 
+                                        // Estrai l'importo effettivamente pagato da PayPal (fonte di verità)
+                                        const actualPaidAmount = parseFloat(
+                                          captureResult.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.value ||
+                                          captureResult.purchase_units?.[0]?.amount?.value ||
+                                          '0'
+                                        );
+
+                                        console.log('[PAYPAL-CHECKOUT] Importo effettivamente pagato:', actualPaidAmount);
+
                                         // Ora crea l'ordine WooCommerce dopo il successo del pagamento
                                         const response = await fetch('/api/paypal/create-order-after-payment', {
                                           method: 'POST',
@@ -2476,7 +2485,8 @@ export default function CheckoutPage() {
                                           body: JSON.stringify({
                                             orderData: paypalOrderData,
                                             paypalOrderId: data.orderID,
-                                            paypalTransactionId: transactionId
+                                            paypalTransactionId: transactionId,
+                                            expectedTotal: actualPaidAmount // Usa l'importo da PayPal (già verificato e addebitato)
                                           }),
                                         });
 
