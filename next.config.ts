@@ -4,8 +4,8 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       {
-        protocol: 'http',
-        hostname: '192.168.1.214',
+        protocol: 'https',
+        hostname: 'be.dreamshop18.com',
         pathname: '/**',
       },
       {
