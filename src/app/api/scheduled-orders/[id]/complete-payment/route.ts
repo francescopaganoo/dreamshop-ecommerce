@@ -5,6 +5,13 @@ import { AxiosError } from 'axios';
 import { cookies } from 'next/headers';
 import Stripe from 'stripe';
 
+// Configurazione PayPal
+const PAYPAL_CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || '';
+const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET || '';
+const PAYPAL_API_URL = process.env.NODE_ENV === 'production'
+  ? 'https://api-m.paypal.com'
+  : 'https://api-m.sandbox.paypal.com';
+
 // Interfaccia per il payload JWT decodificato
 interface JwtPayload {
   id: number;
@@ -119,7 +126,7 @@ export async function POST(request: NextRequest) {
 
 
     // Ottieni i dati dal corpo della richiesta
-    const { paymentIntentId, paymentMethod } = await request.json();
+    const { paymentIntentId, paymentMethod, transactionId, expectedTotal } = await request.json();
 
     if (!paymentIntentId) {
       return NextResponse.json({ error: 'ID transazione mancante' }, { status: 400 });
@@ -180,8 +187,91 @@ export async function POST(request: NextRequest) {
         // Procediamo comunque ma logghiamo per monitoraggio
 
       } else if (paymentMethod === 'paypal') {
-        // Per PayPal, per ora logghiamo solo l'ID transazione
-        console.warn('API Complete Payment: PayPal non implementato, saltare verifica webhook');
+        // SICUREZZA: Verifica il pagamento PayPal prima di aggiornare la rata
+        console.log('[PAYPAL-VERIFY-RATE] Verifica ordine PayPal:', paymentIntentId);
+
+        if (typeof expectedTotal !== 'number' || expectedTotal <= 0) {
+          return NextResponse.json({
+            error: 'expectedTotal mancante o non valido per PayPal'
+          }, { status: 400 });
+        }
+
+        // 1. Ottieni token di accesso PayPal
+        const tokenResponse = await fetch(`${PAYPAL_API_URL}/v1/oauth2/token`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Authorization': `Basic ${Buffer.from(`${PAYPAL_CLIENT_ID}:${PAYPAL_CLIENT_SECRET}`).toString('base64')}`
+          },
+          body: 'grant_type=client_credentials'
+        });
+
+        const tokenData = await tokenResponse.json() as { access_token?: string };
+
+        if (!tokenData.access_token) {
+          console.error('[PAYPAL-VERIFY-RATE] Errore autenticazione PayPal:', tokenData);
+          return NextResponse.json({
+            error: 'Errore nell\'autenticazione con PayPal'
+          }, { status: 500 });
+        }
+
+        // 2. Recupera i dettagli dell'ordine PayPal
+        const orderResponse = await fetch(`${PAYPAL_API_URL}/v2/checkout/orders/${paymentIntentId}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${tokenData.access_token}`
+          }
+        });
+
+        if (!orderResponse.ok) {
+          console.error('[PAYPAL-VERIFY-RATE] Ordine PayPal non trovato:', orderResponse.status);
+          return NextResponse.json({
+            error: 'Ordine PayPal non trovato o non valido'
+          }, { status: 400 });
+        }
+
+        const paypalOrder = await orderResponse.json() as {
+          id: string;
+          status: string;
+          purchase_units: Array<{
+            amount: {
+              currency_code: string;
+              value: string;
+            };
+          }>;
+        };
+
+        // 3. Verifica che l'ordine sia stato completato (captured)
+        if (paypalOrder.status !== 'COMPLETED') {
+          console.error('[PAYPAL-VERIFY-RATE] Pagamento non completato. Status:', paypalOrder.status);
+          return NextResponse.json({
+            error: 'Pagamento PayPal non completato',
+            details: `Lo stato dell'ordine è "${paypalOrder.status}" invece di "COMPLETED"`
+          }, { status: 400 });
+        }
+
+        // 4. Verifica che l'importo pagato corrisponda
+        const paidAmount = parseFloat(paypalOrder.purchase_units[0].amount.value);
+        const tolerance = 0.01;
+
+        if (Math.abs(paidAmount - expectedTotal) > tolerance) {
+          console.error('[PAYPAL-VERIFY-RATE] Importo non corrispondente:', {
+            expected: expectedTotal,
+            paid: paidAmount,
+            difference: Math.abs(paidAmount - expectedTotal)
+          });
+          return NextResponse.json({
+            error: 'Importo pagato non corrisponde alla rata',
+            details: `Importo atteso: €${expectedTotal.toFixed(2)}, Pagato: €${paidAmount.toFixed(2)}`
+          }, { status: 400 });
+        }
+
+        console.log('[PAYPAL-VERIFY-RATE] ✅ Verifica completata:', {
+          paypalOrderId: paymentIntentId,
+          status: paypalOrder.status,
+          amount: paidAmount
+        });
       }
     } catch (verificationError: unknown) {
       const error = verificationError as Error;
@@ -247,25 +337,41 @@ export async function POST(request: NextRequest) {
       // per aggiornare lo stato del pagamento pianificato
 
       // Aggiorniamo prima i metadati dell'ordine per segnalare che è stato pagato
-      const metaData = {
-        meta_data: [
+      const metaDataArray = [
+        {
+          key: '_wc_deposits_payment_completed',
+          value: 'yes'
+        },
+        {
+          key: '_transaction_id',
+          value: transactionId || paymentIntentId  // Usa transactionId se disponibile (PayPal capture ID)
+        },
+        {
+          key: '_payment_method',
+          value: paymentMethod
+        },
+        {
+          key: '_payment_method_title',
+          value: paymentMethod === 'stripe' ? 'Carta di Credito/Debito (Stripe)' : 'PayPal'
+        }
+      ];
+
+      // Aggiungi metadata specifici per PayPal se presente
+      if (paymentMethod === 'paypal') {
+        metaDataArray.push(
           {
-            key: '_wc_deposits_payment_completed',
-            value: 'yes'
-          },
-          {
-            key: '_transaction_id',
+            key: '_paypal_order_id',
             value: paymentIntentId
           },
           {
-            key: '_payment_method',
-            value: paymentMethod
-          },
-          {
-            key: '_payment_method_title',
-            value: paymentMethod === 'stripe' ? 'Carta di Credito/Debito (Stripe)' : 'PayPal'
+            key: '_paypal_transaction_id',
+            value: transactionId || paymentIntentId
           }
-        ]
+        );
+      }
+
+      const metaData = {
+        meta_data: metaDataArray
       };
 
       // Primo aggiornamento: aggiunge i metadati

@@ -435,20 +435,41 @@ const PayPalButtonsWrapper = ({
 
   // Gestisce la cattura del pagamento dopo l'approvazione PayPal
   // Usiamo type any per actions poiché i tipi PayPal sono complessi e specifici
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const onApprove = async (data: unknown, actions: any) => {
     setIsLoading(true);
-    
+
     try {
-      
       // Verifichiamo che data sia un oggetto e abbia la proprietà orderID
       if (!data || typeof data !== 'object' || !('orderID' in data)) {
         throw new Error('Dati PayPal non validi');
       }
-      
+
       const paypalData = data as { orderID: string };
-      
-      // Poi notifichiamo a WooCommerce che il pagamento è stato completato
+
+      // Cattura il pagamento usando SDK PayPal (come nel checkout)
+      if (!actions.order) {
+        throw new Error('Oggetto actions.order non disponibile');
+      }
+
+      const captureResult = await actions.order.capture();
+      console.log('[PAYPAL-RATE] Pagamento catturato con successo');
+
+      // Estrai l'ID della transazione PayPal
+      const transactionId = captureResult.purchase_units?.[0]?.payments?.captures?.[0]?.id || paypalData.orderID;
+
+      // Estrai l'importo effettivamente pagato da PayPal (fonte di verità)
+      const amountValue =
+        captureResult.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.value ||
+        captureResult.purchase_units?.[0]?.amount?.value;
+
+      const actualPaidAmount = amountValue ? parseFloat(amountValue) : 0;
+
+      if (!actualPaidAmount || actualPaidAmount <= 0) {
+        throw new Error('Impossibile estrarre l\'importo pagato da PayPal');
+      }
+
+      // Notifica backend che il pagamento è stato completato
       const response = await fetch(`/api/scheduled-orders/${orderId}/complete-payment`, {
         method: 'POST',
         headers: {
@@ -456,8 +477,10 @@ const PayPalButtonsWrapper = ({
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          paymentIntentId: paypalData.orderID,  // ID dell'ordine PayPal come transaction ID
-          paymentMethod: 'paypal' // Specifica il metodo di pagamento per la verifica di sicurezza
+          paymentIntentId: paypalData.orderID,  // ID dell'ordine PayPal
+          paymentMethod: 'paypal',
+          transactionId: transactionId,
+          expectedTotal: actualPaidAmount  // Importo reale pagato da PayPal
         })
       });
 
@@ -466,9 +489,10 @@ const PayPalButtonsWrapper = ({
         throw new Error(errorData.message || errorData.error || 'Errore nel completamento del pagamento');
       }
 
+      console.log('[PAYPAL-RATE] ✅ Rata aggiornata con successo');
       onSuccess();
     } catch (error: unknown) {
-      console.error('Errore durante il pagamento PayPal:', error);
+      console.error('[PAYPAL-RATE] Errore durante il pagamento:', error);
       const errorMessage = error instanceof Error ? error.message : 'Errore durante il pagamento PayPal';
       onError(errorMessage);
     } finally {
