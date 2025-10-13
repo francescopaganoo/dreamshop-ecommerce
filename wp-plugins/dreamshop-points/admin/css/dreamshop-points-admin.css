@@ -108,3 +108,74 @@ input[name="api_key"]:focus {
 .api-key-copy-button {
   transition: all 0.3s ease;
 }
+
+/* Stili per la ricerca utenti */
+.dreamshop-points-users .tablenav.top {
+  margin-bottom: 10px;
+}
+
+#dreamshop-points-search {
+  width: 300px;
+  margin-right: 5px;
+}
+
+#dreamshop-points-search-btn,
+#dreamshop-points-reset-btn {
+  margin-right: 5px;
+}
+
+#dreamshop-points-search-spinner {
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+#dreamshop-points-search-spinner.is-active {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* Animazione per l'aggiornamento della tabella */
+#dreamshop-points-users-table {
+  transition: opacity 0.2s;
+}
+
+#dreamshop-points-users-table.loading {
+  opacity: 0.5;
+}
+
+/* Stili per la paginazione */
+.dreamshop-points-users .tablenav-pages {
+  float: right;
+}
+
+.dreamshop-points-users .displaying-num {
+  margin-right: 10px;
+  color: #646970;
+}
+
+.dreamshop-points-users .tablenav-pages a {
+  padding: 5px 10px;
+  margin: 0 2px;
+  border: 1px solid #c3c4c7;
+  background: #f6f7f7;
+  color: #2271b1;
+  text-decoration: none;
+  border-radius: 3px;
+  transition: all 0.2s;
+}
+
+.dreamshop-points-users .tablenav-pages a:hover {
+  background: #2271b1;
+  color: #fff;
+  border-color: #2271b1;
+}
+
+.dreamshop-points-users .tablenav-pages .current {
+  padding: 5px 10px;
+  margin: 0 2px;
+  border: 1px solid #2271b1;
+  background: #2271b1;
+  color: #fff;
+  border-radius: 3px;
+}

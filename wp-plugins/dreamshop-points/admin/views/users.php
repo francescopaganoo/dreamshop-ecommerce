@@ -9,7 +9,7 @@ settings_errors('dreamshop_points');
 ?>
 <div class="wrap dreamshop-points-users">
     <h1><?php _e('Gestione Utenti Punti Fedeltà', 'dreamshop-points'); ?></h1>
-    
+
     <?php if ($user_details && $user_history) : ?>
         <div class="user-history-section">
             <h2>
@@ -111,7 +111,16 @@ settings_errors('dreamshop_points');
         </div>
     
     <?php else : ?>
-        <table class="wp-list-table widefat fixed striped users-table">
+        <div class="tablenav top">
+            <div class="alignleft actions">
+                <input type="text" id="dreamshop-points-search" class="regular-text" placeholder="<?php _e('Cerca utente per nome o email...', 'dreamshop-points'); ?>" value="">
+                <button type="button" id="dreamshop-points-search-btn" class="button"><?php _e('Cerca', 'dreamshop-points'); ?></button>
+                <button type="button" id="dreamshop-points-reset-btn" class="button" style="display:none;"><?php _e('Reset', 'dreamshop-points'); ?></button>
+                <span class="spinner" id="dreamshop-points-search-spinner" style="float: none; margin: 0 10px;"></span>
+            </div>
+        </div>
+
+        <table class="wp-list-table widefat fixed striped users-table" id="dreamshop-points-users-table">
             <thead>
                 <tr>
                     <th><?php _e('Utente', 'dreamshop-points'); ?></th>
@@ -145,6 +154,31 @@ settings_errors('dreamshop_points');
                 <?php endif; ?>
             </tbody>
         </table>
+
+        <?php if (!empty($users) && $total_pages > 1) : ?>
+        <div class="tablenav bottom">
+            <div class="tablenav-pages">
+                <?php
+                $page_links = paginate_links(array(
+                    'base' => add_query_arg('paged', '%#%'),
+                    'format' => '',
+                    'prev_text' => __('&laquo; Precedente'),
+                    'next_text' => __('Successivo &raquo;'),
+                    'total' => $total_pages,
+                    'current' => $current_page,
+                    'type' => 'plain'
+                ));
+
+                if ($page_links) {
+                    echo '<span class="displaying-num">' .
+                         sprintf(_n('%s utente', '%s utenti', $total_users, 'dreamshop-points'), number_format_i18n($total_users)) .
+                         '</span>';
+                    echo $page_links;
+                }
+                ?>
+            </div>
+        </div>
+        <?php endif; ?>
     <?php endif; ?>
 </div>
 

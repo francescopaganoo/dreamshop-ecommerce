@@ -77,5 +77,110 @@
         $('input[name="api_key"]').on('click', function() {
             $(this).select();
         });
+
+        // Gestione ricerca utenti AJAX
+        const searchInput = $('#dreamshop-points-search');
+        const searchBtn = $('#dreamshop-points-search-btn');
+        const resetBtn = $('#dreamshop-points-reset-btn');
+        const searchSpinner = $('#dreamshop-points-search-spinner');
+        const usersTable = $('#dreamshop-points-users-table');
+
+        // Verifica se siamo nella pagina utenti
+        if (searchInput.length === 0) {
+            return;
+        }
+
+        let searchTimeout;
+
+        // Funzione per eseguire la ricerca
+        function performSearch(page) {
+            const searchTerm = searchInput.val().trim();
+
+            // Mostra lo spinner
+            searchSpinner.addClass('is-active');
+            searchBtn.prop('disabled', true);
+
+            $.ajax({
+                url: ajaxurl,
+                type: 'POST',
+                data: {
+                    action: 'dreamshop_points_search_users',
+                    search: searchTerm,
+                    paged: page || 1,
+                    nonce: dreamshop_points_admin.search_nonce
+                },
+                success: function(response) {
+                    if (response.success) {
+                        // Aggiorna la tabella
+                        usersTable.html(response.data.table_html);
+
+                        // Rimuovi la vecchia paginazione se esiste
+                        $('.tablenav.bottom').remove();
+
+                        // Aggiungi la nuova paginazione se presente
+                        if (response.data.pagination_html) {
+                            $(response.data.pagination_html).insertAfter(usersTable);
+
+                            // Riattacca gli event handler ai link di paginazione
+                            attachPaginationHandlers();
+                        }
+
+                        // Mostra/nascondi il pulsante reset
+                        if (searchTerm) {
+                            resetBtn.show();
+                        } else {
+                            resetBtn.hide();
+                        }
+                    } else {
+                        alert('Errore durante la ricerca: ' + (response.data || 'Errore sconosciuto'));
+                    }
+                },
+                error: function() {
+                    alert('Errore durante la ricerca. Riprova.');
+                },
+                complete: function() {
+                    searchSpinner.removeClass('is-active');
+                    searchBtn.prop('disabled', false);
+                }
+            });
+        }
+
+        // Funzione per attaccare gli handler ai link di paginazione
+        function attachPaginationHandlers() {
+            $('.tablenav-pages a').on('click', function(e) {
+                e.preventDefault();
+                const url = $(this).attr('href');
+                const page = new URLSearchParams(url.split('?')[1]).get('paged') || 1;
+                performSearch(page);
+            });
+        }
+
+        // Ricerca al click del pulsante
+        searchBtn.on('click', function(e) {
+            e.preventDefault();
+            performSearch(1);
+        });
+
+        // Ricerca in tempo reale (con debounce)
+        searchInput.on('keyup', function(e) {
+            // Se viene premuto Enter, esegui subito la ricerca
+            if (e.keyCode === 13) {
+                clearTimeout(searchTimeout);
+                performSearch(1);
+                return;
+            }
+
+            // Altrimenti aspetta 500ms dopo l'ultimo carattere digitato
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                performSearch(1);
+            }, 500);
+        });
+
+        // Reset della ricerca
+        resetBtn.on('click', function() {
+            searchInput.val('');
+            performSearch(1);
+        });
     });
 })(jQuery);
