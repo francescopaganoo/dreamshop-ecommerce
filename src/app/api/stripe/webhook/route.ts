@@ -63,9 +63,86 @@ export async function POST(request: NextRequest) {
         metadata: paymentIntent.metadata
       });
 
-      // Verifica se l'ordine esiste già nei metadata
-      if (paymentIntent.metadata?.order_id) {
-        console.log('[WEBHOOK] Ordine già esistente nel Payment Intent:', paymentIntent.metadata.order_id);
+      // NUOVO: Gestione pagamenti rate pianificate
+      if (paymentIntent.metadata?.type === 'scheduled_payment') {
+        console.log('[WEBHOOK] Pagamento rata pianificata rilevato:', paymentIntent.metadata);
+
+        const orderId = paymentIntent.metadata.order_id;
+        const userId = paymentIntent.metadata.user_id;
+
+        if (!orderId) {
+          console.error('[WEBHOOK] order_id mancante nei metadata del pagamento rata');
+          return NextResponse.json({ received: true, error: 'Order ID mancante' });
+        }
+
+        // Verifica se già processato (per evitare duplicati in caso di retry Stripe)
+        if (paymentIntent.metadata?.webhook_processed === 'true') {
+          console.log('[WEBHOOK] Rata già processata in precedenza, skip');
+          return NextResponse.json({ received: true, message: 'Rata già processata' });
+        }
+
+        try {
+          // Aggiorna l'ordine WooCommerce della rata come pagato
+          await api.put(`orders/${orderId}`, {
+            status: 'processing',
+            set_paid: true,
+            payment_method: 'stripe',
+            payment_method_title: 'Carta di Credito/Debito (Stripe)',
+            transaction_id: paymentIntent.id,
+            meta_data: [
+              {
+                key: '_wc_deposits_payment_completed',
+                value: 'yes'
+              },
+              {
+                key: '_transaction_id',
+                value: paymentIntent.id
+              },
+              {
+                key: '_payment_method',
+                value: 'stripe'
+              },
+              {
+                key: '_payment_method_title',
+                value: 'Carta di Credito/Debito (Stripe)'
+              },
+              {
+                key: '_webhook_updated',
+                value: 'true'
+              },
+              {
+                key: '_webhook_update_time',
+                value: new Date().toISOString()
+              },
+              {
+                key: '_stripe_payment_intent_id',
+                value: paymentIntent.id
+              }
+            ]
+          });
+
+          // Aggiorna Payment Intent per prevenire riutilizzo
+          await stripe.paymentIntents.update(paymentIntent.id, {
+            metadata: {
+              ...paymentIntent.metadata,
+              webhook_processed: 'true',
+              webhook_processed_at: new Date().toISOString()
+            }
+          });
+
+          console.log(`[WEBHOOK] Rata #${orderId} aggiornata con successo per utente ${userId}`);
+          return NextResponse.json({ received: true, message: 'Rata aggiornata' });
+
+        } catch (error) {
+          console.error('[WEBHOOK] Errore aggiornamento rata pianificata:', error);
+          return NextResponse.json({ received: true, error: 'Errore aggiornamento rata' });
+        }
+      }
+
+      // Verifica se l'ordine esiste già nei metadata (per ordini normali, non rate)
+      // Le rate hanno metadata.type === 'scheduled_payment' e vengono gestite sopra
+      if (paymentIntent.metadata?.order_id && !paymentIntent.metadata?.type) {
+        console.log('[WEBHOOK] Ordine normale già esistente nel Payment Intent:', paymentIntent.metadata.order_id);
         return NextResponse.json({ received: true, message: 'Ordine già esistente' });
       }
 

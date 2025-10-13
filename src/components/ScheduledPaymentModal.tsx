@@ -6,14 +6,14 @@ import { paypalOptions } from '@/lib/paypal';
 import { useAuth } from '@/context/AuthContext';
 
 // Componente interno che gestisce il form di pagamento
-const CheckoutForm = ({ 
-  orderId, 
-  orderTotal, 
-  onClose, 
-  onSuccess, 
-  onError 
-}: { 
-  orderId: number; 
+const CheckoutForm = ({
+  orderId,
+  orderTotal,
+  onClose,
+  onSuccess,
+  onError
+}: {
+  orderId: number;
   orderTotal: string;
   onClose: () => void;
   onSuccess: () => void;
@@ -21,7 +21,7 @@ const CheckoutForm = ({
 }) => {
   const stripe = useStripe();
   const elements = useElements();
-  const { token } = useAuth(); // Spostiamo useAuth al livello più alto del componente
+  const { token } = useAuth(); // Usato solo per stripe-pay, non per il polling
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCardElementReady, setIsCardElementReady] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
@@ -104,30 +104,69 @@ const CheckoutForm = ({
         throw new Error(result.error.message || 'Errore durante il pagamento');
       } else if (result.paymentIntent && result.paymentIntent.status === 'succeeded') {
 
-        // Notifica a WooCommerce il completamento del pagamento
-        try {
-          const completeResponse = await fetch(`/api/scheduled-orders/${orderId}/complete-payment`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-              paymentIntentId: result.paymentIntent.id,
-              paymentMethod: 'stripe' // Specifica il metodo di pagamento per la verifica di sicurezza
-            })
-          });
-          
-          if (!completeResponse.ok) {
-            const completeError = await completeResponse.json();
-            console.warn('Avviso: Notifica a WooCommerce fallita:', completeError);
-            // Non blocchiamo il flusso, ma logghiamo l'errore
+        // ✅ OBBLIGATORIO: Attendiamo che il webhook Stripe processi il pagamento
+        // Il webhook è la UNICA fonte di verità per l'aggiornamento dell'ordine
+        // Se il webhook non processa, il pagamento FALLISCE
+        console.log('✅ Pagamento confermato su Stripe. Attendiamo conferma webhook...');
+        console.log('Payment Intent ID:', result.paymentIntent.id);
+
+        // Polling OBBLIGATORIO per verificare che webhook abbia processato
+        let webhookProcessed = false;
+        let attempts = 0;
+        const maxAttempts = 30; // 30 secondi max (stesso del checkout)
+
+        // Aggiorniamo il messaggio di elaborazione per l'utente
+        setPaymentError(null); // Puliamo eventuali errori precedenti
+
+        while (!webhookProcessed && attempts < maxAttempts) {
+          try {
+            // Attendiamo 1 secondo prima di verificare
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            attempts++;
+
+            console.log(`Tentativo ${attempts}/${maxAttempts}: Verifica processing webhook...`);
+
+            // Verifichiamo tramite endpoint pubblico dedicato (NO JWT necessario)
+            const checkResponse = await fetch(
+              `/api/stripe/get-scheduled-order-status?payment_intent_id=${result.paymentIntent.id}`
+            );
+
+            if (checkResponse.ok) {
+              const data = await checkResponse.json();
+
+              // Status 200 = webhook ha processato con successo
+              if (data.success && data.processed) {
+                webhookProcessed = true;
+                console.log(`✅ Webhook ha processato la rata dopo ${attempts} secondi`);
+              }
+            } else if (checkResponse.status === 202) {
+              // Status 202 = pagamento in elaborazione, continua il polling
+              console.log(`Tentativo ${attempts}: Pagamento in elaborazione...`);
+            } else {
+              // Altri errori (400, 404, 500)
+              console.warn(`Tentativo ${attempts}: Errore HTTP ${checkResponse.status}`);
+            }
+          } catch (pollError) {
+            console.warn('Tentativo di verifica webhook fallito:', pollError);
           }
-        } catch (notifyError) {
-          console.warn('Avviso: Errore durante la notifica a WooCommerce:', notifyError);
-          // Non blocchiamo il flusso, ma logghiamo l'errore
         }
-        
+
+        // ⚠️ CRITICO: Se il webhook NON ha processato, BLOCCHIAMO il completamento
+        if (!webhookProcessed) {
+          console.error('❌ ERRORE CRITICO: Webhook non ha processato il pagamento entro 30 secondi');
+          console.error('Il pagamento è stato addebitato su Stripe ma la rata non è stata aggiornata');
+          console.error('Payment Intent ID:', result.paymentIntent.id);
+
+          // Lanciamo un errore per bloccare il flusso
+          throw new Error(
+            'Impossibile confermare il pagamento. Il tuo pagamento è stato elaborato da Stripe, ' +
+            'ma si è verificato un errore nella comunicazione con il server. ' +
+            'Ti preghiamo di contattare il supporto se la rata non viene aggiornata automaticamente. ' +
+            `Codice pagamento: ${result.paymentIntent.id}`
+          );
+        }
+
+        // ✅ Se arriviamo qui, il webhook ha processato con successo
         setPaymentCompleted(true);
         onSuccess();
       } else {
@@ -138,6 +177,20 @@ const CheckoutForm = ({
       const errorMessage = error instanceof Error ? error.message : 'Si è verificato un errore durante il pagamento';
       setPaymentError(errorMessage);
       onError(errorMessage);
+
+      // Se l'errore è relativo al webhook, mostriamo un messaggio più dettagliato
+      if (errorMessage.includes('Impossibile confermare il pagamento')) {
+        alert(
+          '⚠️ ATTENZIONE - Pagamento in Elaborazione\n\n' +
+          'Il tuo pagamento è stato addebitato correttamente su Stripe, ' +
+          'ma si è verificato un problema tecnico nella conferma dell\'ordine.\n\n' +
+          'Per favore:\n' +
+          '1. NON effettuare un altro pagamento\n' +
+          '2. Attendi qualche minuto e ricarica la pagina\n' +
+          '3. Se l\'ordine non si aggiorna, contatta il supporto con questo codice:\n\n' +
+          errorMessage.split('Codice pagamento: ')[1]
+        );
+      }
     } finally {
       setIsProcessing(false);
     }

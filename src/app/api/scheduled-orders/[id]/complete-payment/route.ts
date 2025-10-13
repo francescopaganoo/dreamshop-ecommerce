@@ -162,8 +162,26 @@ export async function POST(request: NextRequest) {
           }, { status: 403 });
         }
 
+        // NUOVO: Verifica che il webhook abbia già processato il pagamento
+        // Questo è il controllo principale: il webhook è la fonte di verità
+        if (paymentIntent.metadata.webhook_processed === 'true') {
+          console.log(`API Complete Payment: Webhook già processato per Payment Intent ${paymentIntentId}`);
+          // Il webhook ha già aggiornato l'ordine, restituiamo successo
+          return NextResponse.json({
+            success: true,
+            message: 'Pagamento già processato dal webhook',
+            webhook_processed: true
+          });
+        }
+
+        // Se arriviamo qui, il pagamento è valido ma il webhook non ha ancora processato
+        // Questo può succedere in caso di race condition o ritardo del webhook
+        console.warn(`API Complete Payment: Pagamento valido ma webhook non ancora processato per PI ${paymentIntentId}`);
+        // Procediamo comunque ma logghiamo per monitoraggio
+
       } else if (paymentMethod === 'paypal') {
         // Per PayPal, per ora logghiamo solo l'ID transazione
+        console.warn('API Complete Payment: PayPal non implementato, saltare verifica webhook');
       }
     } catch (verificationError: unknown) {
       const error = verificationError as Error;
@@ -185,9 +203,29 @@ export async function POST(request: NextRequest) {
         (meta: { key: string; value: string }) => meta.key === '_transaction_id'
       )?.value;
 
+      // Verifica se il webhook ha già aggiornato l'ordine
+      const webhookUpdated = order.meta_data?.find(
+        (meta: { key: string; value: string }) => meta.key === '_webhook_updated'
+      )?.value;
+
+      if (webhookUpdated === 'true') {
+        console.log(`API Complete Payment: Ordine già aggiornato dal webhook. Order: ${id}`);
+        return NextResponse.json({
+          success: true,
+          message: 'Ordine già aggiornato dal webhook',
+          webhook_processed: true,
+          order: order
+        });
+      }
+
       if (existingTransactionId && existingTransactionId === paymentIntentId) {
         console.warn(`API Complete Payment: Payment Intent già utilizzato per questo ordine. PI: ${paymentIntentId}, Order: ${id}`);
-        // Non è un errore grave, potrebbe essere un retry legittimo
+        // Questo ordine è già stato pagato con questo Payment Intent - è un retry
+        return NextResponse.json({
+          success: true,
+          message: 'Ordine già completato con questo Payment Intent',
+          order: order
+        });
       } else if (existingTransactionId && existingTransactionId !== paymentIntentId) {
         console.error(`API Complete Payment: L'ordine ha già un transaction_id diverso. Existing: ${existingTransactionId}, New: ${paymentIntentId}`);
         return NextResponse.json({
@@ -196,8 +234,12 @@ export async function POST(request: NextRequest) {
         }, { status: 400 });
       }
     } catch (checkError: unknown) {
-      // Se non riusciamo a verificare, logghiamo ma continuiamo
-      console.warn('API Complete Payment: Impossibile verificare transaction_id esistente:', checkError);
+      // Se non riusciamo a verificare, è un errore critico
+      console.error('API Complete Payment: Errore critico nella verifica transaction_id:', checkError);
+      return NextResponse.json({
+        error: 'Impossibile verificare lo stato dell\'ordine',
+        details: 'Errore nel recupero dei dati dell\'ordine'
+      }, { status: 500 });
     }
 
     try {
