@@ -28,53 +28,21 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
   const [currentImageUrl, setCurrentImageUrl] = useState<string>('');
   const [imageChecked, setImageChecked] = useState(false);
 
-  // Genera URL immagine ottimizzata e originale
-  const getImageUrls = (originalUrl: string) => {
-    if (!originalUrl) return { optimized: '', original: '' };
+  // Ottieni URL immagine originale (rimuovi dimensioni se presenti)
+  const getOriginalImageUrl = (url: string) => {
+    if (!url) return '';
 
-    let optimized = '';
-    let original = originalUrl;
-
-    // Se l'URL ha già una dimensione, rimuovila per ottenere l'originale
-    if (originalUrl.includes('-')) {
-      original = originalUrl.replace(/-\d+x\d+/, '');
-      optimized = originalUrl.replace(/-\d+x\d+/, '-800x800');
-    } else {
-      // Se non ha dimensione, prova ad aggiungere 800x800 prima dell'estensione
-      const lastDot = originalUrl.lastIndexOf('.');
-      if (lastDot > 0) {
-        optimized = originalUrl.substring(0, lastDot) + '-800x800' + originalUrl.substring(lastDot);
-      }
-    }
-
-    return { optimized, original };
+    // Se l'URL ha già una dimensione tipo -800x800, rimuovila per ottenere l'originale
+    return url.replace(/-\d+x\d+(\.[a-zA-Z]{3,4})$/, '$1');
   };
 
-  // Verifica quale immagine usare
+  // Imposta l'immagine all'inizializzazione
   useEffect(() => {
     if (!product.images?.[0]?.src || imageChecked) return;
 
-    const { optimized, original } = getImageUrls(product.images[0].src);
-
-    // Prova prima l'immagine ottimizzata
-    if (optimized) {
-      fetch(optimized, { method: 'HEAD' })
-        .then(response => {
-          if (response.ok) {
-            setCurrentImageUrl(optimized);
-          } else {
-            setCurrentImageUrl(original);
-          }
-          setImageChecked(true);
-        })
-        .catch(() => {
-          setCurrentImageUrl(original);
-          setImageChecked(true);
-        });
-    } else {
-      setCurrentImageUrl(original);
-      setImageChecked(true);
-    }
+    const originalUrl = getOriginalImageUrl(product.images[0].src);
+    setCurrentImageUrl(originalUrl);
+    setImageChecked(true);
   }, [product.images, imageChecked]);
 
   // Controlla se il prodotto è in pre-order basandosi sull'attributo pa_disponibilita
