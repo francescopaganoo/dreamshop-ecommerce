@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
 
     const data = await request.json();
 
-    const { amount, orderId, paymentMethod, orderData, pointsToRedeem, pointsDiscount } = data;
+    const { amount, orderId, paymentMethod, orderData, pointsToRedeem, pointsDiscount, description } = data;
 
     if (!amount) {
       console.error('Dati mancanti:', { amount });
@@ -58,6 +58,7 @@ export async function POST(request: NextRequest) {
       currency: 'eur',
       // Supporto per carte di credito e Klarna
       payment_method_types: ['card', 'klarna'],
+      description: description || 'Payment for DreamShop18', // Descrizione che apparirà nella dashboard Stripe
       metadata,
       // Opzioni di base per il pagamento con carta
       payment_method_options: {

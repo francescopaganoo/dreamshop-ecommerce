@@ -1330,6 +1330,15 @@ export default function CheckoutPage() {
         // Calcola il totale dell'ordine includendo lo sconto punti
         const amount = Math.round(total * 100); // in centesimi (include commissione PayPal se applicabile)
 
+        // Crea una descrizione dell'ordine per Stripe
+        const itemsDescription = cart.map(item => {
+          const productName = item.product.name;
+          const quantity = item.quantity;
+          return `${productName} x${quantity}`;
+        }).join(', ');
+
+        const orderDescription = `DreamShop18 - ${itemsDescription}`;
+
         // Crea un payment intent e salva i dati dell'ordine per il webhook
         const response = await fetch('/api/stripe/payment-intent', {
           method: 'POST',
@@ -1341,7 +1350,8 @@ export default function CheckoutPage() {
             orderId: null, // Non passiamo più l'orderId perché l'ordine non esiste ancora
             orderData: orderDataForLater, // Passa i dati dell'ordine per il webhook
             pointsToRedeem: pointsToRedeem,
-            pointsDiscount: pointsDiscount
+            pointsDiscount: pointsDiscount,
+            description: orderDescription // Aggiungi la descrizione per Stripe
           }),
         });
 

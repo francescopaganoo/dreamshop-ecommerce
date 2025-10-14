@@ -274,8 +274,9 @@ export async function POST(request: NextRequest) {
 
         console.log(`[WEBHOOK] Ordine WooCommerce ${wooOrder.id} creato con successo da payment_intent ${paymentIntent.id}`);
 
-        // Aggiorna il Payment Intent con l'order_id
+        // Aggiorna il Payment Intent con l'order_id e la descrizione con il numero d'ordine
         await stripe.paymentIntents.update(paymentIntent.id, {
+          description: `Order #${wooOrder.id} from DreamShop18`, // Aggiorna la descrizione con il numero d'ordine
           metadata: {
             ...paymentIntent.metadata,
             order_id: String(wooOrder.id),
