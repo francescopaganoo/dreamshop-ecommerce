@@ -119,11 +119,12 @@ export async function POST(request: NextRequest) {
     const userId = orderData.customer_id || 0;
 
     // Prepara i dati dell'ordine WooCommerce con status "processing" e set_paid true
+    const transactionId = paypalTransactionId || paypalOrderId;
     const orderDataToSend = {
       ...orderData,
       customer_id: userId,
       payment_method: 'paypal',
-      payment_method_title: 'PayPal',
+      payment_method_title: `PayPal (${transactionId})`,
       set_paid: true, // L'ordine è già pagato
       status: 'processing', // Lo stato è processing perché il pagamento è completato
       meta_data: [
@@ -133,7 +134,7 @@ export async function POST(request: NextRequest) {
         },
         {
           key: '_paypal_transaction_id',
-          value: paypalTransactionId || paypalOrderId
+          value: transactionId
         },
         {
           key: '_payment_method',
@@ -141,7 +142,7 @@ export async function POST(request: NextRequest) {
         },
         {
           key: '_payment_method_title',
-          value: 'PayPal'
+          value: `PayPal (${transactionId})`
         },
         {
           key: '_dreamshop_points_assigned',
@@ -174,7 +175,7 @@ export async function POST(request: NextRequest) {
       // Aggiungi una nota all'ordine WooCommerce con il riferimento PayPal
       try {
         await api.post(`orders/${wooOrder.id}/notes`, {
-          note: `Ordine pagato tramite PayPal. ID transazione PayPal: ${paypalOrderId}`,
+          note: `Ordine pagato tramite PayPal. ID transazione PayPal: ${transactionId}`,
           customer_note: false
         });
       } catch (noteError) {
