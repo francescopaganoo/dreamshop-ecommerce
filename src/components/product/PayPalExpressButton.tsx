@@ -191,8 +191,6 @@ export default function PayPalExpressButton({
       const depositInfo = enableDeposit === 'yes' ? ' - Acconto' : '';
       const orderDescription = `DreamShop - ${productDescription}${depositInfo}`;
 
-      console.log('📧 Descrizione ordine PayPal Express che apparirà nelle email:', orderDescription);
-
       return actions.order.create({
         intent: 'CAPTURE',
         purchase_units: [
@@ -230,6 +228,18 @@ export default function PayPalExpressButton({
       // Estrai i dati dell'acquirente da PayPal
       const payer = orderDetails.payer;
       const shipping = orderDetails.purchase_units[0]?.shipping;
+
+      // Estrai il numero di telefono da PayPal
+      // Come implementato nel plugin WooCommerce ufficiale PayPal Payments:
+      // Il telefono è in payer.phone.phone_number.national_number
+      const phone = payer?.phone?.phone_number?.national_number || '';
+
+      // Log per debug
+      console.log('📞 [PayPal Express] Dati payer.phone:', payer?.phone);
+      console.log('📞 [PayPal Express] Telefono estratto:', phone);
+      if (!phone) {
+        console.warn('⚠️ [PayPal Express] Nessun numero di telefono ricevuto da PayPal. Verifica che "Require Phone Number" sia abilitato nelle impostazioni del merchant account PayPal.');
+      }
 
       // Ricalcola il metodo di spedizione finale in base all'indirizzo PayPal
       const finalShippingAddress: ShippingAddress = {
@@ -277,6 +287,7 @@ export default function PayPalExpressButton({
             first_name: payer?.name?.given_name || '',
             last_name: payer?.name?.surname || '',
             email: payer?.email_address || '',
+            phone: phone,
             address_1: shipping?.address?.address_line_1 || '',
             address_2: shipping?.address?.address_line_2 || '',
             city: shipping?.address?.admin_area_2 || '',

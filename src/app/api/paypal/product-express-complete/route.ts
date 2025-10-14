@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
         first_name: billingData.first_name || 'PayPal',
         last_name: billingData.last_name || 'User',
         email: billingData.email || '',
-        phone: '',
+        phone: billingData.phone || '',
         address_1: billingData.address_1 || '',
         address_2: billingData.address_2 || '',
         city: billingData.city || '',
@@ -113,6 +113,7 @@ export async function POST(request: NextRequest) {
       shipping: {
         first_name: billingData.first_name || 'PayPal',
         last_name: billingData.last_name || 'User',
+        phone: billingData.phone || '',
         address_1: billingData.address_1 || '',
         address_2: billingData.address_2 || '',
         city: billingData.city || '',
