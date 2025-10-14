@@ -42,10 +42,12 @@
     border: 1px solid #ddd;
     border-radius: 8px;
     width: 90%;
-    max-width: 600px;
+    max-width: 700px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.2);
     animation: slideDown 0.3s;
     position: relative;
+    max-height: 90vh;
+    overflow-y: auto;
 }
 
 @keyframes slideDown {
@@ -300,4 +302,97 @@
 input[type="password"].regular-text {
     font-family: monospace;
     letter-spacing: 2px;
+}
+
+/* Order items table */
+.dreamshop-order-items {
+    background: #f9f9f9;
+    padding: 15px;
+    border-radius: 5px;
+    margin-bottom: 15px;
+    border: 1px solid #e0e0e0;
+}
+
+.dreamshop-order-items h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-size: 16px;
+    color: #23282d;
+}
+
+.dreamshop-order-items table.widefat {
+    border: 1px solid #ddd;
+    background: #fff;
+}
+
+.dreamshop-order-items table.widefat th {
+    background: #f7f7f7;
+    padding: 10px;
+    font-weight: 600;
+    text-align: left;
+}
+
+.dreamshop-order-items table.widefat td {
+    padding: 10px;
+    border-top: 1px solid #e0e0e0;
+}
+
+.dreamshop-order-items .refund-item-checkbox {
+    margin-right: 8px;
+    cursor: pointer;
+}
+
+.dreamshop-order-items label {
+    cursor: pointer;
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 0;
+}
+
+.dreamshop-order-items input[type="checkbox"] {
+    margin-top: 3px;
+    flex-shrink: 0;
+}
+
+/* Input quantità prodotti */
+.refund-product-qty {
+    width: 80px;
+    padding: 5px 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    text-align: center;
+    font-weight: 600;
+}
+
+.refund-product-qty:focus {
+    outline: none;
+    border-color: #2271b1;
+    box-shadow: 0 0 0 1px #2271b1;
+}
+
+.product-total-cell {
+    font-weight: 600;
+    color: #2271b1;
+}
+
+/* Totale rimborso editabile */
+#refund_total_amount {
+    font-weight: bold;
+    font-size: 16px;
+    width: 150px;
+    padding: 8px 12px;
+    border: 2px solid #2271b1;
+    background: #f0f6fc;
+}
+
+#refund_total_amount:focus {
+    border-color: #135e96;
+    background: #fff;
+}
+
+.dreamshop-modal-content .description {
+    font-size: 12px;
+    color: #666;
+    margin-top: 5px;
+    font-style: italic;
 }

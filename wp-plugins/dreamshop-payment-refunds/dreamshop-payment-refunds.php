@@ -49,6 +49,7 @@ class DreamShop_Payment_Refunds {
         add_action('wp_ajax_dreamshop_process_refund', array($this, 'ajax_process_refund'));
         add_action('wp_ajax_dreamshop_test_stripe', array($this, 'ajax_test_stripe'));
         add_action('wp_ajax_dreamshop_test_paypal', array($this, 'ajax_test_paypal'));
+        add_action('wp_ajax_dreamshop_get_order_details', array($this, 'ajax_get_order_details'));
 
         // Enqueue scripts
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
@@ -628,6 +629,66 @@ class DreamShop_Payment_Refunds {
                 'cancel' => __('Annulla', 'dreamshop-refunds'),
                 'refund' => __('Rimborsa', 'dreamshop-refunds'),
             )
+        ));
+    }
+
+    /**
+     * Recupera dettagli ordine via AJAX
+     */
+    public function ajax_get_order_details() {
+        check_ajax_referer('dreamshop-refund-nonce', 'nonce');
+
+        if (!current_user_can('manage_woocommerce')) {
+            wp_send_json_error(array('message' => __('Permessi insufficienti', 'dreamshop-refunds')));
+        }
+
+        $order_id = isset($_POST['order_id']) ? intval($_POST['order_id']) : 0;
+
+        if (!$order_id) {
+            wp_send_json_error(array('message' => __('ID ordine mancante', 'dreamshop-refunds')));
+        }
+
+        $order = wc_get_order($order_id);
+        if (!$order) {
+            wp_send_json_error(array('message' => __('Ordine non trovato', 'dreamshop-refunds')));
+        }
+
+        // Recupera prodotti
+        $products = array();
+        foreach ($order->get_items() as $item_id => $item) {
+            $product = $item->get_product();
+            $products[] = array(
+                'name' => $item->get_name(),
+                'quantity' => $item->get_quantity(),
+                'total' => floatval($item->get_total()),
+                'stock' => $product ? $product->get_stock_quantity() : null,
+            );
+        }
+
+        // Recupera spedizione
+        $shipping_total = floatval($order->get_shipping_total());
+
+        // Recupera fee (tariffe)
+        $fees_total = 0;
+        $fees = array();
+        foreach ($order->get_fees() as $fee_id => $fee) {
+            $fee_amount = floatval($fee->get_total());
+            $fees_total += $fee_amount;
+            $fees[] = array(
+                'name' => $fee->get_name(),
+                'total' => $fee_amount,
+            );
+        }
+
+        // Totale ordine
+        $order_total = floatval($order->get_total());
+
+        wp_send_json_success(array(
+            'products' => $products,
+            'shipping_total' => $shipping_total,
+            'fees' => $fees,
+            'fees_total' => $fees_total,
+            'order_total' => $order_total,
         ));
     }
 
