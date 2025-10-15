@@ -269,8 +269,9 @@ async function ProductDetails({ slug }: { slug: string }) {
             const spedizioneDallOriente = getAttribute("pa_spedizione-dalloriente");
             const spedizioneDallItalia = getAttribute("pa_spedizione-dallitalia");
             const spedizioneIn60Giorni = getAttribute("pa_spedizione-in-60-giorni");
-            
-            const hasAnyShipping = spedizioneDallOriente || spedizioneDallItalia || spedizioneIn60Giorni;
+            const spedizioneSuOrdinazione = getAttribute("pa_spedizione-su-ordinazione");
+
+            const hasAnyShipping = spedizioneDallOriente || spedizioneDallItalia || spedizioneIn60Giorni || spedizioneSuOrdinazione;
             
             return (disponibilita || hasAnyShipping) && (
               <div className="mb-6 space-y-3">
@@ -285,10 +286,9 @@ async function ProductDetails({ slug }: { slug: string }) {
                 
                 {hasAnyShipping && (
                   <div className="flex items-center">
-                    <span className="font-medium text-gray-900 mr-2">Spedizione:</span>
                     <span className="text-gray-600">
                       {(() => {
-                        const shipping = spedizioneDallItalia || spedizioneDallOriente || spedizioneIn60Giorni;
+                        const shipping = spedizioneDallItalia || spedizioneDallOriente || spedizioneIn60Giorni || spedizioneSuOrdinazione;
                         return typeof shipping === 'string' ? shipping : shipping?.name;
                       })()}
                     </span>
