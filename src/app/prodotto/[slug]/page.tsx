@@ -108,13 +108,13 @@ async function ProductDetails({ slug }: { slug: string }) {
             isOnSale={!!isOnSale}
           />
           
-          {/* Product Specifications - ACF Fields */}
+          {/* Product Specifications - ACF Fields - Desktop only */}
           {(() => {
             const acfFields = extractACFFields(product.meta_data);
             const hasACFFields = acfFields.brand || acfFields.tipologia || acfFields.anime || acfFields.codice_a_barre;
-            
+
             return hasACFFields && (
-              <div className="mt-8">
+              <div className="mt-8 hidden lg:block">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                   <svg className="w-5 h-5 mr-2 text-bred-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -286,7 +286,7 @@ async function ProductDetails({ slug }: { slug: string }) {
                 
                 {hasAnyShipping && (
                   <div className="flex items-center">
-                    <span className="text-gray-600">
+                    <span className="text-gray-900">
                       {(() => {
                         const shipping = spedizioneDallItalia || spedizioneDallOriente || spedizioneIn60Giorni || spedizioneSuOrdinazione;
                         return typeof shipping === 'string' ? shipping : shipping?.name;
@@ -367,7 +367,52 @@ async function ProductDetails({ slug }: { slug: string }) {
           )}
         </div>
       </div>
-      
+
+      {/* Product Specifications - ACF Fields - Mobile only */}
+      {(() => {
+        const acfFields = extractACFFields(product.meta_data);
+        const hasACFFields = acfFields.brand || acfFields.tipologia || acfFields.anime || acfFields.codice_a_barre;
+
+        return hasACFFields && (
+          <div className="mt-12 lg:hidden">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <svg className="w-5 h-5 mr-2 text-bred-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Specifiche
+            </h3>
+            <div className="bg-gray-50 rounded-lg p-4">
+              <div className="grid grid-cols-1 gap-4">
+                {acfFields.brand && (
+                  <div className="bg-white rounded-md p-3 border border-gray-200">
+                    <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Brand</div>
+                    <div className="text-gray-900 font-semibold">{acfFields.brand}</div>
+                  </div>
+                )}
+                {acfFields.tipologia && (
+                  <div className="bg-white rounded-md p-3 border border-gray-200">
+                    <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Tipologia</div>
+                    <div className="text-gray-900">{acfFields.tipologia}</div>
+                  </div>
+                )}
+                {acfFields.anime && (
+                  <div className="bg-white rounded-md p-3 border border-gray-200">
+                    <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Anime</div>
+                    <div className="text-gray-900">{acfFields.anime}</div>
+                  </div>
+                )}
+                {acfFields.codice_a_barre && (
+                  <div className="bg-white rounded-md p-3 border border-gray-200">
+                    <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Codice a Barre</div>
+                    <div className="text-gray-900 font-mono text-sm">{acfFields.codice_a_barre}</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Related Products Section */}
       <div className="mt-20 border-t border-gray-100 pt-16">
         <Suspense fallback={
