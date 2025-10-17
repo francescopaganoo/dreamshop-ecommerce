@@ -8,11 +8,6 @@ const nextConfig: NextConfig = {
         hostname: 'be.dreamshop18.com',
         pathname: '/**',
       },
-      {
-        protocol: 'https',
-        hostname: 'via.placeholder.com',
-        pathname: '/**',
-      },
     ],
     minimumCacheTTL: 60,
     dangerouslyAllowSVG: true,
