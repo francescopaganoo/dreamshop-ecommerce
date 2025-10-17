@@ -101,28 +101,10 @@ export async function POST(request: NextRequest) {
     const totalAmount = productAmount + shippingCost;
     const stripeAmount = Math.round(totalAmount * 100); // Converti in centesimi
 
-    // Crea e conferma Payment Intent direttamente con il totale completo
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: stripeAmount,
-      currency: 'eur',
-      payment_method: paymentMethodId,
-      confirmation_method: 'automatic',
-      confirm: true, // Conferma immediatamente
-      return_url: `${origin}/checkout/success`,
-      metadata: {
-        product_id: productId.toString(),
-        quantity: quantity.toString(),
-        user_id: userId.toString(),
-        enable_deposit: enableDeposit,
-        payment_source: 'payment_request'
-      }
-    });
-
     // Il subtotale del prodotto (senza spedizione)
     const productSubtotal = productAmount;
 
-    // Log per debug
-    console.log('[Apple/Google Pay] Creating order with:', {
+    console.log('[PAYMENT-REQUEST] Step 1: Preparing order data', {
       productId,
       variationId,
       quantity,
@@ -130,7 +112,8 @@ export async function POST(request: NextRequest) {
       depositAmount,
       depositType,
       paymentPlanId,
-      productSubtotal: productSubtotal.toFixed(2)
+      productSubtotal: productSubtotal.toFixed(2),
+      totalAmount: totalAmount.toFixed(2)
     });
 
     // Prepara i dati dell'ordine WooCommerce
@@ -183,10 +166,14 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Crea l'ordine in WooCommerce
+    // STEP 1: Crea l'ordine in WooCommerce PRIMA del pagamento
+    // Questo previene il problema: pagamento OK ma ordine non creato
+    console.log('[PAYMENT-REQUEST] Step 2: Creating WooCommerce order BEFORE payment');
+
     const orderData = {
       payment_method: 'stripe',
       payment_method_title: 'Apple Pay / Google Pay',
+      status: 'pending', // Pending fino a conferma pagamento
       set_paid: false, // Sarà impostato a true dopo la conferma del pagamento
       customer_id: userId > 0 ? userId : 0,
       billing: {
@@ -221,15 +208,11 @@ export async function POST(request: NextRequest) {
       ],
       meta_data: [
         {
-          key: '_stripe_payment_intent_id',
-          value: paymentIntent.id
-        },
-        {
           key: '_payment_source',
           value: 'payment_request'
         },
         {
-          key: '_stripe_amount_paid',
+          key: '_stripe_amount_to_charge',
           value: totalAmount.toFixed(2)
         },
         {
@@ -243,38 +226,98 @@ export async function POST(request: NextRequest) {
       ]
     };
 
-    const orderResponse = await WooCommerce.post('orders', orderData);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const order: any = orderResponse.data;
+    let order;
+    try {
+      const orderResponse = await WooCommerce.post('orders', orderData);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      order = orderResponse.data as any;
+      console.log(`[PAYMENT-REQUEST] Step 3: Order #${order.id} created successfully`);
+    } catch (orderError) {
+      console.error('[PAYMENT-REQUEST] Step 3 FAILED: Order creation error:', orderError);
+      // Se l'ordine non può essere creato, fermiamoci qui PRIMA di addebitare il cliente
+      throw new Error(`Impossibile creare l'ordine: ${orderError instanceof Error ? orderError.message : 'Errore sconosciuto'}`);
+    }
 
-    // Aggiorna il Payment Intent con l'order ID
-    await stripe.paymentIntents.update(paymentIntent.id, {
-      metadata: {
-        ...paymentIntent.metadata,
-        wc_order_id: order.id.toString()
-      }
-    });
+    // STEP 2: Ora che abbiamo l'ordine, crea e conferma il Payment Intent
+    console.log(`[PAYMENT-REQUEST] Step 4: Creating Payment Intent for order #${order.id}`);
 
+    let paymentIntent;
+    try {
+      paymentIntent = await stripe.paymentIntents.create({
+        amount: stripeAmount,
+        currency: 'eur',
+        payment_method: paymentMethodId,
+        confirmation_method: 'automatic',
+        confirm: true, // Conferma immediatamente
+        return_url: `${origin}/checkout/success`,
+        metadata: {
+          wc_order_id: order.id.toString(), // ← FONDAMENTALE: ordine già creato
+          product_id: productId.toString(),
+          quantity: quantity.toString(),
+          user_id: userId.toString(),
+          enable_deposit: enableDeposit,
+          payment_source: 'payment_request'
+        }
+      });
 
-    // Se il pagamento è confermato (in test mode), aggiorna lo stato dell'ordine
-    if (paymentIntent.status === 'succeeded') {
+      console.log(`[PAYMENT-REQUEST] Step 5: Payment Intent ${paymentIntent.id} created with status: ${paymentIntent.status}`);
+
+      // Aggiorna l'ordine con il payment_intent_id
+      await WooCommerce.put(`orders/${order.id}`, {
+        meta_data: [
+          {
+            key: '_stripe_payment_intent_id',
+            value: paymentIntent.id
+          }
+        ]
+      });
+
+    } catch (paymentError) {
+      console.error(`[PAYMENT-REQUEST] Step 5 FAILED: Payment error for order #${order.id}:`, paymentError);
+
+      // Pagamento fallito → cancella l'ordine per evitare ordini orfani
       try {
         await WooCommerce.put(`orders/${order.id}`, {
-          status: 'processing', // o 'completed' se preferisci
+          status: 'cancelled',
+          customer_note: `Pagamento fallito: ${paymentError instanceof Error ? paymentError.message : 'Errore sconosciuto'}`
+        });
+        console.log(`[PAYMENT-REQUEST] Order #${order.id} cancelled due to payment failure`);
+      } catch (cancelError) {
+        console.error(`[PAYMENT-REQUEST] Failed to cancel order #${order.id}:`, cancelError);
+      }
+
+      throw paymentError;
+    }
+
+    // STEP 3: Se il pagamento è riuscito, aggiorna l'ordine
+    if (paymentIntent.status === 'succeeded') {
+      console.log(`[PAYMENT-REQUEST] Step 6: Payment succeeded, updating order #${order.id}`);
+
+      try {
+        await WooCommerce.put(`orders/${order.id}`, {
+          status: 'processing',
           set_paid: true,
           transaction_id: paymentIntent.id
         });
+        console.log(`[PAYMENT-REQUEST] Order #${order.id} marked as paid`);
       } catch (updateError) {
-        console.error('Errore aggiornamento ordine:', updateError);
-        // Non fail tutto l'ordine per questo errore
+        console.error(`[PAYMENT-REQUEST] Warning: Failed to update order #${order.id}, webhook will handle it:`, updateError);
+        // Non lanciare errore qui: il webhook può recuperare
+        // L'importante è che wc_order_id sia nei metadata del Payment Intent
       }
+    } else if (paymentIntent.status === 'requires_action') {
+      console.log(`[PAYMENT-REQUEST] Payment requires additional action (3DS), order #${order.id} remains pending`);
+    } else {
+      console.warn(`[PAYMENT-REQUEST] Unexpected payment status: ${paymentIntent.status} for order #${order.id}`);
     }
 
     return NextResponse.json({
       success: true,
       order_id: order.id,
       clientSecret: paymentIntent.client_secret,
-      paymentIntentId: paymentIntent.id
+      paymentIntentId: paymentIntent.id,
+      paymentStatus: paymentIntent.status, // ← AGGIUNTO: status per frontend
+      requiresAction: paymentIntent.status === 'requires_action' // ← AGGIUNTO: flag 3DS
     });
 
   } catch (error) {

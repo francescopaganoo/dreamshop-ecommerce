@@ -53,13 +53,18 @@ export async function POST(request: NextRequest) {
     }
     
     // Gestisci gli eventi
+    console.log(`[WEBHOOK] Event received: ${event.type} (ID: ${event.id})`);
+
     if (event.type === 'payment_intent.succeeded') {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
 
       console.log('[WEBHOOK] payment_intent.succeeded ricevuto:', {
         paymentIntentId: paymentIntent.id,
-        amount: paymentIntent.amount,
+        amount: (paymentIntent.amount / 100).toFixed(2) + ' EUR',
         status: paymentIntent.status,
+        paymentSource: paymentIntent.metadata?.payment_source || 'unknown',
+        wcOrderId: paymentIntent.metadata?.wc_order_id || 'not set',
+        orderDataId: paymentIntent.metadata?.order_data_id || 'not set',
         metadata: paymentIntent.metadata
       });
 
@@ -150,15 +155,54 @@ export async function POST(request: NextRequest) {
       // Gestisce Payment Intent da Apple/Google Pay (payment_request_cart e payment_request)
       const paymentSource = paymentIntent.metadata?.payment_source;
       if (paymentSource === 'payment_request_cart' || paymentSource === 'payment_request') {
-        const wcOrderId = paymentIntent.metadata?.wc_order_id;
+        let wcOrderId = paymentIntent.metadata?.wc_order_id;
 
+        console.log(`[WEBHOOK] Payment Request ricevuto per PI ${paymentIntent.id}, wc_order_id: ${wcOrderId || 'MANCANTE'}`);
+
+        // FALLBACK: Se wc_order_id manca, prova a cercare l'ordine tramite payment_intent_id
         if (!wcOrderId) {
-          console.error('[WEBHOOK] Payment Request: wc_order_id mancante nei metadata');
-          return NextResponse.json({ received: true, error: 'Order ID mancante' });
+          console.warn('[WEBHOOK] wc_order_id mancante, tentativo fallback search...');
+
+          try {
+            // Cerca ordini con questo payment_intent_id nei metadata
+            const searchResponse = await api.get('orders', {
+              meta_key: '_stripe_payment_intent_id',
+              meta_value: paymentIntent.id,
+              per_page: 1
+            });
+
+            if (searchResponse.data && Array.isArray(searchResponse.data) && searchResponse.data.length > 0) {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const foundOrder = searchResponse.data[0] as any;
+              wcOrderId = foundOrder.id.toString();
+              console.log(`[WEBHOOK] Ordine trovato tramite fallback search: #${wcOrderId}`);
+
+              // Aggiorna il Payment Intent con l'order_id per evitare ricerche future
+              await stripe.paymentIntents.update(paymentIntent.id, {
+                metadata: {
+                  ...paymentIntent.metadata,
+                  wc_order_id: wcOrderId
+                }
+              });
+            } else {
+              console.error('[WEBHOOK] Nessun ordine trovato con fallback search');
+              return NextResponse.json({
+                received: true,
+                error: 'Order ID mancante e nessun ordine trovato con fallback search'
+              });
+            }
+          } catch (searchError) {
+            console.error('[WEBHOOK] Errore durante fallback search:', searchError);
+            return NextResponse.json({
+              received: true,
+              error: 'Impossibile trovare ordine associato'
+            });
+          }
         }
 
-
         try {
+          console.log(`[WEBHOOK] Aggiornamento ordine #${wcOrderId} come pagato`);
+
           // Aggiorna l'ordine WooCommerce esistente come pagato
           await api.put(`orders/${wcOrderId}`, {
             status: 'processing',
@@ -176,19 +220,22 @@ export async function POST(request: NextRequest) {
             ]
           });
 
+          console.log(`[WEBHOOK] Ordine #${wcOrderId} aggiornato con successo`);
+
           // Aggiorna Payment Intent per evitare duplicati
           await stripe.paymentIntents.update(paymentIntent.id, {
             metadata: {
               ...paymentIntent.metadata,
               order_id: wcOrderId,
-              webhook_processed: 'true'
+              webhook_processed: 'true',
+              webhook_processed_at: new Date().toISOString()
             }
           });
 
-          return NextResponse.json({ received: true, message: 'Ordine aggiornato' });
+          return NextResponse.json({ received: true, message: `Ordine #${wcOrderId} aggiornato` });
 
         } catch (error) {
-          console.error('[WEBHOOK] Errore aggiornamento ordine Payment Request:', error);
+          console.error(`[WEBHOOK] Errore aggiornamento ordine #${wcOrderId}:`, error);
           return NextResponse.json({ received: true, error: 'Errore aggiornamento ordine' });
         }
       }

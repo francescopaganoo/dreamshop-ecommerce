@@ -279,11 +279,22 @@ export default function AppleGooglePayButton({
         const result = await response.json();
 
         if (response.ok && result.success) {
-          // Pagamento già confermato dal backend
+          // Controlla lo status del pagamento
+          if (result.requiresAction || result.paymentStatus === 'requires_action') {
+            // 3DS richiesto - Non completare il pagamento
+            console.warn('[Apple/Google Pay] Payment requires 3DS authentication - not supported in Payment Request');
+            ev.complete('fail');
+            setError('Questo pagamento richiede autenticazione aggiuntiva. Per favore usa il checkout standard.');
 
+            // Puoi anche cancellare l'ordine qui se vuoi
+            console.log(`[Apple/Google Pay] Order #${result.order_id} left pending - requires 3DS`);
+            return;
+          }
+
+          // Pagamento confermato con successo
           ev.complete('success');
           router.push(`/checkout/success?order_id=${result.order_id}`);
-          
+
         } else {
           throw new Error(result.error || 'Errore durante la creazione dell\'ordine');
         }
