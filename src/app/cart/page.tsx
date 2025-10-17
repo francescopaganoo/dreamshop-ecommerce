@@ -33,89 +33,15 @@ interface CartProduct {
   price?: string;
   regular_price?: string;
   images?: Array<{src: string}>;
-  categories?: Array<{
-    id: number;
-    name: string;
-    slug: string;
-  }>;
-  attributes?: Array<{
-    name: string;
-    slug?: string;
-    options: Array<string | {
-      id: number;
-      name: string;
-      slug: string;
-    }>;
-  }>;
 }
 
 // Funzione per ottenere lo slug valido di un prodotto
 const getProductSlug = (product: CartProduct): string => {
   // Se il prodotto ha già uno slug, usalo
   if (product.slug) return product.slug;
-
+  
   // Se non c'è uno slug, usa l'ID come fallback
   return product.id.toString();
-};
-
-// Funzione helper per ottenere un attributo del prodotto
-const getAttribute = (product: CartProduct, name: string): { name: string; slug: string } | undefined => {
-  if (!product.attributes) return undefined;
-
-  const attr = product.attributes.find(attr => {
-    // Check if it's a PluginProductAttribute (has slug property)
-    if ('slug' in attr && attr.slug) {
-      return attr.name === name || attr.slug === name;
-    }
-    // Otherwise it's a ProductAttribute (no slug property)
-    return attr.name === name;
-  });
-
-  if (!attr) return undefined;
-
-  // Return the first option, handling both attribute types
-  if (Array.isArray(attr.options) && attr.options.length > 0) {
-    const firstOption = attr.options[0];
-
-    // PluginProductAttribute - options are objects
-    if (typeof firstOption === 'object' && firstOption !== null && 'name' in firstOption) {
-      return firstOption as { name: string; slug: string };
-    }
-
-    // ProductAttribute - options are strings
-    if (typeof firstOption === 'string') {
-      return { name: firstOption, slug: firstOption.toLowerCase().replace(/\s+/g, '-') };
-    }
-  }
-
-  return undefined;
-};
-
-// Funzione helper per verificare se un prodotto appartiene alla categoria ITALIA ed è In Stock (non Pre-Order)
-const shouldShowShippingSuspendedMessage = (product: CartProduct): boolean => {
-  // Verifica se appartiene alla categoria ITALIA
-  if (!product.categories || !Array.isArray(product.categories)) {
-    return false;
-  }
-
-  const isItaliaCategory = product.categories.some(
-    (category: { id: number; name: string; slug: string }) =>
-      category.slug === 'italia' || category.name.toLowerCase() === 'italia'
-  );
-
-  if (!isItaliaCategory) {
-    return false;
-  }
-
-  // Controlla la disponibilità - esclude i prodotti in Pre-Order
-  const disponibilita = getAttribute(product, 'pa_disponibilita');
-  const isPreOrder = disponibilita?.name?.toLowerCase().includes('pre-order') ||
-                     disponibilita?.slug?.toLowerCase().includes('pre-order') ||
-                     disponibilita?.name?.toLowerCase().includes('preorder') ||
-                     disponibilita?.slug?.toLowerCase().includes('preorder');
-
-  // Mostra il messaggio solo se è ITALIA e NON è in Pre-Order
-  return !isPreOrder;
 };
 
 export default function CartPage() {
@@ -556,13 +482,6 @@ export default function CartPage() {
                                   {item.product.name}
                                 </Link>
 
-                                {/* Messaggio per prodotti categoria ITALIA In Stock */}
-                                {shouldShowShippingSuspendedMessage(item.product) && (
-                                  <div className="text-xs font-semibold text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1 mb-2">
-                                    Spedizioni per questo prodotto sospese fino al 18/11 per evento; previa disponibilità.
-                                  </div>
-                                )}
-
                                 <div className="text-sm text-gray-600 mb-2">
                                   <div>{formatPrice(itemPrice)}</div>
                                   {isDeposit && (
@@ -686,19 +605,12 @@ export default function CartPage() {
                                   />
                                 </div>
                                 <div>
-                                  <Link
+                                  <Link 
                                     href={`/prodotto/${getProductSlug(item.product)}`}
                                     className="text-sm font-medium text-gray-900 hover:text-blue-600"
                                   >
                                     {item.product.name}
                                   </Link>
-
-                                  {/* Messaggio per prodotti categoria ITALIA In Stock */}
-                                  {shouldShowShippingSuspendedMessage(item.product) && (
-                                    <div className="text-xs font-semibold text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1 mt-2 inline-block">
-                                      Spedizioni per questo prodotto sospese fino al 18/11 per evento; previa disponibilità.
-                                    </div>
-                                  )}
 
                                 </div>
                               </div>
