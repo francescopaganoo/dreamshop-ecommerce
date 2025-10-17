@@ -59,14 +59,12 @@ function OrderSuccessContent() {
       // Gestione pagamento Stripe con Payment Intent (nuovo flusso con solo webhook)
       if (paymentMethod === 'stripe' && paymentIntentId && !orderId) {
         try {
-          console.log('[SUCCESS-PAGE] Pagamento Stripe, attendo creazione ordine dal webhook...');
 
           let retrievedOrderId: number | null = null;
           const maxAttempts = 30; // 30 tentativi = 30 secondi max
           const delayMs = 1000; // 1 secondo tra i tentativi
 
           for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-            console.log(`[SUCCESS-PAGE] Tentativo ${attempt}/${maxAttempts} di recupero ordine...`);
 
             try {
               const response = await fetch(`/api/stripe/get-order-by-payment-intent?payment_intent_id=${paymentIntentId}`);
@@ -74,11 +72,9 @@ function OrderSuccessContent() {
 
               if (response.ok && data.success && data.orderId) {
                 retrievedOrderId = data.orderId;
-                console.log('[SUCCESS-PAGE] Ordine recuperato dal webhook:', retrievedOrderId);
                 break;
               } else if (response.status === 202) {
                 // 202 = Ordine ancora in elaborazione, ritenta
-                console.log('[SUCCESS-PAGE] Ordine ancora in elaborazione, attendo...');
               } else {
                 console.error('[SUCCESS-PAGE] Errore nel recupero ordine:', data);
               }

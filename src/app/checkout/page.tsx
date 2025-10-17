@@ -1454,8 +1454,6 @@ export default function CheckoutPage() {
             'status' in result.paymentIntent &&
             result.paymentIntent.status === 'succeeded') {
 
-          console.log('[STRIPE] Pagamento completato con successo, webhook creerà l\'ordine');
-          console.log('[STRIPE] Payment Intent ID:', result.paymentIntent.id);
 
           // Svuota il carrello
           clearCart();
