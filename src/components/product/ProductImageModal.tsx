@@ -83,13 +83,13 @@ export default function ProductImageModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90"
           onClick={onClose}
         >
           {/* Pulsante chiudi */}
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 z-50 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
+            className="absolute top-4 right-4 z-[10000] p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
             aria-label="Chiudi"
           >
             <FaTimes size={24} />
