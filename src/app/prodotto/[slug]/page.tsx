@@ -23,16 +23,80 @@ export async function generateMetadata({ params }: any): Promise<Metadata> {
   // Attendi i params prima di utilizzarli
   const resolvedParams = await Promise.resolve(params);
   const product = await getProductBySlug(resolvedParams.slug);
-  
+
   if (!product) {
     return {
       title: 'Product Not Found',
     };
   }
-  
+
+  // Estrai la descrizione pulita senza tag HTML
+  const cleanDescription = product.short_description.replace(/<[^>]*>/g, '').trim();
+
+  // URL del prodotto
+  const productUrl = `https://dreamshop18.com/prodotto/${product.slug}`;
+
+  // Immagine principale del prodotto
+  const mainImage = product.images && product.images.length > 0 ? product.images[0].src : '';
+  const imageAlt = product.images && product.images.length > 0 ? product.images[0].alt || product.name : product.name;
+
+  // Formato prezzo per Open Graph
+  const price = product.sale_price || product.regular_price || '';
+  const priceAmount = parseFloat(price);
+
   return {
     title: product.name,
-    description: product.short_description.replace(/<[^>]*>/g, ''),
+    description: cleanDescription,
+
+    // Open Graph meta tags
+    openGraph: {
+      type: 'website',
+      url: productUrl,
+      title: product.name,
+      description: cleanDescription,
+      siteName: 'DreamShop',
+      locale: 'it_IT',
+      images: mainImage ? [
+        {
+          url: mainImage,
+          width: 800,
+          height: 600,
+          alt: imageAlt,
+        }
+      ] : [],
+    },
+
+    // Twitter Card meta tags
+    twitter: {
+      card: 'summary_large_image',
+      title: product.name,
+      description: cleanDescription,
+      images: mainImage ? [mainImage] : [],
+    },
+
+    // Altri meta tags importanti
+    alternates: {
+      canonical: productUrl,
+    },
+
+    // Meta robots
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+      },
+    },
+
+    // Additional meta tags
+    other: {
+      ...(priceAmount > 0 && { 'price:amount': priceAmount.toFixed(2) }),
+      'price:currency': 'EUR',
+      'product:availability': product.stock_status === 'instock' ? 'in stock' : 'out of stock',
+    },
   };
 }
 
@@ -66,15 +130,56 @@ async function ProductDetails({ slug }: { slug: string }) {
     const parsedPrice = parseFloat(price);
     return isNaN(parsedPrice) ? null : `€${parsedPrice.toFixed(2)}`;
   };
-  
+
   // Check if product is on sale
   const isOnSale = product.sale_price && product.sale_price !== '';
-  
+
   // Check if product has a valid price
   const hasValidPrice = product.price && parseFloat(product.price) > 0;
-  
+
+  // Genera lo Structured Data per Product Schema
+  const productUrl = `https://dreamshop18.com/prodotto/${product.slug}`;
+  const price = product.sale_price || product.regular_price || '';
+  const priceAmount = parseFloat(price);
+
+  const structuredData = {
+    "@context": "https://schema.org/",
+    "@type": "Product",
+    "name": product.name,
+    "image": product.images?.map(img => img.src) || [],
+    "description": product.short_description.replace(/<[^>]*>/g, '').trim(),
+    "sku": `product-${product.id}`,
+    "brand": {
+      "@type": "Brand",
+      "name": extractACFFields(product.meta_data).brand || "DreamShop"
+    },
+    "offers": {
+      "@type": "Offer",
+      "url": productUrl,
+      "priceCurrency": "EUR",
+      "price": priceAmount > 0 ? priceAmount.toFixed(2) : undefined,
+      "priceValidUntil": product.date_on_sale_to || undefined,
+      "itemCondition": "https://schema.org/NewCondition",
+      "availability": product.stock_status === 'instock'
+        ? "https://schema.org/InStock"
+        : "https://schema.org/OutOfStock",
+      "seller": {
+        "@type": "Organization",
+        "name": "DreamShop"
+      }
+    }
+  };
+
+  // Rimuovi proprietà undefined dallo structured data
+  const cleanStructuredData = JSON.parse(JSON.stringify(structuredData));
+
   return (
     <>
+      {/* Structured Data (JSON-LD) */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(cleanStructuredData) }}
+      />
       {/* Breadcrumbs */}
       <nav className="mb-6 text-sm">
         <ol className="flex items-center space-x-2">

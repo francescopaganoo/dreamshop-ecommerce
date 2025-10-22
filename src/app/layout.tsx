@@ -30,7 +30,76 @@ const bangers = Bangers({
 
 export const metadata: Metadata = {
   title: "DreamShop | Tutte le action figure in un unico portale",
-  description: "Tutte le action figure in un unico portale",
+  description: "Acquista action figure, statue, trading card e merchandising anime/manga. Ichiban Kuji, S.H. Figuarts, Pokemon, One Piece e molto altro. Spedizione veloce in Italia.",
+
+  // Meta keywords (anche se meno rilevante oggi, non fa male)
+  keywords: [
+    'action figure',
+    'statue anime',
+    'trading card',
+    'merchandising anime',
+    'Ichiban Kuji',
+    'S.H. Figuarts',
+    'Pokemon',
+    'One Piece',
+    'Dragon Ball',
+    'Banpresto',
+    'figure giapponesi',
+    'resine anime',
+    'negozio anime online'
+  ],
+
+  // Open Graph meta tags
+  openGraph: {
+    type: 'website',
+    locale: 'it_IT',
+    url: 'https://dreamshop18.com',
+    siteName: 'DreamShop',
+    title: 'DreamShop | Tutte le action figure in un unico portale',
+    description: 'Acquista action figure, statue, trading card e merchandising anime/manga. Ichiban Kuji, S.H. Figuarts, Pokemon, One Piece e molto altro. Spedizione veloce in Italia.',
+    images: [
+      {
+        url: 'https://dreamshop18.com/images/og-image.jpg',
+        width: 1200,
+        height: 630,
+        alt: 'DreamShop - Action Figure e Merchandising Anime',
+      }
+    ],
+  },
+
+  // Twitter Card meta tags
+  twitter: {
+    card: 'summary_large_image',
+    title: 'DreamShop | Tutte le action figure in un unico portale',
+    description: 'Acquista action figure, statue, trading card e merchandising anime/manga. Ichiban Kuji, S.H. Figuarts, Pokemon e molto altro.',
+    images: ['https://dreamshop18.com/images/og-image.jpg'],
+  },
+
+  // Meta robots
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+
+  // Verifica sito (se necessario)
+  verification: {
+    // google: 'codice-verifica-google-search-console',
+    // bing: 'codice-verifica-bing',
+  },
+
+  // Canonical e alternates
+  alternates: {
+    canonical: 'https://dreamshop18.com',
+  },
+
+  // Altre info
+  category: 'ecommerce',
 };
 
 export default function RootLayout({

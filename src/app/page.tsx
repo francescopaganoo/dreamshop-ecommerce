@@ -93,8 +93,53 @@ export default async function Home() {
     getBestSellingProductsHome()
   ]);
   
+  // Structured Data per Organization
+  const organizationSchema = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "DreamShop",
+    "url": "https://dreamshop18.com",
+    "logo": "https://dreamshop18.com/logo.png",
+    "description": "Negozio online di action figure, statue, trading card e merchandising anime/manga. Prodotti ufficiali da Giappone e Italia.",
+    "address": {
+      "@type": "PostalAddress",
+      "addressCountry": "IT"
+    },
+    "sameAs": [
+      // "https://www.facebook.com/dreamshop",
+      // "https://www.instagram.com/dreamshop",
+      // "https://www.twitter.com/dreamshop"
+    ]
+  };
+
+  // Structured Data per WebSite (abilita search box Google)
+  const websiteSchema = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "DreamShop",
+    "url": "https://dreamshop18.com",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": {
+        "@type": "EntryPoint",
+        "urlTemplate": "https://dreamshop18.com/products?search={search_term_string}"
+      },
+      "query-input": "required name=search_term_string"
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-white">
+      {/* Structured Data JSON-LD */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
+      />
+
       {/* Hero Section - Design Moderno */}
       <section className="relative text-white overflow-hidden -mt-px">
         <div className="relative w-full">
