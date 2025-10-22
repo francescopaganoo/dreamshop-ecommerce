@@ -3,7 +3,7 @@
  * Plugin Name: DreamShop Payment Refunds
  * Plugin URI: https://planstudios.it
  * Description: Gestisce i rimborsi per ordini Stripe e PayPal creati dal frontend
- * Version: 1.0.0
+ * Version: 1.3.0
  * Author: Plan Studios Group - FP
  * Author URI: https://planstudios.it
  * Text Domain: dreamshop-refunds
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Definisci costanti del plugin
-define('DREAMSHOP_REFUNDS_VERSION', '1.0.0');
+define('DREAMSHOP_REFUNDS_VERSION', '1.3.0');
 define('DREAMSHOP_REFUNDS_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('DREAMSHOP_REFUNDS_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -53,6 +53,16 @@ class DreamShop_Payment_Refunds {
 
         // Enqueue scripts
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
+
+        // Hook per visualizzare prodotti rimborsati
+        add_action('woocommerce_after_order_itemmeta', array($this, 'display_refunded_item_notice'), 10, 3);
+        add_action('woocommerce_order_item_meta_end', array($this, 'display_refunded_item_notice'), 10, 3);
+
+        // Aggiungi metabox per ordini HPOS
+        add_action('add_meta_boxes', array($this, 'add_refunded_items_metabox'));
+
+        // Aggiungi stili inline per mostrare i badge
+        add_action('admin_head', array($this, 'add_refunded_items_inline_styles'));
     }
 
     /**
@@ -251,20 +261,11 @@ class DreamShop_Payment_Refunds {
         // Ottieni il metodo di pagamento
         $payment_method = $order->get_payment_method();
 
-        // Verifica se l'ordine è stato pagato con Stripe, Klarna, Satispay o PayPal
-        if (!in_array($payment_method, array('stripe', 'klarna', 'satispay', 'paypal'))) {
-            return;
-        }
+        // Determina il gateway di pagamento effettivo (stripe, klarna, satispay, google pay e apple pay usano Stripe)
+        $stripe_methods = array('stripe', 'klarna', 'satispay', 'stripe_googlepay', 'stripe_applepay', 'googlepay', 'applepay');
+        $payment_gateway = in_array($payment_method, $stripe_methods) ? 'stripe' : 'paypal';
 
-        // Verifica che l'ordine sia pagato e non già rimborsato
-        if (!$order->is_paid() || $order->get_status() === 'refunded') {
-            return;
-        }
-
-        // Determina il gateway di pagamento effettivo (stripe, klarna e satispay usano Stripe)
-        $payment_gateway = in_array($payment_method, array('stripe', 'klarna', 'satispay')) ? 'stripe' : 'paypal';
-
-        // Ottieni l'ID della transazione
+        // Ottieni l'ID della transazione (se disponibile)
         $transaction_id = '';
         if ($payment_gateway === 'stripe') {
             // Prova tutti i possibili meta_key per Stripe/Klarna/Satispay
@@ -279,18 +280,20 @@ class DreamShop_Payment_Refunds {
             }
         }
 
-        if (empty($transaction_id)) {
-            return;
-        }
-
         // Determina il label del bottone
         $button_label = '';
         if ($payment_method === 'klarna') {
             $button_label = 'Klarna (Stripe)';
         } elseif ($payment_method === 'satispay') {
             $button_label = 'Satispay (Stripe)';
-        } else {
+        } elseif (in_array($payment_method, array('stripe_googlepay', 'googlepay'))) {
+            $button_label = 'Google Pay (Stripe)';
+        } elseif (in_array($payment_method, array('stripe_applepay', 'applepay'))) {
+            $button_label = 'Apple Pay (Stripe)';
+        } elseif (!empty($payment_method)) {
             $button_label = ucfirst($payment_method);
+        } else {
+            $button_label = 'Payment Gateway';
         }
 
         ?>
@@ -320,6 +323,9 @@ class DreamShop_Payment_Refunds {
         $payment_gateway = isset($_POST['payment_gateway']) ? sanitize_text_field($_POST['payment_gateway']) : '';
         $amount = isset($_POST['amount']) ? floatval($_POST['amount']) : 0;
         $reason = isset($_POST['reason']) ? sanitize_text_field($_POST['reason']) : '';
+        $refund_items = isset($_POST['refund_items']) ? json_decode(stripslashes($_POST['refund_items']), true) : array();
+        $refund_shipping = isset($_POST['refund_shipping']) && $_POST['refund_shipping'] === 'true';
+        $refund_fees = isset($_POST['refund_fees']) ? json_decode(stripslashes($_POST['refund_fees']), true) : array();
 
         if (!$order_id || !$payment_method) {
             wp_send_json_error(array('message' => __('Dati mancanti', 'dreamshop-refunds')));
@@ -332,14 +338,15 @@ class DreamShop_Payment_Refunds {
 
         // Se payment_gateway non è specificato, determinalo dal payment_method
         if (empty($payment_gateway)) {
-            $payment_gateway = in_array($payment_method, array('stripe', 'klarna', 'satispay')) ? 'stripe' : 'paypal';
+            $stripe_methods = array('stripe', 'klarna', 'satispay', 'stripe_googlepay', 'stripe_applepay', 'googlepay', 'applepay');
+            $payment_gateway = in_array($payment_method, $stripe_methods) ? 'stripe' : 'paypal';
         }
 
         // Processa il rimborso in base al gateway di pagamento
         if ($payment_gateway === 'stripe') {
-            $result = $this->process_stripe_refund($order, $amount, $reason, $payment_method);
+            $result = $this->process_stripe_refund($order, $amount, $reason, $payment_method, $refund_items, $refund_shipping, $refund_fees);
         } elseif ($payment_gateway === 'paypal') {
-            $result = $this->process_paypal_refund($order, $amount, $reason);
+            $result = $this->process_paypal_refund($order, $amount, $reason, $refund_items, $refund_shipping, $refund_fees);
         } else {
             wp_send_json_error(array('message' => __('Gateway di pagamento non supportato', 'dreamshop-refunds')));
         }
@@ -354,7 +361,7 @@ class DreamShop_Payment_Refunds {
     /**
      * Processa rimborso Stripe (include anche Klarna e Satispay)
      */
-    private function process_stripe_refund($order, $amount, $reason, $payment_method = 'stripe') {
+    private function process_stripe_refund($order, $amount, $reason, $payment_method = 'stripe', $refund_items = array(), $refund_shipping = false, $refund_fees = array()) {
         $secret_key = get_option('dreamshop_stripe_secret_key');
 
         if (empty($secret_key)) {
@@ -377,6 +384,10 @@ class DreamShop_Payment_Refunds {
             $payment_method_name = 'Klarna (Stripe)';
         } elseif ($payment_method === 'satispay') {
             $payment_method_name = 'Satispay (Stripe)';
+        } elseif (in_array($payment_method, array('stripe_googlepay', 'googlepay'))) {
+            $payment_method_name = 'Google Pay (Stripe)';
+        } elseif (in_array($payment_method, array('stripe_applepay', 'applepay'))) {
+            $payment_method_name = 'Apple Pay (Stripe)';
         }
 
         // Determina l'importo del rimborso
@@ -426,17 +437,25 @@ class DreamShop_Payment_Refunds {
             $valid_statuses = array('succeeded', 'pending');
 
             if (in_array($body['status'], $valid_statuses)) {
+                // Prepara i line_items per il rimborso WooCommerce
+                $line_items = $this->prepare_line_items_for_refund($order, $refund_items);
+
                 // Crea il rimborso in WooCommerce
                 $refund_id = wc_create_refund(array(
                     'order_id' => $order->get_id(),
                     'amount' => $refund_amount,
                     'reason' => $reason,
                     'refund_payment' => false, // Già rimborsato tramite Stripe
+                    'line_items' => $line_items,
+                    'restock_items' => true, // Reintegra la giacenza
                 ));
 
                 if (is_wp_error($refund_id)) {
                     return array('success' => false, 'message' => $refund_id->get_error_message());
                 }
+
+                // Salva i metadati dei prodotti rimborsati
+                $this->save_refunded_items_metadata($order, $refund_items, $refund_shipping, $refund_fees, $reason);
 
                 // Messaggio differente in base allo stato
                 $status_message = '';
@@ -476,7 +495,7 @@ class DreamShop_Payment_Refunds {
     /**
      * Processa rimborso PayPal
      */
-    private function process_paypal_refund($order, $amount, $reason) {
+    private function process_paypal_refund($order, $amount, $reason, $refund_items = array(), $refund_shipping = false, $refund_fees = array()) {
         $client_id = get_option('dreamshop_paypal_client_id');
         $client_secret = get_option('dreamshop_paypal_client_secret');
         $mode = get_option('dreamshop_paypal_mode', 'live');
@@ -555,17 +574,25 @@ class DreamShop_Payment_Refunds {
         $refund_result = json_decode(wp_remote_retrieve_body($refund_response), true);
 
         if (isset($refund_result['status']) && $refund_result['status'] === 'COMPLETED') {
+            // Prepara i line_items per il rimborso WooCommerce
+            $line_items = $this->prepare_line_items_for_refund($order, $refund_items);
+
             // Crea il rimborso in WooCommerce
             $refund_id = wc_create_refund(array(
                 'order_id' => $order->get_id(),
                 'amount' => $refund_amount,
                 'reason' => $reason,
                 'refund_payment' => false, // Già rimborsato tramite PayPal
+                'line_items' => $line_items,
+                'restock_items' => true, // Reintegra la giacenza
             ));
 
             if (is_wp_error($refund_id)) {
                 return array('success' => false, 'message' => $refund_id->get_error_message());
             }
+
+            // Salva i metadati dei prodotti rimborsati
+            $this->save_refunded_items_metadata($order, $refund_items, $refund_shipping, $refund_fees, $reason);
 
             // Aggiungi nota all'ordine
             $order->add_order_note(
@@ -586,6 +613,366 @@ class DreamShop_Payment_Refunds {
 
         $error_message = isset($refund_result['message']) ? $refund_result['message'] : __('Errore durante il rimborso PayPal', 'dreamshop-refunds');
         return array('success' => false, 'message' => $error_message);
+    }
+
+    /**
+     * Prepara i line_items per il rimborso WooCommerce
+     */
+    private function prepare_line_items_for_refund($order, $refund_items) {
+        if (empty($refund_items)) {
+            return array();
+        }
+
+        $line_items = array();
+        $order_items = $order->get_items();
+        $order_items_array = array_values($order_items);
+
+        foreach ($refund_items as $refund_item) {
+            $item_index = isset($refund_item['index']) ? intval($refund_item['index']) : -1;
+            $quantity = isset($refund_item['quantity']) ? intval($refund_item['quantity']) : 0;
+            $price_per_unit = isset($refund_item['price_per_unit']) ? floatval($refund_item['price_per_unit']) : 0;
+
+            if ($item_index >= 0 && $quantity > 0 && isset($order_items_array[$item_index])) {
+                $item = $order_items_array[$item_index];
+                $item_id = $item->get_id();
+
+                // Calcola l'importo totale da rimborsare per questo item
+                $refund_total = $quantity * $price_per_unit;
+
+                // Calcola la tassa da rimborsare proporzionalmente
+                $item_tax = $item->get_total_tax();
+                $item_total = $item->get_total();
+                $refund_tax = 0;
+
+                if ($item_total > 0) {
+                    $refund_tax = ($item_tax / $item_total) * $refund_total;
+                }
+
+                $line_items[$item_id] = array(
+                    'qty' => $quantity,
+                    'refund_total' => $refund_total,
+                    'refund_tax' => array($refund_tax),
+                );
+            }
+        }
+
+        return $line_items;
+    }
+
+    /**
+     * Salva i metadati dei prodotti rimborsati nell'ordine
+     */
+    private function save_refunded_items_metadata($order, $refund_items, $refund_shipping, $refund_fees, $reason = '') {
+        if (empty($refund_items) && !$refund_shipping && empty($refund_fees)) {
+            return;
+        }
+
+        // Recupera i metadati esistenti dei rimborsi usando get_post_meta
+        $existing_refunds = get_post_meta($order->get_id(), '_dreamshop_refunded_items', true);
+        if (!is_array($existing_refunds)) {
+            $existing_refunds = array();
+        }
+
+        // Ottieni gli item dell'ordine
+        $order_items = $order->get_items();
+        $order_items_array = array_values($order_items);
+
+        // Salva informazioni sui prodotti rimborsati
+        foreach ($refund_items as $refund_item) {
+            $item_index = isset($refund_item['index']) ? intval($refund_item['index']) : -1;
+            $quantity = isset($refund_item['quantity']) ? intval($refund_item['quantity']) : 0;
+            $price_per_unit = isset($refund_item['price_per_unit']) ? floatval($refund_item['price_per_unit']) : 0;
+
+            if ($item_index >= 0 && $quantity > 0 && isset($order_items_array[$item_index])) {
+                $item = $order_items_array[$item_index];
+                $item_id = $item->get_id();
+
+                if (!isset($existing_refunds['items'])) {
+                    $existing_refunds['items'] = array();
+                }
+
+                if (!isset($existing_refunds['items'][$item_id])) {
+                    $existing_refunds['items'][$item_id] = array(
+                        'product_name' => $item->get_name(),
+                        'total_quantity' => $item->get_quantity(),
+                        'refunded_quantity' => 0,
+                        'refund_history' => array()
+                    );
+                }
+
+                // Aggiungi la quantità rimborsata
+                $existing_refunds['items'][$item_id]['refunded_quantity'] += $quantity;
+                $existing_refunds['items'][$item_id]['refund_history'][] = array(
+                    'quantity' => $quantity,
+                    'amount' => $quantity * $price_per_unit,
+                    'date' => current_time('mysql'),
+                    'reason' => $reason
+                );
+            }
+        }
+
+        // Salva informazioni sulla spedizione rimborsata
+        if ($refund_shipping) {
+            if (!isset($existing_refunds['shipping'])) {
+                $existing_refunds['shipping'] = array(
+                    'refunded' => true,
+                    'date' => current_time('mysql')
+                );
+            }
+        }
+
+        // Salva informazioni sulle fee rimborsate
+        if (!empty($refund_fees)) {
+            if (!isset($existing_refunds['fees'])) {
+                $existing_refunds['fees'] = array();
+            }
+            foreach ($refund_fees as $fee_index) {
+                $existing_refunds['fees'][] = array(
+                    'fee_index' => $fee_index,
+                    'date' => current_time('mysql')
+                );
+            }
+        }
+
+        // Salva i metadati usando update_post_meta che funziona sia con post che con HPOS
+        $order_id = $order->get_id();
+        update_post_meta($order_id, '_dreamshop_refunded_items', $existing_refunds);
+    }
+
+    /**
+     * Visualizza la dicitura sui prodotti rimborsati
+     */
+    public function display_refunded_item_notice($item_id, $item, $order) {
+        // Verifica che sia un prodotto
+        if (!$item instanceof WC_Order_Item_Product) {
+            return;
+        }
+
+        // Verifica che sia un oggetto ordine valido
+        if (!$order || !method_exists($order, 'get_id')) {
+            return;
+        }
+
+        $order_id = $order->get_id();
+
+        // Verifica che siamo nella pagina di dettaglio dell'ordine
+        global $post;
+        $current_screen_order_id = 0;
+
+        // Controlla se siamo nella pagina edit dell'ordine
+        if (isset($_GET['id']) && is_numeric($_GET['id'])) {
+            $current_screen_order_id = intval($_GET['id']);
+        } elseif ($post && $post->ID) {
+            $current_screen_order_id = $post->ID;
+        }
+
+        // Se non siamo nella pagina del giusto ordine, esci
+        if ($current_screen_order_id && $current_screen_order_id != $order_id) {
+            return;
+        }
+
+        // Usa get_post_meta perché $order->get_meta() non funziona in questo contesto
+        $refunded_items = get_post_meta($order_id, '_dreamshop_refunded_items', true);
+
+        if (!is_array($refunded_items) || !isset($refunded_items['items'][$item_id])) {
+            return;
+        }
+
+        $refund_info = $refunded_items['items'][$item_id];
+        $total_quantity = $refund_info['total_quantity'];
+        $refunded_quantity = $refund_info['refunded_quantity'];
+
+        // Calcola il totale rimborsato
+        $refunded_amount = 0;
+        if (isset($refund_info['refund_history']) && is_array($refund_info['refund_history'])) {
+            foreach ($refund_info['refund_history'] as $history) {
+                $refunded_amount += floatval($history['amount']);
+            }
+        }
+
+        // Mostra la dicitura
+        if ($refunded_quantity > 0) {
+            $refund_text = '';
+            if ($refunded_quantity >= $total_quantity) {
+                // Prodotto completamente rimborsato
+                $refund_text = sprintf(
+                    __('Rimborsato completamente - %s', 'dreamshop-refunds'),
+                    strip_tags(wc_price($refunded_amount))
+                );
+            } else {
+                // Prodotto parzialmente rimborsato
+                $refund_text = sprintf(
+                    __('Rimborsato: %d su %d articoli - %s', 'dreamshop-refunds'),
+                    $refunded_quantity,
+                    $total_quantity,
+                    strip_tags(wc_price($refunded_amount))
+                );
+            }
+
+            echo '<div class="dreamshop-refunded-item-notice">' . $refund_text . '</div>';
+        }
+    }
+
+    /**
+     * Aggiungi metabox per mostrare prodotti rimborsati
+     */
+    public function add_refunded_items_metabox() {
+        $screen = class_exists('\Automattic\WooCommerce\Internal\DataStores\Orders\CustomOrdersTableController')
+            && wc_get_container()->get(\Automattic\WooCommerce\Internal\DataStores\Orders\CustomOrdersTableController::class)->custom_orders_table_usage_is_enabled()
+            ? wc_get_page_screen_id('shop-order')
+            : 'shop_order';
+
+        add_meta_box(
+            'dreamshop_refunded_items',
+            __('Prodotti Rimborsati', 'dreamshop-refunds'),
+            array($this, 'render_refunded_items_metabox'),
+            $screen,
+            'normal',
+            'default'
+        );
+    }
+
+    /**
+     * Render del metabox prodotti rimborsati
+     */
+    public function render_refunded_items_metabox($post_or_order) {
+        // Ottieni l'ordine
+        $order = $post_or_order instanceof \WP_Post ? wc_get_order($post_or_order->ID) : $post_or_order;
+
+        if (!$order) {
+            return;
+        }
+
+        $order_id = $order->get_id();
+        $refunded_items = get_post_meta($order_id, '_dreamshop_refunded_items', true);
+
+        if (!is_array($refunded_items) || empty($refunded_items['items'])) {
+            echo '<p>' . __('Nessun prodotto rimborsato tramite DreamShop Refunds.', 'dreamshop-refunds') . '</p>';
+            return;
+        }
+
+        echo '<table class="widefat" style="margin-top: 10px;">';
+        echo '<thead>';
+        echo '<tr>';
+        echo '<th>' . __('Prodotto', 'dreamshop-refunds') . '</th>';
+        echo '<th>' . __('Quantità Rimborsata', 'dreamshop-refunds') . '</th>';
+        echo '<th>' . __('Importo Rimborsato', 'dreamshop-refunds') . '</th>';
+        echo '<th>' . __('Data', 'dreamshop-refunds') . '</th>';
+        echo '</tr>';
+        echo '</thead>';
+        echo '<tbody>';
+
+        foreach ($refunded_items['items'] as $item_id => $refund_info) {
+            $refunded_quantity = $refund_info['refunded_quantity'];
+            $total_quantity = $refund_info['total_quantity'];
+            $product_name = $refund_info['product_name'];
+
+            // Calcola il totale rimborsato
+            $refunded_amount = 0;
+            $last_date = '';
+            if (isset($refund_info['refund_history']) && is_array($refund_info['refund_history'])) {
+                foreach ($refund_info['refund_history'] as $history) {
+                    $refunded_amount += floatval($history['amount']);
+                    $last_date = $history['date'];
+                }
+            }
+
+            $status_class = $refunded_quantity >= $total_quantity ? 'fully-refunded' : 'partially-refunded';
+            $status_text = $refunded_quantity >= $total_quantity
+                ? __('Completamente rimborsato', 'dreamshop-refunds')
+                : sprintf(__('%d su %d articoli', 'dreamshop-refunds'), $refunded_quantity, $total_quantity);
+
+            echo '<tr class="' . esc_attr($status_class) . '">';
+            echo '<td><strong>' . esc_html($product_name) . '</strong></td>';
+            echo '<td>' . esc_html($status_text) . '</td>';
+            echo '<td>' . wc_price($refunded_amount) . '</td>';
+            echo '<td>' . esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($last_date))) . '</td>';
+            echo '</tr>';
+        }
+
+        echo '</tbody>';
+        echo '</table>';
+    }
+
+    /**
+     * Aggiungi stili inline per badge nei prodotti
+     */
+    public function add_refunded_items_inline_styles() {
+        global $current_screen;
+
+        if (!$current_screen || strpos($current_screen->id, 'shop_order') === false) {
+            return;
+        }
+
+        // Ottieni l'ID dell'ordine corrente
+        $order_id = 0;
+        if (isset($_GET['id']) && is_numeric($_GET['id'])) {
+            $order_id = intval($_GET['id']);
+        } elseif (isset($_GET['post']) && is_numeric($_GET['post'])) {
+            $order_id = intval($_GET['post']);
+        }
+
+        if (!$order_id) {
+            return;
+        }
+
+        $refunded_items = get_post_meta($order_id, '_dreamshop_refunded_items', true);
+
+        if (!is_array($refunded_items) || empty($refunded_items['items'])) {
+            return;
+        }
+
+        echo '<style>';
+        echo '.fully-refunded td { background-color: #f0f9ff; }';
+        echo '.partially-refunded td { background-color: #fffbf0; }';
+
+        // Aggiungi badge agli item della tabella ordini
+        foreach ($refunded_items['items'] as $item_id => $refund_info) {
+            $refunded_quantity = $refund_info['refunded_quantity'];
+            $total_quantity = $refund_info['total_quantity'];
+
+            // Calcola il totale rimborsato
+            $refunded_amount = 0;
+            if (isset($refund_info['refund_history']) && is_array($refund_info['refund_history'])) {
+                foreach ($refund_info['refund_history'] as $history) {
+                    $refunded_amount += floatval($history['amount']);
+                }
+            }
+
+            $badge_text = '';
+            if ($refunded_quantity >= $total_quantity) {
+                $badge_text = sprintf(__('✓ Rimborsato completamente - %s', 'dreamshop-refunds'), strip_tags(wc_price($refunded_amount)));
+            } else {
+                $badge_text = sprintf(__('✓ Rimborsato: %d su %d articoli - %s', 'dreamshop-refunds'), $refunded_quantity, $total_quantity, strip_tags(wc_price($refunded_amount)));
+            }
+
+            echo 'tr.item[data-order_item_id="' . $item_id . '"] .wc-order-item-name::after,';
+            echo 'tr[data-order_item_id="' . $item_id . '"] .wc-order-item-name::after {';
+            echo '  content: "' . esc_js($badge_text) . '";';
+            echo '  display: block;';
+            echo '  background: #d4edda;';
+            echo '  border-left: 4px solid #28a745;';
+            echo '  color: #155724;';
+            echo '  padding: 8px 12px;';
+            echo '  margin-top: 8px;';
+            echo '  border-radius: 4px;';
+            echo '  font-size: 13px;';
+            echo '  font-weight: 600;';
+            echo '  box-shadow: 0 1px 3px rgba(0,0,0,0.1);';
+            echo '}';
+
+            // Aggiungi stile barrato per prodotti completamente rimborsati
+            if ($refunded_quantity >= $total_quantity) {
+                echo 'tr.item[data-order_item_id="' . $item_id . '"] .wc-order-item-name,';
+                echo 'tr[data-order_item_id="' . $item_id . '"] .wc-order-item-name,';
+                echo 'tr.item[data-order_item_id="' . $item_id . '"] .line_cost,';
+                echo 'tr[data-order_item_id="' . $item_id . '"] .line_cost {';
+                echo '  text-decoration: line-through;';
+                echo '  opacity: 0.6;';
+                echo '}';
+            }
+        }
+        echo '</style>';
     }
 
     /**

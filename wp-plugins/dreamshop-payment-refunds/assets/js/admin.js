@@ -1,6 +1,27 @@
 jQuery(document).ready(function($) {
     'use strict';
 
+    // Applica stile barrato ai prodotti completamente rimborsati
+    $('.dreamshop-refunded-item-notice').each(function() {
+        const noticeText = $(this).text();
+        if (noticeText.includes('completamente')) {
+            // Trova il row dell'item e applica lo stile barrato
+            const itemRow = $(this).closest('tr.item, tr.order_item');
+            if (itemRow.length) {
+                // Applica stile barrato al nome del prodotto
+                itemRow.find('.wc-order-item-name, td.name a').css({
+                    'text-decoration': 'line-through',
+                    'opacity': '0.6'
+                });
+                // Applica stile barrato anche al prezzo
+                itemRow.find('.wc-order-item-cost, .line_cost').css({
+                    'text-decoration': 'line-through',
+                    'opacity': '0.6'
+                });
+            }
+        }
+    });
+
     // Gestione click sul bottone rimborso
     $(document).on('click', '.dreamshop-refund-button', function(e) {
         e.preventDefault();

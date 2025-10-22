@@ -364,6 +364,34 @@ input[type="password"].regular-text {
     font-weight: 600;
 }
 
+/* Stili per prodotti rimborsati nella pagina ordine */
+.dreamshop-refunded-item-notice {
+    background: #d4edda;
+    border-left: 4px solid #28a745;
+    color: #155724;
+    padding: 8px 12px;
+    margin-top: 8px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    display: inline-block;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* Testo barrato per prodotti completamente rimborsati */
+.woocommerce_order_items .wc-order-item-name:has(+ * .dreamshop-refunded-item-notice:contains("completamente")) {
+    text-decoration: line-through;
+    opacity: 0.6;
+}
+
+/* Stile alternativo per meglio integrazione visiva */
+.dreamshop-refunded-item-notice::before {
+    content: "✓ ";
+    font-weight: bold;
+    margin-right: 4px;
+    color: #28a745;
+}
+
 .refund-product-qty:focus {
     outline: none;
     border-color: #2271b1;
