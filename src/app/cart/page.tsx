@@ -9,6 +9,7 @@ import { useAuth } from '@/context/AuthContext';
 import { getDepositInfo, ProductWithDeposit } from '@/lib/deposits';
 import GiftCardCartWidget from '@/components/GiftCardCartWidget';
 import { PLACEHOLDER_IMAGE_SMALL } from '@/lib/placeholderImage';
+import { getProduct } from '@/lib/api';
 
 // Interfaccia per gli errori di stock
 interface StockIssue {
@@ -91,19 +92,20 @@ const getAttribute = (product: CartProduct, name: string): { name: string; slug:
   return undefined;
 };
 
-// Funzione helper per verificare se un prodotto appartiene alla categoria ITALIA ed è In Stock (non Pre-Order)
+// Funzione helper per verificare se un prodotto appartiene alla categoria ITALIA o Editoria ed è In Stock (non Pre-Order)
 const shouldShowShippingSuspendedMessage = (product: CartProduct): boolean => {
-  // Verifica se appartiene alla categoria ITALIA
+  // Verifica se appartiene alla categoria ITALIA o Editoria
   if (!product.categories || !Array.isArray(product.categories)) {
     return false;
   }
 
-  const isItaliaCategory = product.categories.some(
+  const isTargetCategory = product.categories.some(
     (category: { id: number; name: string; slug: string }) =>
-      category.slug === 'italia' || category.name.toLowerCase() === 'italia'
+      category.slug === 'italia' || category.name.toLowerCase() === 'italia' ||
+      category.slug === 'editoria' || category.name.toLowerCase() === 'editoria'
   );
 
-  if (!isItaliaCategory) {
+  if (!isTargetCategory) {
     return false;
   }
 
@@ -114,7 +116,7 @@ const shouldShowShippingSuspendedMessage = (product: CartProduct): boolean => {
                      disponibilita?.name?.toLowerCase().includes('preorder') ||
                      disponibilita?.slug?.toLowerCase().includes('preorder');
 
-  // Mostra il messaggio solo se è ITALIA e NON è in Pre-Order
+  // Mostra il messaggio solo se è ITALIA o Editoria e NON è in Pre-Order
   return !isPreOrder;
 };
 
@@ -152,11 +154,64 @@ export default function CartPage() {
   const [showStockAlert, setShowStockAlert] = useState(false);
   const [quantityUpdated, setQuantityUpdated] = useState(false);
   const [pointsInputValue, setPointsInputValue] = useState<string>('');
-  
+  const [enrichedCart, setEnrichedCart] = useState<typeof cart>([]);
+
   // Format price with currency symbol
   const formatPrice = (price: number) => {
     return `€${price.toFixed(2)}`;
   };
+
+  // Arricchisce i prodotti del carrello con le categorie mancanti
+  useEffect(() => {
+    const enrichCartProducts = async () => {
+      // Verifica quali prodotti non hanno categorie
+      const productsToEnrich = cart.filter(item =>
+        !item.product.categories || item.product.categories.length === 0
+      );
+
+      if (productsToEnrich.length === 0) {
+        // Tutti i prodotti hanno già le categorie
+        setEnrichedCart(cart);
+        return;
+      }
+
+      // Recupera i prodotti completi dall'API
+      const enrichmentPromises = productsToEnrich.map(async (item) => {
+        try {
+          const fullProduct = await getProduct(item.product.id);
+          if (fullProduct && fullProduct.categories) {
+            return {
+              ...item,
+              product: {
+                ...item.product,
+                categories: fullProduct.categories
+              }
+            };
+          }
+          return item;
+        } catch (error) {
+          console.error(`Errore nel recupero delle categorie per il prodotto ${item.product.id}:`, error);
+          return item;
+        }
+      });
+
+      const enrichedProducts = await Promise.all(enrichmentPromises);
+
+      // Crea una mappa degli item arricchiti
+      const enrichedMap = new Map(
+        enrichedProducts.map(item => [item.product.id, item])
+      );
+
+      // Aggiorna il carrello con i prodotti arricchiti
+      const updatedCart = cart.map(item =>
+        enrichedMap.get(item.product.id) || item
+      );
+
+      setEnrichedCart(updatedCart);
+    };
+
+    enrichCartProducts();
+  }, [cart]);
   
   // La funzione getProductSlug e l'interfaccia correlata sono state rimosse perché non utilizzate
   
@@ -493,7 +548,7 @@ export default function CartPage() {
               <div className="lg:col-span-2">
                 {/* Vista Mobile - Cards */}
                 <div className="lg:hidden space-y-4">
-                  {cart.map(item => {
+                  {enrichedCart.map(item => {
                         
                         // Otteniamo tutte le informazioni sull'acconto dal prodotto
                         const depositInfo = getDepositInfo(item.product as unknown as ProductWithDeposit);
@@ -632,7 +687,7 @@ export default function CartPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                      {cart.map(item => {
+                      {enrichedCart.map(item => {
 
                         // Otteniamo tutte le informazioni sull'acconto dal prodotto
                         const depositInfo = getDepositInfo(item.product as unknown as ProductWithDeposit);
