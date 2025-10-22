@@ -197,6 +197,7 @@ export default function AppleGooglePayButton({
       },
       requestPayerName: true,
       requestPayerEmail: true,
+      requestPayerPhone: true,
       requestShipping: true,
       shippingOptions: selectedShippingMethod ? [
         {

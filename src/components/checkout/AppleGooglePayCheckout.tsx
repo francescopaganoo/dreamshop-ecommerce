@@ -162,6 +162,7 @@ export default function AppleGooglePayCheckout({
         displayItems: displayItems,
         requestPayerName: true,
         requestPayerEmail: true,
+        requestPayerPhone: true,
         requestShipping: true,
         shippingOptions: selectedShippingMethod ? [
           {
