@@ -106,9 +106,8 @@ export default async function Home() {
       "addressCountry": "IT"
     },
     "sameAs": [
-      // "https://www.facebook.com/dreamshop",
-      // "https://www.instagram.com/dreamshop",
-      // "https://www.twitter.com/dreamshop"
+      "https://www.facebook.com/dreamshopfigure",
+      "https://www.instagram.com/dreamshop_figure/"
     ]
   };
 
