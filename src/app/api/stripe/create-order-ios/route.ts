@@ -147,6 +147,13 @@ export async function POST(request: NextRequest) {
       payment_method: paymentMethodId,
       payment_method_types: ['card'],
       confirm: true, // Conferma immediatamente
+      metadata: {
+        payment_source: 'ios_app',
+        customer_email: customerInfo.email,
+        customer_id: userId.toString(),
+        // Questo permette al webhook di identificare che è un ordine iOS
+        is_ios_checkout: 'true'
+      }
     });
     
     
@@ -158,13 +165,31 @@ export async function POST(request: NextRequest) {
     
     // Crea un ordine in WooCommerce già come pagato (set_paid: true)
     // Assicurati che i line_items abbiano tutti i metadati necessari
-    // Se non hanno meta_data, usali così come sono, altrimenti preservali
-    const processedLineItems = line_items.map((item: LineItemInput) => ({
-      product_id: item.product_id || item.id,
-      quantity: item.quantity,
-      variation_id: item.variation_id || undefined,
-      meta_data: item.meta_data || []  // Preserva i metadati inclusi i dati per i pagamenti a rate
-    }));
+    // IMPORTANTE: Rimuovi gli ID dai meta_data perché WooCommerce li rifiuta durante la creazione di nuovi ordini
+    const processedLineItems = line_items.map((item: LineItemInput) => {
+      // Filtra i metadati per rimuovere gli ID e mantenere solo quelli essenziali per l'ordine
+      const filteredMetaData = item.meta_data
+        ? item.meta_data
+            .filter((meta: MetaData) => {
+              // Mantieni solo metadati rilevanti per l'ordine (acconti, deposits, etc)
+              return meta.key.startsWith('_wc_') ||
+                     meta.key.includes('deposit') ||
+                     meta.key.includes('payment_plan');
+            })
+            .map((meta: MetaData) => ({
+              key: meta.key,
+              value: meta.value
+              // NON includere l'ID - WooCommerce lo assegna automaticamente
+            }))
+        : [];
+
+      return {
+        product_id: item.product_id || item.id,
+        quantity: item.quantity,
+        variation_id: item.variation_id || undefined,
+        meta_data: filteredMetaData
+      };
+    });
 
     
     // Log specifico per verificare che i metadati degli acconti siano stati preservati
@@ -225,15 +250,50 @@ export async function POST(request: NextRequest) {
     
 
     
-    const order = await createOrder(orderData);
-    
+    let order;
+    try {
+      order = await createOrder(orderData);
+    } catch (createOrderError: unknown) {
+      // Log dettagliato dell'errore per debugging
+      console.error('Error creating order:', createOrderError);
+
+      // Se è un errore Axios, estrai i dettagli della risposta
+      if (createOrderError && typeof createOrderError === 'object' && 'response' in createOrderError) {
+        const axiosError = createOrderError as { response?: { status?: number; data?: unknown; statusText?: string } };
+        if (axiosError.response) {
+          console.error('WooCommerce API Error Details:', {
+            status: axiosError.response.status,
+            statusText: axiosError.response.statusText,
+            data: axiosError.response.data
+          });
+        }
+      }
+
+      throw createOrderError;
+    }
+
 
     
     if (!order || typeof order !== 'object' || !('id' in order)) {
       throw new Error('Errore nella creazione dell\'ordine');
     }
 
-    
+    // Aggiorna il PaymentIntent con l'order_id per riferimento futuro e per il webhook
+    try {
+      await stripe.paymentIntents.update(paymentIntent.id, {
+        description: `Order #${order.id} from DreamShop18 (iOS)`,
+        metadata: {
+          ...paymentIntent.metadata,
+          order_id: order.id.toString(),
+          webhook_processed: 'true'
+        }
+      });
+      console.log(`iOS - PaymentIntent ${paymentIntent.id} aggiornato con order_id: ${order.id}`);
+    } catch (updateError) {
+      console.error('iOS - Errore aggiornamento PaymentIntent:', updateError);
+      // Non blocchiamo il flusso se l'aggiornamento fallisce
+    }
+
     // TENTATIVO 1: Chiamata diretta all'endpoint per forzare l'elaborazione degli acconti
     try {
       

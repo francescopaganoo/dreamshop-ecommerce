@@ -148,6 +148,13 @@ export async function POST(request: NextRequest) {
       // Le rate hanno metadata.type === 'scheduled_payment' e vengono gestite sopra
       if (paymentIntent.metadata?.order_id && !paymentIntent.metadata?.type) {
         console.log('[WEBHOOK] Ordine normale già esistente nel Payment Intent:', paymentIntent.metadata.order_id);
+
+        // Se è un ordine iOS che ha già creato l'ordine, verifica solo che sia stato processato
+        if (paymentIntent.metadata?.is_ios_checkout === 'true') {
+          console.log('[WEBHOOK] Ordine iOS già processato dall\'endpoint iOS');
+          return NextResponse.json({ received: true, message: 'Ordine iOS già processato' });
+        }
+
         return NextResponse.json({ received: true, message: 'Ordine già esistente' });
       }
 
