@@ -105,16 +105,16 @@ export default async function Home() {
             width={1920}
             height={800}
             priority
-            className="w-full h-auto object-contain hidden md:block"
+            className="w-full h-auto object-contain hidden xl:block"
           />
-          {/* Mobile Hero Image */}
+          {/* Mobile/Tablet Hero Image */}
           <Image
             src="/images/hero-mobile-.webp"
-            alt="DreamShop Hero Mobile"
+            alt="DreamShop Hero Mobile/Tablet"
             width={768}
             height={1024}
             priority
-            className="w-full  object-contain object-center md:hidden"
+            className="w-full h-auto md:max-h-[600px] md:object-cover object-contain object-center xl:hidden"
           />
 
           {/* Overlay gradient per desktop - sinistra → destra */}
