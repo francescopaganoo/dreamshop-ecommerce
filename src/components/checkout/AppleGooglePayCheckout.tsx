@@ -5,6 +5,7 @@ import { PaymentRequestButtonElement, useStripe } from '@stripe/react-stripe-js'
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
+import { getShippingMethods, ShippingAddress, ShippingMethod } from '@/lib/api';
 
 // Dichiarazione tipo per ApplePaySession
 declare global {
@@ -62,112 +63,246 @@ export default function AppleGooglePayCheckout({
   const router = useRouter();
   const stripe = useStripe();
 
+  // Stato per il metodo di spedizione
+  const [selectedShippingMethod, setSelectedShippingMethod] = useState<ShippingMethod | null>(null);
+
   // Verifica se il carrello è valido
   const hasItems = cart.length > 0;
   const cartTotal = getCartTotal();
   const finalTotal = cartTotal - discount;
+
+  // Effetto per calcolare i metodi di spedizione
+  useEffect(() => {
+    const calculateDefaultShipping = async () => {
+      try {
+        // Utilizziamo un indirizzo di default per l'Italia per il calcolo iniziale
+        const defaultAddress: ShippingAddress = {
+          first_name: '',
+          last_name: '',
+          address_1: 'Via Roma 1',
+          city: 'Roma',
+          state: 'RM',
+          postcode: '00100',
+          country: 'IT'
+        };
+
+        // Prepara gli item del carrello per il calcolo spedizione
+        const cartItems = cart.map(item => ({
+          product_id: item.product.id,
+          quantity: item.quantity,
+          variation_id: item.variation_id || 0,
+          shipping_class_id: item.product.shipping_class_id || 0
+        }));
+
+        const availableMethods = await getShippingMethods(defaultAddress, cartTotal, cartItems);
+
+        // Seleziona automaticamente il primo metodo disponibile
+        if (availableMethods.length > 0) {
+          setSelectedShippingMethod(availableMethods[0]);
+        } else {
+          // Nessun metodo disponibile = spedizione €0
+          setSelectedShippingMethod(null);
+        }
+      } catch (error) {
+        console.error('Errore nel calcolo della spedizione di default:', error);
+        // In caso di errore, nessuna spedizione
+        setSelectedShippingMethod(null);
+      }
+    };
+
+    if (hasItems) {
+      calculateDefaultShipping();
+    }
+  }, [cart, cartTotal, hasItems]);
 
   useEffect(() => {
     if (!stripe || !hasItems || finalTotal <= 0) {
       return;
     }
 
-
-
-    // Prepara gli item del carrello per il display
-    const displayItems = cart.map(item => ({
-      label: `${item.product.name} x${item.quantity}`,
-      amount: Math.round(parseFloat(item.product.price || '0') * item.quantity * 100)
-    }));
-
-    // Aggiungi sconto se presente
-    if (discount > 0) {
-      displayItems.push({
-        label: 'Sconto',
-        amount: -Math.round(discount * 100)
-      });
+    // Aspetta che la spedizione sia stata calcolata
+    if (selectedShippingMethod === undefined) {
+      return;
     }
 
-    // Crea il payment request
-    const pr = stripe.paymentRequest({
-      country: 'IT',
-      currency: 'eur',
-      total: {
-        label: 'Totale Ordine DreamShop',
-        amount: Math.round(finalTotal * 100),
-      },
-      displayItems: displayItems,
-      requestPayerName: true,
-      requestPayerEmail: true,
-      requestShipping: true,
-      shippingOptions: [
-        {
-          id: 'standard',
-          label: 'Spedizione Standard',
-          detail: '5-7 giorni lavorativi',
-          amount: 0, // Spedizione gratuita
-        },
-        {
-          id: 'express',
-          label: 'Spedizione Express',
-          detail: '2-3 giorni lavorativi',
-          amount: 500, // €5.00 in centesimi
-        }
-      ],
-    });
+    // Reset del payment request quando cambiano le opzioni
+    setPaymentRequest(null);
 
-    // Controlla disponibilità
-    pr.canMakePayment().then(result => {
-      
-      if (result) {
-        setPaymentRequest(pr);
-        setDebugInfo(
-          `Disponibile: ${result.applePay ? 'Apple Pay' : ''} ${result.googlePay ? 'Google Pay' : ''} ${result.link ? 'Link' : ''}`.trim()
-        );
-      } else {
-        setDebugInfo('Apple Pay/Google Pay non disponibile su questo dispositivo');
-      }
-    }).catch(err => {
-      console.error('Errore controllo Payment Request:', err);
-      setDebugInfo('Errore nel controllo della disponibilità');
-    });
+    // Piccolo delay per assicurarsi che il vecchio bottone sia completamente distrutto
+    const timer = setTimeout(() => {
+      // Prepara gli item del carrello per il display
+      const displayItems = cart.map(item => ({
+        label: `${item.product.name} x${item.quantity}`,
+        amount: Math.round(parseFloat(item.product.price || '0') * item.quantity * 100)
+      }));
 
-    // Gestisce il cambio del metodo di spedizione
-    pr.on('shippingoptionchange', (ev) => {
-      const shippingOption = ev.shippingOption;
-      const shippingCost = shippingOption.amount;
-      
-      // Aggiorna il totale includendo i costi di spedizione
-      const newTotal = Math.round(finalTotal * 100) + shippingCost;
-      
-      const updatedDisplayItems = [...displayItems];
-      if (shippingCost > 0) {
-        updatedDisplayItems.push({
-          label: shippingOption.label,
-          amount: shippingCost
+      // Aggiungi sconto se presente
+      if (discount > 0) {
+        displayItems.push({
+          label: 'Sconto',
+          amount: -Math.round(discount * 100)
         });
       }
-      
-      ev.updateWith({
-        status: 'success',
+
+      // Calcola il costo della spedizione
+      const shippingCost = selectedShippingMethod?.cost ?? 0;
+      const shippingAmount = Math.round(shippingCost * 100);
+
+      // Totale finale = carrello + spedizione
+      const totalWithShipping = Math.round(finalTotal * 100) + shippingAmount;
+
+      // Crea il payment request
+      const pr = stripe.paymentRequest({
+        country: 'IT',
+        currency: 'eur',
         total: {
           label: 'Totale Ordine DreamShop',
-          amount: newTotal,
+          amount: totalWithShipping,
         },
-        displayItems: updatedDisplayItems
+        displayItems: displayItems,
+        requestPayerName: true,
+        requestPayerEmail: true,
+        requestShipping: true,
+        shippingOptions: selectedShippingMethod ? [
+          {
+            id: selectedShippingMethod.id,
+            label: selectedShippingMethod.title,
+            detail: selectedShippingMethod.description || '5-7 giorni lavorativi',
+            amount: shippingAmount,
+          },
+        ] : [
+          {
+            id: 'free',
+            label: 'Spedizione inclusa',
+            detail: 'Nessun costo aggiuntivo',
+            amount: 0,
+          },
+        ],
       });
-    });
 
-    // Gestisce il pagamento
-    pr.on('paymentmethod', async (ev) => {
-      try {
-        setIsProcessing(true);
-        setError(null);
-        onPaymentStart?.();
+      // Controlla disponibilità
+      pr.canMakePayment().then(result => {
+
+        if (result) {
+          setPaymentRequest(pr);
+          setDebugInfo(
+            `Disponibile: ${result.applePay ? 'Apple Pay' : ''} ${result.googlePay ? 'Google Pay' : ''} ${result.link ? 'Link' : ''}`.trim()
+          );
+        } else {
+          setDebugInfo('Apple Pay/Google Pay non disponibile su questo dispositivo');
+        }
+      }).catch(err => {
+        console.error('Errore controllo Payment Request:', err);
+        setDebugInfo('Errore nel controllo della disponibilità');
+      });
+
+      // Gestisce il cambio di indirizzo di spedizione
+      pr.on('shippingaddresschange', async (ev) => {
+        try {
+          // Converti l'indirizzo di spedizione nel formato richiesto
+          const shippingAddress: ShippingAddress = {
+            first_name: '',
+            last_name: '',
+            address_1: ev.shippingAddress?.addressLine?.[0] || '',
+            city: ev.shippingAddress?.city || '',
+            state: ev.shippingAddress?.region || '',
+            postcode: ev.shippingAddress?.postalCode || '',
+            country: ev.shippingAddress?.country || 'IT'
+          };
+
+          // Prepara gli item del carrello per il calcolo spedizione
+          const cartItems = cart.map(item => ({
+            product_id: item.product.id,
+            quantity: item.quantity,
+            variation_id: item.variation_id || 0,
+            shipping_class_id: item.product.shipping_class_id || 0
+          }));
+
+          // Ricalcola i metodi di spedizione con il nuovo indirizzo
+          const availableMethods = await getShippingMethods(shippingAddress, cartTotal, cartItems);
+
+          if (availableMethods.length > 0) {
+            const shippingMethod = availableMethods[0];
+            const shippingAmount = Math.round(shippingMethod.cost * 100);
+
+            // Aggiorna il metodo di spedizione selezionato
+            setSelectedShippingMethod(shippingMethod);
+
+            const newTotal = Math.round(finalTotal * 100) + shippingAmount;
+
+            ev.updateWith({
+              status: 'success',
+              total: {
+                label: 'Totale Ordine DreamShop',
+                amount: newTotal,
+              },
+              displayItems: displayItems,
+              shippingOptions: [
+                {
+                  id: shippingMethod.id,
+                  label: shippingMethod.title,
+                  detail: shippingMethod.description || '5-7 giorni lavorativi',
+                  amount: shippingAmount,
+                },
+              ],
+            });
+          } else {
+            // Nessun metodo di spedizione disponibile per questo indirizzo
+            ev.updateWith({
+              status: 'invalid_shipping_address',
+            });
+          }
+        } catch (error) {
+          console.error('Errore nel calcolo della spedizione:', error);
+          ev.updateWith({
+            status: 'fail',
+          });
+        }
+      });
+
+      // Gestisce il cambio del metodo di spedizione
+      pr.on('shippingoptionchange', async (ev) => {
+        try {
+          const shippingOption = ev.shippingOption;
+          const shippingCost = shippingOption.amount;
+
+          // Aggiorna il totale includendo i costi di spedizione
+          const newTotal = Math.round(finalTotal * 100) + shippingCost;
+
+          const updatedDisplayItems = [...displayItems];
+          if (shippingCost > 0) {
+            updatedDisplayItems.push({
+              label: shippingOption.label,
+              amount: shippingCost
+            });
+          }
+
+          ev.updateWith({
+            status: 'success',
+            total: {
+              label: 'Totale Ordine DreamShop',
+              amount: newTotal,
+            },
+            displayItems: updatedDisplayItems
+          });
+        } catch (error) {
+          console.error('Errore nell\'aggiornamento dell\'opzione di spedizione:', error);
+          ev.updateWith({
+            status: 'fail',
+          });
+        }
+      });
+
+      // Gestisce il pagamento
+      pr.on('paymentmethod', async (ev) => {
+        try {
+          setIsProcessing(true);
+          setError(null);
+          onPaymentStart?.();
 
 
-        // Prepara i dati per l'API
-        const orderData = {
+          // Prepara i dati per l'API
+          const orderData = {
           cartItems: cart.map(item => ({
             product_id: item.product.id,
             variation_id: item.variation_id || null,
@@ -251,18 +386,20 @@ export default function AppleGooglePayCheckout({
         } else {
           throw new Error(result.error || 'Errore durante la creazione dell\'ordine');
         }
-      } catch (error) {
-        console.error('Errore durante il pagamento checkout:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Errore durante il pagamento';
-        setError(errorMessage);
-        onPaymentError?.(errorMessage);
-        ev.complete('fail');
-      } finally {
-        setIsProcessing(false);
-      }
-    });
+        } catch (error) {
+          console.error('Errore durante il pagamento checkout:', error);
+          const errorMessage = error instanceof Error ? error.message : 'Errore durante il pagamento';
+          setError(errorMessage);
+          onPaymentError?.(errorMessage);
+          ev.complete('fail');
+        } finally {
+          setIsProcessing(false);
+        }
+      });
+    }, 100); // 100ms delay
 
-  }, [stripe, cart, finalTotal, hasItems, billingData, shippingData, user, discount, clearCart, router, onPaymentStart, onPaymentError]);
+    return () => clearTimeout(timer);
+  }, [stripe, cart, finalTotal, hasItems, billingData, shippingData, user, discount, clearCart, router, onPaymentStart, onPaymentError, selectedShippingMethod, cartTotal]);
 
   // Non mostrare se non ci sono items nel carrello
   if (!hasItems || finalTotal <= 0) {

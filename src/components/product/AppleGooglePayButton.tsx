@@ -226,6 +226,120 @@ export default function AppleGooglePayButton({
       }
     });
 
+    // Gestisce il cambio di indirizzo di spedizione
+    pr.on('shippingaddresschange', async (ev) => {
+      try {
+        // Converti l'indirizzo di spedizione nel formato richiesto
+        const shippingAddress: ShippingAddress = {
+          first_name: '',
+          last_name: '',
+          address_1: ev.shippingAddress?.addressLine?.[0] || '',
+          city: ev.shippingAddress?.city || '',
+          state: ev.shippingAddress?.region || '',
+          postcode: ev.shippingAddress?.postalCode || '',
+          country: ev.shippingAddress?.country || 'IT'
+        };
+
+        const unitPrice = parseFloat(product.sale_price || product.price || '0');
+        const cartTotal = unitPrice * quantity;
+
+        const cartItems = [{
+          product_id: product.id,
+          quantity: quantity,
+          variation_id: variationId || 0,
+          shipping_class_id: product.shipping_class_id || 0
+        }];
+
+        // Ricalcola i metodi di spedizione con il nuovo indirizzo
+        const availableMethods = await getShippingMethods(shippingAddress, cartTotal, cartItems);
+
+        if (availableMethods.length > 0) {
+          const shippingMethod = availableMethods[0];
+          const shippingAmount = Math.round(shippingMethod.cost * 100);
+
+          // Aggiorna il metodo di spedizione selezionato
+          setSelectedShippingMethod(shippingMethod);
+
+          // Calcola il nuovo totale
+          let productAmount = unitPrice * quantity;
+          if (enableDeposit === 'yes' && depositOptions) {
+            const depositAmount = parseFloat(depositOptions.depositAmount);
+            if (depositOptions.depositType === 'percent') {
+              productAmount = productAmount * (depositAmount / 100);
+            } else {
+              productAmount = depositAmount * quantity;
+            }
+          }
+
+          const newTotal = Math.round(productAmount * 100) + shippingAmount;
+
+          ev.updateWith({
+            status: 'success',
+            total: {
+              label: `${product.name} x${quantity}${enableDeposit === 'yes' ? ' (Acconto)' : ''}`,
+              amount: newTotal,
+            },
+            shippingOptions: [
+              {
+                id: shippingMethod.id,
+                label: shippingMethod.title,
+                detail: shippingMethod.description || '5-7 giorni lavorativi',
+                amount: shippingAmount,
+              },
+            ],
+          });
+        } else {
+          // Nessun metodo di spedizione disponibile per questo indirizzo
+          ev.updateWith({
+            status: 'invalid_shipping_address',
+          });
+        }
+      } catch (error) {
+        console.error('Errore nel calcolo della spedizione:', error);
+        ev.updateWith({
+          status: 'fail',
+        });
+      }
+    });
+
+    // Gestisce il cambio di opzione di spedizione (se l'utente sceglie tra più opzioni)
+    pr.on('shippingoptionchange', async (ev) => {
+      try {
+        // Trova il metodo di spedizione selezionato
+        const selectedOption = ev.shippingOption;
+
+        // In questo caso abbiamo un solo metodo, ma aggiorniamo comunque il totale
+        const shippingAmount = selectedOption.amount;
+
+        const unitPrice = parseFloat(product.sale_price || product.price || '0');
+        let productAmount = unitPrice * quantity;
+
+        if (enableDeposit === 'yes' && depositOptions) {
+          const depositAmount = parseFloat(depositOptions.depositAmount);
+          if (depositOptions.depositType === 'percent') {
+            productAmount = productAmount * (depositAmount / 100);
+          } else {
+            productAmount = depositAmount * quantity;
+          }
+        }
+
+        const newTotal = Math.round(productAmount * 100) + shippingAmount;
+
+        ev.updateWith({
+          status: 'success',
+          total: {
+            label: `${product.name} x${quantity}${enableDeposit === 'yes' ? ' (Acconto)' : ''}`,
+            amount: newTotal,
+          },
+        });
+      } catch (error) {
+        console.error('Errore nell\'aggiornamento dell\'opzione di spedizione:', error);
+        ev.updateWith({
+          status: 'fail',
+        });
+      }
+    });
+
     // Gestisce il pagamento
     pr.on('paymentmethod', async (ev) => {
       try {
