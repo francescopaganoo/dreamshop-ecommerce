@@ -8,6 +8,7 @@ import { CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { PayPalButtons, usePayPalScriptReducer } from '@paypal/react-paypal-js';
 import Link from 'next/link';
 import AppleGooglePayCheckout from '@/components/checkout/AppleGooglePayCheckout';
+import GiftCardCartWidget from '@/components/GiftCardCartWidget';
 
 import { createOrder, createCustomer, getShippingMethods, ShippingMethod, getUserAddresses, saveUserAddresses, getProductShippingClassId } from '../../lib/api';
 import { redeemPoints } from '../../lib/points';
@@ -15,7 +16,24 @@ import { getAvailableCountries, CountryOption } from '../../lib/countries';
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { cart, getSubtotal, clearCart, coupon, discount } = useCart();
+  const {
+    cart,
+    getSubtotal,
+    clearCart,
+    coupon,
+    discount,
+    couponCode,
+    setCouponCode,
+    applyCouponCode,
+    removeCoupon,
+    couponError,
+    isApplyingCoupon,
+    userPoints,
+    pointsLabel,
+    loadUserPoints,
+    isLoadingPoints,
+    pointsError
+  } = useCart();
   const { isAuthenticated, user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -25,6 +43,11 @@ export default function CheckoutPage() {
   // Stato per i punti riscattati
   const [pointsToRedeem, setPointsToRedeem] = useState<number>(0);
   const [pointsDiscount, setPointsDiscount] = useState<number>(0);
+  const [pointsInputValue, setPointsInputValue] = useState<string>('');
+  const [pointsErrorMessage, setPointsErrorMessage] = useState<string | null>(null);
+
+  // Stati per gift card
+  const [giftCardDiscount, setGiftCardDiscount] = useState<number>(0);
 
   // Controlla se ci sono prodotti con deposit (rate) nel carrello
   const hasDepositProducts = cart.some(item => item.product._wc_convert_to_deposit === 'yes');
@@ -145,6 +168,17 @@ export default function CheckoutPage() {
 
     loadCountries();
   }, []);
+
+  // Carica i punti dell'utente quando la pagina viene caricata
+  useEffect(() => {
+    if (user) {
+      const token = localStorage.getItem('woocommerce_token');
+      if (token) {
+        loadUserPoints(user.id, token);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   // Stato per tenere traccia del processo di pagamento
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
@@ -425,7 +459,7 @@ export default function CheckoutPage() {
   const shipping = selectedShippingMethod ? selectedShippingMethod.cost : 0;
 
   // Calcola il totale base (prodotti + spedizione - sconti)
-  const baseTotal = (subtotal - discount - pointsDiscount) + shipping;
+  const baseTotal = (subtotal - discount - pointsDiscount - giftCardDiscount) + shipping;
 
   // Calcola la commissione PayPal del 3.5% + €0.35 se PayPal è selezionato
   const paypalFee = formData.paymentMethod === 'paypal' ? (baseTotal * 0.035) + 0.35 : 0;
@@ -443,6 +477,72 @@ export default function CheckoutPage() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
+  };
+
+  // Gestisce il cambio del valore dei punti da riscattare
+  const handlePointsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setPointsInputValue(value);
+    setPointsErrorMessage(null); // Resetta il messaggio di errore
+
+    // Se il valore è vuoto, imposta i punti da riscattare a 0
+    if (!value) {
+      setPointsToRedeem(0);
+      setPointsDiscount(0);
+      return;
+    }
+
+    // Converti il valore in numero
+    const points = parseInt(value, 10);
+
+    // Verifica che sia un numero valido
+    if (isNaN(points)) {
+      setPointsErrorMessage('Inserisci un numero valido');
+      return;
+    }
+
+    // Verifica che non sia negativo
+    if (points < 0) {
+      setPointsErrorMessage('Il numero di punti non può essere negativo');
+      setPointsToRedeem(0);
+      setPointsDiscount(0);
+      return;
+    }
+
+    // Calcola i punti massimi spendibili in base al subtotale + spedizione (senza sconti)
+    // Ogni 100 punti = 1€, quindi per €40 + €5.50 spedizione = massimo 4550 punti
+    const cartPlusShipping = subtotal + shipping;
+    const maxPointsByCartValue = Math.floor(cartPlusShipping * 100);
+
+    // Verifica che non superi il valore del carrello + spedizione
+    if (points > maxPointsByCartValue) {
+      setPointsErrorMessage(`Punti massimi spendibili per questo carrello: ${maxPointsByCartValue} (totale: ${formatPrice(cartPlusShipping)})`);
+      // Corregge automaticamente al massimo spendibile
+      const maxPoints = Math.min(userPoints, maxPointsByCartValue);
+      setPointsToRedeem(maxPoints);
+      setPointsDiscount(maxPoints / 100);
+      setPointsInputValue(maxPoints.toString());
+      return;
+    }
+
+    // Verifica che non superi i punti disponibili
+    if (points > userPoints) {
+      setPointsErrorMessage(`Hai solo ${userPoints} punti disponibili`);
+      // Imposta comunque il valore massimo disponibile
+      setPointsToRedeem(userPoints);
+      setPointsDiscount(userPoints / 100);
+      return;
+    }
+
+    // Imposta i punti da riscattare e calcola lo sconto
+    setPointsToRedeem(points);
+    setPointsDiscount(points / 100);
+  };
+
+  // Gestisce l'applicazione del coupon
+  const handleApplyCoupon = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await applyCouponCode();
   };
 
   // Funzione per calcolare la spedizione manualmente
@@ -2951,11 +3051,138 @@ export default function CheckoutPage() {
                         <span className="text-gray-600">Subtotale</span>
                         <span className="text-gray-700">{formatPrice(subtotal)}</span>
                       </div>
-                      
+
+                      {/* Coupon Code */}
+                      <div className="pt-2 border-t">
+                        {coupon ? (
+                          <div className="flex items-center justify-between bg-green-50 p-3 rounded-md">
+                            <div>
+                              <span className="font-medium text-green-700">
+                                {coupon.code}
+                              </span>
+                              <p className="text-sm text-green-600">
+                                {coupon.discount_type === 'percent'
+                                  ? `Sconto del ${coupon.amount}%`
+                                  : `Sconto di €${parseFloat(coupon.amount).toFixed(2)}`}
+                              </p>
+                            </div>
+                            <button
+                              onClick={removeCoupon}
+                              className="text-red-600 hover:text-red-800 text-sm font-medium"
+                              aria-label="Rimuovi coupon"
+                            >
+                              Rimuovi
+                            </button>
+                          </div>
+                        ) : (
+                          <form onSubmit={handleApplyCoupon}>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Codice coupon
+                            </label>
+                            <div className="flex">
+                              <input
+                                type="text"
+                                placeholder="Inserisci codice"
+                                className="flex-grow px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none text-gray-600 focus:ring-2 focus:ring-bred-500"
+                                value={couponCode}
+                                onChange={(e) => setCouponCode(e.target.value)}
+                                disabled={isApplyingCoupon}
+                              />
+                              <button
+                                type="submit"
+                                className={`px-4 py-2 rounded-r-md transition-colors ${
+                                  isApplyingCoupon
+                                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                }`}
+                                disabled={isApplyingCoupon}
+                              >
+                                {isApplyingCoupon ? (
+                                  <span className="flex items-center">
+                                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Applicando...
+                                  </span>
+                                ) : (
+                                  'Applica'
+                                )}
+                              </button>
+                            </div>
+                            {couponError && (
+                              <p className="text-red-600 text-sm mt-1">{couponError}</p>
+                            )}
+                          </form>
+                        )}
+                      </div>
+
+                      {/* Widget Gift Card */}
+                      <div className="pt-2">
+                        <GiftCardCartWidget
+                          cartTotal={subtotal}
+                          appliedCouponCode={coupon?.code || null}
+                          onCouponGenerated={async (couponCode, discount) => {
+                            setGiftCardDiscount(discount);
+
+                            if (couponCode) {
+                              // Applica automaticamente il coupon al carrello
+                              setCouponCode(couponCode);
+                              await applyCouponCode();
+                            } else {
+                              // Rimuovi il coupon se il codice è vuoto
+                              if (coupon && coupon.code.startsWith('GC')) {
+                                await removeCoupon();
+                              }
+                            }
+                          }}
+                        />
+                      </div>
+
+                      {/* Sezione per i punti */}
+                      {user && userPoints > 0 && (() => {
+                        // Calcola i punti massimi utilizzabili per questo carrello (inclusa spedizione)
+                        const cartPlusShipping = subtotal + shipping;
+                        const maxPointsByCartValue = Math.floor(cartPlusShipping * 100);
+                        const maxPointsAllowed = Math.min(userPoints, maxPointsByCartValue);
+
+                        return (
+                          <div className="border-t pt-4 mt-2">
+                            <h3 className="text-sm font-semibold mb-2 text-gray-700">I tuoi punti</h3>
+                            <p className="text-xs text-gray-600 mb-2">
+                              Hai {pointsLabel} disponibili. Ogni 100 punti valgono 1€ di sconto.
+                              <br />
+                              <span className="text-xs text-gray-500">
+                                Massimo spendibile: {maxPointsByCartValue} punti (carrello + spedizione)
+                              </span>
+                            </p>
+                            <div className="flex items-center">
+                              <input
+                                type="number"
+                                min="0"
+                                max={maxPointsAllowed}
+                                placeholder="Punti da utilizzare"
+                                className={`flex-grow px-3 py-2 border ${pointsErrorMessage ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none text-gray-600 focus:ring-2 focus:ring-bred-500`}
+                                value={pointsInputValue}
+                                onChange={handlePointsChange}
+                                disabled={isLoadingPoints}
+                              />
+                            </div>
+                            {pointsErrorMessage && (
+                              <p className="text-red-500 text-xs mt-1">{pointsErrorMessage}</p>
+                            )}
+                            {pointsError && (
+                              <p className="text-red-600 text-xs mt-1">{pointsError}</p>
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      {/* Riepilogo sconti applicati */}
                       {discount > 0 && (
-                        <div className="flex justify-between text-green-600">
+                        <div className="flex justify-between text-green-600 pt-2 border-t">
                           <span className="flex items-center">
-                            Sconto{coupon && ` (${coupon.code})`}
+                            Sconto coupon{coupon && ` (${coupon.code})`}
                           </span>
                           <span>-{formatPrice(discount)}</span>
                         </div>
@@ -2967,6 +3194,13 @@ export default function CheckoutPage() {
                             Sconto punti ({pointsToRedeem} punti)
                           </span>
                           <span>-{formatPrice(pointsDiscount)}</span>
+                        </div>
+                      )}
+
+                      {giftCardDiscount > 0 && (
+                        <div className="flex justify-between text-green-600">
+                          <span>Sconto Gift Card</span>
+                          <span>-{formatPrice(giftCardDiscount)}</span>
                         </div>
                       )}
 
