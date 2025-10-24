@@ -466,6 +466,9 @@ export default function CheckoutPage() {
 
   // Totale finale includendo eventuale commissione PayPal
   const total = baseTotal + paypalFee;
+
+  // Verifica se l'ordine è gratuito
+  const isFreeOrder = total <= 0;
   
   // Format price with currency symbol
   const formatPrice = (price: number) => {
@@ -775,7 +778,251 @@ export default function CheckoutPage() {
       setFormError('Per creare un account è necessario inserire una password di almeno 6 caratteri.');
       return;
     }
-    
+
+    // Gestione ordini gratuiti (totale = €0)
+    if (isFreeOrder) {
+      setIsSubmitting(true);
+      setFormError(null);
+
+      try {
+        // Crea l'account se necessario
+        let customerIdForOrder = 0;
+
+        if (!isAuthenticated && formData.createAccount) {
+          try {
+            const newCustomer = await createCustomer({
+              email: formData.email,
+              first_name: formData.firstName,
+              last_name: formData.lastName,
+              password: formData.password,
+              billing: {
+                first_name: formData.firstName,
+                last_name: formData.lastName,
+                address_1: formData.address1,
+                address_2: formData.address2,
+                city: formData.city,
+                state: formData.state,
+                postcode: formData.postcode,
+                country: formData.country,
+                email: formData.email,
+                phone: formData.phone,
+              },
+              shipping: formData.shipToDifferentAddress ? {
+                first_name: formData.shippingFirstName,
+                last_name: formData.shippingLastName,
+                address_1: formData.shippingAddress1,
+                address_2: formData.shippingAddress2,
+                city: formData.shippingCity,
+                state: formData.shippingState,
+                postcode: formData.shippingPostcode,
+                country: formData.shippingCountry,
+              } : {
+                first_name: formData.firstName,
+                last_name: formData.lastName,
+                address_1: formData.address1,
+                address_2: formData.address2,
+                city: formData.city,
+                state: formData.state,
+                postcode: formData.postcode,
+                country: formData.country,
+              },
+            });
+
+            customerIdForOrder = newCustomer.id;
+          } catch (error: unknown) {
+            console.error('Errore nella creazione del cliente:', error);
+            throw error;
+          }
+        } else if (isAuthenticated && user) {
+          customerIdForOrder = parseInt(String(user.id), 10);
+
+          // Salva gli indirizzi dell'utente
+          const token = localStorage.getItem('woocommerce_token');
+          if (token) {
+            try {
+              await saveUserAddresses(token, {
+                billing: {
+                  firstName: formData.firstName,
+                  lastName: formData.lastName,
+                  address1: formData.address1,
+                  address2: formData.address2,
+                  city: formData.city,
+                  state: formData.state,
+                  postcode: formData.postcode,
+                  country: formData.country,
+                  email: formData.email,
+                  phone: formData.phone,
+                },
+                shipping: formData.shipToDifferentAddress ? {
+                  firstName: formData.shippingFirstName,
+                  lastName: formData.shippingLastName,
+                  address1: formData.shippingAddress1,
+                  address2: formData.shippingAddress2,
+                  city: formData.shippingCity,
+                  state: formData.shippingState,
+                  postcode: formData.shippingPostcode,
+                  country: formData.shippingCountry,
+                } : undefined,
+              });
+            } catch (error) {
+              console.error('Errore nel salvataggio degli indirizzi:', error);
+            }
+          }
+        }
+
+        // Prepara i line items
+        const line_items = cart.map(item => {
+          const lineItem: LineItem = {
+            product_id: item.product.id,
+            quantity: item.quantity
+          };
+
+          if (item.variation_id) {
+            lineItem.variation_id = item.variation_id;
+          }
+
+          if (!lineItem.meta_data) {
+            lineItem.meta_data = [];
+          }
+
+          if (item.attributes && item.attributes.length > 0) {
+            const attributeMeta = item.attributes.map(attr => ({
+              key: `pa_${attr.name.toLowerCase().replace(/\s+/g, '-')}`,
+              value: attr.option
+            }));
+            lineItem.meta_data = [...(lineItem.meta_data || []), ...attributeMeta];
+          }
+
+          if (item.meta_data && item.meta_data.length > 0) {
+            if (!lineItem.meta_data) lineItem.meta_data = [];
+            lineItem.meta_data.push(...item.meta_data);
+          }
+
+          return lineItem;
+        });
+
+        // Crea l'ordine gratuito
+        const billingInfo = {
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          address_1: formData.address1,
+          address_2: formData.address2,
+          city: formData.city,
+          state: formData.state,
+          postcode: formData.postcode,
+          country: formData.country,
+          email: formData.email,
+          phone: formData.phone,
+        };
+
+        const shippingInfo = formData.shipToDifferentAddress
+          ? {
+              first_name: formData.shippingFirstName,
+              last_name: formData.shippingLastName,
+              address_1: formData.shippingAddress1,
+              address_2: formData.shippingAddress2,
+              city: formData.shippingCity,
+              state: formData.shippingState,
+              postcode: formData.shippingPostcode,
+              country: formData.shippingCountry,
+            }
+          : billingInfo;
+
+        // Prepara le fee_lines per gli sconti (come tasse negative)
+        const fee_lines = [];
+
+        // Aggiungi sconto punti come fee negativa
+        if (pointsDiscount > 0) {
+          fee_lines.push({
+            name: `Sconto Punti (${pointsToRedeem} punti)`,
+            total: (-pointsDiscount).toFixed(2),
+            tax_status: 'none'
+          });
+        }
+
+        // Aggiungi sconto gift card come fee negativa
+        if (giftCardDiscount > 0) {
+          fee_lines.push({
+            name: 'Sconto Gift Card',
+            total: (-giftCardDiscount).toFixed(2),
+            tax_status: 'none'
+          });
+        }
+
+        const orderData = {
+          customer_id: customerIdForOrder,
+          payment_method: 'free_order',
+          payment_method_title: 'Ordine Gratuito',
+          set_paid: true, // L'ordine è già pagato perché è gratuito
+          billing: billingInfo,
+          shipping: shippingInfo,
+          line_items: line_items,
+          customer_note: formData.notes,
+          shipping_lines: [
+            {
+              method_id: selectedShippingMethod?.id || 'flat_rate',
+              method_title: selectedShippingMethod?.title || 'Spedizione Standard',
+              total: shipping?.toString() || '0'
+            }
+          ],
+          coupon_lines: coupon ? [{ code: coupon.code }] : [],
+          fee_lines: fee_lines,
+          meta_data: [] as Array<{ key: string; value: string }>
+        };
+
+        // Aggiungi metadati per punti riscattati
+        if (pointsToRedeem > 0 && orderData.meta_data) {
+          orderData.meta_data.push({
+            key: '_points_redeemed',
+            value: pointsToRedeem.toString()
+          });
+          orderData.meta_data.push({
+            key: '_points_discount',
+            value: pointsDiscount.toString()
+          });
+        }
+
+        console.log('[FREE ORDER] Creazione ordine gratuito:', orderData);
+
+        const order = await createOrder(orderData);
+
+        // Riscatta i punti se necessario
+        if (pointsToRedeem > 0 && isAuthenticated && user) {
+          try {
+            const token = localStorage.getItem('woocommerce_token');
+            if (token) {
+              await redeemPoints(user.id, pointsToRedeem, order.id, token);
+              console.log(`[FREE ORDER] ${pointsToRedeem} punti riscattati con successo`);
+            }
+          } catch (error) {
+            console.error('[FREE ORDER] Errore nel riscatto dei punti:', error);
+          }
+        }
+
+        // Pulisci localStorage e carrello
+        localStorage.removeItem('checkout_points_to_redeem');
+        localStorage.removeItem('checkout_points_discount');
+        clearCart();
+
+        // Mostra successo
+        setOrderSuccess(true);
+        setSuccessOrderId(order.id.toString());
+        setIsSubmitting(false);
+
+        // Reindirizza alla pagina di successo
+        setTimeout(() => {
+          router.push(`/checkout/success?order_id=${order.id}`);
+        }, 2000);
+
+        return;
+      } catch (error) {
+        console.error('[FREE ORDER] Errore:', error);
+        setFormError('Si è verificato un errore durante la creazione dell\'ordine. Riprova.');
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
     // Se il metodo di pagamento è PayPal, prepariamo i dati dell'ordine e mostriamo i pulsanti PayPal
     if (formData.paymentMethod as string === 'paypal') {
       try {
@@ -2471,7 +2718,32 @@ export default function CheckoutPage() {
                 
                 <div className="mb-6">
                   <h3 className="text-lg font-semibold mb-2 text-gray-700">Metodo di Pagamento</h3>
-                  
+
+                  {/* Messaggio per ordini gratuiti */}
+                  {isFreeOrder ? (
+                    <div className="p-6 bg-green-50 border-2 border-green-300 rounded-lg">
+                      <div className="flex items-start mb-3">
+                        <svg className="w-8 h-8 text-green-600 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        <div className="flex-1">
+                          <h4 className="text-lg font-bold text-green-800 mb-2">Ordine Gratuito</h4>
+                          <p className="text-green-700 mb-3">
+                            Il tuo ordine è completamente gratuito grazie agli sconti applicati! Non è necessario inserire metodi di pagamento.
+                          </p>
+                          <div className="bg-white p-3 rounded border border-green-200">
+                            <div className="flex items-center text-green-800">
+                              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clipRule="evenodd" />
+                              </svg>
+                              <span className="font-semibold">Totale: €0,00 - Nessun addebito</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
                   {/* Apple Pay / Google Pay */}
                   <AppleGooglePayCheckout
                     billingData={{
@@ -2843,8 +3115,10 @@ export default function CheckoutPage() {
                       )}
                     </div>
                   </div>
+                </>
+                  )}
                 </div>
-                
+
                 <div className="mb-6 hidden">
                   <h3 className="text-lg font-semibold mb-2 text-gray-700">Metodo di Spedizione</h3>
                   <div className="space-y-3">
