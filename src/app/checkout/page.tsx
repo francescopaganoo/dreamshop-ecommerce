@@ -1143,8 +1143,7 @@ export default function CheckoutPage() {
           // Aggiungi il coupon se presente
           coupon_lines: coupon ? [
             {
-              code: coupon.code,
-              discount: String(discount)
+              code: coupon.code
             }
           ] : [],
           // Aggiungi le fee lines (sconto punti e commissione PayPal)
@@ -1661,8 +1660,7 @@ export default function CheckoutPage() {
           // Aggiungi il coupon se presente
           coupon_lines: coupon ? [
             {
-              code: coupon.code,
-              discount: String(discount)
+              code: coupon.code
             }
           ] : [],
           // Aggiungi metadati
