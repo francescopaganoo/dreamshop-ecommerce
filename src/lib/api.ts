@@ -1562,9 +1562,10 @@ export interface CartItem {
  * Applica un coupon al carrello
  * @param {string} code - Il codice coupon da applicare
  * @param {Array} cartItems - Articoli nel carrello
+ * @param {number} userId - ID dell'utente (opzionale)
  * @returns {Promise<{discount: number, items: CartItem[]}>} - Lo sconto applicato e gli articoli aggiornati
  */
-export async function applyCoupon(code: string, cartItems: CartItem[]) {
+export async function applyCoupon(code: string, cartItems: CartItem[], userId?: number) {
   try {
     const response = await fetch('/api/coupons/apply', {
       method: 'POST',
@@ -1573,7 +1574,8 @@ export async function applyCoupon(code: string, cartItems: CartItem[]) {
       },
       body: JSON.stringify({
         code,
-        items: cartItems
+        items: cartItems,
+        userId
       }),
     });
     
@@ -1581,10 +1583,11 @@ export async function applyCoupon(code: string, cartItems: CartItem[]) {
       const errorData = await response.json();
       throw new Error(errorData.message || 'Errore nell\'applicazione del coupon');
     }
-    
+
     return await response.json();
   } catch (error) {
-    console.error('Errore nell\'applicazione del coupon:', error);
+    // Non loggare errori attesi (coupon non valido, scaduto, ecc.)
+    // Il messaggio verrà mostrato all'utente tramite couponError
     throw error;
   }
 }
@@ -1981,27 +1984,25 @@ export async function getBestSellingProducts(limit: number = 4): Promise<Product
     const data = await response.json();
 
     if (data.success && data.data?.products) {
-      // Convert plugin response to Product format and filter only in stock products
-      return data.data.products
-        .filter((product: DreamShopProduct) => product.stock_status === 'instock')
-        .map((product: DreamShopProduct) => ({
-          id: typeof product.id === 'string' ? parseInt(product.id) : product.id,
-          name: product.name,
-          slug: product.slug,
-          permalink: product.permalink,
-          price: product.price,
-          regular_price: product.regular_price,
-          sale_price: product.sale_price,
-          on_sale: product.on_sale,
-          stock_status: product.stock_status,
-          short_description: product.short_description,
-          images: product.images || [],
-          categories: product.categories || [],
-          attributes: product.attributes || [],
-          sales_count: product.sales_count || 0,
-          has_deposit_option: product.has_deposit_option
-        }))
-        .slice(0, limit);
+      // Convert plugin response to Product format
+      // No need to filter by stock_status - already filtered on server side
+      return data.data.products.map((product: DreamShopProduct) => ({
+        id: typeof product.id === 'string' ? parseInt(product.id) : product.id,
+        name: product.name,
+        slug: product.slug,
+        permalink: product.permalink,
+        price: product.price,
+        regular_price: product.regular_price,
+        sale_price: product.sale_price,
+        on_sale: product.on_sale,
+        stock_status: product.stock_status,
+        short_description: product.short_description,
+        images: product.images || [],
+        categories: product.categories || [],
+        attributes: product.attributes || [],
+        sales_count: product.sales_count || 0,
+        has_deposit_option: product.has_deposit_option
+      }));
     }
 
     return [];

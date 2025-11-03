@@ -41,31 +41,36 @@ async function getProductCategories(): Promise<Category[]> {
 
 async function getCardGameProducts(): Promise<Product[]> {
   // Ottieni i prodotti della categoria Card Game usando il plugin
+  // Richiediamo più prodotti per avere maggiore disponibilità di prodotti in stock
   const response = await getFilteredProductsPlugin({
     category: 'card-game',
     page: 1,
-    per_page: 10,
+    per_page: 20,
     orderby: 'date',
-    order: 'desc'
+    order: 'desc',
+    exclude_sold_out: true
   });
-  return response.products.filter(product => product.stock_status === 'instock').slice(0, 5);
+  return response.products.slice(0, 5);
 }
 
 async function getTsumeProducts(): Promise<Product[]> {
   // Ottieni i prodotti della categoria Tsume usando il plugin
+  // Richiediamo più prodotti per avere maggiore disponibilità di prodotti in stock
   const response = await getFilteredProductsPlugin({
     category: 'tsume',
     page: 1,
-    per_page: 10,
+    per_page: 20,
     orderby: 'date',
-    order: 'desc'
+    order: 'desc',
+    exclude_sold_out: true
   });
-  return response.products.filter(product => product.stock_status === 'instock').slice(0, 5);
+  return response.products.slice(0, 5);
 }
 
 async function getBanprestoProducts(): Promise<Product[]> {
   // Ottieni i prodotti del brand Banpresto
-  const { products } = await getProductsByBrandSlug('banpresto', 1, 10);
+  // Richiediamo più prodotti per avere maggiore disponibilità di prodotti in stock
+  const { products } = await getProductsByBrandSlug('banpresto', 1, 20);
   return products.filter(product => product.stock_status === 'instock').slice(0, 5);
 }
 

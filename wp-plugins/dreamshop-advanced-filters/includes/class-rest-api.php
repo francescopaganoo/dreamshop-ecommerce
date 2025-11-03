@@ -666,13 +666,14 @@ class DreamShop_Filters_REST_API {
         try {
             $limit = (int) $request->get_param('limit') ?: 10;
 
-            // Calculate date range for current month
-            $start_date = date('Y-m-01');
-            $end_date = date('Y-m-t');
+            // Calculate date range - use last 30 days to ensure we always have data
+            $start_date = date('Y-m-d', strtotime('-30 days'));
+            $end_date = date('Y-m-d');
 
             global $wpdb;
 
-            // Query to get best selling products based on order items in the current month
+            // Query to get best selling products based on order items in the last 30 days
+            // ONLY include products that are in stock
             $query = "
                 SELECT p.ID, p.post_title, p.post_name, SUM(oim.meta_value) as total_sales
                 FROM {$wpdb->posts} p
@@ -680,6 +681,7 @@ class DreamShop_Filters_REST_API {
                 INNER JOIN {$wpdb->prefix}woocommerce_order_items oi ON oim_product.order_item_id = oi.order_item_id
                 INNER JOIN {$wpdb->prefix}woocommerce_order_itemmeta oim ON oi.order_item_id = oim.order_item_id
                 INNER JOIN {$wpdb->posts} o ON oi.order_id = o.ID
+                LEFT JOIN {$wpdb->postmeta} pm_stock ON p.ID = pm_stock.post_id AND pm_stock.meta_key = '_stock_status'
                 WHERE p.post_type = 'product'
                 AND p.post_status = 'publish'
                 AND oim_product.meta_key = '_product_id'
@@ -687,32 +689,35 @@ class DreamShop_Filters_REST_API {
                 AND o.post_type = 'shop_order'
                 AND o.post_status IN ('wc-completed', 'wc-processing')
                 AND DATE(o.post_date) BETWEEN %s AND %s
+                AND (pm_stock.meta_value = 'instock' OR pm_stock.meta_value IS NULL)
                 GROUP BY p.ID, p.post_title, p.post_name
                 ORDER BY total_sales DESC
                 LIMIT %d
             ";
 
-            $results = $wpdb->get_results($wpdb->prepare($query, $start_date, $end_date, $limit));
+            $results = $wpdb->get_results($wpdb->prepare($query, $start_date, $end_date, $limit * 2));
 
-            // If no sales data for current month, fallback to overall best sellers
+            // If no sales data in last 30 days, fallback to overall best sellers (in stock only)
             if (empty($results)) {
                 $fallback_query = "
                     SELECT p.ID, p.post_title, p.post_name, pm.meta_value as total_sales
                     FROM {$wpdb->posts} p
                     LEFT JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id AND pm.meta_key = 'total_sales'
+                    LEFT JOIN {$wpdb->postmeta} pm_stock ON p.ID = pm_stock.post_id AND pm_stock.meta_key = '_stock_status'
                     WHERE p.post_type = 'product'
                     AND p.post_status = 'publish'
+                    AND (pm_stock.meta_value = 'instock' OR pm_stock.meta_value IS NULL)
                     ORDER BY CAST(COALESCE(pm.meta_value, '0') AS UNSIGNED) DESC
                     LIMIT %d
                 ";
 
-                $results = $wpdb->get_results($wpdb->prepare($fallback_query, $limit));
+                $results = $wpdb->get_results($wpdb->prepare($fallback_query, $limit * 2));
             }
 
             $best_selling_products = [];
             foreach ($results as $result) {
                 $product = wc_get_product($result->ID);
-                if ($product) {
+                if ($product && $product->get_stock_status() === 'instock') {
                     $best_selling_products[] = [
                         'id' => $result->ID,
                         'name' => $result->post_title,
@@ -730,6 +735,11 @@ class DreamShop_Filters_REST_API {
                         'sales_count' => (int) $result->total_sales,
                         'has_deposit_option' => $this->check_deposit_enabled($product)
                     ];
+
+                    // Stop when we have enough products
+                    if (count($best_selling_products) >= $limit) {
+                        break;
+                    }
                 }
             }
 
@@ -741,7 +751,7 @@ class DreamShop_Filters_REST_API {
                     'period' => [
                         'start_date' => $start_date,
                         'end_date' => $end_date,
-                        'month' => date('F Y')
+                        'description' => 'Last 30 days'
                     ]
                 ],
                 'timestamp' => current_time('timestamp')
