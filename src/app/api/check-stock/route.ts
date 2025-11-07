@@ -20,6 +20,7 @@ interface ProductData {
   stock_quantity?: number;
   price?: string;
   name?: string;
+  sold_individually?: boolean;
 }
 
 export async function POST(request: Request) {
@@ -57,7 +58,20 @@ export async function POST(request: Request) {
           });
           continue;
         }
-        
+
+        // Verifica se il prodotto ha il limite "sold_individually" (1 pezzo per ordine)
+        if (data.sold_individually && item.quantity > 1) {
+          stockIssues.push({
+            id: item.product_id,
+            variation_id: item.variation_id,
+            name: item.name,
+            issue: 'sold_individually',
+            available: 1,
+            requested: item.quantity,
+            message: `"${item.name}" può essere acquistato solo 1 pezzo per ordine.`
+          });
+        }
+
         // Verifica se la quantità richiesta è disponibile (solo se il prodotto gestisce lo stock)
         if (data.manage_stock && typeof data.stock_quantity === 'number') {
           if (data.stock_quantity < item.quantity) {

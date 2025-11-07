@@ -370,6 +370,11 @@ export default function CartPage() {
           issue.available > 0
         );
 
+        // Filtra gli errori per trovare quelli relativi al limite "sold_individually" (1 pezzo per ordine)
+        const soldIndividuallyIssues = data.stockIssues.filter((issue: StockIssue) =>
+          issue.issue === 'sold_individually'
+        );
+
         // Filtra gli errori per trovare quelli relativi ai prezzi cambiati
         const priceIssues = data.stockIssues.filter((issue: StockIssue) =>
           issue.issue === 'price_changed' &&
@@ -393,6 +398,30 @@ export default function CartPage() {
                 updatedStockErrors[index] = {
                   ...updatedStockErrors[index],
                   message: `La quantità di "${issue.name}" è stata aggiornata automaticamente a ${issue.available} ${issue.available === 1 ? 'pezzo' : 'pezzi'} (massimo disponibile).`,
+                  fixed: true
+                };
+              }
+            }
+          }
+        }
+
+        // Se ci sono prodotti con limite "sold_individually", aggiorniamo automaticamente a 1 pezzo
+        if (soldIndividuallyIssues.length > 0) {
+          for (const issue of soldIndividuallyIssues) {
+            // Aggiorna la quantità a 1 nel carrello
+            if (issue.id) {
+              updateQuantity(issue.id, 1);
+              issuesFixed = true;
+
+              // Aggiorna il messaggio di errore
+              const index = updatedStockErrors.findIndex(err =>
+                err.id === issue.id && err.issue === 'sold_individually'
+              );
+
+              if (index !== -1) {
+                updatedStockErrors[index] = {
+                  ...updatedStockErrors[index],
+                  message: `La quantità di "${issue.name}" è stata aggiornata automaticamente a 1 pezzo (limite acquisto per ordine).`,
                   fixed: true
                 };
               }

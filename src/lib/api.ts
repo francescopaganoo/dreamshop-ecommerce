@@ -538,6 +538,7 @@ export interface Product {
   stock_status: string;
   stock_quantity?: number; // Quantità disponibile in magazzino
   manage_stock?: boolean; // Indica se il prodotto gestisce lo stock
+  sold_individually?: boolean; // Limita gli acquisti a 1 elemento per ordine (WooCommerce)
   permalink: string;
   slug: string;
   type: string; // 'simple', 'variable', etc.
