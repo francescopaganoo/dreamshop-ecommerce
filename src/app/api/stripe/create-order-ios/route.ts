@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createOrder } from '../../../../lib/api';
+import api from '../../../../lib/woocommerce';
 
 // Interfacce per i tipi WooCommerce
 interface ShippingLine {
@@ -139,29 +140,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Dati mancanti' }, { status: 400 });
     }
     
-    // Prima creiamo e confermiamo il payment intent
-    // Crea un payment intent e conferma direttamente con il payment method
-    const paymentIntent = await stripe.paymentIntents.create({
+    // Crea il Payment Intent senza confermare ancora
+    let paymentIntent = await stripe.paymentIntents.create({
       amount,
       currency: 'eur',
       payment_method: paymentMethodId,
       payment_method_types: ['card'],
-      confirm: true, // Conferma immediatamente
+      confirm: false,
       metadata: {
         payment_source: 'ios_app',
         customer_email: customerInfo.email,
         customer_id: userId.toString(),
-        // Questo permette al webhook di identificare che è un ordine iOS
         is_ios_checkout: 'true'
       }
     });
-    
-    
-    if (paymentIntent.status !== 'succeeded') {
-      return NextResponse.json({ 
-        error: `Pagamento non riuscito: ${paymentIntent.status}` 
-      }, { status: 400 });
-    }
     
     // Crea un ordine in WooCommerce già come pagato (set_paid: true)
     // Assicurati che i line_items abbiano tutti i metadati necessari
@@ -273,12 +265,12 @@ export async function POST(request: NextRequest) {
     }
 
 
-    
+
     if (!order || typeof order !== 'object' || !('id' in order)) {
       throw new Error('Errore nella creazione dell\'ordine');
     }
 
-    // Aggiorna il PaymentIntent con l'order_id per riferimento futuro e per il webhook
+    // Aggiorna il PaymentIntent con l'order_id prima di confermarlo
     try {
       await stripe.paymentIntents.update(paymentIntent.id, {
         description: `Order #${order.id} from DreamShop18 (iOS)`,
@@ -288,10 +280,54 @@ export async function POST(request: NextRequest) {
           webhook_processed: 'true'
         }
       });
-      console.log(`iOS - PaymentIntent ${paymentIntent.id} aggiornato con order_id: ${order.id}`);
     } catch (updateError) {
       console.error('iOS - Errore aggiornamento PaymentIntent:', updateError);
-      // Non blocchiamo il flusso se l'aggiornamento fallisce
+    }
+
+    // Conferma il Payment Intent
+    try {
+      paymentIntent = await stripe.paymentIntents.confirm(paymentIntent.id);
+
+      if (paymentIntent.status !== 'succeeded') {
+        console.error(`iOS - Pagamento fallito: ${paymentIntent.status}`);
+
+        try {
+          await api.delete(`orders/${order.id}`, { force: true });
+        } catch (deleteError) {
+          console.error('iOS - Errore cancellazione ordine:', deleteError);
+        }
+
+        return NextResponse.json({
+          error: `Pagamento non riuscito: ${paymentIntent.status}`
+        }, { status: 400 });
+      }
+    } catch (confirmError) {
+      console.error('iOS - Errore conferma pagamento:', confirmError);
+
+      try {
+        await api.delete(`orders/${order.id}`, { force: true });
+      } catch (deleteError) {
+        console.error('iOS - Errore cancellazione ordine:', deleteError);
+      }
+
+      return NextResponse.json({
+        error: 'Errore durante la conferma del pagamento'
+      }, { status: 500 });
+    }
+
+    // Salva il transaction_id nell'ordine WooCommerce
+    try {
+      await api.put(`orders/${order.id}`, {
+        transaction_id: paymentIntent.id,
+        meta_data: [
+          {
+            key: '_stripe_payment_intent_id',
+            value: paymentIntent.id
+          }
+        ]
+      });
+    } catch (transactionError) {
+      console.error('iOS - Errore salvataggio transaction_id:', transactionError);
     }
 
     // TENTATIVO 1: Chiamata diretta all'endpoint per forzare l'elaborazione degli acconti

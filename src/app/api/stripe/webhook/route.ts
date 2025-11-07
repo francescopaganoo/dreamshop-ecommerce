@@ -149,10 +149,47 @@ export async function POST(request: NextRequest) {
       if (paymentIntent.metadata?.order_id && !paymentIntent.metadata?.type) {
         console.log('[WEBHOOK] Ordine normale già esistente nel Payment Intent:', paymentIntent.metadata.order_id);
 
-        // Se è un ordine iOS che ha già creato l'ordine, verifica solo che sia stato processato
+        // Verifica e aggiorna transaction_id per ordini iOS
         if (paymentIntent.metadata?.is_ios_checkout === 'true') {
-          console.log('[WEBHOOK] Ordine iOS già processato dall\'endpoint iOS');
-          return NextResponse.json({ received: true, message: 'Ordine iOS già processato' });
+          const orderId = paymentIntent.metadata.order_id;
+
+          try {
+            const { data: order } = await api.get(`orders/${orderId}`) as { data: { transaction_id?: string; id: number } };
+
+            // Aggiorna transaction_id se mancante
+            if (!order.transaction_id || order.transaction_id !== paymentIntent.id) {
+              await api.put(`orders/${orderId}`, {
+                transaction_id: paymentIntent.id,
+                meta_data: [
+                  {
+                    key: '_stripe_payment_intent_id',
+                    value: paymentIntent.id
+                  },
+                  {
+                    key: '_webhook_updated_transaction_id',
+                    value: 'true'
+                  }
+                ]
+              });
+
+              return NextResponse.json({
+                received: true,
+                message: 'Ordine iOS aggiornato',
+                order_id: orderId
+              });
+            }
+
+            return NextResponse.json({
+              received: true,
+              message: 'Ordine iOS completo'
+            });
+          } catch (error) {
+            console.error('[WEBHOOK] Errore verifica ordine iOS:', error);
+            return NextResponse.json({
+              received: true,
+              message: 'Ordine iOS processato con warning'
+            });
+          }
         }
 
         return NextResponse.json({ received: true, message: 'Ordine già esistente' });
@@ -245,6 +282,74 @@ export async function POST(request: NextRequest) {
           console.error(`[WEBHOOK] Errore aggiornamento ordine #${wcOrderId}:`, error);
           return NextResponse.json({ received: true, error: 'Errore aggiornamento ordine' });
         }
+      }
+
+      // Gestione pagamenti iOS senza ordine (utente ha chiuso l'app)
+      if (!paymentIntent.metadata?.order_id && paymentIntent.metadata?.is_ios_checkout === 'true') {
+        const orderDataId = paymentIntent.metadata?.order_data_id;
+
+        if (orderDataId) {
+          const storedData = orderDataStore.get(orderDataId);
+
+          if (storedData) {
+            try {
+              const { orderData } = storedData;
+              const baseOrderData = orderData as Record<string, unknown>;
+
+              const response = await api.post('orders', {
+                ...baseOrderData,
+                payment_method: 'stripe',
+                payment_method_title: 'Carta di Credito (Stripe)',
+                set_paid: true,
+                status: 'processing',
+                transaction_id: paymentIntent.id,
+                meta_data: [
+                  ...(baseOrderData.meta_data as unknown[] || []),
+                  {
+                    key: '_stripe_payment_intent_id',
+                    value: paymentIntent.id
+                  },
+                  {
+                    key: '_webhook_created_ios',
+                    value: 'true'
+                  }
+                ]
+              });
+
+              const order = response.data;
+
+              if (order && typeof order === 'object' && 'id' in order) {
+                await stripe.paymentIntents.update(paymentIntent.id, {
+                  metadata: {
+                    ...paymentIntent.metadata,
+                    order_id: (order as { id: number }).id.toString(),
+                    webhook_processed: 'true'
+                  }
+                });
+
+                orderDataStore.delete(orderDataId);
+
+                return NextResponse.json({
+                  received: true,
+                  message: 'Ordine iOS creato dal webhook',
+                  order_id: (order as { id: number }).id
+                });
+              }
+            } catch (error) {
+              console.error('[WEBHOOK] Errore creazione ordine iOS:', error);
+              return NextResponse.json({
+                received: true,
+                error: 'Errore creazione ordine iOS'
+              }, { status: 200 });
+            }
+          }
+        }
+
+        console.error('[WEBHOOK] Dati ordine iOS mancanti');
+        return NextResponse.json({
+          received: true,
+          error: 'Order data missing for iOS payment'
+        }, { status: 200 });
       }
 
       // Verifica se abbiamo i dati dell'ordine nello store (per pagamenti Stripe normali)
