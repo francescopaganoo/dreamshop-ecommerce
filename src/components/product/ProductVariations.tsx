@@ -28,6 +28,8 @@ interface ProductVariationsProps {
     src: string;
     alt: string;
   }>;
+  dateOnSaleFrom?: string;
+  dateOnSaleTo?: string;
 }
 
 export default function ProductVariations({
@@ -36,7 +38,9 @@ export default function ProductVariations({
   variations,
   defaultAttributes,
   productName,
-  productImages
+  productImages,
+  dateOnSaleFrom,
+  dateOnSaleTo
 }: ProductVariationsProps) {
   // Stati essenziali
   const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string>>({});
@@ -595,10 +599,28 @@ export default function ProductVariations({
     }
     return `€${parseFloat(price).toFixed(2)}`;
   };
-  
-  // Verifica se il prodotto è in vendita
-  const isOnSale = selectedVariation?.sale_price && selectedVariation.sale_price !== '';
-  
+
+  // Verifica se il prodotto è in vendita - rispettando le date pianificate
+  const isOnSale = (() => {
+    if (!selectedVariation?.sale_price || selectedVariation.sale_price === '') return false;
+
+    const now = new Date().getTime();
+
+    // Controlla la data di inizio (se presente)
+    if (dateOnSaleFrom) {
+      const startDate = new Date(dateOnSaleFrom).getTime();
+      if (now < startDate) return false;
+    }
+
+    // Controlla la data di fine (se presente)
+    if (dateOnSaleTo) {
+      const endDate = new Date(dateOnSaleTo).getTime();
+      if (now > endDate) return false;
+    }
+
+    return true;
+  })();
+
   // Verifica se la variazione ha un prezzo valido
   const hasValidPrice = selectedVariation && 
     ((selectedVariation.price && !isNaN(parseFloat(selectedVariation.price)) && parseFloat(selectedVariation.price) > 0) || 

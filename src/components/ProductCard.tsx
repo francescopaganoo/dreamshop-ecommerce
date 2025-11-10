@@ -131,7 +131,28 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
     const parsedPrice = parseFloat(price);
     return isNaN(parsedPrice) ? null : `€${parsedPrice.toFixed(2)}`;
   };
-  
+
+  // Verifica se lo sconto è attivo rispettando le date pianificate
+  const isOnSale = (() => {
+    if (!product.sale_price || product.sale_price === '') return false;
+
+    const now = new Date().getTime();
+
+    // Controlla la data di inizio (se presente)
+    if (product.date_on_sale_from) {
+      const startDate = new Date(product.date_on_sale_from).getTime();
+      if (now < startDate) return false;
+    }
+
+    // Controlla la data di fine (se presente)
+    if (product.date_on_sale_to) {
+      const endDate = new Date(product.date_on_sale_to).getTime();
+      if (now > endDate) return false;
+    }
+
+    return true;
+  })();
+
   // Verifica se il prodotto è variabile
   const isGiftCard = product.name.toLowerCase().includes('gift card') ||
                      product.name.toLowerCase().includes('gift-card') ||
@@ -294,7 +315,7 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
         
         {/* Prezzo semplificato */}
         <div>
-          {product.sale_price ? (
+          {isOnSale ? (
             <div className="flex items-center space-x-2">
               {formatPrice(product.sale_price) && (
                 <span className="text-base md:text-xl font-medium text-gray-900">
@@ -384,7 +405,7 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
         </div>
         
         {/* Badge offerta - verde per indicare risparmio */}
-        {product.sale_price && product.regular_price && parseFloat(product.sale_price) < parseFloat(product.regular_price) && (
+        {isOnSale && product.regular_price && parseFloat(product.sale_price) < parseFloat(product.regular_price) && (
           <div className="absolute top-2 left-2 md:top-5 md:left-5 z-10">
             <div className="bg-green-500 text-white text-xs font-bold px-2 py-1 md:px-3 md:py-1 rounded-full shadow-lg">
               -{Math.ceil(((parseFloat(product.regular_price) - parseFloat(product.sale_price)) / parseFloat(product.regular_price)) * 100)}%

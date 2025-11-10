@@ -40,8 +40,21 @@ export async function generateMetadata({ params }: any): Promise<Metadata> {
   const mainImage = product.images && product.images.length > 0 ? product.images[0].src : '';
   const imageAlt = product.images && product.images.length > 0 ? product.images[0].alt || product.name : product.name;
 
-  // Formato prezzo per Open Graph
-  const price = product.sale_price || product.regular_price || '';
+  // Formato prezzo per Open Graph - rispettando le date pianificate
+  const isOnSale = (() => {
+    if (!product.sale_price || product.sale_price === '') return false;
+    const now = new Date().getTime();
+    if (product.date_on_sale_from) {
+      const startDate = new Date(product.date_on_sale_from).getTime();
+      if (now < startDate) return false;
+    }
+    if (product.date_on_sale_to) {
+      const endDate = new Date(product.date_on_sale_to).getTime();
+      if (now > endDate) return false;
+    }
+    return true;
+  })();
+  const price = isOnSale ? product.sale_price : product.regular_price || '';
   const priceAmount = parseFloat(price);
 
   return {
@@ -131,15 +144,41 @@ async function ProductDetails({ slug }: { slug: string }) {
     return isNaN(parsedPrice) ? null : `€${parsedPrice.toFixed(2)}`;
   };
 
-  // Check if product is on sale
-  const isOnSale = product.sale_price && product.sale_price !== '';
+  // Check if product is on sale - rispettando le date pianificate
+  const isOnSale = (() => {
+    // Deve avere un sale_price valido
+    if (!product.sale_price || product.sale_price === '') return false;
+
+    const now = new Date().getTime();
+
+    // Controlla la data di inizio (se presente)
+    if (product.date_on_sale_from) {
+      const startDate = new Date(product.date_on_sale_from).getTime();
+      if (now < startDate) {
+        // Lo sconto non è ancora iniziato
+        return false;
+      }
+    }
+
+    // Controlla la data di fine (se presente)
+    if (product.date_on_sale_to) {
+      const endDate = new Date(product.date_on_sale_to).getTime();
+      if (now > endDate) {
+        // Lo sconto è terminato
+        return false;
+      }
+    }
+
+    return true;
+  })();
 
   // Check if product has a valid price
   const hasValidPrice = product.price && parseFloat(product.price) > 0;
 
   // Genera lo Structured Data per Product Schema
   const productUrl = `https://dreamshop18.com/prodotto/${product.slug}`;
-  const price = product.sale_price || product.regular_price || '';
+  // Usa il sale_price solo se lo sconto è attivo
+  const price = isOnSale ? product.sale_price : product.regular_price || '';
   const priceAmount = parseFloat(price);
 
   const structuredData = {
@@ -412,6 +451,8 @@ async function ProductDetails({ slug }: { slug: string }) {
               <Suspense fallback={<div className="h-40 bg-gray-100 animate-pulse rounded-lg"></div>}>
                 <ProductVariationsLoader
                   productId={product.id}
+                  dateOnSaleFrom={product.date_on_sale_from}
+                  dateOnSaleTo={product.date_on_sale_to}
                   attributes={(() => {
                     if (!product.attributes) return [];
 
@@ -594,12 +635,16 @@ async function ProductVariationsLoader({
   productId,
   attributes,
   productName,
-  productImages
+  productImages,
+  dateOnSaleFrom,
+  dateOnSaleTo
 }: {
   productId: number,
   attributes: Array<{id: number; name: string; position: number; visible: boolean; variation: boolean; options: string[]}>,
   productName: string,
-  productImages?: Array<{id: number; src: string; alt: string}>
+  productImages?: Array<{id: number; src: string; alt: string}>,
+  dateOnSaleFrom?: string,
+  dateOnSaleTo?: string
 }) {
   // Importiamo getProductVariations solo quando necessario
   const { getProductVariations } = await import('../../../lib/api');
@@ -612,6 +657,8 @@ async function ProductVariationsLoader({
       variations={variations}
       productName={productName}
       productImages={productImages}
+      dateOnSaleFrom={dateOnSaleFrom}
+      dateOnSaleTo={dateOnSaleTo}
     />
   );
 }

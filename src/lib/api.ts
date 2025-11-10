@@ -3275,6 +3275,8 @@ export async function getFilteredProductsPlugin(filters: {
       regular_price: string;
       sale_price: string;
       on_sale: boolean;
+      date_on_sale_from?: string;
+      date_on_sale_to?: string;
       stock_status: string;
       images: Array<{ id: string; src: string; src_large: string; alt: string }>;
       permalink: string;
@@ -3289,6 +3291,8 @@ export async function getFilteredProductsPlugin(filters: {
       regular_price: product.regular_price,
       sale_price: product.sale_price,
       on_sale: product.on_sale,
+      date_on_sale_from: product.date_on_sale_from,
+      date_on_sale_to: product.date_on_sale_to,
       stock_status: product.stock_status,
       images: product.images,
       permalink: product.permalink,
