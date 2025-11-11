@@ -418,6 +418,8 @@ class DreamShop_Filters_Product_Query {
                     'regular_price' => $product->get_regular_price(),
                     'sale_price' => $product->get_sale_price(),
                     'on_sale' => $product->is_on_sale(),
+                    'date_on_sale_from' => $product->get_date_on_sale_from() ? $product->get_date_on_sale_from()->date('c') : null,
+                    'date_on_sale_to' => $product->get_date_on_sale_to() ? $product->get_date_on_sale_to()->date('c') : null,
                     'stock_status' => $product->get_stock_status(),
                     'images' => $this->get_product_images($product),
                     'permalink' => get_permalink($product_id),

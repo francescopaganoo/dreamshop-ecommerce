@@ -69,6 +69,27 @@ export default function SearchBar({ isMobile = false, onClose }: SearchBarProps)
     return isNaN(parsedPrice) ? '' : `€${parsedPrice.toFixed(2)}`;
   };
 
+  // Verifica se lo sconto è attivo rispettando le date pianificate
+  const isProductOnSale = (product: Product): boolean => {
+    if (!product.sale_price || product.sale_price === '') return false;
+
+    const now = new Date().getTime();
+
+    // Controlla la data di inizio (se presente)
+    if (product.date_on_sale_from) {
+      const startDate = new Date(product.date_on_sale_from).getTime();
+      if (now < startDate) return false;
+    }
+
+    // Controlla la data di fine (se presente)
+    if (product.date_on_sale_to) {
+      const endDate = new Date(product.date_on_sale_to).getTime();
+      if (now > endDate) return false;
+    }
+
+    return true;
+  };
+
   const handleResultClick = () => {
     setShowResults(false);
     if (onClose) onClose();
@@ -138,7 +159,7 @@ export default function SearchBar({ isMobile = false, onClose }: SearchBarProps)
                         {product.name}
                       </h4>
                       <div className="flex items-center mt-1">
-                        {product.sale_price && product.sale_price !== product.regular_price ? (
+                        {isProductOnSale(product) ? (
                           <>
                             <span className="text-sm font-semibold text-red-600">
                               {formatPrice(product.sale_price)}
