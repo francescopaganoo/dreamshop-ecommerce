@@ -5,7 +5,6 @@ import { Product, getFilteredProductsPlugin } from '@/lib/api';
 import ProductList from '@/components/ProductList';
 import { FaFire } from 'react-icons/fa';
 import { FaTags } from 'react-icons/fa';
-import { isProductOnSale } from '@/lib/utils';
 
 export default function OffertePage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -19,6 +18,7 @@ export default function OffertePage() {
     setIsLoading(true);
     try {
       // Usa il plugin dreamshop-advanced-filters per ottenere solo prodotti in offerta
+      // Il filtro delle date è gestito lato backend nel plugin
       const response = await getFilteredProductsPlugin({
         on_sale: true,
         page,
@@ -27,14 +27,11 @@ export default function OffertePage() {
         order: 'desc'
       });
 
-      // Filtra solo i prodotti con offerte attualmente attive
-      const activeProducts = response.products.filter(product => isProductOnSale(product));
-
-      setProducts(activeProducts);
-      setTotalProducts(activeProducts.length);
+      setProducts(response.products);
+      setTotalProducts(response.total);
 
       // Calcola se ci sono più pagine
-      const totalPages = Math.ceil(activeProducts.length / productsPerPage);
+      const totalPages = Math.ceil(response.total / productsPerPage);
       setHasMorePages(page < totalPages);
 
     } catch (error) {
