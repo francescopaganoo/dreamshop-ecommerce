@@ -5,6 +5,7 @@ import { Product, getFilteredProductsPlugin } from '@/lib/api';
 import ProductList from '@/components/ProductList';
 import { FaFire } from 'react-icons/fa';
 import { FaTags } from 'react-icons/fa';
+import { isProductOnSale } from '@/lib/utils';
 
 export default function OffertePage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -26,12 +27,14 @@ export default function OffertePage() {
         order: 'desc'
       });
 
+      // Filtra solo i prodotti con offerte attualmente attive
+      const activeProducts = response.products.filter(product => isProductOnSale(product));
 
-      setProducts(response.products);
-      setTotalProducts(response.total);
+      setProducts(activeProducts);
+      setTotalProducts(activeProducts.length);
 
       // Calcola se ci sono più pagine
-      const totalPages = Math.ceil(response.total / productsPerPage);
+      const totalPages = Math.ceil(activeProducts.length / productsPerPage);
       setHasMorePages(page < totalPages);
 
     } catch (error) {
