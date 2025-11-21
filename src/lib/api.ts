@@ -11,6 +11,8 @@ interface DreamShopProduct {
   regular_price: string;
   sale_price: string;
   on_sale: boolean;
+  date_on_sale_from?: string;
+  date_on_sale_to?: string;
   stock_status: string;
   short_description: string;
   images: Array<{
@@ -1996,6 +1998,8 @@ export async function getBestSellingProducts(limit: number = 4): Promise<Product
         regular_price: product.regular_price,
         sale_price: product.sale_price,
         on_sale: product.on_sale,
+        date_on_sale_from: product.date_on_sale_from,
+        date_on_sale_to: product.date_on_sale_to,
         stock_status: product.stock_status,
         short_description: product.short_description,
         images: product.images || [],
@@ -2063,6 +2067,8 @@ export async function getRelatedProductsBySlug(productSlug: string, limit: numbe
           regular_price: product.regular_price,
           sale_price: product.sale_price,
           on_sale: product.on_sale,
+          date_on_sale_from: product.date_on_sale_from,
+          date_on_sale_to: product.date_on_sale_to,
           stock_status: product.stock_status,
           short_description: product.short_description,
           images: product.images || [],
