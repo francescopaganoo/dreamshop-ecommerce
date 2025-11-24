@@ -149,7 +149,7 @@ export default async function Home() {
         <div className="relative w-full">
           {/* Desktop Hero Image */}
           <Image
-            src="/images/hero.webp"
+            src="/images/hero-black.webp"
             alt="DreamShop Hero"
             width={1920}
             height={800}
@@ -158,7 +158,7 @@ export default async function Home() {
           />
           {/* Mobile/Tablet Hero Image */}
           <Image
-            src="/images/hero-mobile-.webp"
+            src="/images/hero-mobile-black.webp"
             alt="DreamShop Hero Mobile/Tablet"
             width={768}
             height={1024}
@@ -181,18 +181,18 @@ export default async function Home() {
                 <p className="text-xl md:text-2xl mb-8 max-w-xl md:max-w-xl text-gray-200 leading-tight md:leading-relaxed pr-14 md:pr-0">Scopri la nostra collezione esclusiva di statue, figure e trading card di anime e manga</p>
                 <div className="flex flex-wrap gap-4">
                   <Link 
-                    href="/products" 
+                    href="/category/black-week" 
                     className="group bg-bred-500 text-white hover:bg-bred-600 px-8 py-4 rounded-md font-medium inline-flex items-center transition-all duration-300 hover:shadow-lg hover:translate-y-[-2px]"
                   >
-                    Scopri il Catalogo
+                    Black Week
                     <FaArrowRight className="ml-2 group-hover:translate-x-1 transition-transform" />
                   </Link>
-                  <Link 
+                 {/* <Link 
                     href="/offerte" 
                     className="group bg-transparent border-2 border-white text-white hover:bg-white/10 px-8 py-4 rounded-md font-medium inline-flex items-center transition-all duration-300"
                   >
                     Offerte Speciali
-                  </Link>
+                  </Link>*/}
                 </div>
               </div>
             </div>
