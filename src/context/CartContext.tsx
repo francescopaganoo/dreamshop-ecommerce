@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { Product, Coupon, verifyCoupon, applyCoupon } from '@/lib/api';
 import { getUserPoints } from '@/lib/points';
 import { getDepositInfo, ProductWithDeposit } from '@/lib/deposits';
+import { useAuth } from '@/context/AuthContext';
 
 export interface CartItem {
   product: Product;
@@ -56,6 +57,7 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [coupon, setCoupon] = useState<Coupon | null>(null);
   const [couponCode, setCouponCode] = useState<string>('');
@@ -63,7 +65,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [couponError, setCouponError] = useState<string | null>(null);
   const [isApplyingCoupon, setIsApplyingCoupon] = useState<boolean>(false);
   const [stockMessage, setStockMessage] = useState<string | null>(null);
-  
+
   // Stati per la gestione dei punti
   const [userPoints, setUserPoints] = useState<number>(0);
   const [pointsLabel, setPointsLabel] = useState<string>('0 punti');
@@ -393,13 +395,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
         } : undefined
       }));
       
-      const result = await applyCoupon(couponCode.trim(), apiCartItems);
-      
+      const result = await applyCoupon(couponCode.trim(), apiCartItems, user?.id);
+
       setCoupon(result.coupon);
       setDiscount(result.discount);
       setIsApplyingCoupon(false);
     } catch (error: unknown) {
-      console.error('Errore nell\'applicazione del coupon:', error);
+      // L'errore è già gestito e mostrato all'utente tramite couponError
       setCouponError(
         error instanceof Error ? error.message : 'Errore nell\'applicazione del coupon'
       );
@@ -437,8 +439,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }));
       
       // Riapplica il coupon con il carrello aggiornato
-      const result = await applyCoupon(coupon.code, apiCartItems);
-      
+      const result = await applyCoupon(coupon.code, apiCartItems, user?.id);
+
       // Aggiorna lo sconto
       setDiscount(result.discount);
     } catch (error) {

@@ -467,8 +467,8 @@ export default function CheckoutPage() {
   // Totale finale includendo eventuale commissione PayPal
   const total = baseTotal + paypalFee;
 
-  // Verifica se l'ordine è gratuito
-  const isFreeOrder = total <= 0;
+  // Verifica se l'ordine è gratuito (solo se ci sono prodotti nel carrello)
+  const isFreeOrder = cart.length > 0 && total <= 0;
   
   // Format price with currency symbol
   const formatPrice = (price: number) => {

@@ -4,7 +4,7 @@ import api from '../../../../lib/woocommerce';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { code, items } = body;
+    const { code, items, userId } = body;
     
     if (!code) {
       return NextResponse.json(
@@ -31,7 +31,9 @@ export async function POST(request: Request) {
       discount_type: string;
       date_expires_gmt?: string;
       usage_limit?: number;
+      usage_limit_per_user?: number;
       usage_count: number;
+      used_by?: string[];
       minimum_amount: string;
       maximum_amount: string;
       product_ids: number[];
@@ -55,7 +57,7 @@ export async function POST(request: Request) {
     }
     
     const coupon = coupons[0];
-    
+
     // Verifica se il coupon è scaduto
     if (coupon.date_expires_gmt && new Date(coupon.date_expires_gmt) < new Date()) {
       return NextResponse.json(
@@ -64,12 +66,23 @@ export async function POST(request: Request) {
       );
     }
     
-    // Verifica se il coupon ha raggiunto il limite di utilizzo
+    // Verifica se il coupon ha raggiunto il limite di utilizzo globale
     if (coupon.usage_limit && coupon.usage_count >= coupon.usage_limit) {
       return NextResponse.json(
         { message: 'Questo coupon ha raggiunto il limite di utilizzo' },
         { status: 400 }
       );
+    }
+
+    // Verifica se il coupon ha raggiunto il limite di utilizzo per utente
+    if (coupon.usage_limit_per_user && userId) {
+      const userUsageCount = coupon.used_by?.filter(id => id === userId.toString()).length || 0;
+      if (userUsageCount >= coupon.usage_limit_per_user) {
+        return NextResponse.json(
+          { message: 'Hai già utilizzato questo coupon il numero massimo di volte consentito' },
+          { status: 400 }
+        );
+      }
     }
     
     // Calcola il totale del carrello
