@@ -27,13 +27,42 @@ export default function SaleCountdown({ saleEndDate, saleStartDate, className = 
     const calculateTimeLeft = () => {
       const now = new Date().getTime();
 
-      // Normalizza la data di fine offerta
-      // Se la data è impostata a mezzanotte (00:00:00), la spostiamo a fine giornata (23:59:59)
-      // Questo risolve il problema delle offerte pianificate senza data di inizio
-      const endDateObj = new Date(saleEndDate);
-      if (endDateObj.getHours() === 0 && endDateObj.getMinutes() === 0 && endDateObj.getSeconds() === 0) {
-        endDateObj.setHours(23, 59, 59, 999);
+      // Parse la data di fine offerta
+      let endDateObj = new Date(saleEndDate);
+
+      // DEBUG: Log per capire cosa arriva dall'API
+      if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+        console.log('🔍 SaleCountdown DEBUG:', {
+          saleEndDate,
+          saleStartDate,
+          endDateParsed: endDateObj.toISOString(),
+          endDateLocal: endDateObj.toString(),
+          hours: endDateObj.getHours(),
+          minutes: endDateObj.getMinutes(),
+          seconds: endDateObj.getSeconds(),
+          nowISO: new Date(now).toISOString(),
+          nowLocal: new Date(now).toString()
+        });
       }
+
+      // Fix per offerte senza data di inizio:
+      // WooCommerce salva la data come inizio giornata invece di fine giornata
+      // Quando non c'è saleStartDate, aggiungiamo 1 giorno completo meno 1 secondo
+      if (!saleStartDate) {
+        // Prendi la data così com'è e aggiungi 1 giorno completo
+        const adjustedDate = new Date(endDateObj);
+        adjustedDate.setDate(adjustedDate.getDate() + 1);
+        adjustedDate.setMilliseconds(adjustedDate.getMilliseconds() - 1);
+        endDateObj = adjustedDate;
+
+        if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+          console.log('🔧 Adjusted date for offer without start date:', {
+            original: new Date(saleEndDate).toISOString(),
+            adjusted: endDateObj.toISOString()
+          });
+        }
+      }
+
       const endDate = endDateObj.getTime();
 
       const startDate = saleStartDate ? new Date(saleStartDate).getTime() : 0;
