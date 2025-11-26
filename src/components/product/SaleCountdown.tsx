@@ -26,7 +26,16 @@ export default function SaleCountdown({ saleEndDate, saleStartDate, className = 
 
     const calculateTimeLeft = () => {
       const now = new Date().getTime();
-      const endDate = new Date(saleEndDate).getTime();
+
+      // Normalizza la data di fine offerta
+      // Se la data è impostata a mezzanotte (00:00:00), la spostiamo a fine giornata (23:59:59)
+      // Questo risolve il problema delle offerte pianificate senza data di inizio
+      const endDateObj = new Date(saleEndDate);
+      if (endDateObj.getHours() === 0 && endDateObj.getMinutes() === 0 && endDateObj.getSeconds() === 0) {
+        endDateObj.setHours(23, 59, 59, 999);
+      }
+      const endDate = endDateObj.getTime();
+
       const startDate = saleStartDate ? new Date(saleStartDate).getTime() : 0;
 
       // Determina lo stato dell'offerta
