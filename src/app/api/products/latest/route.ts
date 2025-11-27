@@ -1,33 +1,46 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getFilteredProductsPlugin } from '@/lib/api';
+
+// Forza il rendering dinamico per avere sempre i prodotti più recenti
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '8');
 
-    // Ottieni più prodotti per compensare i duplicati e i prodotti fuori stock
-    const response = await getFilteredProductsPlugin({
-      page: 1,
-      per_page: limit * 2, // Prendiamo il doppio per avere margine
-      orderby: 'date',
-      order: 'desc'
+    const baseUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL?.replace(/\/$/, '') || '';
+    const apiUrl = `${baseUrl}/wp-json/dreamshop/v1/products/latest?limit=${limit}`;
+
+    // Chiamata diretta al nuovo endpoint WordPress ottimizzato
+    const response = await fetch(apiUrl, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      cache: 'no-store' // Nessuna cache
     });
 
-    // Filtra solo i prodotti in stock e rimuovi duplicati
-    const seenIds = new Set();
-    const uniqueProducts = response.products
-      .filter(product => product.stock_status === 'instock')
-      .filter(product => {
-        if (seenIds.has(product.id)) {
-          return false;
-        }
-        seenIds.add(product.id);
-        return true;
-      })
-      .slice(0, limit); // Prendi solo il numero richiesto
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`WordPress API error! status: ${response.status}. Response: ${errorText}`);
+    }
 
-    return NextResponse.json(uniqueProducts);
+    const data = await response.json();
+
+    if (!data.success) {
+      throw new Error(data.message || 'WordPress API returned error');
+    }
+
+    // Restituisci direttamente i prodotti dal nuovo endpoint
+    return NextResponse.json(data.data.products, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      },
+    });
   } catch (error) {
     console.error('Error fetching latest products:', error);
     return NextResponse.json(
