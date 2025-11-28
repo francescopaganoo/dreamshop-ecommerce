@@ -1,46 +1,128 @@
 import { NextRequest, NextResponse } from 'next/server';
 import api from '../../../../lib/woocommerce';
 import Stripe from 'stripe';
+import { orderDataStore } from '../../../../lib/orderDataStore';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json();
-    const { orderData, paymentIntentId } = data;
+    const { sessionId, orderData, pointsToRedeem, pointsDiscount } = data;
 
-    if (!orderData || !paymentIntentId) {
+    if (!sessionId || !orderData) {
       return NextResponse.json({
-        error: 'Dati mancanti. Sono richiesti orderData e paymentIntentId'
+        error: 'Session ID o dati ordine mancanti'
       }, { status: 400 });
     }
 
-    const userId = orderData.customer_id || 0;
+
+    // Recupera la sessione da Stripe per verificare il pagamento
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+    if (!session) {
+      return NextResponse.json({
+        error: 'Sessione non trovata'
+      }, { status: 404 });
+    }
+
+    // Verifica che il pagamento sia stato completato
+    if (session.payment_status !== 'paid') {
+      return NextResponse.json({
+        error: 'Pagamento non completato',
+        paymentStatus: session.payment_status
+      }, { status: 400 });
+    }
+
+    // Controllo idempotenza: verifica se esiste già un ordine con questa session
+    try {
+      // Cerca ordini recenti e verifica i metadata manualmente
+      // (WooCommerce REST API non supporta filtro diretto per meta_key/meta_value)
+      const recentOrders = await api.get('orders', {
+        per_page: 20,
+        orderby: 'date',
+        order: 'desc'
+      });
+
+      if (recentOrders.data && Array.isArray(recentOrders.data)) {
+        interface WooOrderMeta {
+          id: number;
+          key: string;
+          value: string;
+        }
+        interface WooOrder {
+          id: number;
+          status: string;
+          meta_data: WooOrderMeta[];
+        }
+
+        const existingOrder = (recentOrders.data as WooOrder[]).find((order: WooOrder) =>
+          order.meta_data?.some((meta: WooOrderMeta) =>
+            meta.key === '_stripe_session_id' && meta.value === sessionId
+          )
+        );
+
+        if (existingOrder) {
+          return NextResponse.json({
+            success: true,
+            orderId: existingOrder.id,
+            status: existingOrder.status,
+            pointsToRedeem: pointsToRedeem || 0,
+            alreadyExists: true
+          });
+        }
+      }
+    } catch (checkError) {
+      console.error('[PAYMENT] Errore nel controllo ordine esistente:', checkError);
+      // Continua comunque, meglio rischiare un duplicato che non creare l'ordine
+    }
+
+    // Determina il metodo di pagamento dalla sessione
+    const paymentMethod = session.metadata?.payment_method || 'stripe';
+    let paymentMethodTitle = 'Pagamento Online';
+    if (paymentMethod === 'klarna') {
+      paymentMethodTitle = 'Klarna';
+    } else if (paymentMethod === 'satispay') {
+      paymentMethodTitle = 'Satispay';
+    } else if (paymentMethod === 'stripe') {
+      paymentMethodTitle = 'Carta di Credito (Stripe)';
+    }
 
     // Prepara i dati dell'ordine WooCommerce con status "processing" e set_paid true
     const orderDataToSend = {
       ...orderData,
-      customer_id: userId,
-      payment_method: 'stripe',
-      payment_method_title: 'Carta di Credito (Stripe)',
+      payment_method: paymentMethod,
+      payment_method_title: paymentMethodTitle,
       set_paid: true, // L'ordine è già pagato
       status: 'processing', // Lo stato è processing perché il pagamento è completato
-      transaction_id: paymentIntentId,
+      transaction_id: session.payment_intent as string || session.id,
       meta_data: [
         ...(orderData.meta_data || []),
         {
+          key: '_stripe_session_id',
+          value: session.id
+        },
+        {
           key: '_stripe_payment_intent_id',
-          value: paymentIntentId
+          value: session.payment_intent as string || ''
         }
       ]
     };
 
-    console.log('Creazione ordine WooCommerce dopo pagamento Stripe:', {
-      customer_id: userId,
-      payment_intent_id: paymentIntentId,
-      status: 'processing',
-      set_paid: true
-    });
+    // Aggiungi fee_lines per gli sconti se presenti
+    if (pointsDiscount > 0) {
+      orderDataToSend.fee_lines = [
+        ...(orderDataToSend.fee_lines || []),
+        {
+          name: 'Sconto Punti DreamShop',
+          total: String(-pointsDiscount),
+          tax_class: '',
+          tax_status: 'none'
+        }
+      ];
+    }
+
+
 
     // Crea l'ordine in WooCommerce
     try {
@@ -60,31 +142,21 @@ export async function POST(request: NextRequest) {
 
       const wooOrder = order as WooOrder;
 
-      console.log(`Ordine WooCommerce ${wooOrder.id} creato con successo dopo pagamento Stripe ${paymentIntentId}`);
-
-      // Aggiorna il Payment Intent con l'order_id per evitare che il webhook crei un ordine duplicato
-      try {
-        await stripe.paymentIntents.update(paymentIntentId, {
-          metadata: {
-            order_id: String(wooOrder.id),
-            frontend_created: 'true'
-          }
-        });
-
-        console.log('[CREATE-ORDER] Payment Intent aggiornato con order_id:', wooOrder.id);
-      } catch (updateError) {
-        console.error('[CREATE-ORDER] Errore aggiornamento Payment Intent (non bloccante):', updateError);
-        // Non blocchiamo il flusso se l'aggiornamento fallisce
+      // Cancella i dati temporanei dallo store WordPress/MySQL
+      const orderDataId = session.metadata?.order_data_id;
+      if (orderDataId) {
+        await orderDataStore.delete(orderDataId);
       }
 
       return NextResponse.json({
         success: true,
         orderId: wooOrder.id,
-        status: wooOrder.status || 'processing'
+        status: wooOrder.status || 'processing',
+        pointsToRedeem: pointsToRedeem || 0
       });
 
     } catch (wooError) {
-      console.error('Errore durante la creazione dell\'ordine in WooCommerce:', wooError);
+      console.error('[PAYMENT] Errore durante la creazione dell\'ordine in WooCommerce:', wooError);
       return NextResponse.json({
         error: 'Errore durante la creazione dell\'ordine',
         details: wooError
@@ -92,7 +164,7 @@ export async function POST(request: NextRequest) {
     }
 
   } catch (error) {
-    console.error('Errore nella richiesta:', error);
+    console.error('[PAYMENT] Errore nella richiesta:', error);
     return NextResponse.json({ error: 'Errore interno del server' }, { status: 500 });
   }
 }

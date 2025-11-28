@@ -1,5 +1,4 @@
-// Store temporaneo in memoria per i dati degli ordini Klarna
-// In produzione, usa Redis o un database per persistenza
+// Store persistente per i dati degli ordini Klarna usando WordPress/MySQL
 
 interface StoredOrderData {
   orderData: unknown;
@@ -7,76 +6,103 @@ interface StoredOrderData {
   pointsDiscount: number;
 }
 
-interface StoreEntry {
-  data: StoredOrderData;
-  timestamp: number;
-}
+const WORDPRESS_URL = process.env.NEXT_PUBLIC_WORDPRESS_URL || 'https://be.dreamshop18.com';
+const API_KEY = process.env.DREAMSHOP_TEMP_ORDER_API_KEY || 'dreamshop_temp_order_secret_key_2024';
 
 class OrderDataStore {
-  private store: Map<string, StoreEntry>;
-  private cleanupInterval: NodeJS.Timeout | null;
 
-  constructor() {
-    this.store = new Map();
-    this.cleanupInterval = null;
-    this.startCleanup();
-  }
+  /**
+   * Salva i dati dell'ordine su WordPress/MySQL
+   */
+  async set(dataId: string, data: StoredOrderData): Promise<boolean> {
+    try {
+      const response = await fetch(`${WORDPRESS_URL}/wp-json/dreamshop/v1/temp-order`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Dreamshop-Api-Key': API_KEY,
+        },
+        body: JSON.stringify({
+          data_id: dataId,
+          order_data: data.orderData,
+          points_to_redeem: data.pointsToRedeem,
+          points_discount: data.pointsDiscount,
+        }),
+      });
 
-  private startCleanup() {
-    // Pulisci i dati vecchi ogni 5 minuti
-    this.cleanupInterval = setInterval(() => {
-      const now = Date.now();
-      const thirtyMinutes = 30 * 60 * 1000;
-
-      for (const [key, value] of this.store.entries()) {
-        if (now - value.timestamp > thirtyMinutes) {
-          console.log('[ORDER-STORE] Pulizia dati scaduti:', key);
-          this.store.delete(key);
-        }
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('[ORDER-STORE] Errore salvataggio:', error);
+        return false;
       }
-    }, 5 * 60 * 1000);
+
+            return true;
+    } catch (error) {
+      console.error('[ORDER-STORE] Errore di connessione:', error);
+      return false;
+    }
   }
 
-  set(dataId: string, data: StoredOrderData): void {
-    this.store.set(dataId, {
-      data,
-      timestamp: Date.now()
-    });
-    console.log('[ORDER-STORE] Dati salvati:', dataId);
-  }
+  /**
+   * Recupera i dati dell'ordine da WordPress/MySQL
+   */
+  async get(dataId: string): Promise<StoredOrderData | null> {
+    try {
+      const response = await fetch(`${WORDPRESS_URL}/wp-json/dreamshop/v1/temp-order/${dataId}`, {
+        method: 'GET',
+        headers: {
+          'X-Dreamshop-Api-Key': API_KEY,
+        },
+      });
 
-  get(dataId: string): StoredOrderData | null {
-    const entry = this.store.get(dataId);
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('[ORDER-STORE] Errore recupero:', error);
+        return null;
+      }
 
-    if (!entry) {
-      console.error('[ORDER-STORE] Dati non trovati:', dataId);
+      const result = await response.json();
+      
+      return {
+        orderData: result.data.orderData,
+        pointsToRedeem: result.data.pointsToRedeem,
+        pointsDiscount: result.data.pointsDiscount,
+      };
+    } catch (error) {
+      console.error('[ORDER-STORE] Errore di connessione:', error);
       return null;
     }
-
-    // Verifica che i dati non siano scaduti (30 minuti)
-    const now = Date.now();
-    const thirtyMinutes = 30 * 60 * 1000;
-
-    if (now - entry.timestamp > thirtyMinutes) {
-      console.error('[ORDER-STORE] Dati scaduti:', dataId);
-      this.store.delete(dataId);
-      return null;
-    }
-
-    console.log('[ORDER-STORE] Dati recuperati:', dataId);
-    return entry.data;
   }
 
-  delete(dataId: string): boolean {
-    const deleted = this.store.delete(dataId);
-    if (deleted) {
-      console.log('[ORDER-STORE] Dati eliminati:', dataId);
+  /**
+   * Elimina i dati dell'ordine da WordPress/MySQL
+   */
+  async delete(dataId: string): Promise<boolean> {
+    try {
+      const response = await fetch(`${WORDPRESS_URL}/wp-json/dreamshop/v1/temp-order/${dataId}`, {
+        method: 'DELETE',
+        headers: {
+          'X-Dreamshop-Api-Key': API_KEY,
+        },
+      });
+
+      if (!response.ok) {
+        console.error('[ORDER-STORE] Errore eliminazione');
+        return false;
+      }
+
+            return true;
+    } catch (error) {
+      console.error('[ORDER-STORE] Errore di connessione:', error);
+      return false;
     }
-    return deleted;
   }
 
+  /**
+   * Genera un ID univoco per l'ordine temporaneo
+   */
   generateId(): string {
-    return `klarna_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `payment_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
   }
 }
 

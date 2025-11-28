@@ -467,8 +467,8 @@ export default function CheckoutPage() {
   // Totale finale includendo eventuale commissione PayPal
   const total = baseTotal + paypalFee;
 
-  // Verifica se l'ordine è gratuito (solo se ci sono prodotti nel carrello)
-  const isFreeOrder = cart.length > 0 && total <= 0;
+  // Verifica se l'ordine è gratuito
+  const isFreeOrder = total <= 0;
   
   // Format price with currency symbol
   const formatPrice = (price: number) => {
@@ -1896,7 +1896,7 @@ export default function CheckoutPage() {
             customerId: user?.id || 0
           };
 
-          sessionStorage.setItem('klarna_checkout_data', JSON.stringify(klarnaCheckoutData));
+          sessionStorage.setItem('stripe_checkout_data', JSON.stringify(klarnaCheckoutData));
 
           // Crea la Checkout Session passando anche i dati dell'ordine per il webhook
           const sessionResponse = await fetch('/api/stripe/checkout-klarna', {
@@ -2072,9 +2072,7 @@ export default function CheckoutPage() {
             orderDescription
           };
 
-          sessionStorage.setItem('satispay_checkout_data', JSON.stringify(satispayCheckoutData));
-
-          console.log('[SATISPAY] Dati salvati in sessionStorage, salvataggio nello store...');
+          sessionStorage.setItem('stripe_checkout_data', JSON.stringify(satispayCheckoutData));
 
           // Salva i dati anche nello store per il webhook
           const storeResponse = await fetch('/api/stripe/store-order-data', {
@@ -2094,7 +2092,6 @@ export default function CheckoutPage() {
           }
 
           const { dataId } = await storeResponse.json();
-          console.log('[SATISPAY] Dati salvati nello store con ID:', dataId);
 
           // Per Satispay, reindirizza all'hosted payment page di Stripe che gestisce Satispay
           // Passa la descrizione e il dataId come parametri URL (encoded)

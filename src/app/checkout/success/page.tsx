@@ -135,8 +135,8 @@ function OrderSuccessContent() {
                 retrievedOrderId = checkData.orderId;
               }
             }
-          } catch (checkError) {
-            console.log('[PAYMENT] Errore nel check webhook, procedo con creazione manuale:', checkError);
+          } catch {
+            // Procedi con creazione manuale
           }
 
           let finalOrderId: number;
@@ -146,10 +146,9 @@ function OrderSuccessContent() {
             finalOrderId = typeof retrievedOrderId === 'string' ? parseInt(retrievedOrderId) : retrievedOrderId;
           } else {
             // Altrimenti crea l'ordine manualmente (fallback)
-            console.log('[PAYMENT] Webhook non ha creato l\'ordine, creazione manuale...');
 
             // Recupera i dati dell'ordine da sessionStorage
-            const klarnaDataStr = sessionStorage.getItem('klarna_checkout_data');
+            const klarnaDataStr = sessionStorage.getItem('stripe_checkout_data') || sessionStorage.getItem('klarna_checkout_data') || sessionStorage.getItem('satispay_checkout_data');
             if (!klarnaDataStr) {
               // I dati non ci sono più, ma il pagamento è stato completato
               // Mostra un messaggio generico di successo
@@ -159,19 +158,19 @@ function OrderSuccessContent() {
               return;
             }
 
-            const klarnaData = JSON.parse(klarnaDataStr);
+            const checkoutData = JSON.parse(klarnaDataStr);
 
             // Crea l'ordine WooCommerce dopo il successo del pagamento
-            const createResponse = await fetch('/api/stripe/create-order-after-klarna', {
+            const createResponse = await fetch('/api/stripe/create-order-after-payment', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
                 sessionId,
-                orderData: klarnaData.orderData,
-                pointsToRedeem: klarnaData.pointsToRedeem,
-                pointsDiscount: klarnaData.pointsDiscount
+                orderData: checkoutData.orderData,
+                pointsToRedeem: checkoutData.pointsToRedeem,
+                pointsDiscount: checkoutData.pointsDiscount
               }),
             });
 
@@ -185,10 +184,9 @@ function OrderSuccessContent() {
             }
 
             finalOrderId = createData.orderId;
-            console.log('[PAYMENT] Ordine creato manualmente:', finalOrderId);
 
             // Riscatta i punti se necessario (solo se creato manualmente)
-            if (createData.pointsToRedeem > 0 && klarnaData.customerId) {
+            if (createData.pointsToRedeem > 0 && checkoutData.customerId) {
               try {
                 const token = localStorage.getItem('woocommerce_token');
 
@@ -200,7 +198,7 @@ function OrderSuccessContent() {
                       'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                      userId: klarnaData.customerId,
+                      userId: checkoutData.customerId,
                       points: createData.pointsToRedeem,
                       orderId: finalOrderId,
                       token

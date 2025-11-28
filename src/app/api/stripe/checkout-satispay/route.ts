@@ -30,8 +30,7 @@ export async function GET(request: NextRequest) {
     // Usa la descrizione passata o un fallback
     const orderDescription = description || 'Ordine DreamShop';
 
-    console.log('[SATISPAY] Creazione sessione checkout, dataId:', dataId);
-
+    
     // Ottieni l'origine in modo sicuro
     let origin = request.headers.get('origin');
     if (!origin) {
@@ -67,8 +66,7 @@ export async function GET(request: NextRequest) {
       locale: 'it'
     });
 
-    console.log('[SATISPAY] Sessione creata:', session.id);
-
+    
 
     // Reindirizza direttamente alla sessione di checkout
     return NextResponse.redirect(session.url!);

@@ -289,7 +289,7 @@ export async function POST(request: NextRequest) {
         const orderDataId = paymentIntent.metadata?.order_data_id;
 
         if (orderDataId) {
-          const storedData = orderDataStore.get(orderDataId);
+          const storedData = await orderDataStore.get(orderDataId);
 
           if (storedData) {
             try {
@@ -327,7 +327,7 @@ export async function POST(request: NextRequest) {
                   }
                 });
 
-                orderDataStore.delete(orderDataId);
+                await orderDataStore.delete(orderDataId);
 
                 return NextResponse.json({
                   received: true,
@@ -360,7 +360,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Recupera i dati dell'ordine dallo store
-      const storedData = orderDataStore.get(orderDataId);
+      const storedData = await orderDataStore.get(orderDataId);
 
       if (!storedData) {
         console.error('[WEBHOOK] Dati ordine non trovati o scaduti');
@@ -370,7 +370,7 @@ export async function POST(request: NextRequest) {
       const { orderData, pointsToRedeem, pointsDiscount } = storedData;
 
       // Elimina i dati dallo store dopo il recupero
-      orderDataStore.delete(orderDataId);
+      await orderDataStore.delete(orderDataId);
 
 
       // Type-safe spread
@@ -499,6 +499,46 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ received: true, error: 'Pagamento non completato' });
         }
 
+        // Controllo idempotenza: verifica se esiste già un ordine con questa session
+        try {
+          // Cerca ordini recenti e verifica i metadata manualmente
+          // (WooCommerce REST API non supporta filtro diretto per meta_key/meta_value)
+          const recentOrders = await api.get('orders', {
+            per_page: 20,
+            orderby: 'date',
+            order: 'desc'
+          });
+
+          if (recentOrders.data && Array.isArray(recentOrders.data)) {
+            interface WooOrderMeta {
+              key: string;
+              value: string;
+            }
+            interface WooOrder {
+              id: number;
+              meta_data: WooOrderMeta[];
+            }
+
+            const existingOrder = (recentOrders.data as WooOrder[]).find((order: WooOrder) =>
+              order.meta_data?.some((meta: WooOrderMeta) =>
+                meta.key === '_stripe_session_id' && meta.value === session.id
+              )
+            );
+
+            if (existingOrder) {
+              console.log('[WEBHOOK] Ordine già esistente per session:', session.id, '- Order ID:', existingOrder.id);
+              return NextResponse.json({
+                received: true,
+                message: 'Ordine già esistente',
+                order_id: existingOrder.id
+              });
+            }
+          }
+        } catch (checkError) {
+          console.error('[WEBHOOK] Errore nel controllo ordine esistente:', checkError);
+          // Continua comunque
+        }
+
         try {
           // Recupera l'ID dei dati dell'ordine dai metadata
           const orderDataId = session.metadata?.order_data_id;
@@ -509,8 +549,8 @@ export async function POST(request: NextRequest) {
           }
 
 
-          // Recupera i dati completi dallo store in memoria
-          const storedData = orderDataStore.get(orderDataId);
+          // Recupera i dati completi dallo store persistente (WordPress/MySQL)
+          const storedData = await orderDataStore.get(orderDataId);
 
           if (!storedData) {
             console.error('[WEBHOOK] Impossibile recuperare i dati dell\'ordine');
@@ -520,7 +560,7 @@ export async function POST(request: NextRequest) {
           const { orderData, pointsDiscount } = storedData;
 
           // Elimina i dati dallo store dopo il recupero (uso singolo)
-          orderDataStore.delete(orderDataId);
+          await orderDataStore.delete(orderDataId);
 
 
 

@@ -14,8 +14,7 @@ export async function GET(request: NextRequest) {
       }, { status: 400 });
     }
 
-    console.log('[CHECK-SESSION] Recupero sessione:', sessionId);
-
+    
     // Recupera la sessione da Stripe
     const session = await stripe.checkout.sessions.retrieve(sessionId);
 
@@ -29,13 +28,7 @@ export async function GET(request: NextRequest) {
     const orderId = session.metadata?.order_id;
     const webhookProcessed = session.metadata?.webhook_processed === 'true';
 
-    console.log('[CHECK-SESSION] Stato sessione:', {
-      sessionId: session.id,
-      orderId,
-      webhookProcessed,
-      paymentStatus: session.payment_status
-    });
-
+    
     return NextResponse.json({
       orderId: orderId ? parseInt(orderId) : null,
       webhookProcessed,
