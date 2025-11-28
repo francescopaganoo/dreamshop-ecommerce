@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
             wpToken: jwtData.token
           }, 
           JWT_SECRET, 
-          { expiresIn: '7d' }
+          { expiresIn: '60d' }
         );
         
         // Imposta il token in un cookie HTTP-only e restituiscilo anche nella risposta

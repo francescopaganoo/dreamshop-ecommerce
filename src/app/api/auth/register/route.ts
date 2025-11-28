@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
           username: user.username
         },
         JWT_SECRET,
-        { expiresIn: '7d' }
+        { expiresIn: '60d' }
       );
       
       // Restituisci il token e i dati dell'utente
