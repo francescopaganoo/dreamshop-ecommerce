@@ -3258,7 +3258,8 @@ export async function getFilteredProductsPlugin(filters: {
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
-      }
+      },
+      next: { revalidate: 60 } // Aggiorna ogni 60 secondi
     });
 
     if (!response.ok) {
@@ -3425,7 +3426,8 @@ export async function getCategoryFilterOptionsPlugin(categorySlug: string): Prom
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
-      }
+      },
+      next: { revalidate: 60 } // Aggiorna ogni 60 secondi
     });
 
     if (!response.ok) {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import api from '../../../../lib/woocommerce';
+import { orderDataStore } from '../../../../lib/orderDataStore';
 
 // Configurazione PayPal
 const PAYPAL_CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || '';
@@ -11,7 +12,7 @@ const PAYPAL_API_URL = process.env.NODE_ENV === 'production'
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json();
-    const { orderData, paypalOrderId, paypalTransactionId, expectedTotal } = data;
+    const { orderData, paypalOrderId, paypalTransactionId, expectedTotal, dataId, pointsToRedeem, pointsDiscount } = data;
 
     if (!orderData || !paypalOrderId) {
       return NextResponse.json({
@@ -108,6 +109,54 @@ export async function POST(request: NextRequest) {
         amount: paidAmount
       });
 
+      // Controllo idempotenza: verifica se esiste già un ordine con questo paypalOrderId
+      try {
+        const recentOrders = await api.get('orders', {
+          per_page: 20,
+          orderby: 'date',
+          order: 'desc'
+        });
+
+        if (recentOrders.data && Array.isArray(recentOrders.data)) {
+          interface WooOrderMeta {
+            id: number;
+            key: string;
+            value: string;
+          }
+          interface WooOrderCheck {
+            id: number;
+            status: string;
+            meta_data: WooOrderMeta[];
+          }
+
+          const existingOrder = (recentOrders.data as WooOrderCheck[]).find((order: WooOrderCheck) =>
+            order.meta_data?.some((meta: WooOrderMeta) =>
+              meta.key === '_paypal_order_id' && meta.value === paypalOrderId
+            )
+          );
+
+          if (existingOrder) {
+            console.log('[PAYPAL] Ordine già esistente per paypalOrderId:', paypalOrderId, '-> orderId:', existingOrder.id);
+
+            // Cancella i dati temporanei se presenti
+            if (dataId) {
+              await orderDataStore.delete(dataId);
+            }
+
+            return NextResponse.json({
+              success: true,
+              orderId: existingOrder.id,
+              status: existingOrder.status,
+              pointsToRedeem: pointsToRedeem || 0,
+              alreadyExists: true
+            });
+          }
+        }
+      } catch (checkError) {
+        console.error('[PAYPAL] Errore nel controllo ordine esistente:', checkError);
+        // Continua comunque, meglio rischiare un duplicato che non creare l'ordine
+      }
+
     } catch (verificationError) {
       console.error('[PAYPAL-VERIFY] Errore durante la verifica:', verificationError);
       return NextResponse.json({
@@ -128,6 +177,7 @@ export async function POST(request: NextRequest) {
       set_paid: true, // L'ordine è già pagato
       status: 'processing', // Lo stato è processing perché il pagamento è completato
       meta_data: [
+        ...(orderData.meta_data || []),
         {
           key: '_paypal_order_id',
           value: paypalOrderId
@@ -147,9 +197,27 @@ export async function POST(request: NextRequest) {
         {
           key: '_dreamshop_points_assigned',
           value: 'yes'
-        }
+        },
+        // Salva il dataId per riferimento
+        ...(dataId ? [{
+          key: '_paypal_data_id',
+          value: dataId
+        }] : [])
       ]
     };
+
+    // Aggiungi fee_lines per gli sconti punti se presenti
+    if (pointsDiscount > 0) {
+      orderDataToSend.fee_lines = [
+        ...(orderDataToSend.fee_lines || []),
+        {
+          name: 'Sconto Punti DreamShop',
+          total: String(-pointsDiscount),
+          tax_class: '',
+          tax_status: 'none'
+        }
+      ];
+    }
 
 
 
@@ -183,10 +251,16 @@ export async function POST(request: NextRequest) {
         // Non blocchiamo il flusso se la nota fallisce
       }
 
+      // Cancella i dati temporanei dallo store WordPress/MySQL
+      if (dataId) {
+        await orderDataStore.delete(dataId);
+      }
+
       return NextResponse.json({
         success: true,
         orderId: wooOrder.id,
-        status: wooOrder.status || 'processing'
+        status: wooOrder.status || 'processing',
+        pointsToRedeem: pointsToRedeem || 0
       });
 
     } catch (wooError) {

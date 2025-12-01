@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useState, Suspense, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { getOrder } from '../../../lib/api';
@@ -10,6 +10,9 @@ function OrderSuccessContent() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get('order_id');
   const sessionId = searchParams.get('session_id');
+
+  // Ref per evitare chiamate duplicate (React StrictMode)
+  const isProcessingRef = useRef(false);
 
   // Define a type for order details
   interface OrderDetails {
@@ -53,19 +56,25 @@ function OrderSuccessContent() {
 
   useEffect(() => {
     async function fetchOrderDetails() {
+      // Evita chiamate duplicate (React StrictMode chiama useEffect due volte)
+      if (isProcessingRef.current) {
+        return;
+      }
+      isProcessingRef.current = true;
+
       const paymentMethod = searchParams.get('payment_method');
       const paymentIntentId = searchParams.get('payment_intent');
 
-      // Gestione pagamento Stripe con Payment Intent (nuovo flusso con solo webhook)
+      // Gestione pagamento Stripe con Payment Intent (nuovo flusso con fallback)
       if (paymentMethod === 'stripe' && paymentIntentId && !orderId) {
         try {
 
           let retrievedOrderId: number | null = null;
-          const maxAttempts = 30; // 30 tentativi = 30 secondi max
+          const maxAttempts = 5; // 5 tentativi = 5 secondi per aspettare il webhook
           const delayMs = 1000; // 1 secondo tra i tentativi
 
+          // Prima aspetta brevemente il webhook
           for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-
             try {
               const response = await fetch(`/api/stripe/get-order-by-payment-intent?payment_intent_id=${paymentIntentId}`);
               const data = await response.json();
@@ -88,6 +97,72 @@ function OrderSuccessContent() {
             }
           }
 
+          // Se il webhook non ha creato l'ordine, usa il fallback
+          if (!retrievedOrderId) {
+            console.log('[SUCCESS-PAGE] Webhook non ha creato l\'ordine, uso fallback');
+
+            try {
+              const fallbackResponse = await fetch('/api/stripe/create-order-after-card-payment', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  paymentIntentId
+                }),
+              });
+
+              const fallbackData = await fallbackResponse.json();
+
+              if (fallbackResponse.ok && fallbackData.success && fallbackData.orderId) {
+                retrievedOrderId = fallbackData.orderId;
+                console.log('[SUCCESS-PAGE] Ordine creato via fallback:', retrievedOrderId);
+
+                // Riscatta i punti se necessario
+                if (fallbackData.pointsToRedeem > 0) {
+                  try {
+                    const token = localStorage.getItem('woocommerce_token');
+                    const userDataStr = localStorage.getItem('user');
+                    const userData = userDataStr ? JSON.parse(userDataStr) : null;
+
+                    if (token && userData?.id) {
+                      await fetch('/api/points/redeem', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                          userId: userData.id,
+                          points: fallbackData.pointsToRedeem,
+                          orderId: retrievedOrderId,
+                          token
+                        }),
+                      });
+
+                      localStorage.removeItem('checkout_points_to_redeem');
+                      localStorage.removeItem('checkout_points_discount');
+                    }
+                  } catch (pointsError) {
+                    console.error('[SUCCESS-PAGE] Errore riscatto punti:', pointsError);
+                  }
+                }
+
+                // Svuota il carrello
+                localStorage.removeItem('cart');
+              } else {
+                console.error('[SUCCESS-PAGE] Errore nel fallback:', fallbackData);
+                setError('Errore nella creazione dell\'ordine. Il pagamento è stato effettuato, contatta il supporto clienti.');
+                setLoading(false);
+                return;
+              }
+            } catch (fallbackError) {
+              console.error('[SUCCESS-PAGE] Errore nel fallback:', fallbackError);
+              setError('Errore nella creazione dell\'ordine. Il pagamento è stato effettuato, contatta il supporto clienti.');
+              setLoading(false);
+              return;
+            }
+          }
+
           if (retrievedOrderId) {
             // Ordine recuperato con successo
             try {
@@ -99,11 +174,6 @@ function OrderSuccessContent() {
               setError(null);
               setOrderDetails(null);
             }
-          } else {
-            // Timeout raggiunto, mostra messaggio generico
-            console.log('[SUCCESS-PAGE] Timeout raggiunto, webhook probabilmente in ritardo');
-            setError(null);
-            setOrderDetails(null);
           }
 
           setLoading(false);
@@ -111,8 +181,7 @@ function OrderSuccessContent() {
 
         } catch (err) {
           console.error('[SUCCESS-PAGE] Errore generico nel flusso Stripe:', err);
-          setError(null); // Non mostrare errore, mostra solo messaggio generico
-          setOrderDetails(null);
+          setError('Si è verificato un errore. Se il pagamento è stato effettuato, contatta il supporto clienti.');
           setLoading(false);
           return;
         }

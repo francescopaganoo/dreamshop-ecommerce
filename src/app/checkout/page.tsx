@@ -119,7 +119,8 @@ export default function CheckoutPage() {
   }
   
   const [paypalOrderData, setPaypalOrderData] = useState<PayPalOrderData | null>(null);
-  
+  const [paypalDataId, setPaypalDataId] = useState<string | null>(null);
+
   // Riferimento per il debounce timer
   const shippingDebounceTimerRef = React.useRef<NodeJS.Timeout | null>(null);
   
@@ -1166,11 +1167,40 @@ export default function CheckoutPage() {
         };
         
         
-        // Salva i dati dell'ordine per PayPal
+        // Salva i dati dell'ordine su MySQL per persistenza (come Klarna/Satispay)
+        const storeResponse = await fetch('/api/stripe/store-order-data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderData,
+            pointsToRedeem,
+            pointsDiscount,
+            paymentMethod: 'paypal'
+          })
+        });
+
+        if (!storeResponse.ok) {
+          throw new Error('Errore nel salvataggio dei dati dell\'ordine');
+        }
+
+        const storeResult = await storeResponse.json();
+        const dataId = storeResult.dataId;
+
+        // Salva i dati dell'ordine per PayPal (sia in stato React che dataId per recovery)
         setPaypalOrderData(orderData);
-        
+        setPaypalDataId(dataId);
+
+        // Salva dataId in sessionStorage per recovery in caso di chiusura browser
+        sessionStorage.setItem('paypal_checkout_data', JSON.stringify({
+          dataId,
+          total,
+          pointsToRedeem,
+          pointsDiscount,
+          timestamp: Date.now()
+        }));
+
         setShowPayPalButtons(true);
-        
+
         // Termina qui l'esecuzione, il resto verrà gestito dai pulsanti PayPal
         return;
       } catch (error) {
@@ -2291,28 +2321,58 @@ export default function CheckoutPage() {
     }
   };
 
+  // Mostra messaggio carrello vuoto solo se:
+  // - Il carrello è vuoto
+  // - Non siamo in orderSuccess (ordine completato con successo)
+  // - Non abbiamo i pulsanti PayPal attivi (pagamento in corso)
+  // - Non stiamo processando un pagamento
+  const showEmptyCartMessage = cart.length === 0 && !orderSuccess && !showPayPalButtons && !isProcessingPayment;
+
   return (
     <div className="min-h-screen flex flex-col">
-      
+
       <main className="flex-grow py-8 bg-white">
         <div className="container mx-auto px-4">
           <h1 className="text-3xl font-bold mb-8 text-gray-900">Checkout</h1>
-          
+
+          {/* Messaggio carrello vuoto */}
+          {showEmptyCartMessage && (
+            <div className="max-w-2xl mx-auto text-center py-12">
+              <div className="mb-6">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-24 w-24 mx-auto text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+              <h2 className="text-2xl font-semibold text-gray-700 mb-4">Il tuo carrello è vuoto</h2>
+              <p className="text-gray-500 mb-8">
+                Aggiungi dei prodotti al carrello prima di procedere al checkout.
+              </p>
+              <Link
+                href="/shop"
+                className="inline-block bg-bred-500 text-white px-8 py-3 rounded-md font-medium hover:bg-bred-600 transition-colors"
+              >
+                Vai allo Shop
+              </Link>
+            </div>
+          )}
+
           {/* Il messaggio di conferma dell'ordine è stato spostato all'interno del form */}
-          
-          {!isAuthenticated && (
-            <div className="mb-6 p-4 bg-bred-100 text-bred-500 rounded-md">
-              <p>Hai già un account? <Link href="/login?redirect=/checkout" className="font-bold underline">Accedi</Link> per velocizzare il checkout.</p>
-            </div>
-          )}
-          
-          {formError && (
-            <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-md">
-              {formError}
-            </div>
-          )}
-          
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+          {!showEmptyCartMessage && (
+            <>
+              {!isAuthenticated && (
+                <div className="mb-6 p-4 bg-bred-100 text-bred-500 rounded-md">
+                  <p>Hai già un account? <Link href="/login?redirect=/checkout" className="font-bold underline">Accedi</Link> per velocizzare il checkout.</p>
+                </div>
+              )}
+
+              {formError && (
+                <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-md">
+                  {formError}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Checkout Form */}
             <div className="lg:col-span-2">
               <form id="checkout-form" onSubmit={handleSubmit} className="bg-white rounded-lg shadow-md p-6">
@@ -2861,7 +2921,10 @@ export default function CheckoutPage() {
                                             orderData: paypalOrderData,
                                             paypalOrderId: data.orderID,
                                             paypalTransactionId: transactionId,
-                                            expectedTotal: actualPaidAmount // Usa l'importo da PayPal (già verificato e addebitato)
+                                            expectedTotal: actualPaidAmount, // Usa l'importo da PayPal (già verificato e addebitato)
+                                            dataId: paypalDataId, // ID per recuperare i dati da MySQL e per cleanup
+                                            pointsToRedeem,
+                                            pointsDiscount
                                           }),
                                         });
 
@@ -2877,6 +2940,9 @@ export default function CheckoutPage() {
 
                                         // Svuota il carrello
                                         clearCart();
+
+                                        // Pulisci i dati di recovery PayPal dal sessionStorage
+                                        sessionStorage.removeItem('paypal_checkout_data');
 
                                         // Riscatta i punti se necessario
                                         if (pointsToRedeem > 0 && user) {
@@ -3530,6 +3596,8 @@ export default function CheckoutPage() {
               </div>
             </div>
           </div>
+            </>
+          )}
         </div>
       </main>
       

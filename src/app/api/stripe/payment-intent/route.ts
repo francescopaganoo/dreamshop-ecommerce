@@ -36,11 +36,16 @@ export async function POST(request: NextRequest) {
     // Se abbiamo i dati dell'ordine, salvali nello store per il webhook
     if (orderData) {
       const dataId = orderDataStore.generateId();
-      orderDataStore.set(dataId, {
+      const saved = await orderDataStore.set(dataId, {
         orderData,
         pointsToRedeem: pointsToRedeem || 0,
         pointsDiscount: pointsDiscount || 0
       });
+
+      if (!saved) {
+        console.error('[PAYMENT-INTENT] Errore nel salvataggio dati ordine');
+        return NextResponse.json({ error: 'Errore nel salvataggio dei dati dell\'ordine' }, { status: 500 });
+      }
 
       metadata.order_data_id = dataId;
       console.log('[PAYMENT-INTENT] Dati ordine salvati nello store con ID:', dataId);
