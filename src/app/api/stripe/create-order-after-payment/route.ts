@@ -8,7 +8,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json();
-    const { sessionId, orderData, pointsToRedeem, pointsDiscount } = data;
+    const { sessionId, orderData, pointsToRedeem } = data;
 
     if (!sessionId || !orderData) {
       return NextResponse.json({
@@ -136,6 +136,40 @@ export async function POST(request: NextRequest) {
       const orderDataId = session.metadata?.order_data_id;
       if (orderDataId) {
         await orderDataStore.delete(orderDataId);
+      }
+
+      // Decrementa i punti dell'utente se sono stati usati per lo sconto
+      const userId = orderData.customer_id || 0;
+      if (pointsToRedeem > 0 && userId > 0) {
+        try {
+          const baseUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL?.replace(/\/$/, '') || '';
+          const apiKey = process.env.POINTS_API_KEY;
+
+          if (apiKey) {
+            const deductResponse = await fetch(`${baseUrl}/wp-json/dreamshop-points/v1/points/deduct-only`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-API-Key': apiKey
+              },
+              body: JSON.stringify({
+                user_id: userId,
+                points: pointsToRedeem,
+                order_id: wooOrder.id,
+                description: `Punti utilizzati per sconto ordine #${wooOrder.id}`
+              })
+            });
+
+            const deductResult = await deductResponse.json();
+            if (deductResponse.ok && deductResult.success) {
+              console.log(`[PAYMENT] Punti decrementati: userId=${userId}, points=${pointsToRedeem}, newBalance=${deductResult.new_balance}`);
+            } else {
+              console.error('[PAYMENT] Errore nel decremento punti:', deductResult);
+            }
+          }
+        } catch (pointsError) {
+          console.error('[PAYMENT] Errore nel decremento punti:', pointsError);
+        }
       }
 
       return NextResponse.json({

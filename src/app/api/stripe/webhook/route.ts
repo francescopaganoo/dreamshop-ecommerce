@@ -367,7 +367,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ received: true, error: 'Dati ordine non trovati' });
       }
 
-      const { orderData, pointsToRedeem, pointsDiscount } = storedData;
+      const { orderData, pointsToRedeem } = storedData;
 
       // Elimina i dati dallo store dopo il recupero
       await orderDataStore.delete(orderDataId);
@@ -433,37 +433,40 @@ export async function POST(request: NextRequest) {
           }
         });
 
-        // Riscatta i punti se necessario
+        // Decrementa i punti dell'utente se sono stati usati per lo sconto
         if (pointsToRedeem > 0) {
-          try {
-            const customerId = (baseOrderData.customer_id as number) || 0;
+          const customerId = (baseOrderData.customer_id as number) || 0;
 
-            if (customerId) {
-              console.log(`[WEBHOOK] Riscatto ${pointsToRedeem} punti per utente ${customerId}, ordine #${wooOrder.id}`);
+          if (customerId > 0) {
+            try {
+              const baseUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL?.replace(/\/$/, '') || '';
+              const apiKey = process.env.POINTS_API_KEY;
 
-              // Chiama l'API interna per riscattare i punti
-              const pointsResponse = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/points/redeem`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  userId: customerId,
-                  points: pointsToRedeem,
-                  orderId: wooOrder.id,
-                  internal: true // Flag per indicare chiamata interna dal webhook
-                }),
-              });
+              if (apiKey) {
+                const deductResponse = await fetch(`${baseUrl}/wp-json/dreamshop-points/v1/points/deduct-only`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'X-API-Key': apiKey
+                  },
+                  body: JSON.stringify({
+                    user_id: customerId,
+                    points: pointsToRedeem,
+                    order_id: wooOrder.id,
+                    description: `Punti utilizzati per sconto ordine #${wooOrder.id}`
+                  })
+                });
 
-              if (pointsResponse.ok) {
-                console.log('[WEBHOOK] Punti riscattati con successo');
-              } else {
-                console.error('[WEBHOOK] Errore nel riscatto punti:', await pointsResponse.text());
+                const deductResult = await deductResponse.json();
+                if (deductResponse.ok && deductResult.success) {
+                  console.log(`[WEBHOOK] Punti decrementati: userId=${customerId}, points=${pointsToRedeem}, newBalance=${deductResult.new_balance}`);
+                } else {
+                  console.error('[WEBHOOK] Errore nel decremento punti:', deductResult);
+                }
               }
+            } catch (pointsError) {
+              console.error('[WEBHOOK] Errore nel decremento punti:', pointsError);
             }
-          } catch (pointsError) {
-            console.error('[WEBHOOK] Errore durante il riscatto dei punti:', pointsError);
-            // Non blocchiamo il webhook se il riscatto punti fallisce
           }
         }
 
@@ -547,7 +550,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ received: true, error: 'Dati ordine non trovati o scaduti' });
           }
 
-          const { orderData, pointsDiscount } = storedData;
+          const { orderData, pointsToRedeem } = storedData;
 
           // Elimina i dati dallo store dopo il recupero (uso singolo)
           await orderDataStore.delete(orderDataId);
@@ -620,6 +623,39 @@ export async function POST(request: NextRequest) {
             }
           });
 
+          // Decrementa i punti dell'utente se sono stati usati per lo sconto
+          const customerId = (baseOrderData2.customer_id as number) || 0;
+          if (pointsToRedeem && pointsToRedeem > 0 && customerId > 0) {
+            try {
+              const baseUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL?.replace(/\/$/, '') || '';
+              const apiKey = process.env.POINTS_API_KEY;
+
+              if (apiKey) {
+                const deductResponse = await fetch(`${baseUrl}/wp-json/dreamshop-points/v1/points/deduct-only`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'X-API-Key': apiKey
+                  },
+                  body: JSON.stringify({
+                    user_id: customerId,
+                    points: pointsToRedeem,
+                    order_id: wooOrder.id,
+                    description: `Punti utilizzati per sconto ordine #${wooOrder.id}`
+                  })
+                });
+
+                const deductResult = await deductResponse.json();
+                if (deductResponse.ok && deductResult.success) {
+                  console.log(`[WEBHOOK] Punti decrementati (checkout.session): userId=${customerId}, points=${pointsToRedeem}, newBalance=${deductResult.new_balance}`);
+                } else {
+                  console.error('[WEBHOOK] Errore nel decremento punti (checkout.session):', deductResult);
+                }
+              }
+            } catch (pointsError) {
+              console.error('[WEBHOOK] Errore nel decremento punti (checkout.session):', pointsError);
+            }
+          }
 
         } catch (error) {
           console.error(`[WEBHOOK] Errore durante la creazione dell'ordine ${paymentMethod}:`, error);

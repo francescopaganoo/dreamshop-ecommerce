@@ -1217,6 +1217,18 @@ function normalizeSearchTerm(text: string): string {
     .trim();
 }
 
+// Funzione per verificare se tutte le parole della query sono presenti nel testo
+// Esempio: "levi wawa" matcha "Levi Ackerman Wawa Studio" perché contiene sia "levi" che "wawa"
+function matchesAllWords(productName: string, searchQuery: string): boolean {
+  const normalizedProductName = normalizeSearchTerm(productName);
+  const searchWords = normalizeSearchTerm(searchQuery)
+    .split(/\s+/)
+    .filter(word => word.length > 0);
+
+  // Tutte le parole della query devono essere presenti nel nome del prodotto
+  return searchWords.every(word => normalizedProductName.includes(word));
+}
+
 // Search products (only in product titles)
 export async function searchProducts(searchTerm: string, page = 1, per_page = 10): Promise<{ products: Product[], total: number }> {
   try {
@@ -1229,14 +1241,11 @@ export async function searchProducts(searchTerm: string, page = 1, per_page = 10
 
     const totalProducts = parseInt((headers as Record<string, string>)['x-wp-total']) || (data as Product[]).length;
 
-    // Normalizza il termine di ricerca
-    const normalizedSearchTerm = normalizeSearchTerm(searchTerm);
-
-    // Filtriamo solo i prodotti il cui nome contiene il termine di ricerca (con normalizzazione)
-    const filteredProducts = (data as Product[]).filter(product => {
-      const normalizedProductName = normalizeSearchTerm(product.name);
-      return normalizedProductName.includes(normalizedSearchTerm);
-    });
+    // Filtriamo i prodotti usando la ricerca multi-parola
+    // Es: "levi wawa" troverà "Levi Ackerman Wawa Studio"
+    const filteredProducts = (data as Product[]).filter(product =>
+      matchesAllWords(product.name, searchTerm)
+    );
 
     return {
       products: filteredProducts,
@@ -1417,21 +1426,7 @@ export async function createOrder(orderData: OrderData): Promise<WooCommerceOrde
 
     // Convertiamo in un oggetto semplice per evitare problemi di serializzazione
     const orderDataToSend = JSON.parse(JSON.stringify(rawDataToSend));
-
-
-
-    // Log molto dettagliato per debug
-    console.log('API DEBUG - Creazione ordine con dati:', {
-      customer_id: orderDataToSend.customer_id,
-      payment_method: orderDataToSend.payment_method,
-      billing: orderDataToSend.billing ? {
-        email: orderDataToSend.billing.email,
-        first_name: orderDataToSend.billing.first_name,
-      } : 'non disponibile',
-      orderData_full: JSON.stringify(orderDataToSend)
-    });
-
-    // Verifichiamo se ci sono prodotti con acconti nell'ordine (solo per debug)
+    // Verifichiamo se ci sono prodotti con acconti nell'ordine
     let hasDeposits = false;
     if (orderDataToSend.line_items && Array.isArray(orderDataToSend.line_items)) {
       // Controlliamo se qualche articolo ha i metadati di acconto
@@ -1481,15 +1476,6 @@ export async function createOrder(orderData: OrderData): Promise<WooCommerceOrde
 
     const response = await api.post('orders', orderDataToSend);
     const orderResponse = response.data as WooCommerceOrderResponse;
-    
-    // Log della risposta
-    console.log('API DEBUG - Risposta creazione ordine:', {
-      id: orderResponse.id,
-      customer_id: orderResponse.customer_id,
-      status: orderResponse.status,
-      response_keys: Object.keys(orderResponse)
-    });
-    
     return orderResponse;
   } catch (error) {
     console.error('Error creating order:', error);
@@ -3274,7 +3260,7 @@ export async function getFilteredProductsPlugin(filters: {
     }
 
     // Convert plugin format to expected format
-    const products: Product[] = data.data.products.map((product: {
+    let products: Product[] = data.data.products.map((product: {
       id: string;
       name: string;
       slug: string;
@@ -3314,10 +3300,16 @@ export async function getFilteredProductsPlugin(filters: {
       meta_data: []
     }));
 
+    // Applica filtro multi-parola per la ricerca
+    // Es: "levi wawa" troverà "Levi Ackerman Wawa Studio"
+    if (filters.search && filters.search.trim().length > 0) {
+      products = products.filter(product => matchesAllWords(product.name, filters.search!));
+    }
+
     return {
       products,
-      total: data.data.total,
-      total_pages: data.data.total_pages
+      total: filters.search ? products.length : data.data.total,
+      total_pages: filters.search ? Math.ceil(products.length / (filters.per_page || 12)) : data.data.total_pages
     };
 
   } catch (error) {

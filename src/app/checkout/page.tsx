@@ -9,9 +9,7 @@ import { PayPalButtons, usePayPalScriptReducer } from '@paypal/react-paypal-js';
 import Link from 'next/link';
 import AppleGooglePayCheckout from '@/components/checkout/AppleGooglePayCheckout';
 import GiftCardCartWidget from '@/components/GiftCardCartWidget';
-
 import { createOrder, createCustomer, getShippingMethods, ShippingMethod, getUserAddresses, saveUserAddresses, getProductShippingClassId } from '../../lib/api';
-import { redeemPoints } from '../../lib/points';
 import { getAvailableCountries, CountryOption } from '../../lib/countries';
 
 export default function CheckoutPage() {
@@ -741,18 +739,6 @@ export default function CheckoutPage() {
       return;
     }
     
-    // Debug visibile nel browser
-    if (isAuthenticated && user) {
-      console.log('CHECKOUT DEBUG - Dati utente:', {
-        id: user.id,
-        tipo_id: typeof user.id,
-        email: user.email,
-        username: user.username
-      });
-    } else {
-      console.log('CHECKOUT DEBUG - Utente non autenticato');
-    }
-    
     if (cart.length === 0) {
       setFormError('Il tuo carrello è vuoto. Aggiungi prodotti prima di procedere al checkout.');
       return;
@@ -983,22 +969,26 @@ export default function CheckoutPage() {
           });
         }
 
-        console.log('[FREE ORDER] Creazione ordine gratuito:', orderData);
-
         const order = await createOrder(orderData);
 
-        // COMMENTATO PER TEST: I punti dovrebbero essere decrementati lato server
-        // if (pointsToRedeem > 0 && isAuthenticated && user) {
-        //   try {
-        //     const token = localStorage.getItem('woocommerce_token');
-        //     if (token) {
-        //       await redeemPoints(user.id, pointsToRedeem, order.id, token);
-        //       console.log(`[FREE ORDER] ${pointsToRedeem} punti riscattati con successo`);
-        //     }
-        //   } catch (error) {
-        //     console.error('[FREE ORDER] Errore nel riscatto dei punti:', error);
-        //   }
-        // }
+        // Decrementa i punti lato server (senza generare coupon, lo sconto è già nelle fee_lines)
+        if (pointsToRedeem > 0 && isAuthenticated && user) {
+          try {
+            const deductResponse = await fetch('/api/points/deduct', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userId: user.id,
+                points: pointsToRedeem,
+                orderId: order.id,
+                description: `Punti utilizzati per sconto ordine gratuito #${order.id}`
+              })
+            });
+            await deductResponse.json();
+          } catch {
+            // Ignora errori nel decremento punti, non blocca il flusso
+          }
+        }
 
         // Pulisci localStorage e carrello
         localStorage.removeItem('checkout_points_to_redeem');
@@ -1652,6 +1642,25 @@ export default function CheckoutPage() {
         const subtotalForPoints = subtotal - couponDiscount - pointsDiscount; // Subtotale meno tutti gli sconti
         const pointsToEarn = Math.floor(Math.max(0, subtotalForPoints)); // 1 euro = 1 punto
 
+        // Prepara le fee_lines per lo sconto punti
+        const stripeFeeLines = [];
+        if (pointsDiscount > 0) {
+          stripeFeeLines.push({
+            name: `Sconto punti (${pointsToRedeem} punti)`,
+            total: (-pointsDiscount).toFixed(2),
+            tax_class: '',
+            tax_status: 'none'
+          });
+        }
+        if (giftCardDiscount > 0) {
+          stripeFeeLines.push({
+            name: 'Sconto Gift Card',
+            total: (-giftCardDiscount).toFixed(2),
+            tax_class: '',
+            tax_status: 'none'
+          });
+        }
+
         // Prepara i dati dell'ordine (sarà creato dopo il successo del pagamento)
         const orderDataForLater = {
           payment_method: 'stripe',
@@ -1675,11 +1684,17 @@ export default function CheckoutPage() {
               code: coupon.code
             }
           ] : [],
+          // Aggiungi fee_lines per lo sconto punti
+          fee_lines: stripeFeeLines,
           // Aggiungi metadati
           meta_data: [
             {
               key: '_points_to_earn_frontend',
               value: pointsToEarn.toString()
+            },
+            {
+              key: '_points_discount',
+              value: pointsDiscount.toString()
             }
           ]
         };
@@ -1866,6 +1881,25 @@ export default function CheckoutPage() {
         const pointsToEarn = Math.floor(Math.max(0, subtotalForPoints));
         console.log(`[CHECKOUT KLARNA] CALCOLO PUNTI - Subtotale: €${subtotal.toFixed(2)}, Sconto coupon: €${couponDiscount.toFixed(2)}, Sconto punti: €${pointsDiscount.toFixed(2)}, Valore per punti: €${subtotalForPoints.toFixed(2)} → ${pointsToEarn} punti verranno assegnati`);
 
+        // Prepara le fee_lines per lo sconto punti
+        const klarnaFeeLines = [];
+        if (pointsDiscount > 0) {
+          klarnaFeeLines.push({
+            name: `Sconto punti (${pointsToRedeem} punti)`,
+            total: (-pointsDiscount).toFixed(2),
+            tax_class: '',
+            tax_status: 'none'
+          });
+        }
+        if (giftCardDiscount > 0) {
+          klarnaFeeLines.push({
+            name: 'Sconto Gift Card',
+            total: (-giftCardDiscount).toFixed(2),
+            tax_class: '',
+            tax_status: 'none'
+          });
+        }
+
         // Prepara i dati dell'ordine (NON lo creiamo ancora, lo creeremo dopo il pagamento)
         const orderData = {
           payment_method: 'klarna',
@@ -1890,10 +1924,13 @@ export default function CheckoutPage() {
               discount: String(discount)
             }
           ] : [],
+          // Aggiungi fee_lines per lo sconto punti
+          fee_lines: klarnaFeeLines,
           meta_data: [
             { key: '_checkout_points_earned', value: String(pointsToEarn) },
             { key: '_checkout_payment_method', value: 'klarna' },
-            { key: '_points_to_earn_frontend', value: String(pointsToEarn) }
+            { key: '_points_to_earn_frontend', value: String(pointsToEarn) },
+            { key: '_points_discount', value: pointsDiscount.toString() }
           ]
         };
 
@@ -1983,6 +2020,25 @@ export default function CheckoutPage() {
         const pointsToEarn = Math.floor(Math.max(0, subtotalForPoints));
         console.log(`[CHECKOUT SATISPAY] CALCOLO PUNTI - Subtotale: €${subtotal.toFixed(2)}, Sconto coupon: €${couponDiscount.toFixed(2)}, Sconto punti: €${pointsDiscount.toFixed(2)}, Valore per punti: €${subtotalForPoints.toFixed(2)} → ${pointsToEarn} punti verranno assegnati`);
 
+        // Prepara le fee_lines per lo sconto punti
+        const satispayFeeLines = [];
+        if (pointsDiscount > 0) {
+          satispayFeeLines.push({
+            name: `Sconto punti (${pointsToRedeem} punti)`,
+            total: (-pointsDiscount).toFixed(2),
+            tax_class: '',
+            tax_status: 'none'
+          });
+        }
+        if (giftCardDiscount > 0) {
+          satispayFeeLines.push({
+            name: 'Sconto Gift Card',
+            total: (-giftCardDiscount).toFixed(2),
+            tax_class: '',
+            tax_status: 'none'
+          });
+        }
+
         // Prepara i dati dell'ordine (sarà creato dopo il successo del pagamento)
         const orderData = {
           payment_method: 'satispay',
@@ -2052,10 +2108,13 @@ export default function CheckoutPage() {
             code: coupon.code,
             discount: (Math.round(discount * 100) / 100).toString()
           }] : [],
+          // Aggiungi fee_lines per lo sconto punti
+          fee_lines: satispayFeeLines,
           meta_data: [
             ...(customerId ? [{ key: '_customer_user', value: customerId.toString() }] : []),
             ...(isAuthenticated && user?.id ? [{ key: '_customer_user', value: user.id.toString() }] : []),
-            { key: '_checkout_payment_method', value: 'satispay' }
+            { key: '_checkout_payment_method', value: 'satispay' },
+            { key: '_points_discount', value: pointsDiscount.toString() }
           ]
         };
 

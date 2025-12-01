@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
       }, { status: 404 });
     }
 
-    const { orderData, pointsToRedeem, pointsDiscount } = storedData;
+    const { orderData, pointsToRedeem } = storedData;
     const typedOrderData = orderData as Record<string, unknown>;
 
     // 6. Prepara i dati dell'ordine WooCommerce
@@ -193,6 +193,39 @@ export async function POST(request: NextRequest) {
 
       // 10. Cancella i dati temporanei
       await orderDataStore.delete(dataId);
+
+      // 11. Decrementa i punti dell'utente se sono stati usati per lo sconto
+      if (pointsToRedeem > 0 && userId > 0) {
+        try {
+          const baseUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL?.replace(/\/$/, '') || '';
+          const apiKey = process.env.POINTS_API_KEY;
+
+          if (apiKey) {
+            const deductResponse = await fetch(`${baseUrl}/wp-json/dreamshop-points/v1/points/deduct-only`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-API-Key': apiKey
+              },
+              body: JSON.stringify({
+                user_id: userId,
+                points: pointsToRedeem,
+                order_id: wooOrder.id,
+                description: `Punti utilizzati per sconto ordine #${wooOrder.id}`
+              })
+            });
+
+            const deductResult = await deductResponse.json();
+            if (deductResponse.ok && deductResult.success) {
+              console.log(`[STRIPE-CARD] Punti decrementati: userId=${userId}, points=${pointsToRedeem}, newBalance=${deductResult.new_balance}`);
+            } else {
+              console.error('[STRIPE-CARD] Errore nel decremento punti:', deductResult);
+            }
+          }
+        } catch (pointsError) {
+          console.error('[STRIPE-CARD] Errore nel decremento punti:', pointsError);
+        }
+      }
 
       return NextResponse.json({
         success: true,

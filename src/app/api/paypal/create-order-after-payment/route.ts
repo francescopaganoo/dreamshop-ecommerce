@@ -12,7 +12,7 @@ const PAYPAL_API_URL = process.env.NODE_ENV === 'production'
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json();
-    const { orderData, paypalOrderId, paypalTransactionId, expectedTotal, dataId, pointsToRedeem, pointsDiscount } = data;
+    const { orderData, paypalOrderId, paypalTransactionId, expectedTotal, dataId, pointsToRedeem } = data;
 
     if (!orderData || !paypalOrderId) {
       return NextResponse.json({

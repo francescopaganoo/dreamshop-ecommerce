@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
       }, { status: 404 });
     }
 
-    const { orderData, pointsToRedeem, pointsDiscount } = storedData;
+    const { orderData, pointsToRedeem } = storedData;
     const typedOrderData = orderData as Record<string, unknown>;
     const userId = (typedOrderData.customer_id as number) || 0;
 
