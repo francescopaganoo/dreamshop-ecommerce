@@ -121,19 +121,9 @@ export async function POST(request: NextRequest) {
     // 6. Prepara i dati dell'ordine WooCommerce
     const userId = (typedOrderData.customer_id as number) || 0;
 
-    // Prepara fee_lines con eventuale sconto punti
-    const baseFeeLines = (typedOrderData.fee_lines as Array<{name: string; total: string; tax_class?: string; tax_status?: string}>) || [];
-    const feeLines = pointsDiscount > 0
-      ? [
-          ...baseFeeLines,
-          {
-            name: 'Sconto Punti DreamShop',
-            total: String(-pointsDiscount),
-            tax_class: '',
-            tax_status: 'none'
-          }
-        ]
-      : baseFeeLines;
+    // NOTA: Lo sconto punti è già incluso nelle fee_lines di orderData dal checkout
+    // Usiamo direttamente le fee_lines senza aggiungere duplicati
+    const feeLines = (typedOrderData.fee_lines as Array<{name: string; total: string; tax_class?: string; tax_status?: string}>) || [];
 
     const orderDataToSend = {
       ...typedOrderData,

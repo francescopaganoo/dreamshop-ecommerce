@@ -206,18 +206,8 @@ export async function POST(request: NextRequest) {
       ]
     };
 
-    // Aggiungi fee_lines per gli sconti punti se presenti
-    if (pointsDiscount > 0) {
-      orderDataToSend.fee_lines = [
-        ...(orderDataToSend.fee_lines || []),
-        {
-          name: 'Sconto Punti DreamShop',
-          total: String(-pointsDiscount),
-          tax_class: '',
-          tax_status: 'none'
-        }
-      ];
-    }
+    // NOTA: Lo sconto punti è già incluso nelle fee_lines di orderData dal checkout
+    // Non aggiungiamo di nuovo per evitare duplicazioni
 
 
 
@@ -254,6 +244,41 @@ export async function POST(request: NextRequest) {
       // Cancella i dati temporanei dallo store WordPress/MySQL
       if (dataId) {
         await orderDataStore.delete(dataId);
+      }
+
+      // Decrementa i punti dell'utente se sono stati usati per lo sconto
+      // (lo sconto è già applicato nelle fee_lines, qui decrementiamo solo il saldo)
+      if (pointsToRedeem > 0 && userId > 0) {
+        try {
+          const baseUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL?.replace(/\/$/, '') || '';
+          const apiKey = process.env.POINTS_API_KEY;
+
+          if (apiKey) {
+            const deductResponse = await fetch(`${baseUrl}/wp-json/dreamshop-points/v1/points/deduct-only`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-API-Key': apiKey
+              },
+              body: JSON.stringify({
+                user_id: userId,
+                points: pointsToRedeem,
+                order_id: wooOrder.id,
+                description: `Punti utilizzati per sconto ordine #${wooOrder.id}`
+              })
+            });
+
+            const deductResult = await deductResponse.json();
+            if (deductResponse.ok && deductResult.success) {
+              console.log(`[PAYPAL] Punti decrementati: userId=${userId}, points=${pointsToRedeem}, newBalance=${deductResult.new_balance}`);
+            } else {
+              console.error('[PAYPAL] Errore nel decremento punti:', deductResult);
+            }
+          }
+        } catch (pointsError) {
+          console.error('[PAYPAL] Errore nel decremento punti:', pointsError);
+          // Non blocchiamo il flusso se il decremento punti fallisce
+        }
       }
 
       return NextResponse.json({

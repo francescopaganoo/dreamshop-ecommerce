@@ -99,18 +99,8 @@ export async function POST(request: NextRequest) {
       ]
     };
 
-    // Aggiungi fee_lines per gli sconti se presenti
-    if (pointsDiscount > 0) {
-      orderDataToSend.fee_lines = [
-        ...(orderDataToSend.fee_lines || []),
-        {
-          name: 'Sconto Punti DreamShop',
-          total: String(-pointsDiscount),
-          tax_class: '',
-          tax_status: 'none'
-        }
-      ];
-    }
+    // NOTA: Lo sconto punti è già incluso nelle fee_lines di orderData dal checkout
+    // Non aggiungiamo di nuovo per evitare duplicazioni
 
 
 

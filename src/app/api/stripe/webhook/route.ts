@@ -401,18 +401,8 @@ export async function POST(request: NextRequest) {
         ]
       };
 
-      // Aggiungi fee_lines per gli sconti se presenti
-      if (pointsDiscount > 0) {
-        orderDataToSend.fee_lines = [
-          ...(orderDataToSend.fee_lines as unknown[] || []),
-          {
-            name: 'Sconto Punti DreamShop',
-            total: String(-pointsDiscount),
-            tax_class: '',
-            tax_status: 'none'
-          }
-        ];
-      }
+      // NOTA: Lo sconto punti è già incluso nelle fee_lines di orderData dal checkout
+      // Non aggiungiamo di nuovo per evitare duplicazioni
 
       try {
         // Crea l'ordine in WooCommerce
@@ -602,20 +592,8 @@ export async function POST(request: NextRequest) {
             ]
           };
 
-          // Aggiungi fee_lines per gli sconti se presenti
-          if (pointsDiscount > 0) {
-            orderDataToSend.fee_lines = [
-              ...(orderDataToSend.fee_lines as unknown[] || []),
-              {
-                name: 'Sconto Punti DreamShop',
-                total: String(-pointsDiscount),
-                tax_class: '',
-                tax_status: 'none'
-              }
-            ];
-          }
-
-
+          // NOTA: Lo sconto punti è già incluso nelle fee_lines di orderData dal checkout
+          // Non aggiungiamo di nuovo per evitare duplicazioni
 
           // Crea l'ordine in WooCommerce
           const response = await api.post('orders', orderDataToSend);

@@ -987,18 +987,18 @@ export default function CheckoutPage() {
 
         const order = await createOrder(orderData);
 
-        // Riscatta i punti se necessario
-        if (pointsToRedeem > 0 && isAuthenticated && user) {
-          try {
-            const token = localStorage.getItem('woocommerce_token');
-            if (token) {
-              await redeemPoints(user.id, pointsToRedeem, order.id, token);
-              console.log(`[FREE ORDER] ${pointsToRedeem} punti riscattati con successo`);
-            }
-          } catch (error) {
-            console.error('[FREE ORDER] Errore nel riscatto dei punti:', error);
-          }
-        }
+        // COMMENTATO PER TEST: I punti dovrebbero essere decrementati lato server
+        // if (pointsToRedeem > 0 && isAuthenticated && user) {
+        //   try {
+        //     const token = localStorage.getItem('woocommerce_token');
+        //     if (token) {
+        //       await redeemPoints(user.id, pointsToRedeem, order.id, token);
+        //       console.log(`[FREE ORDER] ${pointsToRedeem} punti riscattati con successo`);
+        //     }
+        //   } catch (error) {
+        //     console.error('[FREE ORDER] Errore nel riscatto dei punti:', error);
+        //   }
+        // }
 
         // Pulisci localStorage e carrello
         localStorage.removeItem('checkout_points_to_redeem');
@@ -1587,44 +1587,26 @@ export default function CheckoutPage() {
             // Svuota il carrello
             clearCart();
             
-            // Riscatta i punti se necessario
-            if (pointsToRedeem > 0 && user) {
-              try {
-                // Recupera il token JWT da localStorage
-                const token = localStorage.getItem('woocommerce_token');
-                if (token) {
-                  // Per PayPal, useremo l'ID dell'ordine salvato in successOrderId
-                  const orderId = successOrderId ? parseInt(successOrderId, 10) : null;
-                  
-                  if (!orderId) {
-                    console.warn('[CHECKOUT] Nota: Nessun ID ordine valido trovato, il riscatto punti sarà gestito internamente');
-                    // Continuiamo senza bloccare il flusso, dato che la gestione punti funziona comunque
-                    return;
-                  }
-                  
-                  
-                  // Chiamata API per riscattare i punti
-                  const pointsResponse = await redeemPoints(user.id, pointsToRedeem, orderId, token);
-                  
-                  if (pointsResponse && pointsResponse.success) {
-                    
-                    // Rimuovi i punti riscattati dal localStorage
-                    localStorage.removeItem('checkout_points_to_redeem');
-                    localStorage.removeItem('checkout_points_discount');
-                  } else {
-                    console.error('[CHECKOUT] Errore nella risposta API riscatto punti:', pointsResponse);
-                    throw new Error('Risposta API riscatto punti non valida');
-                  }
-                } else {
-                  console.error('[CHECKOUT] Token JWT mancante, impossibile riscattare i punti');
-                  throw new Error('Token JWT mancante');
-                }
-              } catch (pointsError) {
-                console.error('[CHECKOUT] Errore durante il riscatto dei punti:', pointsError);
-                // Non blocchiamo il checkout se il riscatto punti fallisce
-                // Log dell'errore senza mostrare alert all'utente
-              }
-            }
+            // COMMENTATO PER TEST: I punti dovrebbero essere decrementati lato server
+            // if (pointsToRedeem > 0 && user) {
+            //   try {
+            //     const token = localStorage.getItem('woocommerce_token');
+            //     if (token) {
+            //       const orderId = successOrderId ? parseInt(successOrderId, 10) : null;
+            //       if (!orderId) {
+            //         console.warn('[CHECKOUT] Nota: Nessun ID ordine valido trovato');
+            //         return;
+            //       }
+            //       const pointsResponse = await redeemPoints(user.id, pointsToRedeem, orderId, token);
+            //       if (pointsResponse && pointsResponse.success) {
+            //         localStorage.removeItem('checkout_points_to_redeem');
+            //         localStorage.removeItem('checkout_points_discount');
+            //       }
+            //     }
+            //   } catch (pointsError) {
+            //     console.error('[CHECKOUT] Errore durante il riscatto dei punti:', pointsError);
+            //   }
+            // }
             
             // Salva gli indirizzi dell'utente
             await saveAddressData();
@@ -2274,40 +2256,21 @@ export default function CheckoutPage() {
         // Clear the cart after successful order
         clearCart();
         
-        // Riscatta i punti se necessario (per metodi di pagamento alternativi)
-        if (pointsToRedeem > 0 && user) {
-          try {
-            // Recupera il token JWT da localStorage
-            const token = localStorage.getItem('woocommerce_token');
-            if (token) {
-              // Verifica che l'ID ordine sia valido
-              if (!order.id) {
-                console.error('[CHECKOUT ALTRI] Errore: Impossibile riscattare i punti senza un ID ordine valido');
-                // Non blocchiamo il checkout, ma logghiamo l'errore
-              } else {
-                console.log(`[CHECKOUT ALTRI] Inizia riscatto ${pointsToRedeem} punti per l'utente ${user.id}, ordine #${order.id}`);
-                
-                // Chiamata API per riscattare i punti
-                const pointsResponse = await redeemPoints(user.id, pointsToRedeem, order.id, token);
-                
-                if (pointsResponse && pointsResponse.success) {
-                  console.log(`[CHECKOUT ALTRI] Riscatto punti completato con successo: ${pointsToRedeem} punti per l'utente ${user.id}, ordine #${order.id}`);
-                  
-                  // Rimuovi i punti riscattati dal localStorage
-                  localStorage.removeItem('checkout_points_to_redeem');
-                  localStorage.removeItem('checkout_points_discount');
-                } else {
-                  console.error('[CHECKOUT ALTRI] Errore nella risposta API riscatto punti:', pointsResponse);
-                }
-              }
-            } else {
-              console.error('[CHECKOUT ALTRI] Token JWT mancante, impossibile riscattare i punti');
-            }
-          } catch (pointsError) {
-            console.error('[CHECKOUT ALTRI] Errore durante il riscatto dei punti:', pointsError);
-            // Non blocchiamo il checkout se il riscatto punti fallisce
-          }
-        }
+        // COMMENTATO PER TEST: I punti dovrebbero essere decrementati lato server
+        // if (pointsToRedeem > 0 && user) {
+        //   try {
+        //     const token = localStorage.getItem('woocommerce_token');
+        //     if (token && order.id) {
+        //       const pointsResponse = await redeemPoints(user.id, pointsToRedeem, order.id, token);
+        //       if (pointsResponse && pointsResponse.success) {
+        //         localStorage.removeItem('checkout_points_to_redeem');
+        //         localStorage.removeItem('checkout_points_discount');
+        //       }
+        //     }
+        //   } catch (pointsError) {
+        //     console.error('[CHECKOUT ALTRI] Errore durante il riscatto dei punti:', pointsError);
+        //   }
+        // }
         
         // Redirect to success page with order ID
         router.push(`/checkout/success?order_id=${order.id}`);
@@ -2944,23 +2907,23 @@ export default function CheckoutPage() {
                                         // Pulisci i dati di recovery PayPal dal sessionStorage
                                         sessionStorage.removeItem('paypal_checkout_data');
 
-                                        // Riscatta i punti se necessario
-                                        if (pointsToRedeem > 0 && user) {
-                                          try {
-                                            const token = localStorage.getItem('woocommerce_token');
-                                            if (token) {
-                                              await redeemPoints(user.id, pointsToRedeem, createData.orderId, token);
-                                              console.log(`Riscattati ${pointsToRedeem} punti per l'utente ${user.id}`);
+                                        // COMMENTATO PER TEST: I punti dovrebbero essere decrementati lato server
+                                        // if (pointsToRedeem > 0 && user) {
+                                        //   try {
+                                        //     const token = localStorage.getItem('woocommerce_token');
+                                        //     if (token) {
+                                        //       await redeemPoints(user.id, pointsToRedeem, createData.orderId, token);
+                                        //       console.log(`Riscattati ${pointsToRedeem} punti per l'utente ${user.id}`);
 
-                                              // Rimuovi i punti riscattati dal localStorage
-                                              localStorage.removeItem('checkout_points_to_redeem');
-                                              localStorage.removeItem('checkout_points_discount');
-                                            }
-                                          } catch (pointsError) {
-                                            console.error('Errore durante il riscatto dei punti:', pointsError);
-                                            // Non blocchiamo il checkout se il riscatto punti fallisce
-                                          }
-                                        }
+                                        //       // Rimuovi i punti riscattati dal localStorage
+                                        //       localStorage.removeItem('checkout_points_to_redeem');
+                                        //       localStorage.removeItem('checkout_points_discount');
+                                        //     }
+                                        //   } catch (pointsError) {
+                                        //     console.error('Errore durante il riscatto dei punti:', pointsError);
+                                        //     // Non blocchiamo il checkout se il riscatto punti fallisce
+                                        //   }
+                                        // }
 
                                         // Salva gli indirizzi dell'utente
                                         await saveAddressData();

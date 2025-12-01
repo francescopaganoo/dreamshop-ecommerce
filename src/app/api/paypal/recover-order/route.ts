@@ -187,16 +187,8 @@ export async function POST(request: NextRequest) {
           value: 'yes'
         }
       ],
-      // Aggiungi sconto punti se presente
-      fee_lines: [
-        ...((typedOrderData.fee_lines as Array<{name: string; total: string; tax_class?: string; tax_status?: string}>) || []),
-        ...(pointsDiscount > 0 ? [{
-          name: 'Sconto Punti DreamShop',
-          total: String(-pointsDiscount),
-          tax_class: '',
-          tax_status: 'none'
-        }] : [])
-      ]
+      // NOTA: Lo sconto punti è già incluso nelle fee_lines di orderData dal checkout
+      fee_lines: (typedOrderData.fee_lines as Array<{name: string; total: string; tax_class?: string; tax_status?: string}>) || []
     };
 
     try {
