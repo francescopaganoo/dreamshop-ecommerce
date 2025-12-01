@@ -30,21 +30,6 @@ export default function SaleCountdown({ saleEndDate, saleStartDate, className = 
       // Parse la data di fine offerta
       let endDateObj = new Date(saleEndDate);
 
-      // DEBUG: Log per capire cosa arriva dall'API
-      if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
-        console.log('🔍 SaleCountdown DEBUG:', {
-          saleEndDate,
-          saleStartDate,
-          endDateParsed: endDateObj.toISOString(),
-          endDateLocal: endDateObj.toString(),
-          hours: endDateObj.getHours(),
-          minutes: endDateObj.getMinutes(),
-          seconds: endDateObj.getSeconds(),
-          nowISO: new Date(now).toISOString(),
-          nowLocal: new Date(now).toString()
-        });
-      }
-
       // Fix per offerte senza data di inizio:
       // WooCommerce salva la data come inizio giornata invece di fine giornata
       // Quando non c'è saleStartDate, aggiungiamo 1 giorno completo meno 1 secondo
