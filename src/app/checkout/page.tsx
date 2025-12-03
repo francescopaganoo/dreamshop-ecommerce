@@ -9,7 +9,7 @@ import { PayPalButtons, usePayPalScriptReducer } from '@paypal/react-paypal-js';
 import Link from 'next/link';
 import AppleGooglePayCheckout from '@/components/checkout/AppleGooglePayCheckout';
 import GiftCardCartWidget from '@/components/GiftCardCartWidget';
-import { createOrder, createCustomer, getShippingMethods, ShippingMethod, getUserAddresses, saveUserAddresses, getProductShippingClassId } from '../../lib/api';
+import { createOrder, getShippingMethods, ShippingMethod, getUserAddresses, saveUserAddresses, getProductShippingClassId } from '../../lib/api';
 import { getAvailableCountries, CountryOption } from '../../lib/countries';
 
 export default function CheckoutPage() {
@@ -766,63 +766,98 @@ export default function CheckoutPage() {
       return;
     }
 
+    // === CREAZIONE ACCOUNT (se richiesto) ===
+    // Creiamo l'account PRIMA di qualsiasi operazione di pagamento
+    // così abbiamo il customer_id da associare all'ordine
+    let newCustomerId: number | null = null;
+
+    if (!isAuthenticated && formData.createAccount && formData.password) {
+      setIsSubmitting(true);
+      setFormError(null);
+
+      try {
+        const billingData = {
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          address_1: formData.address1,
+          address_2: formData.address2 || '',
+          city: formData.city,
+          state: formData.state,
+          postcode: formData.postcode,
+          country: formData.country,
+          email: formData.email,
+          phone: formData.phone,
+        };
+
+        const shippingData = formData.shipToDifferentAddress ? {
+          first_name: formData.shippingFirstName,
+          last_name: formData.shippingLastName,
+          address_1: formData.shippingAddress1,
+          address_2: formData.shippingAddress2 || '',
+          city: formData.shippingCity,
+          state: formData.shippingState,
+          postcode: formData.shippingPostcode,
+          country: formData.shippingCountry,
+        } : {
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          address_1: formData.address1,
+          address_2: formData.address2 || '',
+          city: formData.city,
+          state: formData.state,
+          postcode: formData.postcode,
+          country: formData.country,
+        };
+
+        console.log('[CHECKOUT] Creazione account prima del pagamento...');
+
+        const createAccountResponse = await fetch('/api/customer/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password,
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+            billing: billingData,
+            shipping: shippingData
+          })
+        });
+
+        const createAccountData = await createAccountResponse.json();
+
+        if (!createAccountResponse.ok || !createAccountData.success) {
+          setFormError(createAccountData.error || 'Errore nella creazione dell\'account. Riprova.');
+          setIsSubmitting(false);
+          return;
+        }
+
+        newCustomerId = createAccountData.customer.id;
+        console.log('[CHECKOUT] Account creato con successo, customer_id:', newCustomerId);
+
+      } catch (error) {
+        console.error('[CHECKOUT] Errore nella creazione account:', error);
+        setFormError('Errore nella creazione dell\'account. Riprova.');
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
+    // Determina il customer_id da usare per l'ordine:
+    // 1. Se abbiamo appena creato un account, usa newCustomerId
+    // 2. Se l'utente è già autenticato, usa user.id
+    // 3. Altrimenti è un guest (0)
+    const customerIdForOrder = newCustomerId || (isAuthenticated && user ? parseInt(String(user.id), 10) : 0);
+    console.log('[CHECKOUT] Customer ID per ordine:', customerIdForOrder);
+
     // Gestione ordini gratuiti (totale = €0)
     if (isFreeOrder) {
       setIsSubmitting(true);
       setFormError(null);
 
       try {
-        // Crea l'account se necessario
-        let customerIdForOrder = 0;
-
-        if (!isAuthenticated && formData.createAccount) {
-          try {
-            const newCustomer = await createCustomer({
-              email: formData.email,
-              first_name: formData.firstName,
-              last_name: formData.lastName,
-              password: formData.password,
-              billing: {
-                first_name: formData.firstName,
-                last_name: formData.lastName,
-                address_1: formData.address1,
-                address_2: formData.address2,
-                city: formData.city,
-                state: formData.state,
-                postcode: formData.postcode,
-                country: formData.country,
-                email: formData.email,
-                phone: formData.phone,
-              },
-              shipping: formData.shipToDifferentAddress ? {
-                first_name: formData.shippingFirstName,
-                last_name: formData.shippingLastName,
-                address_1: formData.shippingAddress1,
-                address_2: formData.shippingAddress2,
-                city: formData.shippingCity,
-                state: formData.shippingState,
-                postcode: formData.shippingPostcode,
-                country: formData.shippingCountry,
-              } : {
-                first_name: formData.firstName,
-                last_name: formData.lastName,
-                address_1: formData.address1,
-                address_2: formData.address2,
-                city: formData.city,
-                state: formData.state,
-                postcode: formData.postcode,
-                country: formData.country,
-              },
-            });
-
-            customerIdForOrder = newCustomer.id;
-          } catch (error: unknown) {
-            console.error('Errore nella creazione del cliente:', error);
-            throw error;
-          }
-        } else if (isAuthenticated && user) {
-          customerIdForOrder = parseInt(String(user.id), 10);
-
+        // Salva gli indirizzi dell'utente se autenticato
+        if (isAuthenticated && user) {
           // Salva gli indirizzi dell'utente
           const token = localStorage.getItem('woocommerce_token');
           if (token) {
@@ -1109,17 +1144,13 @@ export default function CheckoutPage() {
           phone: formData.shippingPhone
         } : billingInfo;
         
-        // Recupera l'ID utente dalla form state per associarlo all'ordine
-        const userIdFromForm = formData.userId || 0;
-        
-        
         // Prepara i dati dell'ordine
         const orderData = {
           payment_method: 'paypal',
           payment_method_title: 'PayPal',
           set_paid: false,
-          // Assegna esplicitamente l'ID utente se autenticato
-          customer_id: isAuthenticated ? userIdFromForm : 0,
+          // Usa customerIdForOrder che include anche i nuovi account creati durante il checkout
+          customer_id: customerIdForOrder,
           customer_note: formData.notes,
           billing: billingInfo,
           shipping: shippingInfo,
@@ -1311,27 +1342,7 @@ export default function CheckoutPage() {
       // Se il metodo di pagamento è Stripe, gestisci il pagamento con Stripe Elements
       if (formData.paymentMethod === 'stripe') {
         setIsStripeLoading(true);
-        
-        
-        // Se l'utente vuole creare un account, crealo prima dell'ordine
-        let customerId = undefined;
-        if (formData.createAccount && formData.password && !isAuthenticated) {
-          try {
-            const customer = await createCustomer({
-              email: formData.email,
-              password: formData.password,
-              first_name: formData.firstName,
-              last_name: formData.lastName,
-              billing: billingInfo,
-              shipping: shippingInfo
-            });
-            customerId = customer.id;
-          } catch (customerError) {
-            console.error('[CHECKOUT STRIPE] Errore nella creazione del customer:', customerError);
-            // Continua comunque con l'ordine come guest
-          }
-        }
-        
+
         if (!stripe || !elements) {
           setCardError('Impossibile connettersi al sistema di pagamento. Riprova più tardi.');
           setIsStripeLoading(false);
@@ -1465,12 +1476,6 @@ export default function CheckoutPage() {
               return lineItem;
             });
             
-            // Ottieni l'ID utente direttamente dal form
-            // Questo valore è stato impostato nell'useEffect quando l'utente è stato autenticato
-            const userIdFromForm = formData.userId || 0;
-            
-
-            
             // Crea un ordine con il payment method ID
             const orderResponse = await fetch('/api/stripe/create-order-ios', {
               method: 'POST',
@@ -1495,9 +1500,8 @@ export default function CheckoutPage() {
                 line_items,
                 shipping: shipping || 0,
                 notes: formData.notes,
-                // Passa l'ID utente salvato nel form
-                directCustomerId: userIdFromForm,
-                isAuthenticated: isAuthenticated,
+                // Passa l'ID utente (include nuovi account creati durante checkout)
+                directCustomerId: customerIdForOrder,
                 // Aggiungi le informazioni sui punti da riscattare
                 pointsToRedeem: pointsToRedeem > 0 ? pointsToRedeem : 0,
                 token: localStorage.getItem('woocommerce_token') || '',
@@ -1666,7 +1670,7 @@ export default function CheckoutPage() {
           payment_method: 'stripe',
           payment_method_title: 'Carta di Credito (Stripe)',
           set_paid: false,
-          customer_id: customerId || (isAuthenticated && user ? user.id : 0),
+          customer_id: customerIdForOrder,
           customer_note: formData.notes,
           billing: billingInfo,
           shipping: shippingInfo,
@@ -1850,31 +1854,6 @@ export default function CheckoutPage() {
 
         console.log('Inizializzazione pagamento con Klarna...');
 
-        // Se l'utente vuole creare un account, crealo prima del pagamento
-        let customerId = undefined;
-        if (formData.createAccount && formData.password && !isAuthenticated) {
-          try {
-            const customerData = {
-              email: formData.email,
-              first_name: formData.firstName,
-              last_name: formData.lastName,
-              password: formData.password,
-              billing: billingInfo,
-              shipping: shippingInfo
-            };
-
-            const newCustomer = await createCustomer(customerData);
-            customerId = newCustomer.id;
-            console.log('Account cliente creato con successo per Klarna:', customerId);
-          } catch (error) {
-            console.error('Errore nella creazione dell\'account cliente per Klarna:', error);
-            setFormError('Si è verificato un errore durante la creazione dell\'account. Riprova con un\'altra email.');
-            setIsStripeLoading(false);
-            setIsSubmitting(false);
-            return;
-          }
-        }
-
         // Calcola i punti che saranno assegnati per questo ordine
         const couponDiscount = coupon ? discount : 0;
         const subtotalForPoints = subtotal - couponDiscount - pointsDiscount;
@@ -1905,7 +1884,7 @@ export default function CheckoutPage() {
           payment_method: 'klarna',
           payment_method_title: 'Klarna',
           set_paid: false,
-          customer_id: customerId || (isAuthenticated && user ? user.id : 0),
+          customer_id: customerIdForOrder,
           customer_note: formData.notes,
           billing: billingInfo,
           shipping: shippingInfo,
@@ -1942,7 +1921,7 @@ export default function CheckoutPage() {
             orderData: orderData,
             pointsToRedeem: pointsToRedeem > 0 ? pointsToRedeem : 0,
             pointsDiscount: pointsDiscount,
-            customerId: user?.id || 0
+            customerId: customerIdForOrder
           };
 
           sessionStorage.setItem('stripe_checkout_data', JSON.stringify(klarnaCheckoutData));
@@ -1989,31 +1968,6 @@ export default function CheckoutPage() {
 
         console.log('Inizializzazione pagamento con Satispay...');
 
-        // Se l'utente vuole creare un account, crealo prima dell'ordine
-        let customerId = undefined;
-        if (formData.createAccount && formData.password && !isAuthenticated) {
-          try {
-            const customerData = {
-              email: formData.email,
-              first_name: formData.firstName,
-              last_name: formData.lastName,
-              password: formData.password,
-              billing: billingInfo,
-              shipping: shippingInfo
-            };
-
-            const newCustomer = await createCustomer(customerData);
-            customerId = newCustomer.id;
-            console.log('Account cliente creato con successo per Satispay:', customerId);
-          } catch (error) {
-            console.error('Errore nella creazione dell\'account cliente per Satispay:', error);
-            setFormError('Si è verificato un errore durante la creazione dell\'account. Riprova con un\'altra email.');
-            setIsStripeLoading(false);
-            setIsSubmitting(false);
-            return;
-          }
-        }
-
         // Calcola i punti che saranno assegnati per questo ordine
         const couponDiscount = coupon ? discount : 0;
         const subtotalForPoints = subtotal - couponDiscount - pointsDiscount;
@@ -2044,7 +1998,7 @@ export default function CheckoutPage() {
           payment_method: 'satispay',
           payment_method_title: 'Satispay',
           set_paid: false,
-          customer_id: customerId || (isAuthenticated && user ? user.id : 0),
+          customer_id: customerIdForOrder,
           customer_note: formData.notes,
           billing: billingInfo,
           shipping: shippingInfo,
@@ -2111,8 +2065,7 @@ export default function CheckoutPage() {
           // Aggiungi fee_lines per lo sconto punti
           fee_lines: satispayFeeLines,
           meta_data: [
-            ...(customerId ? [{ key: '_customer_user', value: customerId.toString() }] : []),
-            ...(isAuthenticated && user?.id ? [{ key: '_customer_user', value: user.id.toString() }] : []),
+            ...(customerIdForOrder ? [{ key: '_customer_user', value: customerIdForOrder.toString() }] : []),
             { key: '_checkout_payment_method', value: 'satispay' },
             { key: '_points_discount', value: pointsDiscount.toString() }
           ]
@@ -2139,7 +2092,7 @@ export default function CheckoutPage() {
             amount: Math.round(total * 100),
             pointsToRedeem,
             pointsDiscount,
-            customerId: customerId || (isAuthenticated && user ? user.id : undefined),
+            customerId: customerIdForOrder,
             orderDescription
           };
 
@@ -2193,11 +2146,8 @@ export default function CheckoutPage() {
         userObject: user
       } : 'Non autenticato');
       
-      // Prepara l'ID utente esplicitamente
-      const customerIdForOrder = isAuthenticated && user && user.id ? parseInt(String(user.id), 10) : 0;
-      
-      // Log esplicito dell'ID utente prima di creazione ordine
-      console.log('CHECKOUT DEBUG - ID UTENTE IMPOSTATO ESPLICITAMENTE:', customerIdForOrder);
+      // Log esplicito dell'ID utente prima di creazione ordine (customerIdForOrder è già definito sopra)
+      console.log('CHECKOUT DEBUG - ID UTENTE PER ORDINE:', customerIdForOrder);
 
       // Calcola i punti che saranno assegnati per questo ordine
       const couponDiscount = coupon ? discount : 0;
@@ -2256,51 +2206,14 @@ export default function CheckoutPage() {
         ]
       };
 
-      // Se l'utente ha selezionato di creare un account, registralo prima di creare l'ordine
-      let userId = null;
-      if (!isAuthenticated && formData.createAccount) {
-        try {
-          const registerResponse = await fetch('/api/auth/register', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              email: formData.email,
-              password: formData.password,
-              firstName: formData.firstName,
-              lastName: formData.lastName,
-              username: formData.email
-            }),
-          });
-          
-          if (!registerResponse.ok) {
-            throw new Error('Registrazione fallita');
-          }
-          
-          const registerData = await registerResponse.json();
-          userId = registerData.user.id;
-          
-          // Aggiorna l'ID cliente nell'ordine
-          orderData.customer_id = userId;
-        } catch (error) {
-          console.error('Errore durante la registrazione dell\'utente:', error);
-          setFormError('Si è verificato un errore durante la creazione dell\'account. L\'ordine verrà processato come ospite.');
-          // Continua con l'ordine anche se la registrazione fallisce
-        }
-      }
-      
-      // Prepariamo l'ID utente da passare separatamente
-      const userIdForWooCommerce = isAuthenticated && user && user.id ? parseInt(String(user.id), 10) : 0;
-      
       // Log dettagliato dell'orderData prima di inviare a WooCommerce
       console.log('CHECKOUT DEBUG - Dati ordine inviati a WooCommerce:', {
-        customer_id_separato: userIdForWooCommerce, // ID che passeremo separatamente
+        customer_id: orderData.customer_id,
         payment_method: orderData.payment_method,
         email: orderData.billing?.email
       });
 
-      // Send the order to WooCommerce (l'ID utente viene recuperato direttamente nella funzione)
+      // Send the order to WooCommerce
       const order = await createOrder(orderData);
       
       // Log della risposta (con type safety)
