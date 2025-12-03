@@ -6,6 +6,7 @@ export async function POST(request: NextRequest) {
     const data = await request.json();
     const {
       paypalOrderId,
+      paypalTransactionId,
       productId,
       quantity,
       userId,
@@ -19,6 +20,9 @@ export async function POST(request: NextRequest) {
       variationId,
       variationAttributes
     } = data;
+
+    // Usa il transaction ID se disponibile, altrimenti fallback all'order ID
+    const transactionId = paypalTransactionId || paypalOrderId;
     
 
 
@@ -94,7 +98,7 @@ export async function POST(request: NextRequest) {
     // Crea l'ordine WooCommerce con i dati reali di PayPal
     const orderData = {
       payment_method: 'paypal',
-      payment_method_title: 'PayPal Express Checkout',
+      payment_method_title: `PayPal (${transactionId})`,
       set_paid: true, // L'ordine è già pagato tramite PayPal
       status: 'processing', // Stato processing perché già pagato
       customer_id: userId || 0,
@@ -138,8 +142,12 @@ export async function POST(request: NextRequest) {
       ],
       meta_data: [
         {
-          key: '_paypal_transaction_id',
+          key: '_paypal_order_id',
           value: paypalOrderId
+        },
+        {
+          key: '_paypal_transaction_id',
+          value: transactionId
         },
         {
           key: '_paypal_express_checkout',

@@ -221,10 +221,16 @@ export default function PayPalExpressButton({
   const onApprove = async (data: any, actions: any) => {
     try {
       setIsProcessing(true);
-      
+
       // Cattura il pagamento PayPal
       const orderDetails = await actions.order.capture();
-      
+
+      // Estrai il Transaction ID dalla cattura (come nel checkout normale)
+      const transactionId = orderDetails.purchase_units?.[0]?.payments?.captures?.[0]?.id || data.orderID;
+
+      console.log('💳 [PayPal Express] Order ID:', data.orderID);
+      console.log('💳 [PayPal Express] Transaction ID:', transactionId);
+
       // Estrai i dati dell'acquirente da PayPal
       const payer = orderDetails.payer;
       const shipping = orderDetails.purchase_units[0]?.shipping;
@@ -272,6 +278,7 @@ export default function PayPalExpressButton({
         },
         body: JSON.stringify({
           paypalOrderId: data.orderID,
+          paypalTransactionId: transactionId,
           paypalOrderDetails: orderDetails,
           productId: product.id,
           quantity: quantity,
