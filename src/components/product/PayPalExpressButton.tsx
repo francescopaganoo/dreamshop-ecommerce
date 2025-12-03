@@ -228,9 +228,6 @@ export default function PayPalExpressButton({
       // Estrai il Transaction ID dalla cattura (come nel checkout normale)
       const transactionId = orderDetails.purchase_units?.[0]?.payments?.captures?.[0]?.id || data.orderID;
 
-      console.log('💳 [PayPal Express] Order ID:', data.orderID);
-      console.log('💳 [PayPal Express] Transaction ID:', transactionId);
-
       // Estrai i dati dell'acquirente da PayPal
       const payer = orderDetails.payer;
       const shipping = orderDetails.purchase_units[0]?.shipping;

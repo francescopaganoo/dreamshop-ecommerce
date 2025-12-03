@@ -3300,16 +3300,10 @@ export async function getFilteredProductsPlugin(filters: {
       meta_data: []
     }));
 
-    // Applica filtro multi-parola per la ricerca
-    // Es: "levi wawa" troverà "Levi Ackerman Wawa Studio"
-    if (filters.search && filters.search.trim().length > 0) {
-      products = products.filter(product => matchesAllWords(product.name, filters.search!));
-    }
-
     return {
       products,
-      total: filters.search ? products.length : data.data.total,
-      total_pages: filters.search ? Math.ceil(products.length / (filters.per_page || 12)) : data.data.total_pages
+      total: data.data.total,
+      total_pages: data.data.total_pages
     };
 
   } catch (error) {
