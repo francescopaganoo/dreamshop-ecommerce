@@ -3260,7 +3260,7 @@ export async function getFilteredProductsPlugin(filters: {
     }
 
     // Convert plugin format to expected format
-    let products: Product[] = data.data.products.map((product: {
+    const products: Product[] = data.data.products.map((product: {
       id: string;
       name: string;
       slug: string;
