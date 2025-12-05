@@ -1,6 +1,6 @@
 'use client';
 
-import { getFilteredProductsPlugin, getFilterOptionsPlugin, Product, Brand, AttributeValue } from '../../lib/api';
+import { getFilteredProductsPlugin, getFilterOptionsPlugin, Product, Brand, AttributeValue, matchesAllWords } from '../../lib/api';
 import ProductCard from '../../components/ProductCard';
 import CategorySidebar from '../../components/CategorySidebar';
 import MobileFilterButton from '../../components/MobileFilterButton';
@@ -163,26 +163,74 @@ function SearchPageContent() {
         const minPrice = minPriceParam ? parseInt(minPriceParam, 10) : undefined;
         const maxPrice = maxPriceParam ? parseInt(maxPriceParam, 10) : undefined;
 
-        // Build filters object for plugin
-        const filters = {
-          search: searchQuery,
-          brands: selectedBrandSlugs.length > 0 ? selectedBrandSlugs : undefined,
-          availability: selectedAvailabilitySlugs.length > 0 ? selectedAvailabilitySlugs : undefined,
-          shipping: selectedShippingTimeSlugs.length > 0 ? selectedShippingTimeSlugs : undefined,
-          min_price: minPrice,
-          max_price: maxPrice,
-          exclude_sold_out: excludeSoldOut,
-          page,
-          per_page: perPage,
-          orderby: 'date',
-          order: 'desc'
-        };
+        // Per ricerche multi-parola, usa ogni parola separatamente per la ricerca API
+        // poi filtra i risultati lato client per trovare i prodotti che matchano tutte le parole
+        const searchWords = searchQuery.trim().split(/\s+/).filter(word => word.length > 0);
+        const isMultiWordSearch = searchWords.length > 1;
 
-        // Get products using plugin
-        const productsResponse = await getFilteredProductsPlugin(filters);
+        let allProducts: Product[] = [];
 
-        setProducts(productsResponse.products);
-        setTotalProducts(productsResponse.total);
+        if (isMultiWordSearch) {
+          // Cerca con ogni parola separatamente e combina i risultati
+          const searchPromises = searchWords.map(word =>
+            getFilteredProductsPlugin({
+              search: word,
+              brands: selectedBrandSlugs.length > 0 ? selectedBrandSlugs : undefined,
+              availability: selectedAvailabilitySlugs.length > 0 ? selectedAvailabilitySlugs : undefined,
+              shipping: selectedShippingTimeSlugs.length > 0 ? selectedShippingTimeSlugs : undefined,
+              min_price: minPrice,
+              max_price: maxPrice,
+              exclude_sold_out: excludeSoldOut,
+              per_page: 100, // Fetch more to have enough for filtering
+              orderby: 'date',
+              order: 'desc'
+            })
+          );
+
+          const results = await Promise.all(searchPromises);
+
+          // Combina tutti i prodotti e rimuovi duplicati
+          const productMap = new Map<number, Product>();
+          results.forEach(result => {
+            result.products.forEach(product => {
+              productMap.set(product.id, product);
+            });
+          });
+          allProducts = Array.from(productMap.values());
+        } else {
+          // Ricerca singola parola - usa il comportamento normale
+          const filters = {
+            search: searchQuery,
+            brands: selectedBrandSlugs.length > 0 ? selectedBrandSlugs : undefined,
+            availability: selectedAvailabilitySlugs.length > 0 ? selectedAvailabilitySlugs : undefined,
+            shipping: selectedShippingTimeSlugs.length > 0 ? selectedShippingTimeSlugs : undefined,
+            min_price: minPrice,
+            max_price: maxPrice,
+            exclude_sold_out: excludeSoldOut,
+            page,
+            per_page: perPage,
+            orderby: 'date',
+            order: 'desc'
+          };
+          const productsResponse = await getFilteredProductsPlugin(filters);
+          allProducts = productsResponse.products;
+        }
+
+        // Filtra i prodotti usando la ricerca multi-parola lato client
+        const filteredProducts = allProducts.filter(product =>
+          matchesAllWords(product.name, searchQuery)
+        );
+
+        // Per ricerche multi-parola, applica la paginazione lato client
+        if (isMultiWordSearch) {
+          const startIndex = (page - 1) * perPage;
+          const paginatedProducts = filteredProducts.slice(startIndex, startIndex + perPage);
+          setProducts(paginatedProducts);
+          setTotalProducts(filteredProducts.length);
+        } else {
+          setProducts(filteredProducts);
+          setTotalProducts(filteredProducts.length);
+        }
       } catch (error) {
         console.error('Error fetching search results:', error);
       } finally {

@@ -1201,7 +1201,7 @@ export async function getProductsByBrandSlug(brandSlug: string, page = 1, per_pa
 }
 
 // Funzione per normalizzare caratteri accentati per la ricerca
-function normalizeSearchTerm(text: string): string {
+export function normalizeSearchTerm(text: string): string {
   return text
     .toLowerCase()
     .normalize('NFD') // Decompone i caratteri accentati
@@ -1219,7 +1219,7 @@ function normalizeSearchTerm(text: string): string {
 
 // Funzione per verificare se tutte le parole della query sono presenti nel testo
 // Esempio: "levi wawa" matcha "Levi Ackerman Wawa Studio" perché contiene sia "levi" che "wawa"
-function matchesAllWords(productName: string, searchQuery: string): boolean {
+export function matchesAllWords(productName: string, searchQuery: string): boolean {
   const normalizedProductName = normalizeSearchTerm(productName);
   const searchWords = normalizeSearchTerm(searchQuery)
     .split(/\s+/)
