@@ -47,8 +47,19 @@ interface WooCommerceOrder {
   currency: string;
   discount_total?: string;
   shipping_total?: string;
+  customer_note?: string;
   // Index signature for any other properties that might exist
   [key: string]: unknown;
+}
+
+// Interface for WooCommerce Order Note
+interface WooCommerceOrderNote {
+  id: number;
+  author: string;
+  date_created: string;
+  date_created_gmt: string;
+  note: string;
+  customer_note: boolean;
 }
 
 // Chiave segreta per verificare i token JWT (in produzione, usare una variabile d'ambiente)
@@ -111,6 +122,18 @@ export async function GET(
     }
 
 
+    // Recupera le note cliente dell'ordine
+    let customerNotes: WooCommerceOrderNote[] = [];
+    try {
+      const notesResponse = await api.get(`orders/${orderId}/notes`);
+      const allNotes = notesResponse.data as WooCommerceOrderNote[];
+      // Filtra solo le note cliente (customer_note = true)
+      customerNotes = allNotes.filter(note => note.customer_note === true);
+    } catch (error) {
+      console.error('Errore nel recupero delle note ordine:', error);
+      // Non blocchiamo se le note non sono disponibili
+    }
+
     // Arricchisci i line_items con le immagini dei prodotti
     const enrichedLineItems = await Promise.all(
       order.line_items.map(async (item) => {
@@ -145,10 +168,11 @@ export async function GET(
       })
     );
 
-    // Restituisci i dettagli dell'ordine con le immagini
+    // Restituisci i dettagli dell'ordine con le immagini e le note cliente
     const enrichedOrder = {
       ...order,
-      line_items: enrichedLineItems
+      line_items: enrichedLineItems,
+      customer_notes: customerNotes
     };
 
     return NextResponse.json(enrichedOrder);

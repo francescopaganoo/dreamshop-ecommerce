@@ -7,6 +7,15 @@ import Image from 'next/image';
 import { useAuth } from '../../../../context/AuthContext';
 
 
+// Interfaccia per le note cliente
+interface OrderNote {
+  id: number;
+  author: string;
+  date_created: string;
+  note: string;
+  customer_note: boolean;
+}
+
 // Interfaccia per l'ordine
 interface Order {
   id: number;
@@ -52,6 +61,7 @@ interface Order {
       alt: string;
     };
   }>;
+  customer_notes?: OrderNote[];
 }
 
 export default function OrderDetailPage() {
@@ -295,6 +305,23 @@ export default function OrderDetailPage() {
                     </address>
                   </div>
                 </div>
+
+                {/* Note Cliente */}
+                {order.customer_notes && order.customer_notes.length > 0 && (
+                  <div className="bg-white rounded-lg shadow-md p-6">
+                    <h2 className="text-xl font-semibold mb-4 text-gray-600">Note ordine</h2>
+                    <div className="space-y-4">
+                      {order.customer_notes.map(note => (
+                        <div key={note.id} className="p-4 bg-blue-50 rounded-lg border-l-4 border-blue-400">
+                          <p className="text-gray-700 whitespace-pre-wrap">{note.note}</p>
+                          <p className="text-sm text-gray-500 mt-2">
+                            {formatDate(note.date_created)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           ) : (
