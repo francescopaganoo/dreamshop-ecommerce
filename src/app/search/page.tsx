@@ -169,6 +169,7 @@ function SearchPageContent() {
         const isMultiWordSearch = searchWords.length > 1;
 
         let allProducts: Product[] = [];
+        let apiTotal = 0;
 
         if (isMultiWordSearch) {
           // Cerca con ogni parola separatamente e combina i risultati
@@ -214,6 +215,7 @@ function SearchPageContent() {
           };
           const productsResponse = await getFilteredProductsPlugin(filters);
           allProducts = productsResponse.products;
+          apiTotal = productsResponse.total; // Usa il totale dall'API
         }
 
         // Filtra i prodotti usando la ricerca multi-parola lato client
@@ -228,8 +230,9 @@ function SearchPageContent() {
           setProducts(paginatedProducts);
           setTotalProducts(filteredProducts.length);
         } else {
+          // Per ricerche singola parola, usa il totale dall'API per la paginazione corretta
           setProducts(filteredProducts);
-          setTotalProducts(filteredProducts.length);
+          setTotalProducts(apiTotal);
         }
       } catch (error) {
         console.error('Error fetching search results:', error);
