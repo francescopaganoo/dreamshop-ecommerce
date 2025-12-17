@@ -125,13 +125,33 @@ export async function POST(request: NextRequest) {
     // Usiamo direttamente le fee_lines senza aggiungere duplicati
     const feeLines = (typedOrderData.fee_lines as Array<{name: string; total: string; tax_class?: string; tax_status?: string}>) || [];
 
+    // Controlla se ci sono prodotti con acconto nei line_items
+    const lineItems = (typedOrderData.line_items as Array<{
+      product_id: number;
+      quantity: number;
+      meta_data?: Array<{key: string; value: string}>;
+    }>) || [];
+
+    const hasDeposit = lineItems.some(item =>
+      item.meta_data?.some(meta => meta.key === '_wc_convert_to_deposit' && meta.value === 'yes')
+    );
+
+    // Log dettagliato per debug
+    console.log(`[STRIPE-CARD] Ordine contiene acconti: ${hasDeposit}`);
+    console.log(`[STRIPE-CARD] Line items count: ${lineItems.length}`);
+    lineItems.forEach((item, index) => {
+      console.log(`[STRIPE-CARD] Item ${index}: product_id=${item.product_id}, meta_data=`, JSON.stringify(item.meta_data || []));
+    });
+
     const orderDataToSend = {
       ...typedOrderData,
       customer_id: userId,
       payment_method: 'stripe',
       payment_method_title: 'Carta di Credito (Stripe)',
       set_paid: true,
-      status: 'processing',
+      // BUGFIX: Per ordini con acconto, impostare direttamente 'partial-payment'
+      // per evitare ritardi causati dagli hook WP
+      status: hasDeposit ? 'partial-payment' : 'processing',
       transaction_id: paymentIntentId,
       meta_data: [
         ...((typedOrderData.meta_data as Array<{key: string; value: string}>) || []),

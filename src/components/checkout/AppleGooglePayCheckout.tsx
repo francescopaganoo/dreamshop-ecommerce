@@ -6,6 +6,7 @@ import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { getShippingMethods, ShippingAddress, ShippingMethod } from '@/lib/api';
+import { getDepositInfo, ProductWithDeposit } from '@/lib/deposits';
 
 // Dichiarazione tipo per ApplePaySession
 declare global {
@@ -302,15 +303,25 @@ export default function AppleGooglePayCheckout({
           onPaymentStart?.();
 
 
-          // Prepara i dati per l'API
+          // Prepara i dati per l'API con supporto per acconti/rate
           const orderData = {
-          cartItems: cart.map(item => ({
-            product_id: item.product.id,
-            variation_id: item.variation_id || null,
-            quantity: item.quantity,
-            name: item.product.name,
-            price: item.product.price
-          })),
+          cartItems: cart.map(item => {
+            // Check if item has deposit enabled
+            const depositInfo = getDepositInfo(item.product as unknown as ProductWithDeposit);
+
+            return {
+              product_id: item.product.id,
+              variation_id: item.variation_id || null,
+              quantity: item.quantity,
+              name: item.product.name,
+              price: item.product.price,
+              // Include deposit metadata if enabled
+              enableDeposit: depositInfo.hasDeposit ? 'yes' : 'no',
+              depositAmount: depositInfo.hasDeposit ? depositInfo.depositAmount.toString() : undefined,
+              depositType: depositInfo.hasDeposit ? depositInfo.depositType : undefined,
+              paymentPlanId: depositInfo.hasDeposit ? depositInfo.paymentPlanId : undefined
+            };
+          }),
           userId: user?.id || 0,
           paymentMethodId: ev.paymentMethod.id,
           shippingOption: ev.shippingOption,

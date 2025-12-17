@@ -19,6 +19,11 @@ interface CartItem {
   quantity: number;
   name: string;
   price: string;
+  // Deposit/installment fields
+  enableDeposit?: 'yes' | 'no';
+  depositAmount?: string;
+  depositType?: string;
+  paymentPlanId?: string;
 }
 
 interface AddressData {
@@ -72,6 +77,7 @@ export async function POST(request: NextRequest) {
     // Verifica la disponibilità di tutti i prodotti e calcola il totale
     let subtotal = 0;
     const verifiedItems = [];
+    let hasAnyDeposit = false; // Track if any item has deposit enabled
 
     for (const item of cartItems) {
       try {
@@ -93,7 +99,25 @@ export async function POST(request: NextRequest) {
           throw new Error(`Prezzo non valido per "${product.name}"`);
         }
 
-        const itemTotal = unitPrice * item.quantity;
+        // Check if this item has deposit enabled
+        const itemHasDeposit = item.enableDeposit === 'yes';
+        if (itemHasDeposit) {
+          hasAnyDeposit = true;
+        }
+
+        // Calculate item total (with deposit if enabled)
+        let itemTotal = unitPrice * item.quantity;
+        let itemSubtotal = itemTotal; // Original price for WooCommerce line_item
+
+        if (itemHasDeposit && item.depositAmount) {
+          const depositValue = parseFloat(item.depositAmount);
+          if (item.depositType === 'percent') {
+            itemTotal = itemTotal * (depositValue / 100);
+          } else {
+            itemTotal = depositValue * item.quantity;
+          }
+        }
+
         subtotal += itemTotal;
 
         verifiedItems.push({
@@ -101,13 +125,19 @@ export async function POST(request: NextRequest) {
           variation_id: item.variation_id || null,
           quantity: item.quantity,
           price: unitPrice.toString(),
-          total: itemTotal.toString()
+          total: itemTotal.toString(),
+          subtotal: itemSubtotal.toString(),
+          // Deposit metadata
+          enableDeposit: item.enableDeposit || 'no',
+          depositAmount: item.depositAmount,
+          depositType: item.depositType,
+          paymentPlanId: item.paymentPlanId
         });
 
       } catch (error) {
         console.error(`Errore verifica prodotto ${item.product_id}:`, error);
-        return NextResponse.json({ 
-          error: `Errore prodotto: ${error instanceof Error ? error.message : 'Prodotto non disponibile'}` 
+        return NextResponse.json({
+          error: `Errore prodotto: ${error instanceof Error ? error.message : 'Prodotto non disponibile'}`
         }, { status: 400 });
       }
     }
@@ -131,12 +161,46 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Totale ordine non valido' }, { status: 400 });
     }
 
-    // Prepara i line items per WooCommerce
-    const lineItems = verifiedItems.map(item => ({
-      product_id: item.product_id,
-      variation_id: item.variation_id || undefined,
-      quantity: item.quantity
-    }));
+    // Prepara i line items per WooCommerce con supporto per acconti
+    const lineItems = verifiedItems.map(item => {
+      const baseLineItem: {
+        product_id: number;
+        variation_id?: number;
+        quantity: number;
+        subtotal?: string;
+        total?: string;
+        meta_data?: Array<{ key: string; value: string }>;
+      } = {
+        product_id: item.product_id,
+        quantity: item.quantity
+      };
+
+      // Add variation_id if present
+      if (item.variation_id) {
+        baseLineItem.variation_id = item.variation_id;
+      }
+
+      // If deposit is enabled, add deposit metadata
+      if (item.enableDeposit === 'yes') {
+        baseLineItem.subtotal = item.total; // Deposit amount
+        baseLineItem.total = item.total; // Deposit amount
+        baseLineItem.meta_data = [
+          { key: '_wc_convert_to_deposit', value: 'yes' },
+          { key: '_wc_deposit_type', value: item.depositType || 'percent' },
+          { key: '_wc_deposit_amount', value: item.depositAmount || '40' }
+        ];
+
+        // Add payment plan if present
+        if (item.paymentPlanId) {
+          baseLineItem.meta_data.push(
+            { key: '_wc_payment_plan', value: item.paymentPlanId },
+            { key: '_deposit_payment_plan', value: item.paymentPlanId }
+          );
+        }
+      }
+
+      return baseLineItem;
+    });
 
     // Prepara le linee di spedizione
     const shippingLines = [];
@@ -232,7 +296,8 @@ export async function POST(request: NextRequest) {
           subtotal: subtotal.toString(),
           discount: discount.toString(),
           shipping_cost: shippingCost.toString(),
-          payment_source: 'payment_request_cart'
+          payment_source: 'payment_request_cart',
+          enable_deposit: hasAnyDeposit ? 'yes' : 'no' // ← IMPORTANTE per il webhook
         }
       });
 
@@ -270,12 +335,22 @@ export async function POST(request: NextRequest) {
       console.log(`[PAYMENT-REQUEST-CART] Step 6: Payment succeeded, updating order #${order.id}`);
 
       try {
-        await WooCommerce.put(`orders/${order.id}`, {
-          status: 'processing',
-          set_paid: true,
-          transaction_id: paymentIntent.id
-        });
-        console.log(`[PAYMENT-REQUEST-CART] Order #${order.id} marked as paid`);
+        // BUGFIX: Per ordini con acconto, NON cambiare lo stato a 'processing'
+        // Lo stato deve rimanere 'partial-payment' perché è solo la prima rata
+        if (hasAnyDeposit) {
+          await WooCommerce.put(`orders/${order.id}`, {
+            set_paid: true,
+            transaction_id: paymentIntent.id
+          });
+          console.log(`[PAYMENT-REQUEST-CART] Order #${order.id} deposit paid, status remains partial-payment`);
+        } else {
+          await WooCommerce.put(`orders/${order.id}`, {
+            status: 'processing',
+            set_paid: true,
+            transaction_id: paymentIntent.id
+          });
+          console.log(`[PAYMENT-REQUEST-CART] Order #${order.id} marked as paid (processing)`);
+        }
       } catch (updateError) {
         console.error(`[PAYMENT-REQUEST-CART] Warning: Failed to update order #${order.id}, webhook will handle it:`, updateError);
         // Non lanciare errore qui: il webhook può recuperare

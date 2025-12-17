@@ -317,12 +317,26 @@ export async function POST(request: NextRequest) {
               const { orderData } = storedData;
               const baseOrderData = orderData as Record<string, unknown>;
 
+              // Controlla se ci sono prodotti con acconto nei line_items
+              const lineItems = (baseOrderData.line_items as Array<{
+                product_id: number;
+                quantity: number;
+                meta_data?: Array<{key: string; value: string}>;
+              }>) || [];
+
+              const hasDeposit = lineItems.some(item =>
+                item.meta_data?.some(meta => meta.key === '_wc_convert_to_deposit' && meta.value === 'yes')
+              );
+
+              console.log(`[WEBHOOK] iOS - Ordine contiene acconti: ${hasDeposit}`);
+
               const response = await api.post('orders', {
                 ...baseOrderData,
                 payment_method: 'stripe',
                 payment_method_title: 'Carta di Credito (Stripe)',
                 set_paid: true,
-                status: 'processing',
+                // BUGFIX: Per ordini con acconto, impostare direttamente 'partial-payment'
+                status: hasDeposit ? 'partial-payment' : 'processing',
                 transaction_id: paymentIntent.id,
                 meta_data: [
                   ...(baseOrderData.meta_data as unknown[] || []),
@@ -397,13 +411,27 @@ export async function POST(request: NextRequest) {
       // Type-safe spread
       const baseOrderData = orderData as Record<string, unknown>;
 
+      // Controlla se ci sono prodotti con acconto nei line_items
+      const lineItemsForDeposit = (baseOrderData.line_items as Array<{
+        product_id: number;
+        quantity: number;
+        meta_data?: Array<{key: string; value: string}>;
+      }>) || [];
+
+      const hasDepositInOrder = lineItemsForDeposit.some(item =>
+        item.meta_data?.some(meta => meta.key === '_wc_convert_to_deposit' && meta.value === 'yes')
+      );
+
+      console.log(`[WEBHOOK] Stripe normal - Ordine contiene acconti: ${hasDepositInOrder}`);
+
       // Prepara i dati dell'ordine WooCommerce
       const orderDataToSend: Record<string, unknown> = {
         ...baseOrderData,
         payment_method: 'stripe',
         payment_method_title: 'Carta di Credito (Stripe)',
         set_paid: true,
-        status: 'processing',
+        // BUGFIX: Per ordini con acconto, impostare direttamente 'partial-payment'
+        status: hasDepositInOrder ? 'partial-payment' : 'processing',
         transaction_id: paymentIntent.id,
         meta_data: [
           ...(baseOrderData.meta_data as unknown[] || []),
