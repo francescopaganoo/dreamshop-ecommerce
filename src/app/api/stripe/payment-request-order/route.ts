@@ -294,12 +294,25 @@ export async function POST(request: NextRequest) {
       console.log(`[PAYMENT-REQUEST] Step 6: Payment succeeded, updating order #${order.id}`);
 
       try {
-        await WooCommerce.put(`orders/${order.id}`, {
-          status: 'processing',
-          set_paid: true,
-          transaction_id: paymentIntent.id
-        });
-        console.log(`[PAYMENT-REQUEST] Order #${order.id} marked as paid`);
+        // BUGFIX: Per ordini con acconto, NON cambiare lo stato a 'processing'
+        // Lo stato deve rimanere 'partial-payment' perché è solo la prima rata
+        if (enableDeposit === 'yes') {
+          // Per ordini con rate, aggiorna solo il transaction_id e set_paid
+          // Lo stato 'partial-payment' è già stato impostato dagli hook WP
+          await WooCommerce.put(`orders/${order.id}`, {
+            set_paid: true,
+            transaction_id: paymentIntent.id
+          });
+          console.log(`[PAYMENT-REQUEST] Order #${order.id} deposit paid, status remains partial-payment`);
+        } else {
+          // Per ordini normali (senza rate), imposta 'processing'
+          await WooCommerce.put(`orders/${order.id}`, {
+            status: 'processing',
+            set_paid: true,
+            transaction_id: paymentIntent.id
+          });
+          console.log(`[PAYMENT-REQUEST] Order #${order.id} marked as paid (processing)`);
+        }
       } catch (updateError) {
         console.error(`[PAYMENT-REQUEST] Warning: Failed to update order #${order.id}, webhook will handle it:`, updateError);
         // Non lanciare errore qui: il webhook può recuperare

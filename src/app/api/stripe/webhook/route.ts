@@ -200,8 +200,9 @@ export async function POST(request: NextRequest) {
       const paymentSource = paymentIntent.metadata?.payment_source;
       if (paymentSource === 'payment_request_cart' || paymentSource === 'payment_request') {
         let wcOrderId = paymentIntent.metadata?.wc_order_id;
+        const enableDeposit = paymentIntent.metadata?.enable_deposit;
 
-        console.log(`[WEBHOOK] Payment Request ricevuto per PI ${paymentIntent.id}, wc_order_id: ${wcOrderId || 'MANCANTE'}`);
+        console.log(`[WEBHOOK] Payment Request ricevuto per PI ${paymentIntent.id}, wc_order_id: ${wcOrderId || 'MANCANTE'}, enable_deposit: ${enableDeposit || 'no'}`);
 
         // FALLBACK: Se wc_order_id manca, prova a cercare l'ordine tramite payment_intent_id
         if (!wcOrderId) {
@@ -247,24 +248,44 @@ export async function POST(request: NextRequest) {
         try {
           console.log(`[WEBHOOK] Aggiornamento ordine #${wcOrderId} come pagato`);
 
-          // Aggiorna l'ordine WooCommerce esistente come pagato
-          await api.put(`orders/${wcOrderId}`, {
-            status: 'processing',
-            set_paid: true,
-            transaction_id: paymentIntent.id,
-            meta_data: [
-              {
-                key: '_webhook_updated',
-                value: 'true'
-              },
-              {
-                key: '_webhook_update_time',
-                value: new Date().toISOString()
-              }
-            ]
-          });
-
-          console.log(`[WEBHOOK] Ordine #${wcOrderId} aggiornato con successo`);
+          // BUGFIX: Per ordini con acconto, NON cambiare lo stato a 'processing'
+          // Lo stato deve rimanere 'partial-payment' perché è solo la prima rata
+          if (enableDeposit === 'yes') {
+            // Per ordini con rate, aggiorna solo set_paid e transaction_id
+            await api.put(`orders/${wcOrderId}`, {
+              set_paid: true,
+              transaction_id: paymentIntent.id,
+              meta_data: [
+                {
+                  key: '_webhook_updated',
+                  value: 'true'
+                },
+                {
+                  key: '_webhook_update_time',
+                  value: new Date().toISOString()
+                }
+              ]
+            });
+            console.log(`[WEBHOOK] Ordine #${wcOrderId} con acconto aggiornato (status remains partial-payment)`);
+          } else {
+            // Per ordini normali (senza rate), imposta 'processing'
+            await api.put(`orders/${wcOrderId}`, {
+              status: 'processing',
+              set_paid: true,
+              transaction_id: paymentIntent.id,
+              meta_data: [
+                {
+                  key: '_webhook_updated',
+                  value: 'true'
+                },
+                {
+                  key: '_webhook_update_time',
+                  value: new Date().toISOString()
+                }
+              ]
+            });
+            console.log(`[WEBHOOK] Ordine #${wcOrderId} aggiornato con successo (processing)`);
+          }
 
           // Aggiorna Payment Intent per evitare duplicati
           await stripe.paymentIntents.update(paymentIntent.id, {
