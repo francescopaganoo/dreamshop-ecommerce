@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
 
         // Calculate item total (with deposit if enabled)
         let itemTotal = unitPrice * item.quantity;
-        let itemSubtotal = itemTotal; // Original price for WooCommerce line_item
+        const itemSubtotal = itemTotal; // Original price for WooCommerce line_item
 
         if (itemHasDeposit && item.depositAmount) {
           const depositValue = parseFloat(item.depositAmount);
