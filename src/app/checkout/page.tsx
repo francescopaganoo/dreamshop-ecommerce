@@ -11,6 +11,7 @@ import AppleGooglePayCheckout from '@/components/checkout/AppleGooglePayCheckout
 import GiftCardCartWidget from '@/components/GiftCardCartWidget';
 import { createOrder, getShippingMethods, ShippingMethod, getUserAddresses, saveUserAddresses, getProductShippingClassId } from '../../lib/api';
 import { getAvailableCountries, CountryOption } from '../../lib/countries';
+import { isAutoGift } from '../../lib/autoGifts';
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -74,6 +75,8 @@ export default function CheckoutPage() {
     quantity: number;
     variation_id?: number;
     meta_data?: AttributeMetaData[];
+    subtotal?: string;
+    total?: string;
   }
 
   interface FormDataType {
@@ -1307,10 +1310,37 @@ export default function CheckoutPage() {
           }
 
         }
-        
+
+        // Gestisci i regali automatici: imposta il prezzo a 0
+        if (isAutoGift(item)) {
+          // Imposta subtotal e total a 0 per forzare il prezzo gratuito
+          lineItem.subtotal = '0';
+          lineItem.total = '0';
+
+          // Assicurati che meta_data sia un array
+          if (!lineItem.meta_data) lineItem.meta_data = [];
+
+          // Aggiungi i metadati del regalo automatico
+          lineItem.meta_data.push(
+            { key: '_is_auto_gift', value: 'yes' }
+          );
+
+          // Aggiungi i metadati dal prodotto se presenti
+          if (item.product.meta_data) {
+            const giftRuleId = item.product.meta_data.find(m => m.key === '_gift_rule_id');
+            const giftRuleName = item.product.meta_data.find(m => m.key === '_gift_rule_name');
+            if (giftRuleId) {
+              lineItem.meta_data.push({ key: '_gift_rule_id', value: String(giftRuleId.value) });
+            }
+            if (giftRuleName) {
+              lineItem.meta_data.push({ key: '_gift_rule_name', value: String(giftRuleName.value) });
+            }
+          }
+        }
+
         return lineItem;
       });
-      
+
       // Prepara i dati cliente
       const billingInfo = {
         first_name: formData.firstName,

@@ -62,6 +62,8 @@ interface OrderData {
     product_id: number;
     quantity: number;
     variation_id?: number;
+    subtotal?: string;
+    total?: string;
     meta_data?: {
       key: string;
       value: string;
@@ -158,15 +160,24 @@ export async function POST(request: NextRequest) {
     // Crea un ordine in WooCommerce già come pagato (set_paid: true)
     // Assicurati che i line_items abbiano tutti i metadati necessari
     // IMPORTANTE: Rimuovi gli ID dai meta_data perché WooCommerce li rifiuta durante la creazione di nuovi ordini
+    // Helper per verificare se un item è un regalo automatico
+    const isAutoGiftItem = (item: LineItemInput): boolean => {
+      if (!item.meta_data) return false;
+      return item.meta_data.some(meta => meta.key === '_is_auto_gift' && meta.value === 'yes');
+    };
+
     const processedLineItems = line_items.map((item: LineItemInput) => {
       // Filtra i metadati per rimuovere gli ID e mantenere solo quelli essenziali per l'ordine
       const filteredMetaData = item.meta_data
         ? item.meta_data
             .filter((meta: MetaData) => {
-              // Mantieni solo metadati rilevanti per l'ordine (acconti, deposits, etc)
+              // Mantieni solo metadati rilevanti per l'ordine (acconti, deposits, regali automatici, etc)
               return meta.key.startsWith('_wc_') ||
                      meta.key.includes('deposit') ||
-                     meta.key.includes('payment_plan');
+                     meta.key.includes('payment_plan') ||
+                     meta.key === '_is_auto_gift' ||
+                     meta.key === '_gift_rule_id' ||
+                     meta.key === '_gift_rule_name';
             })
             .map((meta: MetaData) => ({
               key: meta.key,
@@ -175,12 +186,27 @@ export async function POST(request: NextRequest) {
             }))
         : [];
 
-      return {
+      const processedItem: {
+        product_id: number | undefined;
+        quantity: number;
+        variation_id?: number;
+        subtotal?: string;
+        total?: string;
+        meta_data: MetaData[];
+      } = {
         product_id: item.product_id || item.id,
         quantity: item.quantity,
         variation_id: item.variation_id || undefined,
         meta_data: filteredMetaData
       };
+
+      // Se è un regalo automatico, imposta il prezzo a 0
+      if (isAutoGiftItem(item)) {
+        processedItem.subtotal = '0';
+        processedItem.total = '0';
+      }
+
+      return processedItem;
     });
 
     

@@ -10,6 +10,7 @@ import { getDepositInfo, ProductWithDeposit } from '@/lib/deposits';
 import GiftCardCartWidget from '@/components/GiftCardCartWidget';
 import { PLACEHOLDER_IMAGE_SMALL } from '@/lib/placeholderImage';
 import { getProduct } from '@/lib/api';
+import { getGiftPriceDisplay } from '@/lib/autoGifts';
 
 // Interfaccia per gli errori di stock
 interface StockIssue {
@@ -146,7 +147,12 @@ export default function CartPage() {
     pointsDiscount,
     loadUserPoints,
     isLoadingPoints,
-    pointsError
+    pointsError,
+    // Proprietà per i regali automatici
+    isAutoGiftItem,
+    removeAutoGift,
+    restoreAutoGift,
+    removedGiftIds
   } = useCart();
   const { user } = useAuth();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
@@ -159,6 +165,34 @@ export default function CartPage() {
   // Format price with currency symbol
   const formatPrice = (price: number) => {
     return `€${price.toFixed(2)}`;
+  };
+
+  // Renderizza il prezzo di un regalo in base alle impostazioni del plugin
+  const renderGiftPrice = (item: typeof cart[0]) => {
+    const giftPriceInfo = getGiftPriceDisplay(item);
+    if (!giftPriceInfo) return null;
+
+    const { type, originalPrice } = giftPriceInfo;
+
+    switch (type) {
+      case 'strikethrough_free':
+        return (
+          <div className="flex flex-col">
+            <span className="text-gray-400 line-through text-sm">{formatPrice(originalPrice)}</span>
+            <span className="text-green-600 font-medium">Gratis</span>
+          </div>
+        );
+      case 'free_only':
+        return <span className="text-green-600 font-medium">Gratis</span>;
+      case 'zero':
+        return <span className="text-gray-700">€0,00</span>;
+      case 'gift_label':
+        return <span className="text-green-600 font-medium">Omaggio</span>;
+      case 'hidden':
+        return null;
+      default:
+        return <span className="text-green-600 font-medium">Gratis</span>;
+    }
   };
 
   // Arricchisce i prodotti del carrello con le categorie mancanti
@@ -330,7 +364,11 @@ export default function CartPage() {
         name: item.product.name,
         quantity: item.quantity,
         price: item.product.price,
-        meta_data: item.meta_data || []
+        // Unisce i meta_data dell'item con quelli del prodotto (per i regali automatici)
+        meta_data: [
+          ...(item.meta_data || []),
+          ...(item.product.meta_data || []).map(m => ({ key: m.key, value: String(m.value) }))
+        ]
       }));
       
       // Chiama l'API per verificare la disponibilità
@@ -578,40 +616,42 @@ export default function CartPage() {
                 {/* Vista Mobile - Cards */}
                 <div className="lg:hidden space-y-4">
                   {enrichedCart.map(item => {
-                        
+                        // Verifica se è un regalo automatico
+                        const isGift = isAutoGiftItem(item);
+
                         // Otteniamo tutte le informazioni sull'acconto dal prodotto
                         const depositInfo = getDepositInfo(item.product as unknown as ProductWithDeposit);
                         const isDeposit = depositInfo.hasDeposit;
-                        
-                        
+
+
                         // Calcola il prezzo in base ai metadati dell'acconto
                         let itemPrice = parseFloat(item.product.price || item.product.regular_price || '0');
                         let priceLabel = '';
                         // const fullPrice = itemPrice; // Non utilizzato
-                        
-                        
+
+
                         // Se il prodotto ha l'acconto attivo, dobbiamo mostrare il prezzo dell'acconto
                         if (isDeposit) {
                           // Forziamo l'uso della percentuale standard del 40% se non riusciamo a recuperarla dai metadati
                           let depositPercentage = depositInfo.depositPercentage;
-                          
+
                           // Se la percentuale è 0 o non valida, usiamo il 40% come predefinito
                           if (!depositPercentage || depositPercentage <= 0) {
                             depositPercentage = 0.4; // 40%
                           }
-                          
-                          
+
+
                           // Calcoliamo il prezzo dell'acconto
                           const depositPrice = itemPrice * depositPercentage;
-                          
+
                           // Aggiorniamo il prezzo visualizzato con quello dell'acconto
                           itemPrice = depositPrice;
-                          
+
                           // Creiamo l'etichetta appropriata
                           const percentageDisplay = Math.round(depositPercentage * 100);
                           priceLabel = `Acconto (${percentageDisplay}%)`;
                         }
-                        
+
                         const itemTotal = itemPrice * item.quantity;
 
                         return (
@@ -648,31 +688,51 @@ export default function CartPage() {
                                 )} */}
 
                                 <div className="text-sm text-gray-600 mb-2">
-                                  <div>{formatPrice(itemPrice)}</div>
-                                  {isDeposit && (
-                                    <div className="text-xs text-green-600 font-medium">{priceLabel}</div>
+                                  {isGift ? (
+                                    renderGiftPrice(item)
+                                  ) : (
+                                    <>
+                                      <div>{formatPrice(itemPrice)}</div>
+                                      {isDeposit && (
+                                        <div className="text-xs text-green-600 font-medium">{priceLabel}</div>
+                                      )}
+                                    </>
                                   )}
                                 </div>
 
-                                {/* Quantità */}
-                                <div className="flex items-center gap-4 mb-2">
-                                  <div className="flex items-center border border-gray-300 rounded-md">
-                                    <button
-                                      type="button"
-                                      onClick={() => handleQuantityChange(item.product.id, item.quantity - 1)}
-                                      className="px-3 py-1 text-gray-600 hover:bg-gray-100"
-                                    >
-                                      -
-                                    </button>
-                                    <span className="px-3 py-1 text-center min-w-[2rem]">{item.quantity}</span>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleQuantityChange(item.product.id, item.quantity + 1)}
-                                      className="px-3 py-1 text-gray-600 hover:bg-gray-100"
-                                    >
-                                      +
-                                    </button>
+                                {/* Badge regalo */}
+                                {isGift && (
+                                  <div className="inline-flex items-center px-2 py-1 mb-2 bg-green-100 text-green-800 text-xs font-medium rounded-full">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
+                                    </svg>
+                                    Omaggio
                                   </div>
+                                )}
+
+                                {/* Quantità - nascosta per i regali */}
+                                <div className="flex items-center gap-4 mb-2">
+                                  {!isGift ? (
+                                    <div className="flex items-center border border-gray-300 rounded-md">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleQuantityChange(item.product.id, item.quantity - 1)}
+                                        className="px-3 py-1 text-gray-600 hover:bg-gray-100"
+                                      >
+                                        -
+                                      </button>
+                                      <span className="px-3 py-1 text-center min-w-[2rem]">{item.quantity}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleQuantityChange(item.product.id, item.quantity + 1)}
+                                        className="px-3 py-1 text-gray-600 hover:bg-gray-100"
+                                      >
+                                        +
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <span className="text-sm text-gray-500">Qtà: {item.quantity}</span>
+                                  )}
 
                                   <div className="text-sm font-medium text-gray-900">
                                     Totale: {formatPrice(itemTotal)}
@@ -687,14 +747,14 @@ export default function CartPage() {
 
                                 {/* Pulsante Rimuovi */}
                                 <button
-                                  onClick={() => handleRemoveItem(item.product.id)}
+                                  onClick={() => isGift ? removeAutoGift(item.product.id) : handleRemoveItem(item.product.id)}
                                   className="flex items-center text-sm text-red-600 hover:text-red-800 hover:bg-red-50 px-2 py-1 rounded transition-all"
-                                  aria-label="Rimuovi prodotto dal carrello"
+                                  aria-label={isGift ? "Rifiuta omaggio" : "Rimuovi prodotto dal carrello"}
                                 >
                                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                   </svg>
-                                  Rimuovi
+                                  {isGift ? "Rifiuta omaggio" : "Rimuovi"}
                                 </button>
                               </div>
                             </div>
@@ -717,6 +777,8 @@ export default function CartPage() {
                     </thead>
                     <tbody className="divide-y divide-gray-200">
                       {enrichedCart.map(item => {
+                        // Verifica se è un regalo automatico
+                        const isGift = isAutoGiftItem(item);
 
                         // Otteniamo tutte le informazioni sull'acconto dal prodotto
                         const depositInfo = getDepositInfo(item.product as unknown as ProductWithDeposit);
@@ -777,6 +839,16 @@ export default function CartPage() {
                                     {item.product.name}
                                   </Link>
 
+                                  {/* Badge regalo */}
+                                  {isGift && (
+                                    <div className="inline-flex items-center px-2 py-1 mt-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
+                                      </svg>
+                                      Omaggio
+                                    </div>
+                                  )}
+
                                   {/* Messaggio per prodotti categoria ITALIA In Stock */}
                                   {/* {shouldShowShippingSuspendedMessage(item.product) && (
                                     <div className="text-xs font-semibold text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1 mt-2 inline-block">
@@ -789,30 +861,40 @@ export default function CartPage() {
                             </td>
                             <td className="px-6 py-4 text-sm">
                               <div className="flex flex-col">
-                                <span className="text-gray-700">{formatPrice(itemPrice)}</span>
-                                {isDeposit && (
-                                  <span className="text-xs text-green-600 font-medium">{priceLabel}</span>
+                                {isGift ? (
+                                  renderGiftPrice(item)
+                                ) : (
+                                  <>
+                                    <span className="text-gray-700">{formatPrice(itemPrice)}</span>
+                                    {isDeposit && (
+                                      <span className="text-xs text-green-600 font-medium">{priceLabel}</span>
+                                    )}
+                                  </>
                                 )}
                               </div>
                             </td>
                             <td className="px-6 py-4 ">
-                              <div className="flex items-center border border-gray-300 rounded-md w-24">
-                                <button
-                                  type="button"
-                                  onClick={() => handleQuantityChange(item.product.id, item.quantity - 1)}
-                                  className="px-2 py-1 text-gray-600 hover:bg-gray-100"
-                                >
-                                  -
-                                </button>
-                                <span className="px-2 py-1 text-center flex-grow">{item.quantity}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleQuantityChange(item.product.id, item.quantity + 1)}
-                                  className="px-2 py-1 text-gray-600 hover:bg-gray-100"
-                                >
-                                  +
-                                </button>
-                              </div>
+                              {!isGift ? (
+                                <div className="flex items-center border border-gray-300 rounded-md w-24">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleQuantityChange(item.product.id, item.quantity - 1)}
+                                    className="px-2 py-1 text-gray-600 hover:bg-gray-100"
+                                  >
+                                    -
+                                  </button>
+                                  <span className="px-2 py-1 text-center flex-grow">{item.quantity}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleQuantityChange(item.product.id, item.quantity + 1)}
+                                    className="px-2 py-1 text-gray-600 hover:bg-gray-100"
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="text-sm text-gray-500">{item.quantity}</span>
+                              )}
                             </td>
                             <td className="px-6 py-4 text-sm">
                               <div className="flex flex-col">
@@ -826,15 +908,15 @@ export default function CartPage() {
                             </td>
                             <td className="px-6 py-4 text-right text-sm font-medium">
                               <button
-                                onClick={() => handleRemoveItem(item.product.id)}
+                                onClick={() => isGift ? removeAutoGift(item.product.id) : handleRemoveItem(item.product.id)}
                                 className="flex items-center px-2 py-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-all"
-                                aria-label="Rimuovi prodotto dal carrello"
-                                title="Rimuovi prodotto dal carrello"
+                                aria-label={isGift ? "Rifiuta omaggio" : "Rimuovi prodotto dal carrello"}
+                                title={isGift ? "Rifiuta omaggio" : "Rimuovi prodotto dal carrello"}
                               >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                 </svg>
-                                Rimuovi
+                                {isGift ? "Rifiuta" : "Rimuovi"}
                               </button>
                             </td>
                           </tr>
@@ -843,15 +925,44 @@ export default function CartPage() {
                     </tbody>
                   </table>
                 </div>
-                
+
+                {/* Sezione regali rifiutati */}
+                {removedGiftIds.length > 0 && (
+                  <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
+                      </svg>
+                      <span className="font-medium text-amber-800">Omaggi disponibili</span>
+                    </div>
+                    <p className="text-sm text-amber-700 mb-3">
+                      Hai rifiutato {removedGiftIds.length === 1 ? 'un omaggio' : `${removedGiftIds.length} omaggi`}. Puoi aggiungerl{removedGiftIds.length === 1 ? 'o' : 'i'} nuovamente al carrello.
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {removedGiftIds.map(giftId => (
+                        <button
+                          key={giftId}
+                          onClick={() => restoreAutoGift(giftId)}
+                          className="inline-flex items-center px-3 py-1.5 bg-white border border-amber-300 text-amber-700 text-sm font-medium rounded-md hover:bg-amber-100 transition-colors"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                          Ripristina omaggio
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="mt-4 flex justify-between">
-                  <Link 
+                  <Link
                     href="/"
                     className="text-bred-500 hover:text-bred-700 font-medium"
                   >
                     ← Torna allo shop
                   </Link>
-                  
+
                   <button
                     onClick={clearCart}
                     className="text-red-600 hover:text-red-800 font-medium"

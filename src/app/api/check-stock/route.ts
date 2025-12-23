@@ -92,8 +92,13 @@ export async function POST(request: Request) {
           meta.key === '_gift_card_custom_amount'
         );
 
-        // Verifica se il prezzo è cambiato (salta per gift card con importo personalizzato)
-        if (!isCustomAmountGiftCard && data.price && parseFloat(data.price) > 0) {
+        // Verifica se è un regalo automatico (auto gift)
+        const isAutoGift = item.meta_data?.some(meta =>
+          meta.key === '_is_auto_gift' && meta.value === 'yes'
+        );
+
+        // Verifica se il prezzo è cambiato (salta per gift card con importo personalizzato e regali automatici)
+        if (!isCustomAmountGiftCard && !isAutoGift && data.price && parseFloat(data.price) > 0) {
           const currentPrice = parseFloat(data.price);
           const cartPrice = parseFloat(item.price);
 

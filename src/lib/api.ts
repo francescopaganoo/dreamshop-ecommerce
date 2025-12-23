@@ -1473,7 +1473,6 @@ export async function createOrder(orderData: OrderData): Promise<WooCommerceOrde
 
     
     // Usa sempre l'endpoint standard WooCommerce per tutti gli ordini
-
     const response = await api.post('orders', orderDataToSend);
     const orderResponse = response.data as WooCommerceOrderResponse;
     return orderResponse;

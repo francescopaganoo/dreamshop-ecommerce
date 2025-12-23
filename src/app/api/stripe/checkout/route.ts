@@ -31,14 +31,49 @@ export async function POST(request: NextRequest) {
     interface CartItem {
       id: string | number;
       quantity: number;
+      meta_data?: Array<{key: string; value: string}>;
     }
-    
+
+    // Define interface for line items
+    interface LineItem {
+      product_id: number;
+      quantity: number;
+      subtotal?: string;
+      total?: string;
+      meta_data?: Array<{key: string; value: string}>;
+    }
+
+    // Helper function per verificare se un prodotto è un regalo automatico
+    const isAutoGiftItem = (item: CartItem): boolean => {
+      if (!item.meta_data) return false;
+      return item.meta_data.some(meta => meta.key === '_is_auto_gift' && meta.value === 'yes');
+    };
+
     // Crea l'ordine in WooCommerce con stato "pending"
     // Trasforma i cartItems nel formato corretto per WooCommerce
-    const line_items = cartItems.map((item: CartItem) => ({
-      product_id: typeof item.id === 'string' ? parseInt(item.id) || 0 : item.id || 0,
-      quantity: item.quantity
-    }));
+    const line_items = cartItems.map((item: CartItem) => {
+      const lineItem: LineItem = {
+        product_id: typeof item.id === 'string' ? parseInt(item.id) || 0 : item.id || 0,
+        quantity: item.quantity
+      };
+
+      // Gestisci i regali automatici: imposta il prezzo a 0
+      if (isAutoGiftItem(item)) {
+        lineItem.subtotal = '0';
+        lineItem.total = '0';
+        lineItem.meta_data = [{ key: '_is_auto_gift', value: 'yes' }];
+
+        // Aggiungi altri metadati del regalo se presenti
+        if (item.meta_data) {
+          const giftRuleId = item.meta_data.find(m => m.key === '_gift_rule_id');
+          const giftRuleName = item.meta_data.find(m => m.key === '_gift_rule_name');
+          if (giftRuleId) lineItem.meta_data.push({ key: '_gift_rule_id', value: String(giftRuleId.value) });
+          if (giftRuleName) lineItem.meta_data.push({ key: '_gift_rule_name', value: String(giftRuleName.value) });
+        }
+      }
+
+      return lineItem;
+    });
     
     
     const orderData = {

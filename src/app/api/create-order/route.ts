@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createOrder } from '@/lib/api';
 
+// Helper function per verificare se un prodotto è un regalo automatico
+function isAutoGiftProduct(product: { meta_data?: Array<{key: string, value: string}> }): boolean {
+  if (!product.meta_data) return false;
+  return product.meta_data.some(meta => meta.key === '_is_auto_gift' && meta.value === 'yes');
+}
+
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json();
@@ -51,14 +57,16 @@ export async function POST(request: NextRequest) {
         product_id: number;
         quantity: number;
         meta_data?: Array<{key: string; value: string}>;
+        subtotal?: string;
+        total?: string;
       }
-      
+
       // Oggetto base dell'articolo
       const lineItem: LineItem = {
         product_id: item.product.id,
         quantity: item.quantity
       };
-      
+
       // Controlla se il prodotto ha i metadati di acconto
       if (item.product._wc_convert_to_deposit === 'yes') {
         // Aggiungi i metadati dell'acconto all'articolo
@@ -77,7 +85,32 @@ export async function POST(request: NextRequest) {
           }
         ];
       }
-      
+
+      // Gestisci i regali automatici: imposta il prezzo a 0
+      if (isAutoGiftProduct(item.product)) {
+        // Imposta subtotal e total a 0 per forzare il prezzo gratuito
+        lineItem.subtotal = '0';
+        lineItem.total = '0';
+
+        // Assicurati che meta_data sia un array
+        if (!lineItem.meta_data) lineItem.meta_data = [];
+
+        // Aggiungi i metadati del regalo automatico
+        lineItem.meta_data.push({ key: '_is_auto_gift', value: 'yes' });
+
+        // Aggiungi i metadati dal prodotto se presenti
+        if (item.product.meta_data) {
+          const giftRuleId = item.product.meta_data.find(m => m.key === '_gift_rule_id');
+          const giftRuleName = item.product.meta_data.find(m => m.key === '_gift_rule_name');
+          if (giftRuleId) {
+            lineItem.meta_data.push({ key: '_gift_rule_id', value: String(giftRuleId.value) });
+          }
+          if (giftRuleName) {
+            lineItem.meta_data.push({ key: '_gift_rule_name', value: String(giftRuleName.value) });
+          }
+        }
+      }
+
       return lineItem;
     });
     

@@ -1,9 +1,20 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { Product, Coupon, verifyCoupon, applyCoupon } from '@/lib/api';
 import { getUserPoints } from '@/lib/points';
 import { getDepositInfo, ProductWithDeposit } from '@/lib/deposits';
+import {
+  checkAutoGifts,
+  giftProductToProduct,
+  isAutoGift,
+  GiftProduct,
+  saveAutoGiftsToStorage,
+  clearAutoGiftsStorage,
+} from '@/lib/autoGifts';
+
+// Re-export GiftProduct per utilizzo nei componenti
+export type { GiftProduct };
 
 export interface CartItem {
   product: Product;
@@ -51,6 +62,13 @@ interface CartContextType {
   removePointsDiscount: () => void;
   isLoadingPoints: boolean;
   pointsError: string | null;
+  // Nuove proprietà per i regali automatici
+  autoGifts: GiftProduct[];
+  isCheckingGifts: boolean;
+  removeAutoGift: (productId: number) => void;
+  restoreAutoGift: (productId: number) => void;
+  removedGiftIds: number[];
+  isAutoGiftItem: (item: CartItem) => boolean;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -71,6 +89,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [pointsDiscount, setPointsDiscount] = useState<number>(0);
   const [isLoadingPoints, setIsLoadingPoints] = useState<boolean>(false);
   const [pointsError, setPointsError] = useState<string | null>(null);
+
+  // Stati per i regali automatici
+  const [autoGifts, setAutoGifts] = useState<GiftProduct[]>([]);
+  const [isCheckingGifts, setIsCheckingGifts] = useState<boolean>(false);
+  const [removedGiftIds, setRemovedGiftIds] = useState<number[]>([]);
+  const checkGiftsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const removedGiftIdsRef = useRef<number[]>([]);
 
   // Funzione per generare uno slug dal nome del prodotto
   const generateSlug = (name: string): string => {
@@ -96,7 +121,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const savedDiscount = localStorage.getItem('discount');
       const savedPointsToRedeem = localStorage.getItem('pointsToRedeem');
       const savedPointsDiscount = localStorage.getItem('pointsDiscount');
-      
+      const savedRemovedGiftIds = localStorage.getItem('removedGiftIds');
+
       if (savedCart) {
         // Assicurati che tutti i prodotti nel carrello caricato abbiano uno slug
         const loadedCart = JSON.parse(savedCart) as CartItem[];
@@ -106,22 +132,29 @@ export function CartProvider({ children }: { children: ReactNode }) {
         }));
         setCart(updatedCart);
       }
-      
+
       if (savedCoupon) {
         setCoupon(JSON.parse(savedCoupon));
         setCouponCode(JSON.parse(savedCoupon).code || '');
       }
-      
+
       if (savedDiscount) {
         setDiscount(parseFloat(savedDiscount));
       }
-      
+
       if (savedPointsToRedeem) {
         setPointsToRedeem(parseInt(savedPointsToRedeem, 10));
       }
-      
+
       if (savedPointsDiscount) {
         setPointsDiscount(parseFloat(savedPointsDiscount));
+      }
+
+      // Carica la lista dei regali rimossi dall'utente
+      if (savedRemovedGiftIds) {
+        const parsed = JSON.parse(savedRemovedGiftIds);
+        setRemovedGiftIds(parsed);
+        removedGiftIdsRef.current = parsed;
       }
     } catch (error) {
       console.error('Error loading data from localStorage:', error);
@@ -138,11 +171,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [cart, coupon]); // eslint-disable-line react-hooks/exhaustive-deps
   // Non includiamo recalculateCouponDiscount nelle dipendenze per evitare un riferimento circolare
 
-  // Save cart, coupon and points to localStorage whenever they change
+  // Save cart, coupon, points and removed gifts to localStorage whenever they change
   useEffect(() => {
     try {
       localStorage.setItem('cart', JSON.stringify(cart));
-      
+
       if (coupon) {
         localStorage.setItem('coupon', JSON.stringify(coupon));
         localStorage.setItem('discount', discount.toString());
@@ -150,7 +183,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem('coupon');
         localStorage.removeItem('discount');
       }
-      
+
       if (pointsToRedeem > 0) {
         localStorage.setItem('pointsToRedeem', pointsToRedeem.toString());
         localStorage.setItem('pointsDiscount', pointsDiscount.toString());
@@ -158,10 +191,185 @@ export function CartProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem('pointsToRedeem');
         localStorage.removeItem('pointsDiscount');
       }
+
+      // Salva la lista dei regali rimossi dall'utente
+      if (removedGiftIds.length > 0) {
+        localStorage.setItem('removedGiftIds', JSON.stringify(removedGiftIds));
+      } else {
+        localStorage.removeItem('removedGiftIds');
+      }
     } catch (error) {
       console.error('Error saving data to localStorage:', error);
     }
-  }, [cart, coupon, discount, pointsToRedeem, pointsDiscount]);
+  }, [cart, coupon, discount, pointsToRedeem, pointsDiscount, removedGiftIds]);
+
+  /**
+   * Verifica se un item del carrello è un regalo automatico
+   */
+  const isAutoGiftItem = useCallback((item: CartItem): boolean => {
+    return isAutoGift(item);
+  }, []);
+
+  /**
+   * Calcola il subtotale escludendo i regali automatici (per la verifica delle regole)
+   */
+  const getSubtotalWithoutGifts = useCallback((): number => {
+    return cart.reduce((total, item) => {
+      // Escludi i regali dal calcolo
+      if (isAutoGiftItem(item)) {
+        return total;
+      }
+
+      const depositInfo = getDepositInfo(item.product as unknown as ProductWithDeposit);
+      const isDeposit = depositInfo.hasDeposit;
+
+      let itemPrice = parseFloat(item.product.price || item.product.regular_price || '0');
+
+      if (isDeposit) {
+        let depositPercentage = depositInfo.depositPercentage;
+        if (!depositPercentage || depositPercentage <= 0) {
+          depositPercentage = 0.4;
+        }
+        itemPrice = itemPrice * depositPercentage;
+      }
+
+      return total + (itemPrice * item.quantity);
+    }, 0);
+  }, [cart, isAutoGiftItem]);
+
+  /**
+   * Controlla i regali automatici applicabili al carrello
+   */
+  const checkAutoGiftsForCart = useCallback(async () => {
+    // Non controllare se il carrello è vuoto o contiene solo regali
+    const regularItems = cart.filter(item => !isAutoGiftItem(item));
+    if (regularItems.length === 0) {
+      setAutoGifts([]);
+      saveAutoGiftsToStorage([]);
+      return;
+    }
+
+    setIsCheckingGifts(true);
+
+    try {
+      // Prepara gli item per l'API (escludi i regali)
+      const cartItemsForApi = regularItems.map(item => ({
+        product_id: item.product.id,
+        id: item.product.id,
+        quantity: item.quantity,
+        name: item.product.name,
+        categories: item.product.categories,
+      }));
+
+      // Calcola il totale escludendo i regali
+      const cartTotal = getSubtotalWithoutGifts();
+
+      // Chiama l'API per verificare i regali
+      const response = await checkAutoGifts(cartItemsForApi, cartTotal);
+
+      if (response.success && response.gifts.length > 0) {
+        // Usa il ref per avere sempre il valore più recente dei regali rimossi
+        const currentRemovedIds = removedGiftIdsRef.current;
+
+        // Filtra i regali già rimossi dall'utente in questa sessione
+        const filteredGifts = response.gifts.filter(
+          gift => !currentRemovedIds.includes(gift.product_id)
+        );
+
+        setAutoGifts(filteredGifts);
+        saveAutoGiftsToStorage(filteredGifts);
+
+        // Aggiungi i regali al carrello se non sono già presenti
+        filteredGifts.forEach(gift => {
+          const existsInCart = cart.some(
+            item => item.product.id === gift.product_id && isAutoGiftItem(item)
+          );
+
+          if (!existsInCart) {
+            const giftProduct = giftProductToProduct(gift);
+            setCart(prevCart => [
+              ...prevCart,
+              {
+                product: giftProduct,
+                quantity: gift.quantity,
+                meta_data: giftProduct.meta_data?.map(m => ({
+                  key: m.key,
+                  value: String(m.value),
+                })),
+              },
+            ]);
+          }
+        });
+      } else {
+        // Nessun regalo applicabile: rimuovi i regali esistenti dal carrello
+        setAutoGifts([]);
+        saveAutoGiftsToStorage([]);
+        setCart(prevCart => prevCart.filter(item => !isAutoGiftItem(item)));
+      }
+    } catch (error) {
+      console.error('Errore nel controllo dei regali automatici:', error);
+    } finally {
+      setIsCheckingGifts(false);
+    }
+  }, [cart, isAutoGiftItem, getSubtotalWithoutGifts]);
+
+  /**
+   * Effetto per controllare i regali quando il carrello cambia (con debounce)
+   */
+  useEffect(() => {
+    // Pulisci il timeout precedente
+    if (checkGiftsTimeoutRef.current) {
+      clearTimeout(checkGiftsTimeoutRef.current);
+    }
+
+    // Esegui il controllo con un debounce di 500ms
+    checkGiftsTimeoutRef.current = setTimeout(() => {
+      checkAutoGiftsForCart();
+    }, 500);
+
+    return () => {
+      if (checkGiftsTimeoutRef.current) {
+        clearTimeout(checkGiftsTimeoutRef.current);
+      }
+    };
+  }, [cart.filter(item => !isAutoGiftItem(item)).length, getSubtotalWithoutGifts]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /**
+   * Rimuove un regalo automatico dal carrello
+   * L'utente può rimuovere liberamente i regali
+   */
+  const removeAutoGift = useCallback((productId: number) => {
+    // Aggiorna prima il ref per avere subito il valore più recente
+    removedGiftIdsRef.current = [...removedGiftIdsRef.current, productId];
+
+    // Aggiungi l'ID alla lista dei rimossi per non riproporlo in questa sessione
+    setRemovedGiftIds(prev => [...prev, productId]);
+
+    // Rimuovi dal carrello
+    setCart(prevCart =>
+      prevCart.filter(item => !(item.product.id === productId && isAutoGiftItem(item)))
+    );
+
+    // Aggiorna i regali
+    setAutoGifts(prev => prev.filter(gift => gift.product_id !== productId));
+  }, [isAutoGiftItem]);
+
+  /**
+   * Ripristina un regalo automatico precedentemente rimosso
+   * Rimuove l'ID dalla lista dei rimossi e forza un nuovo controllo dei regali
+   */
+  const restoreAutoGift = useCallback((productId: number) => {
+    // Aggiorna prima il ref per avere subito il valore più recente
+    removedGiftIdsRef.current = removedGiftIdsRef.current.filter(id => id !== productId);
+
+    // Rimuovi l'ID dalla lista dei rimossi
+    setRemovedGiftIds(prev => prev.filter(id => id !== productId));
+
+    // Forza un nuovo controllo dei regali dopo un breve delay
+    setTimeout(() => {
+      checkAutoGiftsForCart();
+    }, 100);
+  }, [checkAutoGiftsForCart]);
 
   /**
    * Aggiunge un prodotto al carrello o aggiorna la quantità se già presente
@@ -300,6 +508,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
           return item; // Non è l'elemento da aggiornare, lascialo invariato
         }
 
+        // Blocca la modifica della quantità per i regali automatici
+        if (isAutoGift(item)) {
+          return item; // Non permettere la modifica della quantità dei regali
+        }
+
         // Controlla se il prodotto gestisce lo stock e ha una quantità massima
         if (item.product.manage_stock && typeof item.product.stock_quantity === 'number') {
           // Limita la quantità al massimo disponibile
@@ -360,6 +573,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('pointsDiscount');
     localStorage.removeItem('checkout_points_to_redeem');
     localStorage.removeItem('checkout_points_discount');
+    // Pulisci anche i regali automatici e la lista dei rimossi
+    setAutoGifts([]);
+    setRemovedGiftIds([]);
+    removedGiftIdsRef.current = [];
+    clearAutoGiftsStorage();
+    localStorage.removeItem('removedGiftIds');
   };
   
   // Apply a coupon code to the cart
@@ -581,7 +800,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
       applyPointsDiscount,
       removePointsDiscount,
       isLoadingPoints,
-      pointsError
+      pointsError,
+      // Proprietà per i regali automatici
+      autoGifts,
+      isCheckingGifts,
+      removeAutoGift,
+      restoreAutoGift,
+      removedGiftIds,
+      isAutoGiftItem,
     }}>
       {children}
     </CartContext.Provider>
@@ -620,6 +846,13 @@ const mockCartContext: CartContextType = {
   removePointsDiscount: () => {},
   isLoadingPoints: false,
   pointsError: null,
+  // Mock per regali automatici
+  autoGifts: [],
+  isCheckingGifts: false,
+  removeAutoGift: () => {},
+  restoreAutoGift: () => {},
+  removedGiftIds: [],
+  isAutoGiftItem: () => false,
 };
 
 export function useCart() {
