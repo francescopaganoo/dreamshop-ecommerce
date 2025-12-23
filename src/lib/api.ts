@@ -1229,27 +1229,27 @@ export function matchesAllWords(productName: string, searchQuery: string): boole
   return searchWords.every(word => normalizedProductName.includes(word));
 }
 
-// Search products (only in product titles)
+// Search products (only in product titles) - usa il plugin per escludere prodotti nascosti
 export async function searchProducts(searchTerm: string, page = 1, per_page = 10): Promise<{ products: Product[], total: number }> {
   try {
-    const { data, headers } = await api.get('products', {
+    // Usa il plugin dreamshop-advanced-filters che già filtra i prodotti nascosti
+    const result = await getFilteredProductsPlugin({
       search: searchTerm,
-      per_page: per_page,
       page: page,
-      status: 'publish', // Include solo i prodotti pubblicati, esclude privati e bozze
+      per_page: per_page,
+      orderby: 'date',
+      order: 'desc'
     });
 
-    const totalProducts = parseInt((headers as Record<string, string>)['x-wp-total']) || (data as Product[]).length;
-
-    // Filtriamo i prodotti usando la ricerca multi-parola
+    // Filtriamo ulteriormente i prodotti usando la ricerca multi-parola
     // Es: "levi wawa" troverà "Levi Ackerman Wawa Studio"
-    const filteredProducts = (data as Product[]).filter(product =>
+    const filteredProducts = result.products.filter(product =>
       matchesAllWords(product.name, searchTerm)
     );
 
     return {
       products: filteredProducts,
-      total: totalProducts
+      total: result.total
     };
   } catch (error) {
     console.error(`Error searching products with term "${searchTerm}":`, error);
