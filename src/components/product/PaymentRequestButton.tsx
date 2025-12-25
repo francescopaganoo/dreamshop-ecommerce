@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useStripe } from '@stripe/react-stripe-js';
 import { Product } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
@@ -14,10 +14,10 @@ interface PaymentRequestButtonProps {
   enableDeposit?: 'yes' | 'no';
 }
 
-export default function PaymentRequestButton({ 
-  product, 
-  quantity, 
-  enableDeposit = 'no' 
+export default function PaymentRequestButton({
+  product,
+  quantity,
+  enableDeposit = 'no'
 }: PaymentRequestButtonProps) {
   const [paymentRequest, setPaymentRequest] = useState<PaymentRequest | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -27,17 +27,50 @@ export default function PaymentRequestButton({
   const router = useRouter();
   const stripe = useStripe();
 
+  // Ref per tracciare se il componente è montato
+  const isMountedRef = useRef(true);
+  // Ref per evitare re-creazioni inutili
+  const lastConfigRef = useRef<string>('');
+
+  // Estrai valori primitivi dal product per evitare re-render
+  const productId = product.id;
+  const productName = product.name;
+  const productPrice = product.price;
+  const productSalePrice = product.sale_price;
+  const productStockStatus = product.stock_status;
+
   // Verifica se il prodotto è valido per l'acquisto
-  const hasValidPrice = product.price && parseFloat(product.price) > 0;
-  const isInStock = product.stock_status === 'instock' && hasValidPrice;
+  const hasValidPrice = productPrice && parseFloat(productPrice) > 0;
+  const isInStock = productStockStatus === 'instock' && hasValidPrice;
+
+  // Memoizza userId per evitare re-render
+  const userId = user?.id || 0;
+
+  // Cleanup al unmount
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!stripe || !isInStock) {
       return;
     }
 
+    // Crea una chiave di configurazione per evitare ri-creazioni inutili
+    const configKey = `${productId}-${productPrice}-${productSalePrice}-${quantity}-${enableDeposit}`;
+
+    // Se la configurazione non è cambiata, non ricreare il payment request
+    if (lastConfigRef.current === configKey) {
+      return;
+    }
+
+    lastConfigRef.current = configKey;
+
     // Calcola il prezzo totale
-    const unitPrice = parseFloat(product.sale_price || product.price || '0');
+    const unitPrice = parseFloat(productSalePrice || productPrice || '0');
     const totalAmount = Math.round(unitPrice * quantity * 100); // Converti in centesimi
 
     // Crea il payment request
@@ -45,7 +78,7 @@ export default function PaymentRequestButton({
       country: 'IT',
       currency: 'eur',
       total: {
-        label: `${product.name} x${quantity}`,
+        label: `${productName} x${quantity}`,
         amount: totalAmount,
       },
       requestPayerName: true,
@@ -64,22 +97,20 @@ export default function PaymentRequestButton({
 
     // Controlla se Apple Pay/Google Pay sono disponibili
     pr.canMakePayment().then(result => {
+      if (!isMountedRef.current) return;
 
-      
       if (result) {
         setPaymentRequest(pr);
         setDebugInfo('Payment Request disponibile');
       } else {
-
-        
         const browserInfo = navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome') ? 'Safari' :
                            navigator.userAgent.includes('Chrome') ? 'Chrome' : 'Altri';
-        const httpsInfo = window.location.protocol === 'https:' ? 'HTTPS ✅' : 'HTTP ❌';
-        
+        const httpsInfo = window.location.protocol === 'https:' ? 'HTTPS OK' : 'HTTP NO';
+
         setDebugInfo(`Payment Request non disponibile. Browser: ${browserInfo}, Protocollo: ${httpsInfo}`);
       }
-    }).catch(error => {
-      console.error('Errore nel check Payment Request:', error);
+    }).catch(err => {
+      console.error('Errore nel check Payment Request:', err);
     });
 
     // Gestisce il click del pulsante
@@ -96,9 +127,9 @@ export default function PaymentRequestButton({
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            productId: product.id,
+            productId: productId,
             quantity: quantity,
-            userId: user?.id || 0,
+            userId: userId,
             enableDeposit: enableDeposit,
             paymentMethodId: ev.paymentMethod.id,
             billingData: {
@@ -131,14 +162,14 @@ export default function PaymentRequestButton({
         if (response.ok && result.success) {
           // Conferma il pagamento
           const { error: confirmError } = await stripe.confirmCardPayment(result.clientSecret);
-          
+
           if (confirmError) {
             throw new Error(confirmError.message);
           }
 
           // Completa il payment request
           ev.complete('success');
-          
+
           // Reindirizza alla pagina di successo
           router.push(`/checkout/success?order_id=${result.order_id}`);
         } else {
@@ -164,7 +195,7 @@ export default function PaymentRequestButton({
       ev.updateWith({ status: 'success' });
     });
 
-  }, [stripe, product, quantity, enableDeposit, user, router, isInStock]);
+  }, [stripe, isInStock, productId, productName, productPrice, productSalePrice, quantity, enableDeposit, userId, router]);
 
   if (!isInStock) {
     return null;
