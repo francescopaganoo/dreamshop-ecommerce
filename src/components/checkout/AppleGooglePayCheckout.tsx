@@ -67,6 +67,7 @@ export default function AppleGooglePayCheckout({
   // Ref per tracciare se il componente è montato
   const isMountedRef = useRef(true);
   // Ref per tracciare l'ultimo payment request creato
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const paymentRequestRef = useRef<any>(null);
   // Ref per evitare re-creazioni inutili
   const lastConfigRef = useRef<string>('');
@@ -81,10 +82,6 @@ export default function AppleGooglePayCheckout({
 
   // Memoizza userId per evitare re-render
   const userId = user?.id || 0;
-
-  // Memoizza billingData e shippingData come stringhe per confronto stabile
-  const billingDataKey = useMemo(() => JSON.stringify(billingData), [billingData]);
-  const shippingDataKey = useMemo(() => JSON.stringify(shippingData || {}), [shippingData]);
 
   // Memoizza cart come stringa per confronto stabile
   const cartKey = useMemo(() =>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { PaymentRequestButtonElement, useStripe } from '@stripe/react-stripe-js';
 import { Product, getShippingMethods, ShippingAddress, ShippingMethod } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
@@ -46,6 +46,7 @@ export default function AppleGooglePayButton({
   // Ref per tracciare se il componente è montato
   const isMountedRef = useRef(true);
   // Ref per tracciare l'ultimo payment request creato
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const paymentRequestRef = useRef<any>(null);
   // Ref per evitare re-creazioni inutili
   const lastConfigRef = useRef<string>('');
@@ -74,12 +75,6 @@ export default function AppleGooglePayButton({
 
   // Memoizza userId per evitare re-render
   const userId = user?.id || 0;
-
-  // Memoizza variationAttributes come stringa per confronto stabile
-  const variationAttributesKey = useMemo(() =>
-    JSON.stringify(variationAttributes || []),
-    [variationAttributes]
-  );
 
   // Cleanup al unmount
   useEffect(() => {

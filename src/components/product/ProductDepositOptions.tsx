@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { getProductDepositOptions, ProductDepositOptions } from '@/lib/deposits';
 import { Product } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
