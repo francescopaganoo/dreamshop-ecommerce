@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { getProductDepositOptions, ProductDepositOptions } from '@/lib/deposits';
 import { Product } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
@@ -18,33 +18,74 @@ export default function ProductDepositOptionsComponent({ product, onDepositOptio
   const [depositOptions, setDepositOptions] = useState<ProductDepositOptions | null>(null);
   const [selectedOption, setSelectedOption] = useState<'yes' | 'no'>('no'); // Default: pagamento completo
 
+  // Ref per tracciare se il componente è montato
+  const isMountedRef = useRef(true);
+  // Ref per evitare chiamate duplicate
+  const lastFetchRef = useRef<string>('');
+  // Ref per la callback per evitare dependency loop
+  const onDepositOptionChangeRef = useRef(onDepositOptionChange);
+
+  // Aggiorna la ref quando cambia la callback
   useEffect(() => {
+    onDepositOptionChangeRef.current = onDepositOptionChange;
+  }, [onDepositOptionChange]);
+
+  // Estrai valori primitivi dal product per evitare re-render
+  const productId = product.id;
+  const productPrice = product.price;
+
+  // Cleanup al unmount
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    // Crea una chiave per evitare fetch duplicati
+    const fetchKey = `${productId}-${productPrice}-${isAuthenticated}`;
+
+    // Se la chiave è la stessa, non fare un altro fetch
+    if (lastFetchRef.current === fetchKey) {
+      return;
+    }
+
+    lastFetchRef.current = fetchKey;
+
     const fetchDepositOptions = async () => {
       try {
         setLoading(true);
-        const options = await getProductDepositOptions(product.id, product.price);
+        const options = await getProductDepositOptions(productId, productPrice);
+
+        if (!isMountedRef.current) return;
+
         setDepositOptions(options);
 
         // Se l'utente non è autenticato, forza sempre il pagamento completo
         if (!isAuthenticated) {
           setSelectedOption('no');
-          onDepositOptionChange('no');
+          onDepositOptionChangeRef.current('no');
         }
         // Se l'acconto è obbligatorio e l'utente è autenticato, imposta l'opzione selezionata su "yes"
         else if (options.deposit_forced && isAuthenticated) {
           setSelectedOption('yes');
-          onDepositOptionChange('yes');
+          onDepositOptionChangeRef.current('yes');
         }
-      } catch (error) {
-        console.error('Errore nel recupero delle opzioni di acconto:', error);
-        setError('Impossibile caricare le opzioni di acconto');
+      } catch (err) {
+        console.error('Errore nel recupero delle opzioni di acconto:', err);
+        if (isMountedRef.current) {
+          setError('Impossibile caricare le opzioni di acconto');
+        }
       } finally {
-        setLoading(false);
+        if (isMountedRef.current) {
+          setLoading(false);
+        }
       }
     };
 
     fetchDepositOptions();
-  }, [product.id, product.price, onDepositOptionChange, isAuthenticated]);
+  }, [productId, productPrice, isAuthenticated]);
 
   // Se stiamo caricando e l'utente non è autenticato, non mostrare nulla durante il loading
   if (loading && !isAuthenticated) {
