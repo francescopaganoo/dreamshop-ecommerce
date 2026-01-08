@@ -411,8 +411,8 @@ function AccountContent() {
                          status === 'scheduled-payment' ? 'Rata programmata' :
                          status === 'pending-deposit' ? 'In attesa di acconto' :
                          status === 'cancelled' ? 'Annullato' :
-                         status === 'inoltrato' ? 'Lavorazione' :
-                         status === 'forwarded' ? 'Lavorazione' :
+                         status === 'inoltrato' ? 'Inoltrato al fornitore' :
+                         status === 'forwarded' ? 'Inoltrato al fornitore' :
                          status}
                       </span>
                       <span className="ml-1 text-xs text-gray-500">({allOrders.filter(o => o.status === status).length})</span>
@@ -466,8 +466,8 @@ function AccountContent() {
                                order.status === 'scheduled-payment' ? 'Rata programmata' :
                                order.status === 'pending-deposit' ? 'In attesa di acconto' :
                                order.status === 'cancelled' ? 'Annullato' :
-                               order.status === 'inoltrato' ? 'Lavorazione' :
-                               order.status === 'forwarded' ? 'Lavorazione' :
+                               order.status === 'inoltrato' ? 'Inoltrato al fornitore' :
+                               order.status === 'forwarded' ? 'Inoltrato al fornitore' :
                                order.status}
                             </span>
                           </td>
