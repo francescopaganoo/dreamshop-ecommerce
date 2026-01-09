@@ -61,6 +61,10 @@ export default function AppleGooglePayButton({
   // Stato per il metodo di spedizione
   const [selectedShippingMethod, setSelectedShippingMethod] = useState<ShippingMethod | null>(null);
 
+  // Ref per avere sempre l'ultimo valore di selectedShippingMethod nell'event handler
+  const shippingMethodRef = useRef<ShippingMethod | null>(selectedShippingMethod);
+  shippingMethodRef.current = selectedShippingMethod;
+
   // Estrai valori primitivi dal product per evitare re-render
   const productId = product.id;
   const productName = product.name;
@@ -402,8 +406,9 @@ export default function AppleGooglePayButton({
         setIsProcessing(true);
         setError(null);
 
-        // Usa userIdRef.current per avere sempre l'ultimo valore
+        // Usa i ref per avere sempre gli ultimi valori
         const currentUserId = userIdRef.current;
+        const currentShippingMethod = shippingMethodRef.current;
 
         // Crea l'ordine backend
         const response = await fetch('/api/stripe/payment-request-order', {
@@ -420,7 +425,7 @@ export default function AppleGooglePayButton({
             depositType: depositType || undefined,
             paymentPlanId: paymentPlanId || undefined,
             paymentMethodId: ev.paymentMethod.id,
-            shippingMethod: selectedShippingMethod,
+            shippingMethod: currentShippingMethod,
             variationId: variationId,
             variationAttributes: variationAttributes,
             billingData: {
