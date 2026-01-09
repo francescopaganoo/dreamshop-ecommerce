@@ -1,5 +1,5 @@
 /**
- * DreamShop Auto Gifts - Frontend Integration
+ * WC Auto Gifts - Frontend Integration
  *
  * Questo modulo gestisce la comunicazione con il plugin WordPress
  * per i prodotti regalo automatici nel carrello.
@@ -9,6 +9,9 @@ import { Product } from './api';
 
 // URL base del WordPress
 const WORDPRESS_URL = process.env.NEXT_PUBLIC_WORDPRESS_URL?.replace(/\/$/, '') || '';
+
+// Flag per disabilitare le chiamate se l'endpoint non esiste
+let autoGiftsDisabled = false;
 
 /**
  * Interfaccia per un prodotto regalo
@@ -75,8 +78,19 @@ export async function checkAutoGifts(
   cartTotal: number,
   userId?: number
 ): Promise<CheckGiftsResponse> {
+  // Se l'endpoint è stato disabilitato (404), non fare altre chiamate
+  if (autoGiftsDisabled) {
+    return {
+      success: false,
+      gifts: [],
+      rules_evaluated: 0,
+      cart_total: cartTotal,
+      message: 'Auto gifts endpoint not available',
+    };
+  }
+
   try {
-    const response = await fetch(`${WORDPRESS_URL}/wp-json/dreamshop-auto-gifts/v1/check-gifts`, {
+    const response = await fetch(`${WORDPRESS_URL}/wp-json/wc-auto-gifts/v1/check-gifts`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -87,6 +101,19 @@ export async function checkAutoGifts(
         user_id: userId,
       }),
     });
+
+    // Se l'endpoint non esiste (404), disabilita le chiamate future
+    if (response.status === 404) {
+      autoGiftsDisabled = true;
+      console.warn('Auto gifts endpoint not found (404). Disabling auto gifts feature.');
+      return {
+        success: false,
+        gifts: [],
+        rules_evaluated: 0,
+        cart_total: cartTotal,
+        message: 'Auto gifts endpoint not available',
+      };
+    }
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -203,7 +230,7 @@ export function getGiftRuleName(item: { product: Product }): string | null {
 /**
  * Storage key per i regali nel localStorage
  */
-const AUTO_GIFTS_STORAGE_KEY = 'dreamshop_auto_gifts';
+const AUTO_GIFTS_STORAGE_KEY = 'wc_auto_gifts';
 
 /**
  * Salva i regali correnti nel localStorage

@@ -76,6 +76,10 @@ export default function AppleGooglePayButton({
   // Memoizza userId per evitare re-render
   const userId = user?.id || 0;
 
+  // Ref per avere sempre l'ultimo valore di userId nell'event handler
+  const userIdRef = useRef(userId);
+  userIdRef.current = userId;
+
   // Cleanup al unmount
   useEffect(() => {
     isMountedRef.current = true;
@@ -398,6 +402,9 @@ export default function AppleGooglePayButton({
         setIsProcessing(true);
         setError(null);
 
+        // Usa userIdRef.current per avere sempre l'ultimo valore
+        const currentUserId = userIdRef.current;
+
         // Crea l'ordine backend
         const response = await fetch('/api/stripe/payment-request-order', {
           method: 'POST',
@@ -407,7 +414,7 @@ export default function AppleGooglePayButton({
           body: JSON.stringify({
             productId: productId,
             quantity: quantity,
-            userId: userId,
+            userId: currentUserId,
             enableDeposit: enableDeposit,
             depositAmount: depositAmount || undefined,
             depositType: depositType || undefined,

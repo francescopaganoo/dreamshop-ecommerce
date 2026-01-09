@@ -44,6 +44,7 @@ interface AppleGooglePayCheckoutProps {
   onPaymentStart?: () => void;
   onPaymentError?: (error: string) => void;
   className?: string;
+  customerId?: number; // ID cliente passato dalla pagina checkout
 }
 
 export default function AppleGooglePayCheckout({
@@ -51,7 +52,8 @@ export default function AppleGooglePayCheckout({
   shippingData,
   onPaymentStart,
   onPaymentError,
-  className = ''
+  className = '',
+  customerId
 }: AppleGooglePayCheckoutProps) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [paymentRequest, setPaymentRequest] = useState<any>(null);
@@ -80,8 +82,13 @@ export default function AppleGooglePayCheckout({
   const cartTotal = getCartTotal();
   const finalTotal = cartTotal - discount;
 
-  // Memoizza userId per evitare re-render
-  const userId = user?.id || 0;
+  // Usa customerId se passato come prop, altrimenti fallback a useAuth()
+  // Questo risolve il problema di timing quando useAuth() non ha ancora caricato l'utente
+  const userId = customerId || user?.id || 0;
+
+  // Ref per avere sempre l'ultimo valore di userId nell'event handler
+  const userIdRef = useRef(userId);
+  userIdRef.current = userId;
 
   // Memoizza cart come stringa per confronto stabile
   const cartKey = useMemo(() =>
@@ -347,6 +354,9 @@ export default function AppleGooglePayCheckout({
         setError(null);
         onPaymentStart?.();
 
+        // Usa userIdRef.current per avere sempre l'ultimo valore
+        const currentUserId = userIdRef.current;
+
         // Prepara i dati per l'API con supporto per acconti/rate
         const orderData = {
           cartItems: cart.map(item => {
@@ -366,7 +376,7 @@ export default function AppleGooglePayCheckout({
               paymentPlanId: depositInfo.hasDeposit ? depositInfo.paymentPlanId : undefined
             };
           }),
-          userId: userId,
+          userId: currentUserId,
           paymentMethodId: ev.paymentMethod.id,
           shippingOption: ev.shippingOption,
           discount: discount,

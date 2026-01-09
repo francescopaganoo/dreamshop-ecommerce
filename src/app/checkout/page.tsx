@@ -2766,6 +2766,7 @@ export default function CheckoutPage() {
                     <>
                   {/* Apple Pay / Google Pay */}
                   <AppleGooglePayCheckout
+                    customerId={isAuthenticated && user ? user.id : 0}
                     billingData={{
                       firstName: formData.firstName,
                       lastName: formData.lastName,
