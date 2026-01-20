@@ -146,6 +146,12 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
+                <Link href="/programma-punti" className="text-gray-300 hover:text-bred-400 transition-colors duration-300 flex items-center group">
+                  <span className="w-2 h-2 bg-bred-500 rounded-full mr-3 opacity-0 group-hover:opacity-100 transition-opacity"></span>
+                  Programma Punti
+                </Link>
+              </li>
+              <li>
                 <button
                   onClick={() => window.dispatchEvent(new CustomEvent('openCookieSettings'))}
                   className="text-gray-300 hover:text-bred-400 transition-colors duration-300 flex items-center group"
