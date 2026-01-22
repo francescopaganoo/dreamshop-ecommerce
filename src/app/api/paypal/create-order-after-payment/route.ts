@@ -290,9 +290,31 @@ export async function POST(request: NextRequest) {
 
     } catch (wooError) {
       console.error('Errore durante la creazione dell\'ordine in WooCommerce:', wooError);
+
+      // Log dettagliato per capire esattamente cosa WooCommerce rifiuta
+      const axiosError = wooError as { response?: { status?: number; data?: { code?: string; message?: string; data?: unknown } } };
+      if (axiosError.response?.data) {
+        console.error('[PAYPAL-WOO-ERROR] ===== DETTAGLI ERRORE WOOCOMMERCE =====');
+        console.error('[PAYPAL-WOO-ERROR] Status HTTP:', axiosError.response.status);
+        console.error('[PAYPAL-WOO-ERROR] Codice errore:', axiosError.response.data.code);
+        console.error('[PAYPAL-WOO-ERROR] Messaggio:', axiosError.response.data.message);
+        console.error('[PAYPAL-WOO-ERROR] Dati aggiuntivi:', JSON.stringify(axiosError.response.data.data, null, 2));
+        console.error('[PAYPAL-WOO-ERROR] ===== DATI ORDINE INVIATI =====');
+        console.error('[PAYPAL-WOO-ERROR] Billing email:', orderDataToSend.billing?.email);
+        console.error('[PAYPAL-WOO-ERROR] Billing name:', `${orderDataToSend.billing?.first_name} ${orderDataToSend.billing?.last_name}`);
+        console.error('[PAYPAL-WOO-ERROR] Customer ID:', orderDataToSend.customer_id);
+        console.error('[PAYPAL-WOO-ERROR] Line items count:', orderDataToSend.line_items?.length);
+        console.error('[PAYPAL-WOO-ERROR] Line items:', JSON.stringify(orderDataToSend.line_items, null, 2));
+        console.error('[PAYPAL-WOO-ERROR] Shipping method:', orderDataToSend.shipping_lines?.[0]?.method_id);
+        console.error('[PAYPAL-WOO-ERROR] Coupon:', orderDataToSend.coupon_lines?.[0]?.code || 'nessuno');
+        console.error('[PAYPAL-WOO-ERROR] Fee lines:', JSON.stringify(orderDataToSend.fee_lines, null, 2));
+        console.error('[PAYPAL-WOO-ERROR] =====================================');
+      }
+
       return NextResponse.json({
         error: 'Errore durante la creazione dell\'ordine',
-        details: wooError
+        details: axiosError.response?.data?.message || 'Errore sconosciuto',
+        code: axiosError.response?.data?.code
       }, { status: 500 });
     }
 
