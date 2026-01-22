@@ -150,7 +150,7 @@ export default function AppleGooglePayCheckout({
     if (hasItems) {
       calculateDefaultShipping();
     }
-  }, [cartKey, cartTotal, hasItems, cart]);
+  }, [cartKey, cartTotal, hasItems]); // Rimosso 'cart' - già rappresentato da cartKey e cartTotal
 
   // Memoizza il costo di spedizione come valore primitivo
   const shippingCost = selectedShippingMethod?.cost ?? 0;
