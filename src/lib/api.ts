@@ -1957,13 +1957,21 @@ export async function getBestSellingProducts(limit: number = 4): Promise<Product
     // Richiediamo più prodotti per compensare quelli non disponibili
     const bestSellingUrl = `${baseUrl}/wp-json/dreamshop/v1/products/best-selling?limit=${limit * 2}`;
 
+    // Timeout di 5 secondi per evitare richieste appese
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
 
     const response = await fetch(bestSellingUrl, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-      }
+      },
+      signal: controller.signal,
+      // Cache per 5 minuti - i bestseller non cambiano frequentemente
+      next: { revalidate: 300 }
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -2023,15 +2031,25 @@ export async function getBestSellingProducts(limit: number = 4): Promise<Product
 export async function getRelatedProductsBySlug(productSlug: string, limit: number = 8): Promise<Product[]> {
   try {
     const baseUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL?.replace(/\/$/, '') || '';
-    const relatedUrl = `${baseUrl}/wp-json/dreamshop/v1/products/${productSlug}/related?limit=${limit}`;
+    // Encode lo slug per gestire caratteri speciali
+    const encodedSlug = encodeURIComponent(productSlug);
+    const relatedUrl = `${baseUrl}/wp-json/dreamshop/v1/products/${encodedSlug}/related?limit=${limit}`;
 
+    // Timeout di 5 secondi per evitare richieste appese
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
 
     const response = await fetch(relatedUrl, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-      }
+      },
+      signal: controller.signal,
+      // Cache per 5 minuti - i prodotti correlati non cambiano frequentemente
+      next: { revalidate: 300 }
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
