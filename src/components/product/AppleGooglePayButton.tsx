@@ -58,6 +58,9 @@ export default function AppleGooglePayButton({
     paymentPlanId?: string;
   } | null>(null);
 
+  // Stato per tracciare il caricamento delle opzioni di deposito
+  const [isLoadingDepositOptions, setIsLoadingDepositOptions] = useState(false);
+
   // Stato per il metodo di spedizione
   const [selectedShippingMethod, setSelectedShippingMethod] = useState<ShippingMethod | null>(null);
 
@@ -98,8 +101,12 @@ export default function AppleGooglePayButton({
     const fetchDepositOptions = async () => {
       if (enableDeposit !== 'yes') {
         setDepositOptions(null);
+        setIsLoadingDepositOptions(false);
         return;
       }
+
+      // Inizia il caricamento - nasconde il pulsante finché non abbiamo le opzioni
+      setIsLoadingDepositOptions(true);
 
       try {
         // Passa il prezzo del prodotto/variazione per calcolare correttamente l'acconto
@@ -133,6 +140,10 @@ export default function AppleGooglePayButton({
             depositAmount: '40',
             depositType: 'percent'
           });
+        }
+      } finally {
+        if (isMountedRef.current) {
+          setIsLoadingDepositOptions(false);
         }
       }
     };
@@ -200,13 +211,34 @@ export default function AppleGooglePayButton({
   const depositType = depositOptions?.depositType ?? '';
   const paymentPlanId = depositOptions?.paymentPlanId ?? '';
 
+  // Ref per tracciare il valore precedente di enableDeposit
+  const prevEnableDepositRef = useRef(enableDeposit);
+
   useEffect(() => {
     if (!stripe || !isInStock) {
       return;
     }
 
+    // Se enableDeposit è cambiato, invalida immediatamente il vecchio PR
+    // Questo previene che l'utente usi un PR con il prezzo sbagliato
+    if (prevEnableDepositRef.current !== enableDeposit) {
+      setPaymentRequest(null);
+      paymentRequestRef.current = null;
+      lastConfigRef.current = ''; // Reset della config per forzare ricreazione
+      prevEnableDepositRef.current = enableDeposit;
+    }
+
+    // Se stiamo caricando le opzioni di deposito, aspetta e invalida il vecchio PR
+    if (isLoadingDepositOptions) {
+      // Invalida il vecchio payment request per evitare che l'utente lo usi
+      setPaymentRequest(null);
+      return;
+    }
+
     // Se l'acconto è abilitato ma le opzioni non sono ancora state caricate, aspetta
     if (enableDeposit === 'yes' && !depositAmount) {
+      // Invalida il vecchio payment request
+      setPaymentRequest(null);
       return;
     }
 
@@ -488,6 +520,7 @@ export default function AppleGooglePayButton({
   }, [
     stripe,
     isInStock,
+    isLoadingDepositOptions,
     productId,
     productName,
     productPrice,
