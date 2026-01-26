@@ -326,6 +326,72 @@ export async function POST(request: NextRequest) {
       console.log('[PAYMENT-REQUEST-CART] Step 6: Payment succeeded immediately, creating WooCommerce order NOW');
 
       try {
+        // IDEMPOTENCY CHECK: Verifica se esiste già un ordine con questo payment_intent_id
+        // Questo previene duplicati nel caso improbabile che il webhook sia più veloce
+        console.log(`[PAYMENT-REQUEST-CART] Idempotency check: cercando ordini esistenti per PI ${paymentIntent.id}`);
+
+        const existingOrdersResponse = await WooCommerce.get('orders', {
+          per_page: 10,
+          orderby: 'date',
+          order: 'desc'
+        });
+
+        interface WooOrderMeta {
+          key: string;
+          value: string;
+        }
+        interface WooOrderCheck {
+          id: number;
+          number: string;
+          meta_data: WooOrderMeta[];
+          transaction_id?: string;
+        }
+
+        if (existingOrdersResponse.data && Array.isArray(existingOrdersResponse.data)) {
+          const existingOrder = (existingOrdersResponse.data as WooOrderCheck[]).find((order: WooOrderCheck) => {
+            // Check transaction_id direttamente
+            if (order.transaction_id === paymentIntent.id) {
+              return true;
+            }
+            // Check anche nei meta_data per _stripe_payment_intent_id
+            return order.meta_data?.some((meta: WooOrderMeta) =>
+              meta.key === '_stripe_payment_intent_id' && meta.value === paymentIntent.id
+            );
+          });
+
+          if (existingOrder) {
+            console.log(`[PAYMENT-REQUEST-CART] IDEMPOTENCY: Ordine #${existingOrder.id} già esistente per PI ${paymentIntent.id}, skip creazione`);
+
+            // Aggiorna Payment Intent metadata se mancante
+            if (!paymentIntent.metadata?.wc_order_id) {
+              await stripe.paymentIntents.update(paymentIntent.id, {
+                metadata: {
+                  ...paymentIntent.metadata,
+                  wc_order_id: existingOrder.id.toString(),
+                  order_created: 'true'
+                }
+              });
+            }
+
+            // Elimina i dati dallo store
+            await orderDataStore.delete(dataId);
+
+            return NextResponse.json({
+              success: true,
+              order_id: existingOrder.id,
+              order_number: existingOrder.number,
+              clientSecret: paymentIntent.client_secret,
+              paymentIntentId: paymentIntent.id,
+              paymentStatus: paymentIntent.status,
+              requiresAction: false,
+              total: orderTotal.toFixed(2),
+              idempotency_hit: true
+            });
+          }
+        }
+
+        console.log(`[PAYMENT-REQUEST-CART] Idempotency check passed: nessun ordine esistente per PI ${paymentIntent.id}`);
+
         // Recupera i dati salvati
         const storedData = await orderDataStore.get(dataId);
 
