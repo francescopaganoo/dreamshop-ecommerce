@@ -2084,11 +2084,14 @@ export async function getRelatedProductsBySlug(productSlug: string, limit: numbe
     return [];
   } catch (error) {
     const is404 = error instanceof Error && error.message.includes('status: 404');
+    const baseUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL?.replace(/\/$/, '') || '';
+    const encodedSlug = encodeURIComponent(productSlug);
+    const relatedUrl = `${baseUrl}/wp-json/dreamshop/v1/products/${encodedSlug}/related?limit=${limit}`;
 
     if (is404) {
       console.warn(`[RELATED-PRODUCTS] Prodotto non trovato dal plugin - slug: "${productSlug}" - Usando fallback WooCommerce API`);
     } else {
-      console.error('Errore nel recupero dei prodotti correlati dal plugin:', error);
+      console.error(`[RELATED-PRODUCTS] Errore nel recupero dei prodotti correlati dal plugin - slug: "${productSlug}", url: "${relatedUrl}"`, error);
     }
 
     return [];
