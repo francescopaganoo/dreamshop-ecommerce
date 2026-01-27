@@ -73,6 +73,8 @@ export default function AppleGooglePayCheckout({
   const paymentRequestRef = useRef<any>(null);
   // Ref per evitare re-creazioni inutili
   const lastConfigRef = useRef<string>('');
+  // Ref per calcolare la spedizione solo una volta
+  const hasCalculatedShippingRef = useRef(false);
 
   // Stato per il metodo di spedizione
   const [selectedShippingMethod, setSelectedShippingMethod] = useState<ShippingMethod | null>(null);
@@ -104,8 +106,13 @@ export default function AppleGooglePayCheckout({
     };
   }, []);
 
-  // Effetto per calcolare i metodi di spedizione
+  // Effetto per calcolare i metodi di spedizione - SOLO UNA VOLTA al mount
   useEffect(() => {
+    // Se abbiamo già calcolato la spedizione, non ricalcolare
+    if (hasCalculatedShippingRef.current) {
+      return;
+    }
+
     const calculateDefaultShipping = async () => {
       try {
         // Utilizziamo un indirizzo di default per l'Italia per il calcolo iniziale
@@ -131,6 +138,7 @@ export default function AppleGooglePayCheckout({
 
         // Seleziona automaticamente il primo metodo disponibile
         if (isMountedRef.current) {
+          hasCalculatedShippingRef.current = true; // Marca come calcolato
           if (availableMethods.length > 0) {
             setSelectedShippingMethod(availableMethods[0]);
           } else {
@@ -142,15 +150,16 @@ export default function AppleGooglePayCheckout({
         console.error('Errore nel calcolo della spedizione di default:', error);
         // In caso di errore, nessuna spedizione
         if (isMountedRef.current) {
+          hasCalculatedShippingRef.current = true; // Marca come calcolato anche in caso di errore
           setSelectedShippingMethod(null);
         }
       }
     };
 
-    if (hasItems) {
+    if (hasItems && cart.length > 0) {
       calculateDefaultShipping();
     }
-  }, [cart, cartKey, cartTotal, hasItems]);
+  }, [cart, cartTotal, hasItems]);
 
   // Memoizza il costo di spedizione come valore primitivo
   const shippingCost = selectedShippingMethod?.cost ?? 0;
