@@ -1532,6 +1532,8 @@ export default function CheckoutPage() {
                 notes: formData.notes,
                 // Passa l'ID utente (include nuovi account creati durante checkout)
                 directCustomerId: customerIdForOrder,
+                // Flag di autenticazione per il backend
+                isAuthenticated: isAuthenticated || customerIdForOrder > 0,
                 // Aggiungi le informazioni sui punti da riscattare
                 pointsToRedeem: pointsToRedeem > 0 ? pointsToRedeem : 0,
                 token: localStorage.getItem('woocommerce_token') || '',

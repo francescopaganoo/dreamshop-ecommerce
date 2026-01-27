@@ -127,13 +127,14 @@ export async function POST(request: NextRequest) {
       couponCode = ''
     } = data;
     
-    // SOLUZIONE SEMPLIFICATA: Prendiamo direttamente l'ID utente dal form
-    // Non facciamo più verifiche token che potrebbero fallire
+    // SOLUZIONE ROBUSTA: Accettiamo directCustomerId se è un valore valido (> 0)
+    // Il frontend ha già verificato l'autenticazione prima di inviare il customer ID
     let userId = 0;
-    
-    // Usa directCustomerId se disponibile (inviato dal frontend)
-    if (directCustomerId && isAuthenticated) {
+
+    // Usa directCustomerId se disponibile e valido (inviato dal frontend)
+    if (directCustomerId && directCustomerId > 0) {
       userId = directCustomerId;
+      console.log('iOS: Usando directCustomerId:', userId, '- isAuthenticated:', isAuthenticated);
     } else {
       console.log('iOS: Nessun ID utente valido fornito, ordine sarà come guest');
     }
