@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import api from '../../../../lib/woocommerce';
+import { validateDepositEligibility, hasDepositInLineItems } from '../../../../lib/deposits';
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,6 +13,25 @@ export async function POST(request: NextRequest) {
     
 
     const userId = orderData.customer_id || 0;
+
+    // ========================================================================
+    // VALIDAZIONE DEPOSITI - Gli ordini a rate richiedono autenticazione
+    // ========================================================================
+    const hasAnyDeposit = hasDepositInLineItems(orderData.line_items || []);
+    const depositValidation = validateDepositEligibility({
+      userId,
+      hasDeposit: hasAnyDeposit,
+      context: 'paypal-create-order'
+    });
+
+    if (!depositValidation.isValid) {
+      console.error(`[paypal-create-order] Ordine a rate bloccato: userId=${userId}, hasDeposit=${hasAnyDeposit}`);
+      return NextResponse.json({
+        error: depositValidation.error,
+        errorCode: depositValidation.errorCode
+      }, { status: 403 });
+    }
+    // ========================================================================
 
     // Assicurati che customer_id non sia perso o sovrascritto
     const orderDataToSend = {

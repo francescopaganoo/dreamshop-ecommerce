@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createOrder } from '@/lib/api';
+import { validateDepositEligibility } from '@/lib/deposits';
 
 // Helper function per verificare se un prodotto è un regalo automatico
 function isAutoGiftProduct(product: { meta_data?: Array<{key: string, value: string}> }): boolean {
@@ -50,7 +51,28 @@ export async function POST(request: NextRequest) {
     }
     
     const cartItems = JSON.parse(orderData.cartItems || '[]') as CartItem[];
-    
+
+    // ========================================================================
+    // VALIDAZIONE DEPOSITI - Gli ordini a rate richiedono autenticazione
+    // ========================================================================
+    const hasAnyDeposit = cartItems.some((item: CartItem) =>
+      item.product._wc_convert_to_deposit === 'yes'
+    );
+    const depositValidation = validateDepositEligibility({
+      userId,
+      hasDeposit: hasAnyDeposit,
+      context: 'create-order-standard'
+    });
+
+    if (!depositValidation.isValid) {
+      console.error(`[create-order-standard] Ordine a rate bloccato: userId=${userId}, hasDeposit=${hasAnyDeposit}`);
+      return NextResponse.json({
+        error: depositValidation.error,
+        errorCode: depositValidation.errorCode
+      }, { status: 403 });
+    }
+    // ========================================================================
+
     const line_items = cartItems.map((item: CartItem) => {
       // Definizione dell'interfaccia per lineItem
       interface LineItem {

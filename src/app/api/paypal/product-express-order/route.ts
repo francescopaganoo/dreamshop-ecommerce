@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import api from '../../../../lib/woocommerce';
 import { Product } from '@/lib/api';
+import { validateDepositEligibility } from '../../../../lib/deposits';
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,6 +12,25 @@ export async function POST(request: NextRequest) {
     if (!productId || !quantity) {
       return NextResponse.json({ error: 'Dati prodotto mancanti' }, { status: 400 });
     }
+
+    // ========================================================================
+    // VALIDAZIONE DEPOSITI - Gli ordini a rate richiedono autenticazione
+    // ========================================================================
+    const hasDeposit = enableDeposit === 'yes';
+    const depositValidation = validateDepositEligibility({
+      userId: userId || 0,
+      hasDeposit,
+      context: 'paypal-product-express-order'
+    });
+
+    if (!depositValidation.isValid) {
+      console.error(`[paypal-product-express-order] Ordine a rate bloccato: userId=${userId}, hasDeposit=${hasDeposit}`);
+      return NextResponse.json({
+        error: depositValidation.error,
+        errorCode: depositValidation.errorCode
+      }, { status: 403 });
+    }
+    // ========================================================================
     
     // Recupera i dettagli del prodotto
     try {

@@ -5,13 +5,24 @@ export async function POST(request: NextRequest) {
   // Parsifica il corpo della richiesta
   const body = await request.json().catch(() => ({}));
   const { paymentPlanId } = body;
-  
 
-  
-  // Ottieni il token di autenticazione se disponibile (ora opzionale)
+  // Ottieni il token di autenticazione se disponibile
   const token = await getAuthToken();
-  
-  // Rimosso controllo di autenticazione obbligatorio per permettere checkout anche agli utenti guest
+
+  // ========================================================================
+  // VALIDAZIONE DEPOSITI - Gli ordini a rate richiedono autenticazione
+  // Se c'è un paymentPlanId, significa che l'utente sta cercando di fare
+  // un checkout con deposito/rate, quindi DEVE essere autenticato
+  // ========================================================================
+  if (paymentPlanId && !token) {
+    console.error(`[deposit-checkout] Checkout deposito bloccato: paymentPlanId=${paymentPlanId}, token=null`);
+    return NextResponse.json({
+      success: false,
+      error: 'Gli ordini a rate richiedono un account. Accedi o registrati per continuare con il pagamento rateale.',
+      errorCode: 'DEPOSIT_REQUIRES_AUTH'
+    }, { status: 403 });
+  }
+  // ========================================================================
 
   try {
     // Verifica che l'URL di WordPress sia configurato

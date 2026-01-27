@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import api from '../../../../lib/woocommerce';
 import { orderDataStore } from '../../../../lib/orderDataStore';
+import { validateDepositEligibility, hasDepositInLineItems } from '../../../../lib/deposits';
 
 // Configurazione PayPal
 const PAYPAL_CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || '';
@@ -166,6 +167,25 @@ export async function POST(request: NextRequest) {
     }
 
     const userId = orderData.customer_id || 0;
+
+    // ========================================================================
+    // VALIDAZIONE DEPOSITI - Gli ordini a rate richiedono autenticazione
+    // ========================================================================
+    const hasAnyDeposit = hasDepositInLineItems(orderData.line_items || []);
+    const depositValidation = validateDepositEligibility({
+      userId,
+      hasDeposit: hasAnyDeposit,
+      context: 'paypal-create-order-after-payment'
+    });
+
+    if (!depositValidation.isValid) {
+      console.error(`[paypal-create-order-after-payment] Ordine a rate bloccato: userId=${userId}, hasDeposit=${hasAnyDeposit}`);
+      return NextResponse.json({
+        error: depositValidation.error,
+        errorCode: depositValidation.errorCode
+      }, { status: 403 });
+    }
+    // ========================================================================
 
     // Prepara i dati dell'ordine WooCommerce con status "processing" e set_paid true
     const transactionId = paypalTransactionId || paypalOrderId;

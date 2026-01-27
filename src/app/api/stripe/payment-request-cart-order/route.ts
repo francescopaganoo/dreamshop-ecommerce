@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import WooCommerceRestApi from '@woocommerce/woocommerce-rest-api';
 import { orderDataStore } from '../../../../lib/orderDataStore';
+import { validateDepositEligibility, hasDepositInCartItems } from '../../../../lib/deposits';
 
 // Inizializza Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
@@ -74,6 +75,25 @@ export async function POST(request: NextRequest) {
     if (!cartItems || cartItems.length === 0) {
       return NextResponse.json({ error: 'Carrello vuoto' }, { status: 400 });
     }
+
+    // ========================================================================
+    // VALIDAZIONE DEPOSITI - Gli ordini a rate richiedono autenticazione
+    // ========================================================================
+    const hasAnyDepositInCart = hasDepositInCartItems(cartItems);
+    const depositValidation = validateDepositEligibility({
+      userId,
+      hasDeposit: hasAnyDepositInCart,
+      context: 'payment-request-cart-order'
+    });
+
+    if (!depositValidation.isValid) {
+      console.error(`[payment-request-cart-order] Ordine a rate bloccato: userId=${userId}, hasDeposit=${hasAnyDepositInCart}`);
+      return NextResponse.json({
+        error: depositValidation.error,
+        errorCode: depositValidation.errorCode
+      }, { status: 403 });
+    }
+    // ========================================================================
 
     // Verifica la disponibilità di tutti i prodotti e calcola il totale
     let subtotal = 0;

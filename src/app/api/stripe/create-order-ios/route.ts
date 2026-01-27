@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createOrder } from '../../../../lib/api';
 import api from '../../../../lib/woocommerce';
+import { validateDepositEligibility, hasDepositInLineItems } from '../../../../lib/deposits';
 
 // Interfacce per i tipi WooCommerce
 interface ShippingLine {
@@ -141,6 +142,25 @@ export async function POST(request: NextRequest) {
       console.error('Dati mancanti per l\'ordine iOS');
       return NextResponse.json({ error: 'Dati mancanti' }, { status: 400 });
     }
+
+    // ========================================================================
+    // VALIDAZIONE DEPOSITI - Gli ordini a rate richiedono autenticazione
+    // ========================================================================
+    const hasAnyDeposit = hasDepositInLineItems(line_items);
+    const depositValidation = validateDepositEligibility({
+      userId,
+      hasDeposit: hasAnyDeposit,
+      context: 'create-order-ios'
+    });
+
+    if (!depositValidation.isValid) {
+      console.error(`[create-order-ios] Ordine a rate bloccato: userId=${userId}, hasDeposit=${hasAnyDeposit}`);
+      return NextResponse.json({
+        error: depositValidation.error,
+        errorCode: depositValidation.errorCode
+      }, { status: 403 });
+    }
+    // ========================================================================
     
     // Crea il Payment Intent senza confermare ancora
     let paymentIntent = await stripe.paymentIntents.create({

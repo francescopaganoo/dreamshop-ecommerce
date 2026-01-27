@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import api from '../../../../lib/woocommerce';
+import { validateDepositEligibility } from '../../../../lib/deposits';
 
 export async function POST(request: NextRequest) {
   try {
@@ -62,6 +63,25 @@ export async function POST(request: NextRequest) {
       paymentPlanId,
       productSubtotal: productSubtotal.toFixed(2)
     });
+
+    // ========================================================================
+    // VALIDAZIONE DEPOSITI - Gli ordini a rate richiedono autenticazione
+    // ========================================================================
+    const hasDeposit = enableDeposit === 'yes';
+    const depositValidation = validateDepositEligibility({
+      userId: userId || 0,
+      hasDeposit,
+      context: 'paypal-product-express-complete'
+    });
+
+    if (!depositValidation.isValid) {
+      console.error(`[paypal-product-express-complete] Ordine a rate bloccato: userId=${userId}, hasDeposit=${hasDeposit}`);
+      return NextResponse.json({
+        error: depositValidation.error,
+        errorCode: depositValidation.errorCode
+      }, { status: 403 });
+    }
+    // ========================================================================
 
     // Prepara i line items con il prezzo custom
     const lineItems = [

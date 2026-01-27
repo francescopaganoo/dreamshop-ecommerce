@@ -1,5 +1,99 @@
 import { getWooCommerceToken } from '@/lib/auth';
 
+// ============================================================================
+// VALIDAZIONE DEPOSITI - FUNZIONE CENTRALIZZATA
+// ============================================================================
+
+/**
+ * Risultato della validazione depositi
+ */
+export interface DepositValidationResult {
+  isValid: boolean;
+  error?: string;
+  errorCode?: 'DEPOSIT_REQUIRES_AUTH' | 'INVALID_DEPOSIT_DATA';
+}
+
+/**
+ * Opzioni per la validazione depositi
+ */
+export interface DepositValidationOptions {
+  userId: number;
+  hasDeposit: boolean;
+  /** Contesto per logging (es: 'create-order-ios', 'payment-request-cart') */
+  context?: string;
+}
+
+/**
+ * Valida se un ordine con deposito può essere processato.
+ *
+ * REGOLA DI BUSINESS: Gli ordini a rate (depositi/acconti) richiedono
+ * un utente autenticato con account valido.
+ *
+ * Questa funzione DEVE essere chiamata da tutti gli endpoint API che
+ * processano ordini prima di creare l'ordine.
+ *
+ * @param options - Opzioni di validazione
+ * @returns Risultato della validazione con eventuali errori
+ *
+ * @example
+ * ```typescript
+ * const validation = validateDepositEligibility({
+ *   userId: userId,
+ *   hasDeposit: hasAnyDeposit,
+ *   context: 'payment-request-cart'
+ * });
+ *
+ * if (!validation.isValid) {
+ *   return NextResponse.json({ error: validation.error }, { status: 403 });
+ * }
+ * ```
+ */
+export function validateDepositEligibility(options: DepositValidationOptions): DepositValidationResult {
+  const { userId, hasDeposit, context = 'unknown' } = options;
+
+  // Se non c'è deposito, la validazione passa sempre
+  if (!hasDeposit) {
+    return { isValid: true };
+  }
+
+  // Se c'è deposito ma l'utente non è autenticato (userId <= 0), blocca
+  if (userId <= 0) {
+    console.warn(`[DEPOSIT_VALIDATION][${context}] Tentativo ordine a rate senza account - BLOCCATO`);
+    return {
+      isValid: false,
+      error: 'Gli ordini a rate richiedono un account. Accedi o registrati per continuare con il pagamento rateale.',
+      errorCode: 'DEPOSIT_REQUIRES_AUTH'
+    };
+  }
+
+  // Validazione passata
+  return { isValid: true };
+}
+
+/**
+ * Helper per verificare se un array di line items contiene depositi
+ */
+export function hasDepositInLineItems(lineItems: Array<{ meta_data?: Array<{ key: string; value: string }> }>): boolean {
+  if (!lineItems || !Array.isArray(lineItems)) return false;
+
+  return lineItems.some(item => {
+    if (!item.meta_data || !Array.isArray(item.meta_data)) return false;
+    return item.meta_data.some(meta =>
+      meta.key === '_wc_convert_to_deposit' && meta.value === 'yes'
+    );
+  });
+}
+
+/**
+ * Helper per verificare se un array di cart items contiene depositi
+ */
+export function hasDepositInCartItems(cartItems: Array<{ enableDeposit?: string }>): boolean {
+  if (!cartItems || !Array.isArray(cartItems)) return false;
+  return cartItems.some(item => item.enableDeposit === 'yes');
+}
+
+// ============================================================================
+
 // Interfaccia per gli ordini pianificati
 export interface ScheduledOrder {
   id: number;

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import WooCommerceRestApi from '@woocommerce/woocommerce-rest-api';
 import { orderDataStore } from '../../../../lib/orderDataStore';
+import { validateDepositEligibility } from '../../../../lib/deposits';
 
 // Inizializza Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
@@ -75,6 +76,25 @@ export async function POST(request: NextRequest) {
     if (product.stock_status !== 'instock') {
       return NextResponse.json({ error: 'Prodotto non disponibile' }, { status: 400 });
     }
+
+    // ========================================================================
+    // VALIDAZIONE DEPOSITI - Gli ordini a rate richiedono autenticazione
+    // ========================================================================
+    const hasDeposit = enableDeposit === 'yes';
+    const depositValidation = validateDepositEligibility({
+      userId,
+      hasDeposit,
+      context: 'payment-request-order'
+    });
+
+    if (!depositValidation.isValid) {
+      console.error(`[payment-request-order] Ordine a rate bloccato: userId=${userId}, hasDeposit=${hasDeposit}`);
+      return NextResponse.json({
+        error: depositValidation.error,
+        errorCode: depositValidation.errorCode
+      }, { status: 403 });
+    }
+    // ========================================================================
 
     // Calcola il prezzo
     const unitPrice = parseFloat(product.sale_price || product.price || '0');

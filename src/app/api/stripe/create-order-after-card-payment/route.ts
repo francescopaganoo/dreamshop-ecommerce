@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import api from '../../../../lib/woocommerce';
 import { orderDataStore } from '../../../../lib/orderDataStore';
+import { validateDepositEligibility } from '../../../../lib/deposits';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -135,6 +136,24 @@ export async function POST(request: NextRequest) {
     const hasDeposit = lineItems.some(item =>
       item.meta_data?.some(meta => meta.key === '_wc_convert_to_deposit' && meta.value === 'yes')
     );
+
+    // ========================================================================
+    // VALIDAZIONE DEPOSITI - Gli ordini a rate richiedono autenticazione
+    // ========================================================================
+    const depositValidation = validateDepositEligibility({
+      userId,
+      hasDeposit,
+      context: 'stripe-create-order-after-card-payment'
+    });
+
+    if (!depositValidation.isValid) {
+      console.error(`[stripe-create-order-after-card-payment] Ordine a rate bloccato: userId=${userId}, hasDeposit=${hasDeposit}`);
+      return NextResponse.json({
+        error: depositValidation.error,
+        errorCode: depositValidation.errorCode
+      }, { status: 403 });
+    }
+    // ========================================================================
 
     // Log dettagliato per debug
     console.log(`[STRIPE-CARD] Ordine contiene acconti: ${hasDeposit}`);
