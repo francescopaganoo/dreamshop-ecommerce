@@ -534,8 +534,9 @@ export default function AppleGooglePayButton({
           }
 
           // Pagamento confermato con successo
+          // L'ordine viene creato dal webhook, la pagina success usa polling per recuperarlo
           ev.complete('success');
-          router.push(`/checkout/success?order_id=${result.order_id}`);
+          router.push(`/checkout/success?payment_intent=${result.paymentIntentId}&payment_method=stripe`);
 
         } else {
           throw new Error(result.error || 'Errore durante la creazione dell\'ordine');

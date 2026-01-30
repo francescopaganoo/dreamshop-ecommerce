@@ -217,72 +217,12 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ received: true, message: `Ordine #${wcOrderId} già esistente` });
         }
 
-        // NUOVO FLUSSO: Se abbiamo order_data_id, dobbiamo CREARE l'ordine (non aggiornarlo)
+        // FLUSSO PRINCIPALE: Il webhook è l'UNICO creatore di ordini per Apple Pay/Google Pay.
+        // La route NON crea più ordini (per evitare race condition e duplicati).
         if (orderDataId && !wcOrderId) {
           console.log(`[WEBHOOK] Creazione ordine da order_data_id: ${orderDataId}`);
 
           try {
-            // IDEMPOTENCY CHECK: Verifica se esiste già un ordine con questo payment_intent_id
-            // Questo previene la creazione di ordini duplicati in caso di race condition
-            // tra la route (Step 6) e il webhook
-            console.log(`[WEBHOOK] Idempotency check: cercando ordini esistenti per PI ${paymentIntent.id}`);
-
-            const existingOrdersResponse = await api.get('orders', {
-              per_page: 10,
-              orderby: 'date',
-              order: 'desc'
-            });
-
-            interface WooOrderMeta {
-              key: string;
-              value: string;
-            }
-            interface WooOrderCheck {
-              id: number;
-              meta_data: WooOrderMeta[];
-              transaction_id?: string;
-            }
-
-            if (existingOrdersResponse.data && Array.isArray(existingOrdersResponse.data)) {
-              const existingOrder = (existingOrdersResponse.data as WooOrderCheck[]).find((order: WooOrderCheck) => {
-                // Check transaction_id direttamente
-                if (order.transaction_id === paymentIntent.id) {
-                  return true;
-                }
-                // Check anche nei meta_data per _stripe_payment_intent_id
-                return order.meta_data?.some((meta: WooOrderMeta) =>
-                  meta.key === '_stripe_payment_intent_id' && meta.value === paymentIntent.id
-                );
-              });
-
-              if (existingOrder) {
-                console.log(`[WEBHOOK] IDEMPOTENCY: Ordine #${existingOrder.id} già esistente per PI ${paymentIntent.id}, skip creazione`);
-
-                // Aggiorna Payment Intent metadata se mancante
-                if (!paymentIntent.metadata?.wc_order_id) {
-                  await stripe.paymentIntents.update(paymentIntent.id, {
-                    metadata: {
-                      ...paymentIntent.metadata,
-                      wc_order_id: existingOrder.id.toString(),
-                      order_created: 'true',
-                      webhook_skipped_duplicate: 'true'
-                    }
-                  });
-                }
-
-                // Elimina i dati dallo store se ancora presenti
-                await orderDataStore.delete(orderDataId);
-
-                return NextResponse.json({
-                  received: true,
-                  message: `Ordine #${existingOrder.id} già esistente (idempotency check)`,
-                  order_id: existingOrder.id
-                });
-              }
-            }
-
-            console.log(`[WEBHOOK] Idempotency check passed: nessun ordine esistente per PI ${paymentIntent.id}`);
-
             // Recupera i dati dell'ordine dallo store
             const storedData = await orderDataStore.get(orderDataId);
 

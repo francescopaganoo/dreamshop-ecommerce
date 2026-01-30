@@ -455,8 +455,9 @@ export default function AppleGooglePayCheckout({
           // Svuota il carrello
           clearCart();
 
-          // Reindirizza alla pagina di successo
-          router.push(`/checkout/success?order_id=${result.order_id}`);
+          // Reindirizza alla pagina di successo con payment_intent
+          // L'ordine viene creato dal webhook, la pagina success usa polling per recuperarlo
+          router.push(`/checkout/success?payment_intent=${result.paymentIntentId}&payment_method=stripe`);
 
         } else {
           throw new Error(result.error || 'Errore durante la creazione dell\'ordine');
