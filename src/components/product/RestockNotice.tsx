@@ -2,18 +2,12 @@
 
 import { useState, useEffect } from 'react';
 
-interface ProductAttribute {
-  id: number;
-  name: string;
-  slug?: string;
-  options: Array<string | { name: string; slug: string }>;
-}
-
 interface RestockNoticeProps {
   productId: number;
   categories: Array<{ id: number; name: string; slug: string }>;
   metaData?: Array<{ key: string; value: string }>;
-  attributes?: ProductAttribute[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  attributes?: any[];
   targetCategory?: string;
 }
 
@@ -46,7 +40,7 @@ export default function RestockNotice({
       // Controlla attributo "in-pre-order" (pa_disponibilita)
       const hasPreorderAttribute = attributes?.some(attr => {
         if (attr.name === 'pa_disponibilita' || attr.slug === 'pa_disponibilita') {
-          return attr.options.some(opt => {
+          return attr.options.some((opt: string | { slug: string }) => {
             const optSlug = typeof opt === 'string' ? opt.toLowerCase().replace(/\s+/g, '-') : opt.slug;
             return optSlug === 'in-pre-order' || optSlug.includes('pre-order');
           });
