@@ -9,6 +9,7 @@ import ProductActions from '@/components/product/ProductActions';
 import BundleProducts from '@/components/product/BundleProducts';
 import ProductImagesSection from '@/components/product/ProductImagesSection';
 import SaleCountdown from '@/components/product/SaleCountdown';
+import RestockNotice from '@/components/product/RestockNotice';
 import ProductCarousel from '@/components/ProductCarousel';
 import { isBundle, BundleProduct } from '@/types/bundle';
 import { Suspense } from 'react';
@@ -373,7 +374,15 @@ async function ProductDetails({ slug }: { slug: string }) {
               </span>
             )}
           </div>
-          
+
+          {/* Restock Notice per prodotti ichiban-kuji con pre-ordine */}
+          <RestockNotice
+            productId={product.id}
+            categories={product.categories || []}
+            metaData={product.meta_data}
+            attributes={product.attributes}
+          />
+
           {/* Short Description */}
           <div className="mb-6 prose text-gray-600 prose-sm" dangerouslySetInnerHTML={{ __html: product.short_description }} />
           
