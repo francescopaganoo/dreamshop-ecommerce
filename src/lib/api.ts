@@ -1230,26 +1230,59 @@ export function matchesAllWords(productName: string, searchQuery: string): boole
 }
 
 // Search products (only in product titles) - usa il plugin per escludere prodotti nascosti
+// Usa la stessa logica multi-parola della pagina /search per risultati coerenti
 export async function searchProducts(searchTerm: string, page = 1, per_page = 10): Promise<{ products: Product[], total: number }> {
   try {
-    // Usa il plugin dreamshop-advanced-filters che già filtra i prodotti nascosti
-    const result = await getFilteredProductsPlugin({
-      search: searchTerm,
-      page: page,
-      per_page: per_page,
-      orderby: 'date',
-      order: 'desc'
-    });
+    const searchWords = searchTerm.trim().split(/\s+/).filter(word => word.length > 0);
+    const isMultiWordSearch = searchWords.length > 1;
 
-    // Filtriamo ulteriormente i prodotti usando la ricerca multi-parola
-    // Es: "levi wawa" troverà "Levi Ackerman Wawa Studio"
-    const filteredProducts = result.products.filter(product =>
+    let allProducts: Product[] = [];
+
+    if (isMultiWordSearch) {
+      // Ricerca multi-parola: cerca ogni parola separatamente e combina i risultati
+      // Usa per_page: 100 come la pagina /search per avere abbastanza candidati
+      const searchPromises = searchWords.map(word =>
+        getFilteredProductsPlugin({
+          search: word,
+          per_page: 100,
+          orderby: 'date',
+          order: 'desc'
+        })
+      );
+
+      const results = await Promise.all(searchPromises);
+
+      // Combina tutti i prodotti e rimuovi duplicati
+      const productMap = new Map<number, Product>();
+      results.forEach(result => {
+        result.products.forEach(product => {
+          productMap.set(product.id, product);
+        });
+      });
+      allProducts = Array.from(productMap.values());
+    } else {
+      // Ricerca singola parola - usa per_page: 100 per coerenza con ricerche multi-parola
+      const result = await getFilteredProductsPlugin({
+        search: searchTerm,
+        per_page: 100,
+        orderby: 'date',
+        order: 'desc'
+      });
+      allProducts = result.products;
+    }
+
+    // Filtra i prodotti: tutte le parole della query devono essere presenti nel nome
+    const filteredProducts = allProducts.filter(product =>
       matchesAllWords(product.name, searchTerm)
     );
 
+    // Applica paginazione client-side
+    const startIndex = (page - 1) * per_page;
+    const paginatedProducts = filteredProducts.slice(startIndex, startIndex + per_page);
+
     return {
-      products: filteredProducts,
-      total: result.total
+      products: paginatedProducts,
+      total: filteredProducts.length
     };
   } catch (error) {
     console.error(`Error searching products with term "${searchTerm}":`, error);
