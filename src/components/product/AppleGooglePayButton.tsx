@@ -38,7 +38,6 @@ export default function AppleGooglePayButton({
   const [paymentRequest, setPaymentRequest] = useState<any>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [debugInfo, setDebugInfo] = useState<string>('');
   const { user } = useAuth();
   const router = useRouter();
   const stripe = useStripe();
@@ -154,7 +153,6 @@ export default function AppleGooglePayButton({
   // Effetto per calcolare i metodi di spedizione
   useEffect(() => {
     const calculateDefaultShipping = async () => {
-      console.log('[GPay/ApplePay] === CALCULATING DEFAULT SHIPPING ===');
       try {
         // Utilizziamo un indirizzo di default per l'Italia per il calcolo iniziale
         const defaultAddress: ShippingAddress = {
@@ -166,8 +164,6 @@ export default function AppleGooglePayButton({
           postcode: '00100',
           country: 'IT'
         };
-
-        console.log('[GPay/ApplePay] Default address (IT):', defaultAddress);
 
         const unitPrice = parseFloat(productSalePrice || productPrice || '0');
         const cartTotal = unitPrice * quantity;
@@ -182,16 +178,11 @@ export default function AppleGooglePayButton({
 
         const availableMethods = await getShippingMethods(defaultAddress, cartTotal, cartItems);
 
-        console.log('[GPay/ApplePay] Default shipping methods:', availableMethods);
-
         // Seleziona automaticamente il primo metodo disponibile
         if (isMountedRef.current) {
           if (availableMethods.length > 0) {
-            console.log('[GPay/ApplePay] Selected default method:', availableMethods[0].title, 'Cost:', availableMethods[0].cost);
             setSelectedShippingMethod(availableMethods[0]);
           } else {
-            console.log('[GPay/ApplePay] No default shipping methods, setting null');
-            // Nessun metodo disponibile = spedizione €0
             setSelectedShippingMethod(null);
           }
         }
@@ -279,11 +270,6 @@ export default function AppleGooglePayButton({
     // Totale finale = prodotto + spedizione
     const finalAmount = Math.round(totalAmount * 100) + shippingAmount;
 
-    // DEBUG: Log configurazione iniziale
-    console.log('[GPay/ApplePay] === CREATING PAYMENT REQUEST ===');
-    console.log('[GPay/ApplePay] Initial shipping:', { shippingMethodId, shippingMethodTitle, shippingCost, shippingAmount });
-    console.log('[GPay/ApplePay] Initial total (cents):', finalAmount);
-
     // Crea il payment request con configurazione semplificata
     const pr = stripe.paymentRequest({
       country: 'IT',
@@ -313,8 +299,6 @@ export default function AppleGooglePayButton({
       ],
     });
 
-    console.log('[GPay/ApplePay] Payment Request created');
-
     // Salva riferimento al payment request
     paymentRequestRef.current = pr;
 
@@ -324,20 +308,11 @@ export default function AppleGooglePayButton({
 
       if (result) {
         setPaymentRequest(pr);
-        setDebugInfo(`Disponibile: ${result.applePay ? 'Apple Pay' : ''} ${result.googlePay ? 'Google Pay' : ''} ${result.link ? 'Link' : ''}`);
-      } else {
-        setDebugInfo('Payment Request non disponibile su questo dispositivo/browser');
       }
     });
 
     // Gestisce il cambio di indirizzo di spedizione
     pr.on('shippingaddresschange', async (ev) => {
-      // DEBUG: Log evento shippingaddresschange
-      console.log('[GPay/ApplePay] === SHIPPING ADDRESS CHANGE ===');
-      console.log('[GPay/ApplePay] Timestamp:', new Date().toISOString());
-      console.log('[GPay/ApplePay] Raw address:', JSON.stringify(ev.shippingAddress, null, 2));
-      console.log('[GPay/ApplePay] Country:', ev.shippingAddress?.country);
-
       try {
         // Converti l'indirizzo di spedizione nel formato richiesto
         const shippingAddress: ShippingAddress = {
@@ -350,8 +325,6 @@ export default function AppleGooglePayButton({
           country: ev.shippingAddress?.country || 'IT'
         };
 
-        console.log('[GPay/ApplePay] Parsed address:', shippingAddress);
-
         const unitPriceCalc = parseFloat(productSalePrice || productPrice || '0');
         const cartTotal = unitPriceCalc * quantity;
 
@@ -362,18 +335,12 @@ export default function AppleGooglePayButton({
           shipping_class_id: productShippingClassId || 0
         }];
 
-        console.log('[GPay/ApplePay] Calling getShippingMethods...');
-
         // Ricalcola i metodi di spedizione con il nuovo indirizzo
         const availableMethods = await getShippingMethods(shippingAddress, cartTotal, cartItems);
-
-        console.log('[GPay/ApplePay] Available methods:', availableMethods);
 
         if (availableMethods.length > 0) {
           const shippingMethod = availableMethods[0];
           const newShippingAmount = Math.round(shippingMethod.cost * 100);
-
-          console.log('[GPay/ApplePay] Selected method:', shippingMethod.title, 'Cost:', shippingMethod.cost, 'EUR');
 
           // Aggiorna il metodo di spedizione selezionato
           if (isMountedRef.current) {
@@ -393,8 +360,6 @@ export default function AppleGooglePayButton({
 
           const newTotal = Math.round(productAmount * 100) + newShippingAmount;
 
-          console.log('[GPay/ApplePay] New total (cents):', newTotal, '= product:', Math.round(productAmount * 100), '+ shipping:', newShippingAmount);
-
           ev.updateWith({
             status: 'success',
             total: {
@@ -411,10 +376,7 @@ export default function AppleGooglePayButton({
             ],
           });
 
-          console.log('[GPay/ApplePay] updateWith called with success');
         } else {
-          console.log('[GPay/ApplePay] No shipping methods available for this address');
-          // Nessun metodo di spedizione disponibile per questo indirizzo
           ev.updateWith({
             status: 'invalid_shipping_address',
           });
@@ -528,8 +490,6 @@ export default function AppleGooglePayButton({
             ev.complete('fail');
             setError('Questo pagamento richiede autenticazione aggiuntiva. Per favore usa il checkout standard.');
 
-            // Puoi anche cancellare l'ordine qui se vuoi
-            console.log(`[Apple/Google Pay] Order #${result.order_id} left pending - requires 3DS`);
             return;
           }
 
@@ -585,16 +545,6 @@ export default function AppleGooglePayButton({
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
           <p className="text-red-700 text-sm">❌ {error}</p>
-        </div>
-      )}
-      
-      {/* Debug Info */}
-      {debugInfo && !paymentRequest && (
-        <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-          <p className="text-yellow-700 text-sm">🔍 {debugInfo}</p>
-          <p className="text-yellow-600 text-xs mt-1">
-            Testa su Safari (iOS/Mac) o Chrome con carte salvate
-          </p>
         </div>
       )}
       
