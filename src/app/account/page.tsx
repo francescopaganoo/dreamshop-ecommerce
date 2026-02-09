@@ -6,9 +6,11 @@ import Link from 'next/link';
 import { getScheduledOrders, ScheduledOrder } from '@/lib/deposits';
 import { useAuth } from '@/context/AuthContext';
 import ScheduledPaymentModal from '@/components/ScheduledPaymentModal';
+import ResinShippingPaymentModal from '@/components/ResinShippingPaymentModal';
 import { PointsResponse, PointsHistoryItem, getUserPoints } from '@/lib/points';
 import { BillingAddress, ShippingAddress, getUserAddresses } from '@/lib/api';
 import GiftCardBalance from '@/components/GiftCardBalance';
+import { getResinShippingFees, ResinShippingFee } from '@/lib/resinShipping';
 
 // Interfaccia per gli ordini
 interface Order {
@@ -80,6 +82,13 @@ function AccountContent() {
   });
   const [isLoadingAddresses, setIsLoadingAddresses] = useState(false);
   const [addressesError, setAddressesError] = useState<string | null>(null);
+
+  // Stati per le spedizioni resina
+  const [resinShippingFees, setResinShippingFees] = useState<ResinShippingFee[]>([]);
+  const [isLoadingResinFees, setIsLoadingResinFees] = useState(false);
+  const [resinFeesError, setResinFeesError] = useState<string | null>(null);
+  const [isResinPaymentModalOpen, setIsResinPaymentModalOpen] = useState(false);
+  const [resinPaymentFee, setResinPaymentFee] = useState<ResinShippingFee | null>(null);
   
   // Reindirizza l'utente se non è autenticato
   useEffect(() => {
@@ -91,7 +100,7 @@ function AccountContent() {
   // Aggiorna la tab attiva quando cambia il parametro nell'URL
   useEffect(() => {
     const currentTab = searchParams.get('tab');
-    if (currentTab && ['dashboard', 'orders', 'scheduled-orders', 'addresses', 'account-details', 'points', 'gift-cards'].includes(currentTab)) {
+    if (currentTab && ['dashboard', 'orders', 'scheduled-orders', 'resin-shipping', 'addresses', 'account-details', 'points', 'gift-cards'].includes(currentTab)) {
       setTab(currentTab);
     }
   }, [searchParams, setTab]);
@@ -201,7 +210,24 @@ function AccountContent() {
       
       fetchScheduledOrders();
     }
-    
+
+    if (activeTab === 'resin-shipping' && user) {
+      const fetchResinFees = async () => {
+        setIsLoadingResinFees(true);
+        setResinFeesError(null);
+        try {
+          const data = await getResinShippingFees();
+          setResinShippingFees(data);
+        } catch (error) {
+          console.error('Errore durante il caricamento delle spedizioni resina:', error);
+          setResinFeesError('Impossibile caricare le spedizioni resina. Riprova più tardi.');
+        } finally {
+          setIsLoadingResinFees(false);
+        }
+      };
+      fetchResinFees();
+    }
+
     if (activeTab === 'points' && user) {
       const fetchPoints = async () => {
         if (!user) {
@@ -944,6 +970,76 @@ function AccountContent() {
           </div>
         );
         
+      case 'resin-shipping':
+        return (
+          <div>
+            <h2 className="text-xl font-semibold mb-4 text-gray-600">Spedizioni Resine</h2>
+            <p className="text-gray-500 mb-4 text-sm">
+              Qui puoi pagare le spedizioni per i prodotti della categoria Resine.
+            </p>
+
+            {isLoadingResinFees ? (
+              <p>Caricamento spedizioni in corso...</p>
+            ) : resinFeesError ? (
+              <div className="text-red-500 mb-4">{resinFeesError}</div>
+            ) : resinShippingFees.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-full bg-white">
+                  <thead>
+                    <tr className="bg-gray-100">
+                      <th className="py-2 px-4 text-left text-gray-600">Ordine</th>
+                      <th className="py-2 px-4 text-left text-gray-600">Prodotto</th>
+                      <th className="py-2 px-4 text-left text-gray-600">Spedizione</th>
+                      <th className="py-2 px-4 text-left text-gray-600">Stato</th>
+                      <th className="py-2 px-4 text-left text-gray-600">Azione</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {resinShippingFees.map((fee) => (
+                      <tr key={fee.id} className="border-t">
+                        <td className="py-2 px-4 text-gray-600">#{fee.order_number}</td>
+                        <td className="py-2 px-4 text-gray-600">{fee.product_name}</td>
+                        <td className="py-2 px-4 font-semibold">&euro;{fee.shipping_amount}</td>
+                        <td className="py-2 px-4">
+                          {fee.payment_status === 'paid' ? (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              Pagato
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                              In attesa
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2 px-4">
+                          {fee.payment_status === 'pending' && (
+                            <button
+                              onClick={() => {
+                                setResinPaymentFee(fee);
+                                setIsResinPaymentModalOpen(true);
+                              }}
+                              className="bg-bred-500 text-white px-3 py-1 rounded text-sm hover:bg-bred-700"
+                            >
+                              Paga ora
+                            </button>
+                          )}
+                          {fee.payment_status === 'paid' && fee.paid_at && (
+                            <span className="text-xs text-gray-400">
+                              {new Date(fee.paid_at).toLocaleDateString('it-IT')}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-gray-600">Non hai spedizioni resina da pagare.</p>
+            )}
+          </div>
+        );
+
       case 'points':
         return (
           <div>
@@ -1283,6 +1379,14 @@ function AccountContent() {
                     </li>
                     <li>
                       <button
+                        onClick={() => setActiveTab('resin-shipping')}
+                        className={`text-gray-600 w-full text-left px-4 py-2 rounded-md ${activeTab === 'resin-shipping' ? 'bg-bred-100 text-blue-700' : 'hover:bg-gray-100'}`}
+                      >
+                        Spedizioni Resine
+                      </button>
+                    </li>
+                    <li>
+                      <button
                         onClick={() => setActiveTab('points')}
                         className={`text-gray-600 w-full text-left px-4 py-2 rounded-md ${activeTab === 'points' ? 'bg-bred-100 text-blue-700' : 'hover:bg-gray-100'}`}
                       >
@@ -1345,6 +1449,27 @@ function AccountContent() {
           orderTotal={paymentOrderTotal}
           onSuccess={handlePaymentSuccess}
           onError={handlePaymentError}
+        />
+      )}
+
+      {/* Modale pagamento spedizione resina */}
+      {isResinPaymentModalOpen && resinPaymentFee && (
+        <ResinShippingPaymentModal
+          isOpen={isResinPaymentModalOpen}
+          onClose={() => {
+            setIsResinPaymentModalOpen(false);
+            setResinPaymentFee(null);
+          }}
+          shippingFee={resinPaymentFee}
+          onSuccess={() => {
+            setIsResinPaymentModalOpen(false);
+            setResinPaymentFee(null);
+            // Refresh the fees list
+            getResinShippingFees().then(data => setResinShippingFees(data)).catch(console.error);
+          }}
+          onError={(message) => {
+            console.error('Errore pagamento spedizione resina:', message);
+          }}
         />
       )}
     </div>

@@ -144,6 +144,64 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // Gestione pagamenti spedizione resina
+      if (paymentIntent.metadata?.type === 'resin_shipping') {
+        console.log('[WEBHOOK] Pagamento spedizione resina rilevato:', paymentIntent.metadata);
+
+        const resinToken = paymentIntent.metadata.token;
+        const shippingFeeId = paymentIntent.metadata.shipping_fee_id;
+
+        if (!resinToken) {
+          console.error('[WEBHOOK] Token mancante nei metadata spedizione resina');
+          return NextResponse.json({ received: true, error: 'Token mancante' });
+        }
+
+        if (paymentIntent.metadata?.webhook_processed === 'true') {
+          console.log('[WEBHOOK] Spedizione resina già processata, skip');
+          return NextResponse.json({ received: true, message: 'Già processata' });
+        }
+
+        try {
+          const wpUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || 'http://localhost:8080').replace(/\/$/, '');
+          const wcKey = process.env.NEXT_PUBLIC_WC_CONSUMER_KEY || '';
+          const wcSecret = process.env.NEXT_PUBLIC_WC_CONSUMER_SECRET || '';
+          const basicAuth = Buffer.from(`${wcKey}:${wcSecret}`).toString('base64');
+
+          const markPaidResponse = await fetch(
+            `${wpUrl}/wp-json/dreamshop-resin-shipping/v1/shipping-fee/${resinToken}/mark-paid`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Basic ${basicAuth}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                stripe_payment_intent_id: paymentIntent.id
+              })
+            }
+          );
+
+          if (!markPaidResponse.ok) {
+            throw new Error(`Mark paid failed: ${markPaidResponse.status}`);
+          }
+
+          await stripe.paymentIntents.update(paymentIntent.id, {
+            metadata: {
+              ...paymentIntent.metadata,
+              webhook_processed: 'true',
+              webhook_processed_at: new Date().toISOString()
+            }
+          });
+
+          console.log(`[WEBHOOK] Spedizione resina #${shippingFeeId} segnata come pagata`);
+          return NextResponse.json({ received: true, message: 'Spedizione resina pagata' });
+
+        } catch (error) {
+          console.error('[WEBHOOK] Errore processing spedizione resina:', error);
+          return NextResponse.json({ received: true, error: 'Errore spedizione resina' });
+        }
+      }
+
       // Verifica se l'ordine esiste già nei metadata (per ordini normali, non rate)
       // Le rate hanno metadata.type === 'scheduled_payment' e vengono gestite sopra
       if (paymentIntent.metadata?.order_id && !paymentIntent.metadata?.type) {
