@@ -1584,9 +1584,10 @@ export interface CartItem {
  * @param {string} code - Il codice coupon da applicare
  * @param {Array} cartItems - Articoli nel carrello
  * @param {number} userId - ID dell'utente (opzionale)
+ * @param {string} email - Email dell'utente (opzionale, per validazione restrizioni email)
  * @returns {Promise<{discount: number, items: CartItem[]}>} - Lo sconto applicato e gli articoli aggiornati
  */
-export async function applyCoupon(code: string, cartItems: CartItem[], userId?: number) {
+export async function applyCoupon(code: string, cartItems: CartItem[], userId?: number, email?: string) {
   try {
     const response = await fetch('/api/coupons/apply', {
       method: 'POST',
@@ -1596,7 +1597,8 @@ export async function applyCoupon(code: string, cartItems: CartItem[], userId?: 
       body: JSON.stringify({
         code,
         items: cartItems,
-        userId
+        userId,
+        email
       }),
     });
     

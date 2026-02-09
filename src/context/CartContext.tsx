@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { Product, Coupon, verifyCoupon, applyCoupon } from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
 import { getUserPoints } from '@/lib/points';
 import { getDepositInfo, ProductWithDeposit } from '@/lib/deposits';
 import {
@@ -74,6 +75,7 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [coupon, setCoupon] = useState<Coupon | null>(null);
   const [couponCode, setCouponCode] = useState<string>('');
@@ -95,6 +97,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [isCheckingGifts, setIsCheckingGifts] = useState<boolean>(false);
   const [removedGiftIds, setRemovedGiftIds] = useState<number[]>([]);
   const checkGiftsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const couponRecalcTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isRecalculatingCouponRef = useRef<boolean>(false);
+  const lastCartSignatureRef = useRef<string>('');
+  const couponRef = useRef<Coupon | null>(null);
   const removedGiftIdsRef = useRef<number[]>([]);
 
   // Funzione per generare uno slug dal nome del prodotto
@@ -134,8 +140,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
 
       if (savedCoupon) {
-        setCoupon(JSON.parse(savedCoupon));
-        setCouponCode(JSON.parse(savedCoupon).code || '');
+        const parsedCoupon = JSON.parse(savedCoupon);
+        couponRef.current = parsedCoupon;
+        setCoupon(parsedCoupon);
+        setCouponCode(parsedCoupon.code || '');
       }
 
       if (savedDiscount) {
@@ -162,14 +170,36 @@ export function CartProvider({ children }: { children: ReactNode }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Ricalcola lo sconto quando il carrello cambia e c'è un coupon attivo
+  // Ricalcola lo sconto quando il carrello cambia realmente e c'è un coupon attivo
   useEffect(() => {
-    if (coupon && cart.length > 0) {
-      // Evita di ricalcolare se il carrello è vuoto
-      recalculateCouponDiscount();
+    if (!couponRef.current || cart.length === 0) return;
+
+    // Genera una firma del carrello basata su id, quantità e prezzi
+    const cartSignature = cart
+      .map(item => `${item.product.id}:${item.quantity}:${item.product.price}`)
+      .sort()
+      .join('|');
+
+    // Se il carrello non è cambiato realmente, non ricalcolare
+    if (cartSignature === lastCartSignatureRef.current) return;
+    lastCartSignatureRef.current = cartSignature;
+
+    if (couponRecalcTimeoutRef.current) {
+      clearTimeout(couponRecalcTimeoutRef.current);
     }
-  }, [cart, coupon]); // eslint-disable-line react-hooks/exhaustive-deps
-  // Non includiamo recalculateCouponDiscount nelle dipendenze per evitare un riferimento circolare
+
+    couponRecalcTimeoutRef.current = setTimeout(() => {
+      if (!isRecalculatingCouponRef.current) {
+        recalculateCouponDiscount();
+      }
+    }, 800);
+
+    return () => {
+      if (couponRecalcTimeoutRef.current) {
+        clearTimeout(couponRecalcTimeoutRef.current);
+      }
+    };
+  }, [cart]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Save cart, coupon, points and removed gifts to localStorage whenever they change
   useEffect(() => {
@@ -606,16 +636,23 @@ export function CartProvider({ children }: { children: ReactNode }) {
         quantity: item.quantity,
         variation_id: item.variation_id,
         attributes: item.attributes,
+        categories: item.product.categories || [],
         image: item.product.images && item.product.images.length > 0 ? {
           src: item.product.images[0].src,
           alt: item.product.images[0].alt || ''
         } : undefined
       }));
-      
-      const result = await applyCoupon(couponCode.trim(), apiCartItems);
-      
+
+      const result = await applyCoupon(couponCode.trim(), apiCartItems, undefined, user?.email);
+
+      couponRef.current = result.coupon;
       setCoupon(result.coupon);
       setDiscount(result.discount);
+      // Aggiorna la firma del carrello per evitare un ricalcolo immediato
+      lastCartSignatureRef.current = cart
+        .map(item => `${item.product.id}:${item.quantity}:${item.product.price}`)
+        .sort()
+        .join('|');
       setIsApplyingCoupon(false);
     } catch (error: unknown) {
       console.error('Errore nell\'applicazione del coupon:', error);
@@ -628,6 +665,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   
   // Remove the applied coupon
   const removeCoupon = () => {
+    couponRef.current = null;
     setCoupon(null);
     setCouponCode('');
     setDiscount(0);
@@ -636,8 +674,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
   
   // Ricalcola lo sconto del coupon in base al contenuto attuale del carrello
   const recalculateCouponDiscount = async () => {
-    if (!coupon) return;
-    
+    if (!coupon || isRecalculatingCouponRef.current) return;
+    isRecalculatingCouponRef.current = true;
+
     try {
       // Converti il formato del carrello per essere compatibile con l'API
       const apiCartItems = cart.map(item => ({
@@ -649,14 +688,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
         quantity: item.quantity,
         variation_id: item.variation_id,
         attributes: item.attributes,
+        categories: item.product.categories || [],
         image: item.product.images && item.product.images.length > 0 ? {
           src: item.product.images[0].src,
           alt: item.product.images[0].alt || ''
         } : undefined
       }));
-      
+
       // Riapplica il coupon con il carrello aggiornato
-      const result = await applyCoupon(coupon.code, apiCartItems);
+      const result = await applyCoupon(coupon.code, apiCartItems, undefined, user?.email);
       
       // Aggiorna lo sconto
       setDiscount(result.discount);
@@ -664,6 +704,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       console.error('Errore nel ricalcolo dello sconto:', error);
       // Se c'è un errore nel ricalcolo, rimuovi il coupon
       removeCoupon();
+    } finally {
+      isRecalculatingCouponRef.current = false;
     }
   };
 
