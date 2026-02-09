@@ -77,11 +77,7 @@ export default function ProductVariations({
   useEffect(() => {
     const checkIfGiftCardProduct = async () => {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_WORDPRESS_URL}wp-json/gift-card/v1/config`, {
-          headers: {
-            'Authorization': `Basic ${btoa(`${process.env.NEXT_PUBLIC_WC_CONSUMER_KEY}:${process.env.NEXT_PUBLIC_WC_CONSUMER_SECRET}`)}`
-          }
-        });
+        const response = await fetch('/api/gift-cards/config');
 
         if (response.ok) {
           const config = await response.json();
