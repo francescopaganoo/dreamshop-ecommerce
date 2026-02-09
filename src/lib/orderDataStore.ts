@@ -99,6 +99,102 @@ class OrderDataStore {
   }
 
   /**
+   * Marca un ordine come completato (invece di eliminarlo)
+   * Il webhook usa questo dopo aver creato l'ordine WooCommerce
+   */
+  async markCompleted(dataId: string, params: { wcOrderId: number; paymentIntentId: string }): Promise<boolean> {
+    try {
+      const response = await fetch(`${WORDPRESS_URL}/wp-json/dreamshop/v1/temp-order/${dataId}/mark-completed`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Dreamshop-Api-Key': API_KEY,
+        },
+        body: JSON.stringify({
+          wc_order_id: params.wcOrderId,
+          payment_intent_id: params.paymentIntentId,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('[ORDER-STORE] Errore markCompleted:', error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('[ORDER-STORE] Errore di connessione markCompleted:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Cerca un ordine per payment_intent_id
+   * Ritorna wc_order_id se l'ordine è stato completato dal webhook
+   */
+  async getByPaymentIntent(paymentIntentId: string): Promise<{ dataId: string; wcOrderId: number | null; status: string } | null> {
+    try {
+      const url = `${WORDPRESS_URL}/wp-json/dreamshop/v1/temp-order-by-pi/${paymentIntentId}`;
+      console.log(`[ORDER-STORE] getByPaymentIntent: ${paymentIntentId}`);
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'X-Dreamshop-Api-Key': API_KEY,
+        },
+      });
+
+      if (!response.ok) {
+        console.log(`[ORDER-STORE] getByPaymentIntent: non trovato (status=${response.status})`);
+        return null;
+      }
+
+      const result = await response.json();
+
+      return {
+        dataId: result.data.data_id,
+        wcOrderId: result.data.wc_order_id,
+        status: result.data.status,
+      };
+    } catch (error) {
+      console.error('[ORDER-STORE] Errore di connessione getByPaymentIntent:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Salva il payment_intent_id associato a un ordine temporaneo già esistente
+   */
+  async setPaymentIntentId(dataId: string, paymentIntentId: string): Promise<boolean> {
+    try {
+      console.log(`[ORDER-STORE] setPaymentIntentId: dataId=${dataId}, pi=${paymentIntentId}`);
+      const url = `${WORDPRESS_URL}/wp-json/dreamshop/v1/temp-order/${dataId}/mark-completed`;
+      const response = await fetch(url, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Dreamshop-Api-Key': API_KEY,
+        },
+        body: JSON.stringify({
+          payment_intent_id: paymentIntentId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        console.error(`[ORDER-STORE] Errore setPaymentIntentId: status=${response.status}, body=${errorBody}`);
+        return false;
+      }
+
+      console.log(`[ORDER-STORE] setPaymentIntentId OK per ${dataId}`);
+      return true;
+    } catch (error) {
+      console.error('[ORDER-STORE] Errore di connessione setPaymentIntentId:', error);
+      return false;
+    }
+  }
+
+  /**
    * Genera un ID univoco per l'ordine temporaneo
    */
   generateId(): string {

@@ -76,6 +76,11 @@ export async function POST(request: NextRequest) {
 
     console.log('[PAYMENT-INTENT] Payment Intent creato:', paymentIntent.id);
 
+    // Associa il payment_intent_id ai dati nello store per il polling
+    if (metadata.order_data_id) {
+      await orderDataStore.setPaymentIntentId(metadata.order_data_id, paymentIntent.id);
+    }
+
     return NextResponse.json({
       clientSecret: paymentIntent.client_secret,
       paymentIntentId: paymentIntent.id

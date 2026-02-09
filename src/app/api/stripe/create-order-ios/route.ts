@@ -335,7 +335,36 @@ export async function POST(request: NextRequest) {
     try {
       paymentIntent = await stripe.paymentIntents.confirm(paymentIntent.id);
 
+      // 3DS: La carta richiede autenticazione aggiuntiva
+      if (paymentIntent.status === 'requires_action') {
+        console.log(`iOS - Pagamento richiede 3DS, ordine #${order.id} in attesa di autenticazione`);
 
+        // Metti l'ordine in stato 'pending' (in attesa del completamento 3DS)
+        try {
+          await api.put(`orders/${order.id}`, {
+            status: 'pending',
+            set_paid: false,
+            meta_data: [
+              {
+                key: '_stripe_requires_3ds',
+                value: 'true'
+              }
+            ]
+          });
+        } catch (updateError) {
+          console.error('iOS - Errore aggiornamento ordine a pending:', updateError);
+        }
+
+        // Restituisci il client_secret per completare il 3DS lato frontend
+        return NextResponse.json({
+          success: true,
+          requires_action: true,
+          payment_intent_client_secret: paymentIntent.client_secret,
+          paymentIntentId: paymentIntent.id,
+          paymentStatus: paymentIntent.status,
+          orderId: typeof order.id === 'number' ? order.id.toString() : String(order.id),
+        });
+      }
 
       if (paymentIntent.status !== 'succeeded') {
         console.error(`iOS - Pagamento fallito: ${paymentIntent.status}`);

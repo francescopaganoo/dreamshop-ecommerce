@@ -70,10 +70,9 @@ function OrderSuccessContent() {
         try {
 
           let retrievedOrderId: number | null = null;
-          const maxAttempts = 5; // 5 tentativi = 5 secondi per aspettare il webhook
-          const delayMs = 1000; // 1 secondo tra i tentativi
+          const maxAttempts = 10;
 
-          // Prima aspetta brevemente il webhook
+          // Polling con backoff progressivo per aspettare il webhook
           for (let attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
               const response = await fetch(`/api/stripe/get-order-by-payment-intent?payment_intent_id=${paymentIntentId}`);
@@ -91,8 +90,9 @@ function OrderSuccessContent() {
               console.error('[SUCCESS-PAGE] Errore nella richiesta:', fetchError);
             }
 
-            // Attendi prima del prossimo tentativo
+            // Backoff progressivo: 1s, 1.5s, 2s, 2s, 2s...
             if (attempt < maxAttempts) {
+              const delayMs = Math.min(1000 + (attempt - 1) * 500, 2000);
               await new Promise(resolve => setTimeout(resolve, delayMs));
             }
           }

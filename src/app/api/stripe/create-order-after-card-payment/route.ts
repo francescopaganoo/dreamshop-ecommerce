@@ -41,10 +41,21 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // 3. Controlla se l'ordine è già stato creato (dal webhook)
+    // 3. CHECK PRIORITARIO: Controlla nel nostro DB se il webhook ha già creato l'ordine
+    const storeResult = await orderDataStore.getByPaymentIntent(paymentIntentId);
+    if (storeResult && storeResult.status === 'completed' && storeResult.wcOrderId) {
+      console.log('[STRIPE-CARD] Ordine già creato dal webhook (trovato nel DB):', storeResult.wcOrderId);
+      return NextResponse.json({
+        success: true,
+        orderId: storeResult.wcOrderId,
+        alreadyExists: true
+      });
+    }
+
+    // 4. Controlla anche i metadata del PI su Stripe (potrebbe essere stato aggiornato nel frattempo)
     const existingOrderId = paymentIntent.metadata?.order_id;
     if (existingOrderId) {
-      console.log('[STRIPE-CARD] Ordine già esistente:', existingOrderId);
+      console.log('[STRIPE-CARD] Ordine già esistente nei metadata Stripe:', existingOrderId);
       return NextResponse.json({
         success: true,
         orderId: parseInt(existingOrderId),
@@ -52,7 +63,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 4. Controllo idempotenza: cerca ordini esistenti con questo payment_intent_id
+    // 5. Controllo idempotenza: cerca ordini esistenti in WooCommerce
     try {
       const recentOrders = await api.get('orders', {
         per_page: 20,
@@ -79,7 +90,7 @@ export async function POST(request: NextRequest) {
         );
 
         if (existingOrder) {
-          console.log('[STRIPE-CARD] Ordine già esistente per paymentIntentId:', paymentIntentId, '-> orderId:', existingOrder.id);
+          console.log('[STRIPE-CARD] Ordine già esistente in WooCommerce:', paymentIntentId, '-> orderId:', existingOrder.id);
 
           // Aggiorna i metadata del Payment Intent
           await stripe.paymentIntents.update(paymentIntentId, {
@@ -101,7 +112,7 @@ export async function POST(request: NextRequest) {
       console.error('[STRIPE-CARD] Errore nel controllo ordine esistente:', checkError);
     }
 
-    // 5. Recupera i dati dell'ordine dallo store MySQL
+    // 6. Nessun ordine trovato, recupera i dati dallo store per crearlo
     const dataId = paymentIntent.metadata?.order_data_id;
     if (!dataId) {
       return NextResponse.json({
@@ -230,8 +241,11 @@ export async function POST(request: NextRequest) {
         console.error('[STRIPE-CARD] Errore aggiunta nota:', noteError);
       }
 
-      // 10. Cancella i dati temporanei
-      await orderDataStore.delete(dataId);
+      // 10. Marca come completato nello store (NON eliminare)
+      await orderDataStore.markCompleted(dataId, {
+        wcOrderId: wooOrder.id,
+        paymentIntentId
+      });
 
       // 11. Decrementa i punti dell'utente se sono stati usati per lo sconto
       if (pointsToRedeem > 0 && userId > 0) {

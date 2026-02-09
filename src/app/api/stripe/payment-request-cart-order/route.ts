@@ -326,6 +326,9 @@ export async function POST(request: NextRequest) {
 
       console.log(`[PAYMENT-REQUEST-CART] Step 5: Payment Intent ${paymentIntent.id} created with status: ${paymentIntent.status}`);
 
+      // Associa il payment_intent_id ai dati nello store per il polling
+      await orderDataStore.setPaymentIntentId(dataId, paymentIntent.id);
+
     } catch (paymentError) {
       console.error('[PAYMENT-REQUEST-CART] Step 5 FAILED: Payment error:', paymentError);
 

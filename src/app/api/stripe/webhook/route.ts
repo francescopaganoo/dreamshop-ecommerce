@@ -323,19 +323,23 @@ export async function POST(request: NextRequest) {
             const order = (orderResponse.data as any);
             console.log(`[WEBHOOK] Ordine #${order.id} creato con successo (status: ${hasDeposit ? 'partial-payment' : 'processing'})`);
 
+            // Marca l'ordine come completato nello store (NON eliminare, serve al frontend per il polling)
+            await orderDataStore.markCompleted(orderDataId, {
+              wcOrderId: order.id,
+              paymentIntentId: paymentIntent.id
+            });
+
             // Aggiorna il Payment Intent con l'order_id
             await stripe.paymentIntents.update(paymentIntent.id, {
               metadata: {
                 ...paymentIntent.metadata,
                 wc_order_id: order.id.toString(),
+                order_id: order.id.toString(),
                 order_created: 'true',
                 webhook_processed: 'true',
                 webhook_processed_at: new Date().toISOString()
               }
             });
-
-            // Elimina i dati dallo store
-            await orderDataStore.delete(orderDataId);
 
             return NextResponse.json({ received: true, message: `Ordine #${order.id} creato`, order_id: order.id });
 
@@ -461,20 +465,26 @@ export async function POST(request: NextRequest) {
               const order = response.data;
 
               if (order && typeof order === 'object' && 'id' in order) {
+                const iosOrderId = (order as { id: number }).id;
+
+                // Marca come completato nello store
+                await orderDataStore.markCompleted(orderDataId, {
+                  wcOrderId: iosOrderId,
+                  paymentIntentId: paymentIntent.id
+                });
+
                 await stripe.paymentIntents.update(paymentIntent.id, {
                   metadata: {
                     ...paymentIntent.metadata,
-                    order_id: (order as { id: number }).id.toString(),
+                    order_id: iosOrderId.toString(),
                     webhook_processed: 'true'
                   }
                 });
 
-                await orderDataStore.delete(orderDataId);
-
                 return NextResponse.json({
                   received: true,
                   message: 'Ordine iOS creato dal webhook',
-                  order_id: (order as { id: number }).id
+                  order_id: iosOrderId
                 });
               }
             } catch (error) {
@@ -510,10 +520,6 @@ export async function POST(request: NextRequest) {
       }
 
       const { orderData, pointsToRedeem } = storedData;
-
-      // Elimina i dati dallo store dopo il recupero
-      await orderDataStore.delete(orderDataId);
-
 
       // Type-safe spread
       const baseOrderData = orderData as Record<string, unknown>;
@@ -579,9 +585,15 @@ export async function POST(request: NextRequest) {
 
         console.log(`[WEBHOOK] Ordine WooCommerce ${wooOrder.id} creato con successo da payment_intent ${paymentIntent.id}`);
 
+        // Marca come completato nello store (NON eliminare)
+        await orderDataStore.markCompleted(orderDataId, {
+          wcOrderId: wooOrder.id,
+          paymentIntentId: paymentIntent.id
+        });
+
         // Aggiorna il Payment Intent con l'order_id e la descrizione con il numero d'ordine
         await stripe.paymentIntents.update(paymentIntent.id, {
-          description: `Order #${wooOrder.id} from DreamShop18`, // Aggiorna la descrizione con il numero d'ordine
+          description: `Order #${wooOrder.id} from DreamShop18`,
           metadata: {
             ...paymentIntent.metadata,
             order_id: String(wooOrder.id),
@@ -708,11 +720,6 @@ export async function POST(request: NextRequest) {
 
           const { orderData, pointsToRedeem } = storedData;
 
-          // Elimina i dati dallo store dopo il recupero (uso singolo)
-          await orderDataStore.delete(orderDataId);
-
-
-
           // Determina il titolo del metodo di pagamento
           let paymentMethodTitle = 'Pagamento Online';
           if (paymentMethod === 'klarna') {
@@ -769,6 +776,12 @@ export async function POST(request: NextRequest) {
           }
 
           const wooOrder = order as WooOrder;
+
+          // Marca come completato nello store
+          await orderDataStore.markCompleted(orderDataId, {
+            wcOrderId: wooOrder.id,
+            paymentIntentId: session.payment_intent as string || session.id
+          });
 
           // Salva l'order_id nei metadata della sessione per riferimento futuro
           await stripe.checkout.sessions.update(session.id, {
