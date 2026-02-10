@@ -1548,106 +1548,44 @@ export default function CheckoutPage() {
               throw new Error(orderData.error);
             }
             
-            // CORREZIONE iOS: Se il pagamento è completato con successo dall'API
-            if (orderData.success && orderData.orderId && !orderData.requires_action) {
-              console.log('[iOS SUCCESS] Ordine creato e pagamento completato con successo:', {
-                orderId: orderData.orderId,
-                pointsRedeemed: orderData.pointsRedeemed,
-                paymentStatus: orderData.paymentStatus
-              });
-              
-              // Salva gli indirizzi dell'utente
+            // Pagamento completato senza 3DS: il webhook creera l'ordine WooCommerce
+            if (orderData.success && !orderData.requires_action) {
+              console.log('[iOS SUCCESS] Pagamento completato, redirect a success page per polling ordine');
+
               await saveAddressData();
-              
-              // Mostra il messaggio di successo
-              setOrderSuccess(true);
-              setSuccessOrderId(orderData.orderId);
-              
-              // CORREZIONE iOS: Ritarda il reset per permettere la visualizzazione
-              setTimeout(() => {
-                resetFormAfterSuccess();
-              }, 3000);
-              
-              setIsSubmitting(false);
-              setIsStripeLoading(false);
+              clearCart();
+
+              // Redirect alla success page che fara polling per l'ordine creato dal webhook
+              router.push(`/checkout/success?payment_intent=${orderData.paymentIntentId}&payment_method=stripe`);
               return;
             }
-            
-            // Controlla se è necessaria l'autenticazione 3D Secure
+
+            // 3D Secure richiesto: nessun ordine creato ancora, nessuno stock scalato
             if (orderData.requires_action && orderData.payment_intent_client_secret) {
-              
-              // Gestisci l'autenticazione 3D Secure in-page
-              const { error, paymentIntent } = await stripe.handleCardAction(
+              console.log('[iOS 3DS] Autenticazione 3D Secure richiesta');
+
+              const { error, paymentIntent } = await stripe.confirmCardPayment(
                 orderData.payment_intent_client_secret
               );
-              
+
               if (error) {
-                console.error('Errore durante l\'autenticazione 3D Secure:', error);
+                console.error('[iOS 3DS] Errore autenticazione:', error);
                 setCardError('Autenticazione fallita. Riprova o usa un\'altra carta.');
                 setIsStripeLoading(false);
                 setIsSubmitting(false);
                 return;
               }
-              
-              if (paymentIntent.status === 'requires_confirmation') {
-                // Conferma il pagamento dopo l'autenticazione
-                const confirmResponse = await fetch('/api/stripe/confirm-payment', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    paymentIntentId: paymentIntent.id,
-                    orderId: orderData.orderId
-                  }),
-                });
-                
-                const confirmResult = await confirmResponse.json();
-                
-                if (confirmResult.error) {
-                  throw new Error(confirmResult.error);
-                }
-              }
+
+              // 3DS completato: il webhook ricevera payment_intent.succeeded e creera l'ordine
+              console.log('[iOS 3DS] Autenticazione completata, status:', paymentIntent.status);
+
+              await saveAddressData();
+              clearCart();
+
+              // Redirect alla success page che fara polling per l'ordine creato dal webhook
+              router.push(`/checkout/success?payment_intent=${paymentIntent.id}&payment_method=stripe`);
+              return;
             }
-            
-            // Svuota il carrello
-            clearCart();
-            
-            // COMMENTATO PER TEST: I punti dovrebbero essere decrementati lato server
-            // if (pointsToRedeem > 0 && user) {
-            //   try {
-            //     const token = localStorage.getItem('woocommerce_token');
-            //     if (token) {
-            //       const orderId = successOrderId ? parseInt(successOrderId, 10) : null;
-            //       if (!orderId) {
-            //         console.warn('[CHECKOUT] Nota: Nessun ID ordine valido trovato');
-            //         return;
-            //       }
-            //       const pointsResponse = await redeemPoints(user.id, pointsToRedeem, orderId, token);
-            //       if (pointsResponse && pointsResponse.success) {
-            //         localStorage.removeItem('checkout_points_to_redeem');
-            //         localStorage.removeItem('checkout_points_discount');
-            //       }
-            //     }
-            //   } catch (pointsError) {
-            //     console.error('[CHECKOUT] Errore durante il riscatto dei punti:', pointsError);
-            //   }
-            // }
-            
-            // Salva gli indirizzi dell'utente
-            await saveAddressData();
-            
-            // Mostra il messaggio di successo
-            setOrderSuccess(true);
-            // Per PayPal, l'ID dell'ordine verrà impostato quando viene creato l'ordine in WooCommerce
-            // Questo avverrà nella gestione del pagamento PayPal
-            
-            // Reset del form dopo il successo
-            resetFormAfterSuccess();
-            
-            setIsSubmitting(false);
-            setIsStripeLoading(false);
-            return;
             
           } catch (iosError) {
             console.error('Errore durante il pagamento su iOS:', iosError);

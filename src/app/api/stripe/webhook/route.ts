@@ -416,16 +416,17 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ received: true, error: 'Dati ordine mancanti' });
       }
 
-      // Gestione pagamenti iOS senza ordine (utente ha chiuso l'app)
+      // Gestione pagamenti iOS (nuovo flusso webhook-only: l'ordine viene creato QUI)
       if (!paymentIntent.metadata?.order_id && paymentIntent.metadata?.is_ios_checkout === 'true') {
         const orderDataId = paymentIntent.metadata?.order_data_id;
+        const enableDeposit = paymentIntent.metadata?.enable_deposit;
 
         if (orderDataId) {
           const storedData = await orderDataStore.get(orderDataId);
 
           if (storedData) {
             try {
-              const { orderData } = storedData;
+              const { orderData, pointsToRedeem } = storedData;
               const baseOrderData = orderData as Record<string, unknown>;
 
               // Controlla se ci sono prodotti con acconto nei line_items
@@ -435,18 +436,17 @@ export async function POST(request: NextRequest) {
                 meta_data?: Array<{key: string; value: string}>;
               }>) || [];
 
-              const hasDeposit = lineItems.some(item =>
+              const hasDeposit = enableDeposit === 'yes' || lineItems.some(item =>
                 item.meta_data?.some(meta => meta.key === '_wc_convert_to_deposit' && meta.value === 'yes')
               );
 
-              console.log(`[WEBHOOK] iOS - Ordine contiene acconti: ${hasDeposit}`);
+              console.log(`[WEBHOOK] iOS - Creazione ordine da order_data_id: ${orderDataId}, acconti: ${hasDeposit}`);
 
               const response = await api.post('orders', {
                 ...baseOrderData,
                 payment_method: 'stripe',
                 payment_method_title: 'Carta di Credito (Stripe)',
                 set_paid: true,
-                // BUGFIX: Per ordini con acconto, impostare direttamente 'partial-payment'
                 status: hasDeposit ? 'partial-payment' : 'processing',
                 transaction_id: paymentIntent.id,
                 meta_data: [
@@ -458,6 +458,10 @@ export async function POST(request: NextRequest) {
                   {
                     key: '_webhook_created_ios',
                     value: 'true'
+                  },
+                  {
+                    key: '_webhook_created_at',
+                    value: new Date().toISOString()
                   }
                 ]
               });
@@ -466,20 +470,81 @@ export async function POST(request: NextRequest) {
 
               if (order && typeof order === 'object' && 'id' in order) {
                 const iosOrderId = (order as { id: number }).id;
+                console.log(`[WEBHOOK] iOS - Ordine #${iosOrderId} creato con successo (status: ${hasDeposit ? 'partial-payment' : 'processing'})`);
 
-                // Marca come completato nello store
+                // Marca come completato nello store (per il polling dalla success page)
                 await orderDataStore.markCompleted(orderDataId, {
                   wcOrderId: iosOrderId,
                   paymentIntentId: paymentIntent.id
                 });
 
+                // Aggiorna PaymentIntent con order_id e descrizione
                 await stripe.paymentIntents.update(paymentIntent.id, {
+                  description: `Order #${iosOrderId} from DreamShop18 (iOS)`,
                   metadata: {
                     ...paymentIntent.metadata,
                     order_id: iosOrderId.toString(),
-                    webhook_processed: 'true'
+                    webhook_processed: 'true',
+                    webhook_processed_at: new Date().toISOString()
                   }
                 });
+
+                // Gestione force-deposits-processing per ordini con acconti
+                if (hasDeposit) {
+                  try {
+                    const wpUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
+                    const activateDepositsUrl = `${wpUrl}/wp-json/dreamshop/v1/orders/${iosOrderId}/force-deposits-processing`;
+
+                    const forceResponse = await fetch(activateDepositsUrl, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ force_processing: true, source: 'ios_webhook' })
+                    });
+
+                    if (forceResponse.ok) {
+                      console.log(`[WEBHOOK] iOS - Force deposits processing OK per ordine #${iosOrderId}`);
+                    }
+                  } catch (forceError) {
+                    console.log('[WEBHOOK] iOS - Force deposits non disponibile:', forceError);
+                  }
+                }
+
+                // Decrementa i punti se sono stati usati per lo sconto
+                if (pointsToRedeem && pointsToRedeem > 0) {
+                  const customerId = (baseOrderData.customer_id as number) || 0;
+
+                  if (customerId > 0) {
+                    try {
+                      const baseUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL?.replace(/\/$/, '') || '';
+                      const apiKey = process.env.POINTS_API_KEY;
+
+                      if (apiKey) {
+                        const deductResponse = await fetch(`${baseUrl}/wp-json/dreamshop-points/v1/points/deduct-only`, {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            'X-API-Key': apiKey
+                          },
+                          body: JSON.stringify({
+                            user_id: customerId,
+                            points: pointsToRedeem,
+                            order_id: iosOrderId,
+                            description: `Punti utilizzati per sconto ordine #${iosOrderId}`
+                          })
+                        });
+
+                        const deductResult = await deductResponse.json();
+                        if (deductResponse.ok && deductResult.success) {
+                          console.log(`[WEBHOOK] iOS - Punti decrementati: userId=${customerId}, points=${pointsToRedeem}, newBalance=${deductResult.new_balance}`);
+                        } else {
+                          console.error('[WEBHOOK] iOS - Errore decremento punti:', deductResult);
+                        }
+                      }
+                    } catch (pointsError) {
+                      console.error('[WEBHOOK] iOS - Errore decremento punti:', pointsError);
+                    }
+                  }
+                }
 
                 return NextResponse.json({
                   received: true,

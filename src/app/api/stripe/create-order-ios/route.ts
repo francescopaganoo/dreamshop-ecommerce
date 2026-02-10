@@ -1,18 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { createOrder } from '../../../../lib/api';
-import api from '../../../../lib/woocommerce';
 import { validateDepositEligibility, hasDepositInLineItems } from '../../../../lib/deposits';
-
-// Interfacce per i tipi WooCommerce
-interface ShippingLine {
-  id?: number;
-  method_id: string;
-  method_title: string;
-  total: string;
-}
-
-// LineItem rimosso perché non utilizzato
+import { orderDataStore } from '../../../../lib/orderDataStore';
 
 // Interfacce per i tipi degli elementi
 interface MetaData {
@@ -26,58 +15,6 @@ interface LineItemInput {
   quantity: number;
   variation_id?: number;
   meta_data?: MetaData[];
-}
-
-// Questa interfaccia locale deve essere compatibile con quella in lib/api.ts
-interface OrderData {
-  payment_method: string;
-  payment_method_title: string;
-  set_paid: boolean;
-  customer_id?: number;
-  customer_note?: string;
-  billing: {
-    first_name: string;
-    last_name: string;
-    company: string;
-    address_1: string;
-    address_2: string;
-    city: string;
-    state: string;
-    postcode: string;
-    country: string;
-    email: string;
-    phone: string;
-  };
-  shipping: {
-    first_name: string;
-    last_name: string;
-    company: string;
-    address_1: string;
-    address_2: string;
-    city: string;
-    state: string;
-    postcode: string;
-    country: string;
-  };
-  line_items: {
-    product_id: number;
-    quantity: number;
-    variation_id?: number;
-    subtotal?: string;
-    total?: string;
-    meta_data?: {
-      key: string;
-      value: string;
-    }[];
-  }[];
-  shipping_lines: ShippingLine[];
-  coupon_lines?: {
-    code: string;
-  }[];
-  meta_data: {
-    key: string;
-    value: string;
-  }[];
 }
 
 // Inizializza Stripe con la chiave segreta
@@ -95,52 +32,45 @@ export async function POST(request: NextRequest) {
       console.error('Impossibile procedere: STRIPE_SECRET_KEY mancante');
       return NextResponse.json({ error: 'Configurazione Stripe mancante' }, { status: 500 });
     }
-    
+
+    const origin = request.nextUrl.origin;
     const data = await request.json();
-    
+
     // Log specifico per i line_items e i loro metadati
     if (data.line_items) {
       data.line_items.forEach((item: LineItemInput, index: number) => {
-        console.log(`iOS - Item ${index}:`, {
+        console.log(`[iOS] Item ${index}:`, {
           product_id: item.product_id || item.id,
           quantity: item.quantity,
           variation_id: item.variation_id,
-          meta_data: item.meta_data,
           hasDepositMeta: item.meta_data && item.meta_data.some((meta: MetaData) => meta.key === '_wc_convert_to_deposit')
         });
       });
     }
-    
 
-    
-    const { 
-      paymentMethodId, 
-      amount, 
-      customerInfo, 
-      line_items, 
-      shipping, 
-      notes, 
+    const {
+      paymentMethodId,
+      amount,
+      customerInfo,
+      line_items,
+      shipping,
+      notes,
       directCustomerId = 0,
       isAuthenticated = false,
       pointsToRedeem = 0,
-      token = '',
       couponCode = ''
     } = data;
-    
-    // SOLUZIONE ROBUSTA: Accettiamo directCustomerId se è un valore valido (> 0)
-    // Il frontend ha già verificato l'autenticazione prima di inviare il customer ID
-    let userId = 0;
 
-    // Usa directCustomerId se disponibile e valido (inviato dal frontend)
+    let userId = 0;
     if (directCustomerId && directCustomerId > 0) {
       userId = directCustomerId;
-      console.log('iOS: Usando directCustomerId:', userId, '- isAuthenticated:', isAuthenticated);
+      console.log('[iOS] Usando directCustomerId:', userId, '- isAuthenticated:', isAuthenticated);
     } else {
-      console.log('iOS: Nessun ID utente valido fornito, ordine sarà come guest');
+      console.log('[iOS] Nessun ID utente valido fornito, ordine sarà come guest');
     }
-    
+
     if (!paymentMethodId || !amount || !customerInfo || !line_items) {
-      console.error('Dati mancanti per l\'ordine iOS');
+      console.error('[iOS] Dati mancanti per l\'ordine');
       return NextResponse.json({ error: 'Dati mancanti' }, { status: 400 });
     }
 
@@ -155,44 +85,25 @@ export async function POST(request: NextRequest) {
     });
 
     if (!depositValidation.isValid) {
-      console.error(`[create-order-ios] Ordine a rate bloccato: userId=${userId}, hasDeposit=${hasAnyDeposit}`);
+      console.error(`[iOS] Ordine a rate bloccato: userId=${userId}, hasDeposit=${hasAnyDeposit}`);
       return NextResponse.json({
         error: depositValidation.error,
         errorCode: depositValidation.errorCode
       }, { status: 403 });
     }
     // ========================================================================
-    
-    // Crea il Payment Intent senza confermare ancora
-    let paymentIntent = await stripe.paymentIntents.create({
-      amount,
-      currency: 'eur',
-      payment_method: paymentMethodId,
-      payment_method_types: ['card'],
-      confirm: false,
-      metadata: {
-        payment_source: 'ios_app',
-        customer_email: customerInfo.email,
-        customer_id: userId.toString(),
-        is_ios_checkout: 'true'
-      }
-    });
-    
-    // Crea un ordine in WooCommerce già come pagato (set_paid: true)
-    // Assicurati che i line_items abbiano tutti i metadati necessari
-    // IMPORTANTE: Rimuovi gli ID dai meta_data perché WooCommerce li rifiuta durante la creazione di nuovi ordini
+
     // Helper per verificare se un item è un regalo automatico
     const isAutoGiftItem = (item: LineItemInput): boolean => {
       if (!item.meta_data) return false;
       return item.meta_data.some(meta => meta.key === '_is_auto_gift' && meta.value === 'yes');
     };
 
+    // Prepara i line_items con i metadati necessari
     const processedLineItems = line_items.map((item: LineItemInput) => {
-      // Filtra i metadati per rimuovere gli ID e mantenere solo quelli essenziali per l'ordine
       const filteredMetaData = item.meta_data
         ? item.meta_data
             .filter((meta: MetaData) => {
-              // Mantieni solo metadati rilevanti per l'ordine (acconti, deposits, regali automatici, etc)
               return meta.key.startsWith('_wc_') ||
                      meta.key.includes('deposit') ||
                      meta.key.includes('payment_plan') ||
@@ -203,7 +114,6 @@ export async function POST(request: NextRequest) {
             .map((meta: MetaData) => ({
               key: meta.key,
               value: meta.value
-              // NON includere l'ID - WooCommerce lo assegna automaticamente
             }))
         : [];
 
@@ -221,7 +131,6 @@ export async function POST(request: NextRequest) {
         meta_data: filteredMetaData
       };
 
-      // Se è un regalo automatico, imposta il prezzo a 0
       if (isAutoGiftItem(item)) {
         processedItem.subtotal = '0';
         processedItem.total = '0';
@@ -230,25 +139,24 @@ export async function POST(request: NextRequest) {
       return processedItem;
     });
 
-    
-    // Log specifico per verificare che i metadati degli acconti siano stati preservati
+    // Log per verificare che i metadati degli acconti siano stati preservati
     processedLineItems.forEach((item: { product_id?: number; quantity: number; variation_id?: number; meta_data?: MetaData[] }, index: number) => {
       const hasDepositMeta = item.meta_data && item.meta_data.some((meta: MetaData) => meta.key === '_wc_convert_to_deposit');
       if (hasDepositMeta) {
-        console.log(`iOS - ACCONTO RILEVATO nell'item ${index} (product_id: ${item.product_id}):`, {
+        console.log(`[iOS] ACCONTO RILEVATO nell'item ${index} (product_id: ${item.product_id}):`, {
           meta_data: item.meta_data?.filter((meta: MetaData) => meta.key.includes('deposit') || meta.key.includes('_wc_')) || []
         });
       }
     });
 
-    const orderData: OrderData = {
+    // Prepara i dati dell'ordine (NON lo creiamo ancora - lo fara il webhook)
+    const orderData = {
       payment_method: 'stripe',
       payment_method_title: 'Carta di credito',
-      set_paid: true,  // Impostiamo l'ordine come pagato
       customer_id: userId || 0,
       customer_note: notes || '',
       billing: customerInfo,
-      shipping: customerInfo, // Per semplicità usiamo lo stesso indirizzo
+      shipping: customerInfo,
       line_items: processedLineItems,
       shipping_lines: [
         {
@@ -257,240 +165,130 @@ export async function POST(request: NextRequest) {
           total: String(shipping)
         }
       ],
-      // Aggiungi il coupon manuale se presente
-      coupon_lines: couponCode ? [
-        {
-          code: couponCode
-        }
-      ] : [],
+      coupon_lines: couponCode ? [{ code: couponCode }] : [],
       meta_data: [
-        {
-          key: 'stripe_payment_intent_id',
-          value: paymentIntent.id
-        },
-        {
-          key: 'is_ios_checkout',
-          value: 'true'
-        },
-        {
-          // Flag che indica che i punti sono già stati elaborati
-          key: '_dreamshop_points_assigned',
-          value: 'yes'
-        }
+        { key: 'is_ios_checkout', value: 'true' },
+        { key: '_dreamshop_points_assigned', value: 'yes' }
       ]
     };
-    
-    // Log dei dettagli importanti
-    console.log('iOS - Dettagli ordine:', {
+
+    console.log('[iOS] Dettagli ordine preparati:', {
       customer_id: userId,
       email: customerInfo.email,
-      payment_method: 'stripe'
+      items_count: processedLineItems.length,
+      has_deposit: hasAnyDeposit
     });
-    
 
-    
-    let order;
-    try {
-      order = await createOrder(orderData);
-    } catch (createOrderError: unknown) {
-      // Log dettagliato dell'errore per debugging
-      console.error('Error creating order:', createOrderError);
+    // STEP 1: Salva i dati dell'ordine nello store temporaneo
+    // L'ordine WooCommerce verra creato SOLO dal webhook dopo payment_intent.succeeded
+    const dataId = orderDataStore.generateId();
+    const saved = await orderDataStore.set(dataId, {
+      orderData,
+      pointsToRedeem: pointsToRedeem > 0 ? pointsToRedeem : 0,
+      pointsDiscount: 0
+    });
 
-      // Se è un errore Axios, estrai i dettagli della risposta
-      if (createOrderError && typeof createOrderError === 'object' && 'response' in createOrderError) {
-        const axiosError = createOrderError as { response?: { status?: number; data?: unknown; statusText?: string } };
-        if (axiosError.response) {
-          console.error('WooCommerce API Error Details:', {
-            status: axiosError.response.status,
-            statusText: axiosError.response.statusText,
-            data: axiosError.response.data
-          });
-        }
-      }
-
-      throw createOrderError;
+    if (!saved) {
+      console.error('[iOS] Errore nel salvataggio dei dati dell\'ordine nello store');
+      return NextResponse.json({ error: 'Errore nel salvataggio dei dati dell\'ordine' }, { status: 500 });
     }
 
+    console.log(`[iOS] Step 1: Dati ordine salvati nello store con ID: ${dataId}`);
 
-
-    if (!order || typeof order !== 'object' || !('id' in order)) {
-      throw new Error('Errore nella creazione dell\'ordine');
-    }
-
-    // Aggiorna il PaymentIntent con l'order_id prima di confermarlo
+    // STEP 2: Crea e conferma il PaymentIntent in un unico step
+    // Il webhook creera l'ordine WooCommerce dopo il successo del pagamento
+    let paymentIntent: Stripe.PaymentIntent;
     try {
-      await stripe.paymentIntents.update(paymentIntent.id, {
-        description: `Order #${order.id} from DreamShop18 (iOS)`,
+      paymentIntent = await stripe.paymentIntents.create({
+        amount,
+        currency: 'eur',
+        payment_method: paymentMethodId,
+        payment_method_types: ['card'],
+        confirm: true,
+        return_url: `${origin}/checkout/success`,
         metadata: {
-          ...paymentIntent.metadata,
-          order_id: order.id.toString(),
-          webhook_processed: 'true'
+          order_data_id: dataId,
+          payment_source: 'ios_app',
+          customer_email: customerInfo.email,
+          customer_id: userId.toString(),
+          is_ios_checkout: 'true',
+          enable_deposit: hasAnyDeposit ? 'yes' : 'no'
         }
       });
-    } catch (updateError) {
-      console.error('iOS - Errore aggiornamento PaymentIntent:', updateError);
+
+      console.log(`[iOS] Step 2: PaymentIntent ${paymentIntent.id} creato con status: ${paymentIntent.status}`);
+
+      // Associa il payment_intent_id ai dati nello store per il polling
+      await orderDataStore.setPaymentIntentId(dataId, paymentIntent.id);
+
+    } catch (paymentError) {
+      console.error('[iOS] Step 2 FALLITO: Errore pagamento:', paymentError);
+
+      // Pagamento fallito: elimina i dati dallo store (nessun ordine da cancellare!)
+      try {
+        await orderDataStore.delete(dataId);
+        console.log(`[iOS] Dati ordine ${dataId} eliminati per fallimento pagamento`);
+      } catch (deleteError) {
+        console.error(`[iOS] Errore eliminazione dati ${dataId}:`, deleteError);
+      }
+
+      throw paymentError;
     }
 
-    // Conferma il Payment Intent
-    try {
-      paymentIntent = await stripe.paymentIntents.confirm(paymentIntent.id);
-
- 
-
-      if (paymentIntent.status !== 'succeeded') {
-        console.error(`iOS - Pagamento fallito: ${paymentIntent.status}`);
-
-        try {
-          await api.delete(`orders/${order.id}`, { force: true });
-        } catch (deleteError) {
-          console.error('iOS - Errore cancellazione ordine:', deleteError);
-        }
-
-        return NextResponse.json({
-          error: `Pagamento non riuscito: ${paymentIntent.status}`
-        }, { status: 400 });
-      }
-    } catch (confirmError) {
-      console.error('iOS - Errore conferma pagamento:', confirmError);
-
-      try {
-        await api.delete(`orders/${order.id}`, { force: true });
-      } catch (deleteError) {
-        console.error('iOS - Errore cancellazione ordine:', deleteError);
-      }
+    // STEP 3: Gestisci la risposta del PaymentIntent
+    // L'ordine WooCommerce verra creato SOLO dal webhook (payment_intent.succeeded)
+    if (paymentIntent.status === 'succeeded') {
+      console.log(`[iOS] Step 3: Pagamento riuscito, il webhook creera l'ordine WooCommerce`);
 
       return NextResponse.json({
-        error: 'Errore durante la conferma del pagamento'
-      }, { status: 500 });
+        success: true,
+        paymentIntentId: paymentIntent.id,
+        paymentStatus: paymentIntent.status,
+        requires_action: false
+      });
     }
 
-    // Salva il transaction_id nell'ordine WooCommerce
-    try {
-      await api.put(`orders/${order.id}`, {
-        transaction_id: paymentIntent.id,
-        meta_data: [
-          {
-            key: '_stripe_payment_intent_id',
-            value: paymentIntent.id
-          }
-        ]
+    if (paymentIntent.status === 'requires_action') {
+      console.log(`[iOS] Step 3: Pagamento richiede 3DS, nessun ordine creato ancora`);
+
+      // Restituisci il client_secret per completare il 3DS lato frontend
+      // NESSUN ordine WooCommerce creato = nessuno stock scalato, nessuna email inviata
+      return NextResponse.json({
+        success: true,
+        requires_action: true,
+        payment_intent_client_secret: paymentIntent.client_secret,
+        paymentIntentId: paymentIntent.id,
+        paymentStatus: paymentIntent.status
       });
-    } catch (transactionError) {
-      console.error('iOS - Errore salvataggio transaction_id:', transactionError);
     }
 
-    // TENTATIVO 1: Chiamata diretta all'endpoint per forzare l'elaborazione degli acconti
+    // Status inatteso (processing, requires_payment_method, etc.)
+    console.error(`[iOS] Step 3: Status inatteso: ${paymentIntent.status}`);
+
+    // Elimina i dati dallo store
     try {
-      
-      const wordpressUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL!;
-      const baseUrl = wordpressUrl.endsWith('/') ? wordpressUrl : `${wordpressUrl}/`;
-      
-      // Chiamata per forzare il re-processamento dell'ordine con gli acconti
-      const activateDepositsUrl = `${baseUrl}wp-json/dreamshop/v1/orders/${order.id}/force-deposits-processing`;
-      
-      const forceResponse = await fetch(activateDepositsUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          force_processing: true,
-          source: 'ios_api'
-        })
-      });
-      
-      if (forceResponse.ok) {
-        const forceResult = await forceResponse.json();
-        console.log('iOS - Elaborazione acconti forzata con successo:', forceResult);
-      } else {
-        console.log('iOS - Elaborazione acconti forzata non disponibile (endpoint non trovato)');
-      }
-    } catch (forceError) {
-      console.log('iOS - Errore nell\'elaborazione forzata degli acconti:', forceError);
+      await orderDataStore.delete(dataId);
+    } catch (deleteError) {
+      console.error(`[iOS] Errore eliminazione dati ${dataId}:`, deleteError);
     }
-    
-    // Gestione del riscatto punti
-    let pointsRedeemResult = null;
-    if (pointsToRedeem && pointsToRedeem > 0 && userId > 0 && token) {
-      try {
-        
-        // Piccolo ritardo per garantire che l'ordine sia stato completamente processato
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        
-        // Invece di usare la funzione redeemPoints, implementiamo direttamente il riscatto
-        // Configurazioni di base per la richiesta diretta a WordPress
-        const wordpressUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL!;
-        const baseUrl = wordpressUrl.endsWith('/') ? wordpressUrl : `${wordpressUrl}/`;
-        
-        // Utilizziamo la variabile POINTS_API_KEY disponibile nell'env
-        const apiKey = process.env.POINTS_API_KEY!; // Usa la chiave dalle variabili d'ambiente
-        
-        // Usa l'endpoint sicuro che richiede solo API key senza autenticazione JWT
-        const apiEndpoint = `${baseUrl}wp-json/dreamshop-points/v1/points/secure-redeem`;
-        
-        
-        if (!apiKey) {
-          console.error('[iOS POINTS] ERRORE CRITICO: API Key mancante! Verifica la variabile DREAMSHOP_POINTS_API_KEY');
-        }
-        
-        // Chiamata diretta all'API WordPress
-        const response = await fetch(apiEndpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-API-KEY': apiKey
-          },
-          body: JSON.stringify({
-            user_id: userId,
-            points: pointsToRedeem,
-            description: `Punti utilizzati per uno sconto sull'ordine #${order.id}`,
-            order_id: order.id
-          })
-        });
-        
-        if (response.ok) {
-          pointsRedeemResult = await response.json();
-          
-          // Il plugin WordPress gestisce automaticamente l'applicazione dello sconto tramite l'endpoint secure-redeem
-        } else {
-          const errorText = await response.text();
-          console.error(`[iOS POINTS] Errore risposta API: ${response.status}`, errorText);
-          pointsRedeemResult = { success: false, error: errorText };
-        }
-        
-      } catch (pointsError) {
-        console.error('[iOS POINTS] Eccezione durante il riscatto punti:', pointsError);
-        pointsRedeemResult = { success: false, error: 'Eccezione durante il riscatto punti' };
-        // Non interrompiamo il flusso se il riscatto punti fallisce
-      }
-    }
-        
-    // Restituisci l'ordine, il paymentIntent e il risultato del riscatto punti
-    return NextResponse.json({ 
-      success: true,
-      orderId: typeof order.id === 'number' ? order.id.toString() : String(order.id),
-      paymentIntentId: paymentIntent.id,
-      paymentStatus: paymentIntent.status,
-      pointsRedeemed: pointsRedeemResult && pointsRedeemResult.success ? true : false,
-      pointsResponse: pointsRedeemResult
-    });
-    
+
+    return NextResponse.json({
+      error: `Pagamento non riuscito: ${paymentIntent.status}`
+    }, { status: 400 });
+
   } catch (error: unknown) {
-    console.error('Errore durante la creazione dell\'ordine per iOS:', error);
-    
-    // Gestisci errori specifici di Stripe
+    console.error('[iOS] Errore durante la creazione dell\'ordine:', error);
+
     if (error instanceof Stripe.errors.StripeCardError) {
-      return NextResponse.json({ 
+      return NextResponse.json({
         error: error.message || 'La carta è stata rifiutata.'
       }, { status: 400 });
     } else if (error instanceof Stripe.errors.StripeInvalidRequestError) {
-      // Errori di richiesta non valida
-      return NextResponse.json({ 
+      return NextResponse.json({
         error: 'Configurazione di pagamento non valida. Contatta l\'assistenza.'
       }, { status: 400 });
     } else {
-      // Altri errori generici
-      return NextResponse.json({ 
+      return NextResponse.json({
         error: 'Si è verificato un errore durante la creazione dell\'ordine'
       }, { status: 500 });
     }
