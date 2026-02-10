@@ -1390,7 +1390,7 @@ function AccountContent() {
             ) : affiliateData ? (
               <div>
                 {/* Riepilogo statistiche */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
                   <div className="bg-gray-50 border rounded-lg p-4 text-center">
                     <h3 className="text-sm text-gray-500">Totale Ordini</h3>
                     <p className="text-2xl font-bold text-gray-800">{affiliateData.totals.total_orders}</p>
@@ -1401,7 +1401,15 @@ function AccountContent() {
                   </div>
                   <div className="bg-gray-50 border rounded-lg p-4 text-center">
                     <h3 className="text-sm text-gray-500">Totale Commissioni</h3>
-                    <p className="text-2xl font-bold text-green-600">&euro;{affiliateData.totals.total_commission.toFixed(2)}</p>
+                    <p className="text-2xl font-bold text-gray-800">&euro;{affiliateData.totals.total_commission.toFixed(2)}</p>
+                  </div>
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                    <h3 className="text-sm text-green-600">Commissioni Pagate</h3>
+                    <p className="text-2xl font-bold text-green-600">&euro;{affiliateData.totals.paid_commission.toFixed(2)}</p>
+                  </div>
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+                    <h3 className="text-sm text-red-600">Commissioni Non Pagate</h3>
+                    <p className="text-2xl font-bold text-red-600">&euro;{affiliateData.totals.unpaid_commission.toFixed(2)}</p>
                   </div>
                   <div className="bg-gray-50 border rounded-lg p-4 text-center">
                     <h3 className="text-sm text-gray-500">Coupon Attivi</h3>
@@ -1450,11 +1458,12 @@ function AccountContent() {
                         <th className="py-2 px-4 text-left text-gray-600">Coupon</th>
                         <th className="py-2 px-4 text-left text-gray-600">Importo</th>
                         <th className="py-2 px-4 text-left text-gray-600">Commissione</th>
+                        <th className="py-2 px-4 text-left text-gray-600">Stato Pagamento</th>
                       </tr>
                     </thead>
                     <tbody>
                       {affiliateData.orders.length === 0 ? (
-                        <tr><td colSpan={6} className="py-4 px-4 text-gray-500">Nessun ordine trovato nel periodo selezionato.</td></tr>
+                        <tr><td colSpan={7} className="py-4 px-4 text-gray-500">Nessun ordine trovato nel periodo selezionato.</td></tr>
                       ) : (
                         affiliateData.orders
                           .slice(
@@ -1469,6 +1478,17 @@ function AccountContent() {
                               <td className="py-2 px-4 text-gray-600">{order.coupon_code}</td>
                               <td className="py-2 px-4 text-gray-600">&euro;{order.amount.toFixed(2)}</td>
                               <td className="py-2 px-4 text-green-600 font-medium">&euro;{order.commission_amount.toFixed(2)}</td>
+                              <td className="py-2 px-4">
+                                {order.paid ? (
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    Pagato
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                    Non pagato
+                                  </span>
+                                )}
+                              </td>
                             </tr>
                           ))
                       )}

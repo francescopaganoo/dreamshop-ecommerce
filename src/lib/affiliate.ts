@@ -13,12 +13,16 @@ export interface AffiliateOrder {
   coupon_code: string;
   amount: number;
   commission_amount: number;
+  paid: boolean;
+  paid_date: string | null;
 }
 
 export interface AffiliateTotals {
   total_orders: number;
   total_sales: number;
   total_commission: number;
+  paid_commission: number;
+  unpaid_commission: number;
   active_coupons: number;
 }
 
