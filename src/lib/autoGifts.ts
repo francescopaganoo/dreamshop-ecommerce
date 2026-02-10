@@ -90,7 +90,7 @@ export async function checkAutoGifts(
   }
 
   try {
-    const response = await fetch(`${WORDPRESS_URL}/wp-json/wc-auto-gifts/v1/check-gifts`, {
+    const response = await fetch(`${WORDPRESS_URL}/wp-json/dreamshop-auto-gifts/v1/check-gifts`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

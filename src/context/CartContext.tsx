@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef, useMemo } from 'react';
 import { Product, Coupon, verifyCoupon, applyCoupon } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { getUserPoints } from '@/lib/points';
@@ -344,6 +344,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [cart, isAutoGiftItem, getSubtotalWithoutGifts]);
 
   /**
+   * Firma stabile degli item non-regalo per evitare loop infiniti.
+   * Cambia solo quando cambiano i prodotti reali (non i regali) nel carrello.
+   */
+  const regularCartSignature = useMemo(() => {
+    return cart
+      .filter(item => !isAutoGiftItem(item))
+      .map(item => `${item.product.id}:${item.quantity}:${item.product.price}`)
+      .sort()
+      .join('|');
+  }, [cart, isAutoGiftItem]);
+
+  /**
    * Effetto per controllare i regali quando il carrello cambia (con debounce)
    */
   useEffect(() => {
@@ -362,7 +374,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         clearTimeout(checkGiftsTimeoutRef.current);
       }
     };
-  }, [cart.filter(item => !isAutoGiftItem(item)).length, getSubtotalWithoutGifts]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [regularCartSignature]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * Rimuove un regalo automatico dal carrello
