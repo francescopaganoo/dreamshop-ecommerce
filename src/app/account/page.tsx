@@ -11,6 +11,7 @@ import { PointsResponse, PointsHistoryItem, getUserPoints } from '@/lib/points';
 import { BillingAddress, ShippingAddress, getUserAddresses } from '@/lib/api';
 import GiftCardBalance from '@/components/GiftCardBalance';
 import { getResinShippingFees, ResinShippingFee } from '@/lib/resinShipping';
+import { getAffiliateStatus, getAffiliateDashboard, AffiliateDashboardData } from '@/lib/affiliate';
 
 // Interfaccia per gli ordini
 interface Order {
@@ -89,18 +90,40 @@ function AccountContent() {
   const [resinFeesError, setResinFeesError] = useState<string | null>(null);
   const [isResinPaymentModalOpen, setIsResinPaymentModalOpen] = useState(false);
   const [resinPaymentFee, setResinPaymentFee] = useState<ResinShippingFee | null>(null);
-  
+
+  // Stati per il dashboard affiliato
+  const [isAffiliate, setIsAffiliate] = useState(false);
+  const [affiliateData, setAffiliateData] = useState<AffiliateDashboardData | null>(null);
+  const [isLoadingAffiliate, setIsLoadingAffiliate] = useState(false);
+  const [affiliateError, setAffiliateError] = useState<string | null>(null);
+  const [affiliateStartDate, setAffiliateStartDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+  });
+  const [affiliateEndDate, setAffiliateEndDate] = useState(() => {
+    return new Date().toISOString().split('T')[0];
+  });
+  const [affiliateOrdersCurrentPage, setAffiliateOrdersCurrentPage] = useState(1);
+  const affiliateOrdersPerPage = 10;
+
   // Reindirizza l'utente se non è autenticato
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.push('/login');
     }
   }, [isAuthenticated, isLoading, router]);
-  
+
+  // Controlla se l'utente è un affiliato
+  useEffect(() => {
+    if (user) {
+      getAffiliateStatus().then(setIsAffiliate).catch(() => setIsAffiliate(false));
+    }
+  }, [user]);
+
   // Aggiorna la tab attiva quando cambia il parametro nell'URL
   useEffect(() => {
     const currentTab = searchParams.get('tab');
-    if (currentTab && ['dashboard', 'orders', 'scheduled-orders', 'resin-shipping', 'addresses', 'account-details', 'points', 'gift-cards'].includes(currentTab)) {
+    if (currentTab && ['dashboard', 'orders', 'scheduled-orders', 'resin-shipping', 'addresses', 'account-details', 'points', 'gift-cards', 'affiliate'].includes(currentTab)) {
       setTab(currentTab);
     }
   }, [searchParams, setTab]);
@@ -291,7 +314,24 @@ function AccountContent() {
       };
       fetchAddresses();
     }
-  }, [activeTab, user]);
+
+    if (activeTab === 'affiliate' && user && isAffiliate) {
+      const fetchAffiliateData = async () => {
+        setIsLoadingAffiliate(true);
+        setAffiliateError(null);
+        try {
+          const data = await getAffiliateDashboard(affiliateStartDate, affiliateEndDate);
+          setAffiliateData(data);
+        } catch (error) {
+          console.error('Errore durante il caricamento dei dati affiliato:', error);
+          setAffiliateError('Impossibile caricare i dati del dashboard affiliato. Riprova più tardi.');
+        } finally {
+          setIsLoadingAffiliate(false);
+        }
+      };
+      fetchAffiliateData();
+    }
+  }, [activeTab, user, isAffiliate, affiliateStartDate, affiliateEndDate]);
   
   // Gestisce il logout
   const handleLogout = () => {
@@ -370,6 +410,7 @@ function AccountContent() {
       setOrdersCurrentPage(1);
       setPointsCurrentPage(1);
       setScheduledOrdersCurrentPage(1);
+      setAffiliateOrdersCurrentPage(1);
       setTab(tab);
     }
   };
@@ -1319,6 +1360,153 @@ function AccountContent() {
           </div>
         );
         
+      case 'affiliate':
+        return (
+          <div>
+            <h2 className="text-xl font-semibold mb-4 text-gray-600">Dashboard Affiliato</h2>
+
+            {/* Filtro date */}
+            <div className="flex flex-wrap items-center gap-3 mb-6">
+              <label className="text-sm text-gray-600">Intervallo date:</label>
+              <input
+                type="date"
+                value={affiliateStartDate}
+                onChange={(e) => setAffiliateStartDate(e.target.value)}
+                className="border rounded px-3 py-1 text-sm text-gray-700"
+              />
+              <span className="text-gray-400">-</span>
+              <input
+                type="date"
+                value={affiliateEndDate}
+                onChange={(e) => setAffiliateEndDate(e.target.value)}
+                className="border rounded px-3 py-1 text-sm text-gray-700"
+              />
+            </div>
+
+            {isLoadingAffiliate ? (
+              <p className="text-gray-600">Caricamento dati affiliato in corso...</p>
+            ) : affiliateError ? (
+              <div className="text-red-500 mb-4">{affiliateError}</div>
+            ) : affiliateData ? (
+              <div>
+                {/* Riepilogo statistiche */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                  <div className="bg-gray-50 border rounded-lg p-4 text-center">
+                    <h3 className="text-sm text-gray-500">Totale Ordini</h3>
+                    <p className="text-2xl font-bold text-gray-800">{affiliateData.totals.total_orders}</p>
+                  </div>
+                  <div className="bg-gray-50 border rounded-lg p-4 text-center">
+                    <h3 className="text-sm text-gray-500">Totale Vendite</h3>
+                    <p className="text-2xl font-bold text-gray-800">&euro;{affiliateData.totals.total_sales.toFixed(2)}</p>
+                  </div>
+                  <div className="bg-gray-50 border rounded-lg p-4 text-center">
+                    <h3 className="text-sm text-gray-500">Totale Commissioni</h3>
+                    <p className="text-2xl font-bold text-green-600">&euro;{affiliateData.totals.total_commission.toFixed(2)}</p>
+                  </div>
+                  <div className="bg-gray-50 border rounded-lg p-4 text-center">
+                    <h3 className="text-sm text-gray-500">Coupon Attivi</h3>
+                    <p className="text-2xl font-bold text-gray-800">{affiliateData.totals.active_coupons}</p>
+                  </div>
+                </div>
+
+                {/* Tabella coupon */}
+                <h3 className="text-lg font-semibold mb-2 text-gray-600">I tuoi codici coupon</h3>
+                <div className="overflow-x-auto mb-6">
+                  <table className="min-w-full bg-white">
+                    <thead>
+                      <tr className="bg-gray-100">
+                        <th className="py-2 px-4 text-left text-gray-600">Codice Coupon</th>
+                        <th className="py-2 px-4 text-left text-gray-600">Ordini</th>
+                        <th className="py-2 px-4 text-left text-gray-600">Totale Vendite</th>
+                        <th className="py-2 px-4 text-left text-gray-600">Commissioni</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {affiliateData.coupons.length === 0 ? (
+                        <tr><td colSpan={4} className="py-4 px-4 text-gray-500">Non hai ancora coupon associati.</td></tr>
+                      ) : (
+                        affiliateData.coupons.map((coupon) => (
+                          <tr key={coupon.id} className="border-t">
+                            <td className="py-2 px-4 text-gray-600 font-medium">{coupon.code}</td>
+                            <td className="py-2 px-4 text-gray-600">{coupon.order_count}</td>
+                            <td className="py-2 px-4 text-gray-600">&euro;{coupon.total_sales.toFixed(2)}</td>
+                            <td className="py-2 px-4 text-gray-600">&euro;{coupon.total_commission.toFixed(2)}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Tabella ordini recenti */}
+                <h3 className="text-lg font-semibold mb-2 text-gray-600">Ordini Recenti</h3>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full bg-white">
+                    <thead>
+                      <tr className="bg-gray-100">
+                        <th className="py-2 px-4 text-left text-gray-600">Ordine</th>
+                        <th className="py-2 px-4 text-left text-gray-600">Data</th>
+                        <th className="py-2 px-4 text-left text-gray-600">Stato</th>
+                        <th className="py-2 px-4 text-left text-gray-600">Coupon</th>
+                        <th className="py-2 px-4 text-left text-gray-600">Importo</th>
+                        <th className="py-2 px-4 text-left text-gray-600">Commissione</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {affiliateData.orders.length === 0 ? (
+                        <tr><td colSpan={6} className="py-4 px-4 text-gray-500">Nessun ordine trovato nel periodo selezionato.</td></tr>
+                      ) : (
+                        affiliateData.orders
+                          .slice(
+                            (affiliateOrdersCurrentPage - 1) * affiliateOrdersPerPage,
+                            affiliateOrdersCurrentPage * affiliateOrdersPerPage
+                          )
+                          .map((order) => (
+                            <tr key={order.order_id} className="border-t">
+                              <td className="py-2 px-4 text-gray-600">#{order.order_id}</td>
+                              <td className="py-2 px-4 text-gray-600">{formatDate(order.order_date)}</td>
+                              <td className="py-2 px-4 text-gray-600">{order.status}</td>
+                              <td className="py-2 px-4 text-gray-600">{order.coupon_code}</td>
+                              <td className="py-2 px-4 text-gray-600">&euro;{order.amount.toFixed(2)}</td>
+                              <td className="py-2 px-4 text-green-600 font-medium">&euro;{order.commission_amount.toFixed(2)}</td>
+                            </tr>
+                          ))
+                      )}
+                    </tbody>
+                  </table>
+
+                  {/* Paginazione ordini affiliato */}
+                  {affiliateData.orders.length > affiliateOrdersPerPage && (
+                    <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 mt-4">
+                      <div className="text-sm text-gray-700">
+                        Pagina {affiliateOrdersCurrentPage} di {Math.ceil(affiliateData.orders.length / affiliateOrdersPerPage)}
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setAffiliateOrdersCurrentPage(prev => Math.max(1, prev - 1))}
+                          disabled={affiliateOrdersCurrentPage === 1}
+                          className="px-3 py-1 border rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                        >
+                          Precedente
+                        </button>
+                        <button
+                          onClick={() => setAffiliateOrdersCurrentPage(prev => Math.min(Math.ceil(affiliateData!.orders.length / affiliateOrdersPerPage), prev + 1))}
+                          disabled={affiliateOrdersCurrentPage >= Math.ceil(affiliateData.orders.length / affiliateOrdersPerPage)}
+                          className="px-3 py-1 border rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                        >
+                          Successiva
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <p className="text-gray-600">Nessun dato disponibile.</p>
+            )}
+          </div>
+        );
+
       default:
         return <div>Seleziona una sezione dal menu</div>;
     }
@@ -1401,6 +1589,16 @@ function AccountContent() {
                         Indirizzi
                       </button>
                     </li>
+                    {isAffiliate && (
+                      <li>
+                        <button
+                          onClick={() => setActiveTab('affiliate')}
+                          className={`text-gray-600 w-full text-left px-4 py-2 rounded-md ${activeTab === 'affiliate' ? 'bg-bred-100 text-blue-700' : 'hover:bg-gray-100'}`}
+                        >
+                          Dashboard Affiliato
+                        </button>
+                      </li>
+                    )}
                     <li>
                       <button
                         onClick={() => setActiveTab('gift-cards')}
