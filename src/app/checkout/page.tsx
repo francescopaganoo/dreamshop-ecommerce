@@ -458,7 +458,8 @@ export default function CheckoutPage() {
 
   // Calculate totals
   const subtotal = getSubtotal(); // Usa getSubtotal per ottenere il prezzo base senza sconti
-  const shipping = selectedShippingMethod ? selectedShippingMethod.cost : 0;
+  const couponGrantsFreeShipping = coupon?.free_shipping === true;
+  const shipping = couponGrantsFreeShipping ? 0 : (selectedShippingMethod ? selectedShippingMethod.cost : 0);
 
   // Calcola il totale base (prodotti + spedizione - sconti)
   const baseTotal = (subtotal - discount - pointsDiscount - giftCardDiscount) + shipping;
@@ -3104,7 +3105,11 @@ export default function CheckoutPage() {
                             <div className="flex justify-between">
                               <span className="font-medium">{method.title}</span>
                               <span className="font-medium">
-                                {method.free_shipping ? 'Gratuita' : `€${method.cost.toFixed(2)}`}
+                                {method.free_shipping
+                                  ? 'Gratuita'
+                                  : couponGrantsFreeShipping
+                                    ? <><s className="text-gray-400 mr-1">{`€${method.cost.toFixed(2)}`}</s> Gratuita</>
+                                    : `€${method.cost.toFixed(2)}`}
                               </span>
                             </div>
                             <p className="text-sm text-gray-500">{method.description}</p>
@@ -3464,7 +3469,11 @@ export default function CheckoutPage() {
                         <span className="text-gray-600">Spedizione</span>
                         {selectedShippingMethod ? (
                           <span>
-                            {selectedShippingMethod.free_shipping ? 'Gratuita' : `€${selectedShippingMethod.cost.toFixed(2)}`}
+                            {couponGrantsFreeShipping
+                              ? 'Gratuita (coupon)'
+                              : selectedShippingMethod.free_shipping
+                                ? 'Gratuita'
+                                : `€${selectedShippingMethod.cost.toFixed(2)}`}
                           </span>
                         ) : (
                           <span className="italic text-bred-500 font-medium">
