@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { PaymentRequestButtonElement, useStripe } from '@stripe/react-stripe-js';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
@@ -178,7 +178,7 @@ export default function AppleGooglePayCheckout({
   const shippingMethodDescription = selectedShippingMethod?.description ?? 'Nessun costo aggiuntivo';
 
   // Helper per costruire i displayItems (usato sia nella creazione che nell'update)
-  const buildDisplayItems = (currentPointsDiscount: number, currentPointsToRedeem: number) => {
+  const buildDisplayItems = useCallback((currentPointsDiscount: number, currentPointsToRedeem: number) => {
     const items = cart.map(item => ({
       label: `${item.product.name} x${item.quantity}`,
       amount: Math.round(parseFloat(item.product.price || '0') * item.quantity * 100)
@@ -199,7 +199,7 @@ export default function AppleGooglePayCheckout({
     }
 
     return items;
-  };
+  }, [cart, discount]);
 
   // useEffect 1: Crea il Payment Request UNA SOLA VOLTA (quando carrello/spedizione sono pronti)
   // I punti vengono gestiti separatamente con paymentRequest.update()
@@ -499,6 +499,7 @@ export default function AppleGooglePayCheckout({
     cart,
     discount,
     cartTotal,
+    buildDisplayItems,
     shippingCost,
     shippingMethodId,
     shippingMethodTitle,
@@ -532,7 +533,7 @@ export default function AppleGooglePayCheckout({
       },
       displayItems: displayItems,
     });
-  }, [pointsToRedeem, pointsDiscount, cartTotal, discount, shippingCost]);
+  }, [pointsToRedeem, pointsDiscount, cartTotal, discount, shippingCost, buildDisplayItems]);
 
   // Non mostrare se non ci sono items nel carrello
   if (!hasItems || finalTotal <= 0) {
