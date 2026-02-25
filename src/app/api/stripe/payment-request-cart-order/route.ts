@@ -57,6 +57,7 @@ export async function POST(request: NextRequest) {
       paymentMethodId,
       shippingOption,
       discount = 0,
+      couponCode = '',
       pointsToRedeem = 0,
       pointsDiscount = 0,
       billingData,
@@ -67,6 +68,7 @@ export async function POST(request: NextRequest) {
       paymentMethodId: string;
       shippingOption?: ShippingOption;
       discount?: number;
+      couponCode?: string;
       pointsToRedeem?: number;
       pointsDiscount?: number;
       billingData: AddressData;
@@ -268,9 +270,8 @@ export async function POST(request: NextRequest) {
       },
       line_items: lineItems,
       shipping_lines: shippingLines,
-      coupon_lines: discount > 0 ? [{
-        code: 'payment_request_discount',
-        discount: discount.toString()
+      coupon_lines: couponCode ? [{
+        code: couponCode
       }] : [],
       fee_lines: pointsToRedeem > 0 && pointsDiscount > 0 ? [{
         name: `Sconto punti (${pointsToRedeem} punti)`,

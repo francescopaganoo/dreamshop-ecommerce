@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { PaymentRequestButtonElement, useStripe } from '@stripe/react-stripe-js';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
@@ -47,6 +47,7 @@ interface AppleGooglePayCheckoutProps {
   customerId?: number; // ID cliente passato dalla pagina checkout
   pointsToRedeem?: number;
   pointsDiscount?: number;
+  couponCode?: string;
 }
 
 export default function AppleGooglePayCheckout({
@@ -57,7 +58,8 @@ export default function AppleGooglePayCheckout({
   className = '',
   customerId,
   pointsToRedeem = 0,
-  pointsDiscount = 0
+  pointsDiscount = 0,
+  couponCode = ''
 }: AppleGooglePayCheckoutProps) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [paymentRequest, setPaymentRequest] = useState<any>(null);
@@ -75,8 +77,11 @@ export default function AppleGooglePayCheckout({
   // Ref per tracciare l'ultimo payment request creato
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const paymentRequestRef = useRef<any>(null);
-  // Ref per evitare re-creazioni inutili
-  const lastConfigRef = useRef<string>('');
+  // Ref per sapere se il PR è già stato creato (canMakePayment può essere chiamato SOLO UNA VOLTA)
+  const prCreatedRef = useRef(false);
+  // Ref per avere sempre gli ultimi valori di discount (coupon) nell'event handler
+  const discountRef = useRef(discount);
+  discountRef.current = discount;
   // Ref per calcolare la spedizione solo una volta
   const hasCalculatedShippingRef = useRef(false);
 
@@ -101,12 +106,8 @@ export default function AppleGooglePayCheckout({
   pointsToRedeemRef.current = pointsToRedeem;
   const pointsDiscountRef = useRef(pointsDiscount);
   pointsDiscountRef.current = pointsDiscount;
-
-  // Memoizza cart come stringa per confronto stabile
-  const cartKey = useMemo(() =>
-    cart.map(item => `${item.product.id}-${item.quantity}-${item.variation_id || 0}`).join('|'),
-    [cart]
-  );
+  const couponCodeRef = useRef(couponCode);
+  couponCodeRef.current = couponCode;
 
   // Cleanup al unmount
   useEffect(() => {
@@ -201,33 +202,28 @@ export default function AppleGooglePayCheckout({
     return items;
   }, [cart, discount]);
 
-  // useEffect 1: Crea il Payment Request UNA SOLA VOLTA (quando carrello/spedizione sono pronti)
-  // I punti vengono gestiti separatamente con paymentRequest.update()
+  // useEffect: Crea il Payment Request UNA SOLA VOLTA
+  // canMakePayment() di Stripe può essere chiamato SOLO UNA VOLTA per sessione pagina.
+  // Tutti i valori dinamici (punti, coupon discount) vengono letti dalle ref negli event handler.
   useEffect(() => {
     if (!stripe || !hasItems || cartTotal <= 0) {
       return;
     }
 
-    // Aspetta che la spedizione sia stata calcolata
-    if (selectedShippingMethod === undefined) {
+    // NON ricreare mai il Payment Request - canMakePayment funziona solo la prima volta
+    if (prCreatedRef.current) {
       return;
     }
+    prCreatedRef.current = true;
 
-    // Se il payment request esiste già, non ricrearlo
-    // (i cambiamenti di punti vengono gestiti dal secondo useEffect con .update())
-    const baseConfigKey = `${cartKey}-${cartTotal}-${discount}-${shippingCost}-${shippingMethodId}`;
-    if (lastConfigRef.current === baseConfigKey && paymentRequestRef.current) {
-      return;
-    }
-
-    lastConfigRef.current = baseConfigKey;
-
-    // Usa i valori correnti dei punti per la creazione iniziale
+    // Usa i valori correnti per la creazione iniziale
     const currentPointsDiscount = pointsDiscountRef.current;
     const currentPointsToRedeem = pointsToRedeemRef.current;
-    const currentFinalTotal = cartTotal - discount - currentPointsDiscount;
+    const currentDiscount = discountRef.current;
+    const currentFinalTotal = cartTotal - currentDiscount - currentPointsDiscount;
 
     if (currentFinalTotal <= 0) {
+      prCreatedRef.current = false; // Permetti di riprovare
       return;
     }
 
@@ -315,8 +311,8 @@ export default function AppleGooglePayCheckout({
             setSelectedShippingMethod(shippingMethod);
           }
 
-          // Usa ref per avere il valore aggiornato dei punti
-          const latestFinalTotal = cartTotal - discount - pointsDiscountRef.current;
+          // Usa ref per avere i valori aggiornati
+          const latestFinalTotal = cartTotal - discountRef.current - pointsDiscountRef.current;
           const newTotal = Math.round(latestFinalTotal * 100) + newShippingAmount;
           const latestDisplayItems = buildDisplayItems(pointsDiscountRef.current, pointsToRedeemRef.current);
 
@@ -355,8 +351,8 @@ export default function AppleGooglePayCheckout({
         const shippingOption = ev.shippingOption;
         const optionShippingCost = shippingOption.amount;
 
-        // Usa ref per avere il valore aggiornato dei punti
-        const latestFinalTotal = cartTotal - discount - pointsDiscountRef.current;
+        // Usa ref per avere i valori aggiornati
+        const latestFinalTotal = cartTotal - discountRef.current - pointsDiscountRef.current;
         const newTotal = Math.round(latestFinalTotal * 100) + optionShippingCost;
 
         const updatedDisplayItems = buildDisplayItems(pointsDiscountRef.current, pointsToRedeemRef.current);
@@ -394,6 +390,7 @@ export default function AppleGooglePayCheckout({
         const currentUserId = userIdRef.current;
         const currentPointsToRedeemVal = pointsToRedeemRef.current;
         const currentPointsDiscountVal = pointsDiscountRef.current;
+        const currentCouponCode = couponCodeRef.current;
 
         const orderData = {
           cartItems: cart.map(item => {
@@ -414,7 +411,8 @@ export default function AppleGooglePayCheckout({
           userId: currentUserId,
           paymentMethodId: ev.paymentMethod.id,
           shippingOption: ev.shippingOption,
-          discount: discount,
+          discount: discountRef.current,
+          couponCode: currentCouponCode,
           pointsToRedeem: currentPointsToRedeemVal,
           pointsDiscount: currentPointsDiscountVal,
           billingData: {
@@ -492,48 +490,11 @@ export default function AppleGooglePayCheckout({
     });
 
     // Cleanup: non resettiamo paymentRequest a null per evitare flickering
-  }, [
-    stripe,
-    hasItems,
-    cartKey,
-    cart,
-    discount,
-    cartTotal,
-    buildDisplayItems,
-    shippingCost,
-    shippingMethodId,
-    shippingMethodTitle,
-    shippingMethodDescription,
-    selectedShippingMethod,
-    userId,
-    billingData,
-    shippingData,
-    clearCart,
-    router,
-    onPaymentStart,
-    onPaymentError
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stripe, hasItems, cartTotal]);
 
-  // useEffect 2: Aggiorna il Payment Request esistente quando cambiano i punti
-  // Usa paymentRequest.update() invece di ricrearlo (Stripe limita canMakePayment a una sola chiamata)
-  useEffect(() => {
-    if (!paymentRequestRef.current) return;
-
-    const currentFinalTotal = cartTotal - discount - pointsDiscount;
-    if (currentFinalTotal <= 0) return;
-
-    const displayItems = buildDisplayItems(pointsDiscount, pointsToRedeem);
-    const shippingAmount = Math.round(shippingCost * 100);
-    const totalWithShipping = Math.round(currentFinalTotal * 100) + shippingAmount;
-
-    paymentRequestRef.current.update({
-      total: {
-        label: 'Totale Ordine DreamShop',
-        amount: totalWithShipping,
-      },
-      displayItems: displayItems,
-    });
-  }, [pointsToRedeem, pointsDiscount, cartTotal, discount, shippingCost, buildDisplayItems]);
+  // I punti vengono letti dalle ref negli event handler (paymentmethod, shippingaddresschange, ecc.)
+  // Non serve un secondo useEffect con paymentRequest.update() che può causare errori Google Pay (OR_BIBED_08)
 
   // Non mostrare se non ci sono items nel carrello
   if (!hasItems || finalTotal <= 0) {

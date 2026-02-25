@@ -607,6 +607,7 @@ export interface Coupon {
   maximum_amount: string;
   email_restrictions: string[];
   used_by: string[];
+  points_modifier?: number;
 }
 
 export interface ShippingZone {

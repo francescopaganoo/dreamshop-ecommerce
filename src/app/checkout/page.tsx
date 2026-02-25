@@ -1626,7 +1626,22 @@ export default function CheckoutPage() {
         // Calcola i punti che saranno assegnati per questo ordine
         const couponDiscount = coupon ? discount : 0;
         const subtotalForPoints = subtotal - couponDiscount - pointsDiscount; // Subtotale meno tutti gli sconti
-        const pointsToEarn = Math.floor(Math.max(0, subtotalForPoints)); // 1 euro = 1 punto
+        let pointsToEarn = Math.floor(Math.max(0, subtotalForPoints)); // 1 euro = 1 punto
+
+        // Applica points modifier dal coupon (es. 200% = doppi punti)
+        if (coupon && coupon.points_modifier && coupon.points_modifier > 100) {
+          const bonusMultiplier = (coupon.points_modifier / 100) - 1;
+          let eligibleSubtotal = subtotal;
+          if ((coupon.product_ids?.length ?? 0) > 0 || (coupon.product_categories?.length ?? 0) > 0) {
+            eligibleSubtotal = cart.reduce((sum, item) => {
+              const productMatch = !coupon.product_ids?.length || coupon.product_ids.includes(item.product.id);
+              const categoryMatch = !coupon.product_categories?.length ||
+                item.product.categories?.some((cat: { id: number }) => coupon.product_categories.includes(cat.id));
+              return (productMatch && categoryMatch) ? sum + (parseFloat(item.product.price || '0') * item.quantity) : sum;
+            }, 0);
+          }
+          pointsToEarn += Math.floor(eligibleSubtotal * bonusMultiplier);
+        }
 
         // Prepara le fee_lines per lo sconto punti
         const stripeFeeLines = [];
@@ -1843,7 +1858,23 @@ export default function CheckoutPage() {
         // Calcola i punti che saranno assegnati per questo ordine
         const couponDiscount = coupon ? discount : 0;
         const subtotalForPoints = subtotal - couponDiscount - pointsDiscount;
-        const pointsToEarn = Math.floor(Math.max(0, subtotalForPoints));
+        let pointsToEarn = Math.floor(Math.max(0, subtotalForPoints));
+
+        // Applica points modifier dal coupon (es. 200% = doppi punti)
+        if (coupon && coupon.points_modifier && coupon.points_modifier > 100) {
+          const bonusMultiplier = (coupon.points_modifier / 100) - 1;
+          let eligibleSubtotal = subtotal;
+          if ((coupon.product_ids?.length ?? 0) > 0 || (coupon.product_categories?.length ?? 0) > 0) {
+            eligibleSubtotal = cart.reduce((sum, item) => {
+              const productMatch = !coupon.product_ids?.length || coupon.product_ids.includes(item.product.id);
+              const categoryMatch = !coupon.product_categories?.length ||
+                item.product.categories?.some((cat: { id: number }) => coupon.product_categories.includes(cat.id));
+              return (productMatch && categoryMatch) ? sum + (parseFloat(item.product.price || '0') * item.quantity) : sum;
+            }, 0);
+          }
+          pointsToEarn += Math.floor(eligibleSubtotal * bonusMultiplier);
+        }
+
         console.log(`[CHECKOUT KLARNA] CALCOLO PUNTI - Subtotale: €${subtotal.toFixed(2)}, Sconto coupon: €${couponDiscount.toFixed(2)}, Sconto punti: €${pointsDiscount.toFixed(2)}, Valore per punti: €${subtotalForPoints.toFixed(2)} → ${pointsToEarn} punti verranno assegnati`);
 
         // Prepara le fee_lines per lo sconto punti
@@ -1961,7 +1992,23 @@ export default function CheckoutPage() {
         // Calcola i punti che saranno assegnati per questo ordine
         const couponDiscount = coupon ? discount : 0;
         const subtotalForPoints = subtotal - couponDiscount - pointsDiscount;
-        const pointsToEarn = Math.floor(Math.max(0, subtotalForPoints));
+        let pointsToEarn = Math.floor(Math.max(0, subtotalForPoints));
+
+        // Applica points modifier dal coupon (es. 200% = doppi punti)
+        if (coupon && coupon.points_modifier && coupon.points_modifier > 100) {
+          const bonusMultiplier = (coupon.points_modifier / 100) - 1;
+          let eligibleSubtotal = subtotal;
+          if ((coupon.product_ids?.length ?? 0) > 0 || (coupon.product_categories?.length ?? 0) > 0) {
+            eligibleSubtotal = cart.reduce((sum, item) => {
+              const productMatch = !coupon.product_ids?.length || coupon.product_ids.includes(item.product.id);
+              const categoryMatch = !coupon.product_categories?.length ||
+                item.product.categories?.some((cat: { id: number }) => coupon.product_categories.includes(cat.id));
+              return (productMatch && categoryMatch) ? sum + (parseFloat(item.product.price || '0') * item.quantity) : sum;
+            }, 0);
+          }
+          pointsToEarn += Math.floor(eligibleSubtotal * bonusMultiplier);
+        }
+
         console.log(`[CHECKOUT SATISPAY] CALCOLO PUNTI - Subtotale: €${subtotal.toFixed(2)}, Sconto coupon: €${couponDiscount.toFixed(2)}, Sconto punti: €${pointsDiscount.toFixed(2)}, Valore per punti: €${subtotalForPoints.toFixed(2)} → ${pointsToEarn} punti verranno assegnati`);
 
         // Prepara le fee_lines per lo sconto punti
@@ -2146,7 +2193,23 @@ export default function CheckoutPage() {
       // Calcola i punti che saranno assegnati per questo ordine
       const couponDiscount = coupon ? discount : 0;
       const subtotalForPoints = subtotal - couponDiscount - pointsDiscount; // Subtotale meno tutti gli sconti
-      const pointsToEarn = Math.floor(Math.max(0, subtotalForPoints)); // 1 euro = 1 punto
+      let pointsToEarn = Math.floor(Math.max(0, subtotalForPoints)); // 1 euro = 1 punto
+
+      // Applica points modifier dal coupon (es. 200% = doppi punti)
+      if (coupon && coupon.points_modifier && coupon.points_modifier > 100) {
+        const bonusMultiplier = (coupon.points_modifier / 100) - 1;
+        let eligibleSubtotal = subtotal;
+        if ((coupon.product_ids?.length ?? 0) > 0 || (coupon.product_categories?.length ?? 0) > 0) {
+          eligibleSubtotal = cart.reduce((sum, item) => {
+            const productMatch = !coupon.product_ids?.length || coupon.product_ids.includes(item.product.id);
+            const categoryMatch = !coupon.product_categories?.length ||
+              item.product.categories?.some((cat: { id: number }) => coupon.product_categories.includes(cat.id));
+            return (productMatch && categoryMatch) ? sum + (parseFloat(item.product.price || '0') * item.quantity) : sum;
+          }, 0);
+        }
+        pointsToEarn += Math.floor(eligibleSubtotal * bonusMultiplier);
+      }
+
       console.log(`[CHECKOUT] CALCOLO PUNTI - Subtotale: €${subtotal.toFixed(2)}, Sconto coupon: €${couponDiscount.toFixed(2)}, Sconto punti: €${pointsDiscount.toFixed(2)}, Valore per punti: €${subtotalForPoints.toFixed(2)} → ${pointsToEarn} punti verranno assegnati`);
 
       // Create the order con customer_id come prima proprietà
@@ -2737,6 +2800,7 @@ export default function CheckoutPage() {
                     customerId={isAuthenticated && user ? user.id : 0}
                     pointsToRedeem={pointsToRedeem}
                     pointsDiscount={pointsDiscount}
+                    couponCode={coupon?.code || ''}
                     billingData={{
                       firstName: formData.firstName,
                       lastName: formData.lastName,
