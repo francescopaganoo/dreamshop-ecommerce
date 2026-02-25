@@ -1006,6 +1006,10 @@ export default function CheckoutPage() {
             key: '_points_discount',
             value: pointsDiscount.toString()
           });
+          orderData.meta_data.push({
+            key: '_points_user_id',
+            value: String(customerIdForOrder)
+          });
         }
 
         const order = await createOrder(orderData);
@@ -1188,10 +1192,17 @@ export default function CheckoutPage() {
               tax_class: '',
               tax_status: 'none'
             }] : [])
+          ],
+          meta_data: [
+            ...(pointsToRedeem > 0 ? [
+              { key: '_points_redeemed', value: pointsToRedeem.toString() },
+              { key: '_points_discount', value: pointsDiscount.toString() },
+              { key: '_points_user_id', value: String(customerIdForOrder) }
+            ] : [])
           ]
         };
-        
-        
+
+
         // Salva i dati dell'ordine su MySQL per persistenza (come Klarna/Satispay)
         const storeResponse = await fetch('/api/stripe/store-order-data', {
           method: 'POST',
@@ -1670,7 +1681,11 @@ export default function CheckoutPage() {
             {
               key: '_points_discount',
               value: pointsDiscount.toString()
-            }
+            },
+            ...(pointsToRedeem > 0 ? [
+              { key: '_points_redeemed', value: pointsToRedeem.toString() },
+              { key: '_points_user_id', value: String(customerIdForOrder) }
+            ] : [])
           ]
         };
 
@@ -1880,7 +1895,11 @@ export default function CheckoutPage() {
             { key: '_checkout_points_earned', value: String(pointsToEarn) },
             { key: '_checkout_payment_method', value: 'klarna' },
             { key: '_points_to_earn_frontend', value: String(pointsToEarn) },
-            { key: '_points_discount', value: pointsDiscount.toString() }
+            { key: '_points_discount', value: pointsDiscount.toString() },
+            ...(pointsToRedeem > 0 ? [
+              { key: '_points_redeemed', value: pointsToRedeem.toString() },
+              { key: '_points_user_id', value: String(customerIdForOrder) }
+            ] : [])
           ]
         };
 
@@ -2038,7 +2057,11 @@ export default function CheckoutPage() {
           meta_data: [
             ...(customerIdForOrder ? [{ key: '_customer_user', value: customerIdForOrder.toString() }] : []),
             { key: '_checkout_payment_method', value: 'satispay' },
-            { key: '_points_discount', value: pointsDiscount.toString() }
+            { key: '_points_discount', value: pointsDiscount.toString() },
+            ...(pointsToRedeem > 0 ? [
+              { key: '_points_redeemed', value: pointsToRedeem.toString() },
+              { key: '_points_user_id', value: String(customerIdForOrder) }
+            ] : [])
           ]
         };
 
@@ -2173,7 +2196,11 @@ export default function CheckoutPage() {
           {
             key: '_points_to_earn_frontend',
             value: pointsToEarn.toString()
-          }
+          },
+          ...(pointsToRedeem > 0 ? [
+            { key: '_points_redeemed', value: pointsToRedeem.toString() },
+            { key: '_points_user_id', value: String(customerIdForOrder) }
+          ] : [])
         ]
       };
 
@@ -2708,6 +2735,8 @@ export default function CheckoutPage() {
                   {/* Apple Pay / Google Pay */}
                   <AppleGooglePayCheckout
                     customerId={isAuthenticated && user ? user.id : 0}
+                    pointsToRedeem={pointsToRedeem}
+                    pointsDiscount={pointsDiscount}
                     billingData={{
                       firstName: formData.firstName,
                       lastName: formData.lastName,

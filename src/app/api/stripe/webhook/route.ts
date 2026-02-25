@@ -291,6 +291,7 @@ export async function POST(request: NextRequest) {
 
             // Type assertion per orderData
             const savedOrderData = storedData.orderData as Record<string, unknown>;
+            const pointsToRedeemApplePay = storedData.pointsToRedeem || 0;
             const existingMetaData = (savedOrderData.meta_data as Array<{ key: string; value: string }>) || [];
 
             // Determina lo status corretto
@@ -340,6 +341,45 @@ export async function POST(request: NextRequest) {
                 webhook_processed_at: new Date().toISOString()
               }
             });
+
+            // Decrementa i punti se sono stati usati per lo sconto (Apple Pay/Google Pay)
+            if (pointsToRedeemApplePay > 0) {
+              const customerId = (savedOrderData.customer_id as number) || 0;
+              if (customerId > 0) {
+                try {
+                  const baseUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL?.replace(/\/$/, '') || '';
+                  const apiKey = process.env.POINTS_API_KEY;
+                  if (apiKey) {
+                    const deductResponse = await fetch(`${baseUrl}/wp-json/dreamshop-points/v1/points/deduct-only`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-Key': apiKey
+                      },
+                      body: JSON.stringify({
+                        user_id: customerId,
+                        points: pointsToRedeemApplePay,
+                        order_id: order.id,
+                        description: `Punti utilizzati per sconto ordine #${order.id}`
+                      })
+                    });
+                    const deductResult = await deductResponse.json();
+                    if (deductResponse.ok && deductResult.success) {
+                      console.log(`[WEBHOOK] Apple/Google Pay - Punti decrementati: userId=${customerId}, points=${pointsToRedeemApplePay}, newBalance=${deductResult.new_balance}`);
+                      try {
+                        await api.put(`orders/${order.id}`, {
+                          meta_data: [{ key: '_points_deducted_by_api', value: 'yes' }, { key: '_points_deducted_by_api_at', value: new Date().toISOString() }]
+                        });
+                      } catch (metaErr) { console.error('[WEBHOOK] Apple/Google Pay - Warning meta:', metaErr); }
+                    } else {
+                      console.error('[WEBHOOK] Apple/Google Pay - Errore decremento punti:', deductResult);
+                    }
+                  }
+                } catch (pointsError) {
+                  console.error('[WEBHOOK] Apple/Google Pay - Errore decremento punti:', pointsError);
+                }
+              }
+            }
 
             return NextResponse.json({ received: true, message: `Ordine #${order.id} creato`, order_id: order.id });
 
@@ -536,6 +576,11 @@ export async function POST(request: NextRequest) {
                         const deductResult = await deductResponse.json();
                         if (deductResponse.ok && deductResult.success) {
                           console.log(`[WEBHOOK] iOS - Punti decrementati: userId=${customerId}, points=${pointsToRedeem}, newBalance=${deductResult.new_balance}`);
+                          try {
+                            await api.put(`orders/${iosOrderId}`, {
+                              meta_data: [{ key: '_points_deducted_by_api', value: 'yes' }, { key: '_points_deducted_by_api_at', value: new Date().toISOString() }]
+                            });
+                          } catch (metaErr) { console.error('[WEBHOOK] iOS - Warning meta:', metaErr); }
                         } else {
                           console.error('[WEBHOOK] iOS - Errore decremento punti:', deductResult);
                         }
@@ -693,6 +738,11 @@ export async function POST(request: NextRequest) {
                 const deductResult = await deductResponse.json();
                 if (deductResponse.ok && deductResult.success) {
                   console.log(`[WEBHOOK] Punti decrementati: userId=${customerId}, points=${pointsToRedeem}, newBalance=${deductResult.new_balance}`);
+                  try {
+                    await api.put(`orders/${wooOrder.id}`, {
+                      meta_data: [{ key: '_points_deducted_by_api', value: 'yes' }, { key: '_points_deducted_by_api_at', value: new Date().toISOString() }]
+                    });
+                  } catch (metaErr) { console.error('[WEBHOOK] Warning meta:', metaErr); }
                 } else {
                   console.error('[WEBHOOK] Errore nel decremento punti:', deductResult);
                 }
@@ -882,6 +932,11 @@ export async function POST(request: NextRequest) {
                 const deductResult = await deductResponse.json();
                 if (deductResponse.ok && deductResult.success) {
                   console.log(`[WEBHOOK] Punti decrementati (checkout.session): userId=${customerId}, points=${pointsToRedeem}, newBalance=${deductResult.new_balance}`);
+                  try {
+                    await api.put(`orders/${wooOrder.id}`, {
+                      meta_data: [{ key: '_points_deducted_by_api', value: 'yes' }, { key: '_points_deducted_by_api_at', value: new Date().toISOString() }]
+                    });
+                  } catch (metaErr) { console.error('[WEBHOOK] Warning meta (checkout.session):', metaErr); }
                 } else {
                   console.error('[WEBHOOK] Errore nel decremento punti (checkout.session):', deductResult);
                 }

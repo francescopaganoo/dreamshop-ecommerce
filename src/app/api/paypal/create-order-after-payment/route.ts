@@ -291,6 +291,14 @@ export async function POST(request: NextRequest) {
             const deductResult = await deductResponse.json();
             if (deductResponse.ok && deductResult.success) {
               console.log(`[PAYPAL] Punti decrementati: userId=${userId}, points=${pointsToRedeem}, newBalance=${deductResult.new_balance}`);
+              // Segna l'ordine come processato per il safety net WordPress
+              try {
+                await api.put(`orders/${wooOrder.id}`, {
+                  meta_data: [{ key: '_points_deducted_by_api', value: 'yes' }, { key: '_points_deducted_by_api_at', value: new Date().toISOString() }]
+                });
+              } catch (metaError) {
+                console.error('[PAYPAL] Warning: impossibile settare _points_deducted_by_api:', metaError);
+              }
             } else {
               console.error('[PAYPAL] Errore nel decremento punti:', deductResult);
             }

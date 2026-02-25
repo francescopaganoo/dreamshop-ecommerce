@@ -57,6 +57,8 @@ export async function POST(request: NextRequest) {
       paymentMethodId,
       shippingOption,
       discount = 0,
+      pointsToRedeem = 0,
+      pointsDiscount = 0,
       billingData,
       shippingData
     }: {
@@ -65,6 +67,8 @@ export async function POST(request: NextRequest) {
       paymentMethodId: string;
       shippingOption?: ShippingOption;
       discount?: number;
+      pointsToRedeem?: number;
+      pointsDiscount?: number;
       billingData: AddressData;
       shippingData: AddressData;
     } = await request.json();
@@ -166,13 +170,15 @@ export async function POST(request: NextRequest) {
     // Calcola i costi di spedizione
     const shippingCost = shippingOption ? shippingOption.amount / 100 : 0; // Converti da centesimi
 
-    // Calcola il totale finale
-    const orderTotal = subtotal - discount + shippingCost;
+    // Calcola il totale finale (sottraendo sia coupon che sconto punti)
+    const orderTotal = subtotal - discount - pointsDiscount + shippingCost;
     const stripeAmount = Math.round(orderTotal * 100); // Converti in centesimi
 
     console.log('[PAYMENT-REQUEST-CART] Step 1: Calculated totals', {
       subtotal: subtotal.toFixed(2),
       discount: discount.toFixed(2),
+      pointsDiscount: pointsDiscount.toFixed(2),
+      pointsToRedeem,
       shippingCost: shippingCost.toFixed(2),
       orderTotal: orderTotal.toFixed(2),
       itemsCount: cartItems.length
@@ -266,6 +272,11 @@ export async function POST(request: NextRequest) {
         code: 'payment_request_discount',
         discount: discount.toString()
       }] : [],
+      fee_lines: pointsToRedeem > 0 && pointsDiscount > 0 ? [{
+        name: `Sconto punti (${pointsToRedeem} punti)`,
+        total: String(-pointsDiscount),
+        tax_status: 'none'
+      }] : [],
       meta_data: [
         {
           key: '_payment_source',
@@ -278,7 +289,12 @@ export async function POST(request: NextRequest) {
         {
           key: '_stripe_amount_to_charge',
           value: orderTotal.toFixed(2)
-        }
+        },
+        ...(pointsToRedeem > 0 ? [
+          { key: '_points_redeemed', value: pointsToRedeem.toString() },
+          { key: '_points_discount', value: pointsDiscount.toString() },
+          { key: '_points_user_id', value: userId.toString() }
+        ] : [])
       ]
     };
 
@@ -289,8 +305,8 @@ export async function POST(request: NextRequest) {
     const dataId = orderDataStore.generateId();
     const saved = await orderDataStore.set(dataId, {
       orderData,
-      pointsToRedeem: 0,
-      pointsDiscount: discount
+      pointsToRedeem: pointsToRedeem || 0,
+      pointsDiscount: pointsDiscount || 0
     });
 
     if (!saved) {
@@ -320,7 +336,9 @@ export async function POST(request: NextRequest) {
           discount: discount.toString(),
           shipping_cost: shippingCost.toString(),
           payment_source: 'payment_request_cart',
-          enable_deposit: hasAnyDeposit ? 'yes' : 'no'
+          enable_deposit: hasAnyDeposit ? 'yes' : 'no',
+          points_to_redeem: pointsToRedeem.toString(),
+          points_discount: pointsDiscount.toString()
         }
       });
 

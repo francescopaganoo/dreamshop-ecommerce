@@ -45,6 +45,8 @@ interface AppleGooglePayCheckoutProps {
   onPaymentError?: (error: string) => void;
   className?: string;
   customerId?: number; // ID cliente passato dalla pagina checkout
+  pointsToRedeem?: number;
+  pointsDiscount?: number;
 }
 
 export default function AppleGooglePayCheckout({
@@ -53,7 +55,9 @@ export default function AppleGooglePayCheckout({
   onPaymentStart,
   onPaymentError,
   className = '',
-  customerId
+  customerId,
+  pointsToRedeem = 0,
+  pointsDiscount = 0
 }: AppleGooglePayCheckoutProps) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [paymentRequest, setPaymentRequest] = useState<any>(null);
@@ -82,7 +86,7 @@ export default function AppleGooglePayCheckout({
   // Verifica se il carrello è valido
   const hasItems = cart.length > 0;
   const cartTotal = getCartTotal();
-  const finalTotal = cartTotal - discount;
+  const finalTotal = cartTotal - discount - pointsDiscount;
 
   // Usa customerId se passato come prop, altrimenti fallback a useAuth()
   // Questo risolve il problema di timing quando useAuth() non ha ancora caricato l'utente
@@ -91,6 +95,12 @@ export default function AppleGooglePayCheckout({
   // Ref per avere sempre l'ultimo valore di userId nell'event handler
   const userIdRef = useRef(userId);
   userIdRef.current = userId;
+
+  // Ref per avere sempre gli ultimi valori di punti nell'event handler
+  const pointsToRedeemRef = useRef(pointsToRedeem);
+  pointsToRedeemRef.current = pointsToRedeem;
+  const pointsDiscountRef = useRef(pointsDiscount);
+  pointsDiscountRef.current = pointsDiscount;
 
   // Memoizza cart come stringa per confronto stabile
   const cartKey = useMemo(() =>
@@ -167,8 +177,34 @@ export default function AppleGooglePayCheckout({
   const shippingMethodTitle = selectedShippingMethod?.title ?? 'Spedizione inclusa';
   const shippingMethodDescription = selectedShippingMethod?.description ?? 'Nessun costo aggiuntivo';
 
+  // Helper per costruire i displayItems (usato sia nella creazione che nell'update)
+  const buildDisplayItems = (currentPointsDiscount: number, currentPointsToRedeem: number) => {
+    const items = cart.map(item => ({
+      label: `${item.product.name} x${item.quantity}`,
+      amount: Math.round(parseFloat(item.product.price || '0') * item.quantity * 100)
+    }));
+
+    if (discount > 0) {
+      items.push({
+        label: 'Sconto',
+        amount: -Math.round(discount * 100)
+      });
+    }
+
+    if (currentPointsDiscount > 0 && currentPointsToRedeem > 0) {
+      items.push({
+        label: `Sconto punti (${currentPointsToRedeem} punti)`,
+        amount: -Math.round(currentPointsDiscount * 100)
+      });
+    }
+
+    return items;
+  };
+
+  // useEffect 1: Crea il Payment Request UNA SOLA VOLTA (quando carrello/spedizione sono pronti)
+  // I punti vengono gestiti separatamente con paymentRequest.update()
   useEffect(() => {
-    if (!stripe || !hasItems || finalTotal <= 0) {
+    if (!stripe || !hasItems || cartTotal <= 0) {
       return;
     }
 
@@ -177,35 +213,27 @@ export default function AppleGooglePayCheckout({
       return;
     }
 
-    // Crea una chiave di configurazione per evitare ri-creazioni inutili
-    const configKey = `${cartKey}-${finalTotal}-${discount}-${shippingCost}-${shippingMethodId}`;
-
-    // Se la configurazione non è cambiata, non ricreare il payment request
-    if (lastConfigRef.current === configKey && paymentRequestRef.current) {
+    // Se il payment request esiste già, non ricrearlo
+    // (i cambiamenti di punti vengono gestiti dal secondo useEffect con .update())
+    const baseConfigKey = `${cartKey}-${cartTotal}-${discount}-${shippingCost}-${shippingMethodId}`;
+    if (lastConfigRef.current === baseConfigKey && paymentRequestRef.current) {
       return;
     }
 
-    lastConfigRef.current = configKey;
+    lastConfigRef.current = baseConfigKey;
 
-    // Prepara gli item del carrello per il display
-    const displayItems = cart.map(item => ({
-      label: `${item.product.name} x${item.quantity}`,
-      amount: Math.round(parseFloat(item.product.price || '0') * item.quantity * 100)
-    }));
+    // Usa i valori correnti dei punti per la creazione iniziale
+    const currentPointsDiscount = pointsDiscountRef.current;
+    const currentPointsToRedeem = pointsToRedeemRef.current;
+    const currentFinalTotal = cartTotal - discount - currentPointsDiscount;
 
-    // Aggiungi sconto se presente
-    if (discount > 0) {
-      displayItems.push({
-        label: 'Sconto',
-        amount: -Math.round(discount * 100)
-      });
+    if (currentFinalTotal <= 0) {
+      return;
     }
 
-    // Calcola il costo della spedizione
+    const displayItems = buildDisplayItems(currentPointsDiscount, currentPointsToRedeem);
     const shippingAmount = Math.round(shippingCost * 100);
-
-    // Totale finale = carrello + spedizione
-    const totalWithShipping = Math.round(finalTotal * 100) + shippingAmount;
+    const totalWithShipping = Math.round(currentFinalTotal * 100) + shippingAmount;
 
     // Crea il payment request
     const pr = stripe.paymentRequest({
@@ -260,7 +288,6 @@ export default function AppleGooglePayCheckout({
     // Gestisce il cambio di indirizzo di spedizione
     pr.on('shippingaddresschange', async (ev) => {
       try {
-        // Converti l'indirizzo di spedizione nel formato richiesto
         const shippingAddress: ShippingAddress = {
           first_name: '',
           last_name: '',
@@ -271,7 +298,6 @@ export default function AppleGooglePayCheckout({
           country: ev.shippingAddress?.country || 'IT'
         };
 
-        // Prepara gli item del carrello per il calcolo spedizione
         const cartItemsForShipping = cart.map(item => ({
           product_id: item.product.id,
           quantity: item.quantity,
@@ -279,19 +305,20 @@ export default function AppleGooglePayCheckout({
           shipping_class_id: item.product.shipping_class_id || 0
         }));
 
-        // Ricalcola i metodi di spedizione con il nuovo indirizzo
         const availableMethods = await getShippingMethods(shippingAddress, cartTotal, cartItemsForShipping);
 
         if (availableMethods.length > 0) {
           const shippingMethod = availableMethods[0];
           const newShippingAmount = Math.round(shippingMethod.cost * 100);
 
-          // Aggiorna il metodo di spedizione selezionato
           if (isMountedRef.current) {
             setSelectedShippingMethod(shippingMethod);
           }
 
-          const newTotal = Math.round(finalTotal * 100) + newShippingAmount;
+          // Usa ref per avere il valore aggiornato dei punti
+          const latestFinalTotal = cartTotal - discount - pointsDiscountRef.current;
+          const newTotal = Math.round(latestFinalTotal * 100) + newShippingAmount;
+          const latestDisplayItems = buildDisplayItems(pointsDiscountRef.current, pointsToRedeemRef.current);
 
           ev.updateWith({
             status: 'success',
@@ -299,7 +326,7 @@ export default function AppleGooglePayCheckout({
               label: 'Totale Ordine DreamShop',
               amount: newTotal,
             },
-            displayItems: displayItems,
+            displayItems: latestDisplayItems,
             shippingOptions: [
               {
                 id: shippingMethod.id,
@@ -310,7 +337,6 @@ export default function AppleGooglePayCheckout({
             ],
           });
         } else {
-          // Nessun metodo di spedizione disponibile per questo indirizzo
           ev.updateWith({
             status: 'invalid_shipping_address',
           });
@@ -329,10 +355,11 @@ export default function AppleGooglePayCheckout({
         const shippingOption = ev.shippingOption;
         const optionShippingCost = shippingOption.amount;
 
-        // Aggiorna il totale includendo i costi di spedizione
-        const newTotal = Math.round(finalTotal * 100) + optionShippingCost;
+        // Usa ref per avere il valore aggiornato dei punti
+        const latestFinalTotal = cartTotal - discount - pointsDiscountRef.current;
+        const newTotal = Math.round(latestFinalTotal * 100) + optionShippingCost;
 
-        const updatedDisplayItems = [...displayItems];
+        const updatedDisplayItems = buildDisplayItems(pointsDiscountRef.current, pointsToRedeemRef.current);
         if (optionShippingCost > 0) {
           updatedDisplayItems.push({
             label: shippingOption.label,
@@ -363,13 +390,13 @@ export default function AppleGooglePayCheckout({
         setError(null);
         onPaymentStart?.();
 
-        // Usa userIdRef.current per avere sempre l'ultimo valore
+        // Usa ref per avere sempre gli ultimi valori
         const currentUserId = userIdRef.current;
+        const currentPointsToRedeemVal = pointsToRedeemRef.current;
+        const currentPointsDiscountVal = pointsDiscountRef.current;
 
-        // Prepara i dati per l'API con supporto per acconti/rate
         const orderData = {
           cartItems: cart.map(item => {
-            // Check if item has deposit enabled
             const depositInfo = getDepositInfo(item.product as unknown as ProductWithDeposit);
 
             return {
@@ -378,7 +405,6 @@ export default function AppleGooglePayCheckout({
               quantity: item.quantity,
               name: item.product.name,
               price: item.product.price,
-              // Include deposit metadata if enabled
               enableDeposit: depositInfo.hasDeposit ? 'yes' : 'no',
               depositAmount: depositInfo.hasDeposit ? depositInfo.depositAmount.toString() : undefined,
               depositType: depositInfo.hasDeposit ? depositInfo.depositType : undefined,
@@ -389,6 +415,8 @@ export default function AppleGooglePayCheckout({
           paymentMethodId: ev.paymentMethod.id,
           shippingOption: ev.shippingOption,
           discount: discount,
+          pointsToRedeem: currentPointsToRedeemVal,
+          pointsDiscount: currentPointsDiscountVal,
           billingData: {
             first_name: ev.payerName?.split(' ')[0] || billingData.firstName,
             last_name: ev.payerName?.split(' ').slice(1).join(' ') || billingData.lastName,
@@ -422,7 +450,6 @@ export default function AppleGooglePayCheckout({
           }
         };
 
-        // Chiama l'API per processare l'ordine del carrello
         const response = await fetch('/api/stripe/payment-request-cart-order', {
           method: 'POST',
           headers: {
@@ -434,9 +461,7 @@ export default function AppleGooglePayCheckout({
         const result = await response.json();
 
         if (response.ok && result.success) {
-          // Controlla lo status del pagamento
           if (result.requiresAction || result.paymentStatus === 'requires_action') {
-            // 3DS richiesto - Non completare il pagamento
             console.warn('[Apple/Google Pay Checkout] Payment requires 3DS authentication - not supported in Payment Request');
             ev.complete('fail');
 
@@ -444,19 +469,12 @@ export default function AppleGooglePayCheckout({
             setError(errorMessage);
             onPaymentError?.(errorMessage);
 
-            // Ordine lasciato in pending - verrà gestito dal webhook se il cliente completa 3DS
             console.log(`[Apple/Google Pay Checkout] Order #${result.order_id} left pending - requires 3DS`);
             return;
           }
 
-          // Pagamento completato con successo
           ev.complete('success');
-
-          // Svuota il carrello
           clearCart();
-
-          // Reindirizza alla pagina di successo con payment_intent
-          // L'ordine viene creato dal webhook, la pagina success usa polling per recuperarlo
           router.push(`/checkout/success?payment_intent=${result.paymentIntentId}&payment_method=stripe`);
 
         } else {
@@ -477,16 +495,15 @@ export default function AppleGooglePayCheckout({
   }, [
     stripe,
     hasItems,
-    finalTotal,
     cartKey,
     cart,
     discount,
+    cartTotal,
     shippingCost,
     shippingMethodId,
     shippingMethodTitle,
     shippingMethodDescription,
     selectedShippingMethod,
-    cartTotal,
     userId,
     billingData,
     shippingData,
@@ -495,6 +512,27 @@ export default function AppleGooglePayCheckout({
     onPaymentStart,
     onPaymentError
   ]);
+
+  // useEffect 2: Aggiorna il Payment Request esistente quando cambiano i punti
+  // Usa paymentRequest.update() invece di ricrearlo (Stripe limita canMakePayment a una sola chiamata)
+  useEffect(() => {
+    if (!paymentRequestRef.current) return;
+
+    const currentFinalTotal = cartTotal - discount - pointsDiscount;
+    if (currentFinalTotal <= 0) return;
+
+    const displayItems = buildDisplayItems(pointsDiscount, pointsToRedeem);
+    const shippingAmount = Math.round(shippingCost * 100);
+    const totalWithShipping = Math.round(currentFinalTotal * 100) + shippingAmount;
+
+    paymentRequestRef.current.update({
+      total: {
+        label: 'Totale Ordine DreamShop',
+        amount: totalWithShipping,
+      },
+      displayItems: displayItems,
+    });
+  }, [pointsToRedeem, pointsDiscount, cartTotal, discount, shippingCost]);
 
   // Non mostrare se non ci sono items nel carrello
   if (!hasItems || finalTotal <= 0) {
