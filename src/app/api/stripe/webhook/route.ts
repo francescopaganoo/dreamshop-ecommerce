@@ -68,6 +68,15 @@ export async function POST(request: NextRequest) {
         metadata: paymentIntent.metadata
       });
 
+      // IDEMPOTENZA GLOBALE: Se il webhook ha già processato questo PI, skip immediato
+      // (Eccezione: rate pianificate e spedizioni resina hanno i loro controlli)
+      if (paymentIntent.metadata?.webhook_processed === 'true'
+          && paymentIntent.metadata?.type !== 'scheduled_payment'
+          && paymentIntent.metadata?.type !== 'resin_shipping') {
+        console.log(`[WEBHOOK] Payment Intent ${paymentIntent.id} già processato (webhook_processed=true), skip`);
+        return NextResponse.json({ received: true, message: 'Già processato' });
+      }
+
       // NUOVO: Gestione pagamenti rate pianificate
       if (paymentIntent.metadata?.type === 'scheduled_payment') {
         console.log('[WEBHOOK] Pagamento rata pianificata rilevato:', paymentIntent.metadata);
@@ -281,12 +290,18 @@ export async function POST(request: NextRequest) {
           console.log(`[WEBHOOK] Creazione ordine da order_data_id: ${orderDataId}`);
 
           try {
-            // Recupera i dati dell'ordine dallo store
-            const storedData = await orderDataStore.get(orderDataId);
+            // Lock atomico: impedisce a webhook retry e fallback di creare duplicati
+            const lockResult = await orderDataStore.getAndLock(orderDataId);
 
+            if (lockResult.alreadyCompleted && lockResult.wcOrderId) {
+              console.log(`[WEBHOOK] Apple/GPay - Ordine già creato: #${lockResult.wcOrderId}, skip`);
+              return NextResponse.json({ received: true, message: `Ordine #${lockResult.wcOrderId} già esistente` });
+            }
+
+            const storedData = lockResult.data;
             if (!storedData) {
-              console.error(`[WEBHOOK] Dati ordine non trovati per order_data_id: ${orderDataId}`);
-              return NextResponse.json({ received: true, error: 'Dati ordine non trovati o scaduti' });
+              console.error(`[WEBHOOK] Dati ordine non trovati o già in elaborazione per order_data_id: ${orderDataId}`);
+              return NextResponse.json({ received: true, error: 'Dati ordine non trovati, scaduti o già in elaborazione' });
             }
 
             // Type assertion per orderData
@@ -462,11 +477,17 @@ export async function POST(request: NextRequest) {
         const enableDeposit = paymentIntent.metadata?.enable_deposit;
 
         if (orderDataId) {
-          const storedData = await orderDataStore.get(orderDataId);
+          // Lock atomico per iOS
+          const lockResult = await orderDataStore.getAndLock(orderDataId);
 
-          if (storedData) {
+          if (lockResult.alreadyCompleted && lockResult.wcOrderId) {
+            console.log(`[WEBHOOK] iOS - Ordine già creato: #${lockResult.wcOrderId}, skip`);
+            return NextResponse.json({ received: true, message: `Ordine iOS #${lockResult.wcOrderId} già esistente`, order_id: lockResult.wcOrderId });
+          }
+
+          if (lockResult.data) {
             try {
-              const { orderData, pointsToRedeem } = storedData;
+              const { orderData, pointsToRedeem } = lockResult.data;
               const baseOrderData = orderData as Record<string, unknown>;
 
               // Controlla se ci sono prodotti con acconto nei line_items
@@ -621,15 +642,20 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ received: true, message: 'Nessun dato ordine' });
       }
 
-      // Recupera i dati dell'ordine dallo store
-      const storedData = await orderDataStore.get(orderDataId);
+      // Lock atomico per pagamento Stripe normale
+      const lockResult = await orderDataStore.getAndLock(orderDataId);
 
-      if (!storedData) {
-        console.error('[WEBHOOK] Dati ordine non trovati o scaduti');
-        return NextResponse.json({ received: true, error: 'Dati ordine non trovati' });
+      if (lockResult.alreadyCompleted && lockResult.wcOrderId) {
+        console.log(`[WEBHOOK] Stripe normal - Ordine già creato: #${lockResult.wcOrderId}, skip`);
+        return NextResponse.json({ received: true, message: `Ordine #${lockResult.wcOrderId} già esistente` });
       }
 
-      const { orderData, pointsToRedeem } = storedData;
+      if (!lockResult.data) {
+        console.error('[WEBHOOK] Dati ordine non trovati, scaduti o già in elaborazione');
+        return NextResponse.json({ received: true, error: 'Dati ordine non trovati o già in elaborazione' });
+      }
+
+      const { orderData, pointsToRedeem } = lockResult.data;
 
       // Type-safe spread
       const baseOrderData = orderData as Record<string, unknown>;
@@ -761,7 +787,11 @@ export async function POST(request: NextRequest) {
     else if (event.type === 'checkout.session.completed') {
       const session = event.data.object as Stripe.Checkout.Session;
 
-
+      // IDEMPOTENZA: Se la session è già stata processata, skip
+      if (session.metadata?.webhook_processed === 'true') {
+        console.log(`[WEBHOOK] checkout.session ${session.id} già processata (webhook_processed=true), skip`);
+        return NextResponse.json({ received: true, message: 'Session già processata' });
+      }
 
       // Controlla se è un pagamento che richiede creazione ordine (Klarna, Stripe, Satispay senza order_id preesistente)
       const paymentMethod = session.metadata?.payment_method;
@@ -825,15 +855,20 @@ export async function POST(request: NextRequest) {
           }
 
 
-          // Recupera i dati completi dallo store persistente (WordPress/MySQL)
-          const storedData = await orderDataStore.get(orderDataId);
+          // Lock atomico per Klarna/Satispay
+          const lockResult = await orderDataStore.getAndLock(orderDataId);
 
-          if (!storedData) {
-            console.error('[WEBHOOK] Impossibile recuperare i dati dell\'ordine');
-            return NextResponse.json({ received: true, error: 'Dati ordine non trovati o scaduti' });
+          if (lockResult.alreadyCompleted && lockResult.wcOrderId) {
+            console.log(`[WEBHOOK] ${paymentMethod} - Ordine già creato: #${lockResult.wcOrderId}, skip`);
+            return NextResponse.json({ received: true, message: `Ordine #${lockResult.wcOrderId} già esistente`, order_id: lockResult.wcOrderId });
           }
 
-          const { orderData, pointsToRedeem } = storedData;
+          if (!lockResult.data) {
+            console.error(`[WEBHOOK] ${paymentMethod} - Dati ordine non trovati, scaduti o già in elaborazione`);
+            return NextResponse.json({ received: true, error: 'Dati ordine non trovati o già in elaborazione' });
+          }
+
+          const { orderData, pointsToRedeem } = lockResult.data;
 
           // Determina il titolo del metodo di pagamento
           let paymentMethodTitle = 'Pagamento Online';

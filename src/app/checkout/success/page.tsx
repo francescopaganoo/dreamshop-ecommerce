@@ -114,7 +114,21 @@ function OrderSuccessContent() {
 
               const fallbackData = await fallbackResponse.json();
 
-              if (fallbackResponse.ok && fallbackData.success && fallbackData.orderId) {
+              // Se 409 = ordine in creazione da altro processo, aspetta e riprova polling
+              if (fallbackResponse.status === 409) {
+                console.log('[SUCCESS-PAGE] Ordine in creazione da webhook, attendo...');
+                for (let retryAttempt = 0; retryAttempt < 5; retryAttempt++) {
+                  await new Promise(resolve => setTimeout(resolve, 2000));
+                  try {
+                    const retryResponse = await fetch(`/api/stripe/get-order-by-payment-intent?payment_intent_id=${paymentIntentId}`);
+                    const retryData = await retryResponse.json();
+                    if (retryResponse.ok && retryData.success && retryData.orderId) {
+                      retrievedOrderId = retryData.orderId;
+                      break;
+                    }
+                  } catch { /* continua */ }
+                }
+              } else if (fallbackResponse.ok && fallbackData.success && fallbackData.orderId) {
                 retrievedOrderId = fallbackData.orderId;
                 console.log('[SUCCESS-PAGE] Ordine creato via fallback:', retrievedOrderId);
 
@@ -191,21 +205,30 @@ function OrderSuccessContent() {
       if ((paymentMethod === 'klarna' || paymentMethod === 'satispay') && !orderId && sessionId) {
         try {
 
-          // Prima verifica se il webhook ha già creato l'ordine
+          // Polling con retry per aspettare che il webhook crei l'ordine
           let retrievedOrderId: number | null = null;
+          const maxCheckAttempts = 8;
 
-          try {
-
-            // Recupera la sessione Stripe per vedere se l'order_id è già stato salvato dal webhook
-            const checkResponse = await fetch(`/api/stripe/check-session?sessionId=${sessionId}`);
-            if (checkResponse.ok) {
-              const checkData = await checkResponse.json();
-              if (checkData.orderId) {
-                retrievedOrderId = checkData.orderId;
+          for (let attempt = 1; attempt <= maxCheckAttempts; attempt++) {
+            try {
+              const checkResponse = await fetch(`/api/stripe/check-session?sessionId=${sessionId}`);
+              if (checkResponse.ok) {
+                const checkData = await checkResponse.json();
+                if (checkData.orderId) {
+                  retrievedOrderId = checkData.orderId;
+                  console.log(`[SUCCESS-PAGE] ${paymentMethod} - Ordine trovato al tentativo ${attempt}: #${retrievedOrderId}`);
+                  break;
+                }
               }
+            } catch {
+              // Continua con il prossimo tentativo
             }
-          } catch {
-            // Procedi con creazione manuale
+
+            // Backoff: 1.5s, 2s, 2s, 2s...
+            if (attempt < maxCheckAttempts) {
+              const delayMs = Math.min(1500 + (attempt - 1) * 500, 2000);
+              await new Promise(resolve => setTimeout(resolve, delayMs));
+            }
           }
 
           let finalOrderId: number;
@@ -245,14 +268,38 @@ function OrderSuccessContent() {
 
             const createData = await createResponse.json();
 
-            if (!createResponse.ok || !createData.success) {
+            // Se 409 = ordine in creazione da webhook, aspetta e riprova polling
+            if (createResponse.status === 409) {
+              console.log(`[SUCCESS-PAGE] ${paymentMethod} - Ordine in creazione da webhook, attendo...`);
+              let foundOrderId: number | null = null;
+              for (let retryAttempt = 0; retryAttempt < 5; retryAttempt++) {
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                try {
+                  const retryCheck = await fetch(`/api/stripe/check-session?sessionId=${sessionId}`);
+                  if (retryCheck.ok) {
+                    const retryData = await retryCheck.json();
+                    if (retryData.orderId) {
+                      foundOrderId = retryData.orderId;
+                      break;
+                    }
+                  }
+                } catch { /* continua */ }
+              }
+              if (foundOrderId) {
+                finalOrderId = foundOrderId;
+              } else {
+                setError('Errore nella creazione dell\'ordine. Contatta il supporto clienti.');
+                setLoading(false);
+                return;
+              }
+            } else if (!createResponse.ok || !createData.success) {
               console.error('[PAYMENT] Errore nella creazione dell\'ordine:', createData);
               setError('Errore nella creazione dell\'ordine. Contatta il supporto clienti.');
               setLoading(false);
               return;
+            } else {
+              finalOrderId = createData.orderId;
             }
-
-            finalOrderId = createData.orderId;
 
             // Riscatta i punti se necessario (solo se creato manualmente)
             if (createData.pointsToRedeem > 0 && checkoutData.customerId) {

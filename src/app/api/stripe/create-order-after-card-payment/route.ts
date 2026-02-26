@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
       console.error('[STRIPE-CARD] Errore nel controllo ordine esistente:', checkError);
     }
 
-    // 6. Nessun ordine trovato, recupera i dati dallo store per crearlo
+    // 6. Nessun ordine trovato, recupera i dati dallo store con lock atomico
     const dataId = paymentIntent.metadata?.order_data_id;
     if (!dataId) {
       return NextResponse.json({
@@ -120,14 +120,27 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const storedData = await orderDataStore.get(dataId);
-    if (!storedData) {
+    const lockResult = await orderDataStore.getAndLock(dataId);
+
+    // Se è già completato, un altro processo ha già creato l'ordine
+    if (lockResult.alreadyCompleted && lockResult.wcOrderId) {
+      console.log('[STRIPE-CARD] Ordine già creato da altro processo (lock):', lockResult.wcOrderId);
       return NextResponse.json({
-        error: 'Dati ordine non trovati o scaduti nello store'
-      }, { status: 404 });
+        success: true,
+        orderId: lockResult.wcOrderId,
+        alreadyExists: true
+      });
     }
 
-    const { orderData, pointsToRedeem } = storedData;
+    if (!lockResult.data) {
+      // Già in processing o non trovato - aspetta che l'altro processo finisca
+      console.log('[STRIPE-CARD] Dati ordine non disponibili (lockati o non trovati)');
+      return NextResponse.json({
+        error: 'Ordine in fase di creazione da un altro processo, riprova tra poco'
+      }, { status: 409 });
+    }
+
+    const { orderData, pointsToRedeem } = lockResult.data;
     const typedOrderData = orderData as Record<string, unknown>;
 
     // 6. Prepara i dati dell'ordine WooCommerce

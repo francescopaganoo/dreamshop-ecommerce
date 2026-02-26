@@ -75,6 +75,58 @@ class OrderDataStore {
   }
 
   /**
+   * Recupera i dati dell'ordine con lock atomico (status: pending -> processing).
+   * Se un altro processo ha già il lock, ritorna null.
+   * Ritorna { data, alreadyCompleted, wcOrderId } per gestire i vari casi.
+   */
+  async getAndLock(dataId: string): Promise<{ data: StoredOrderData | null; alreadyCompleted: boolean; wcOrderId?: number }> {
+    try {
+      const response = await fetch(`${WORDPRESS_URL}/wp-json/dreamshop/v1/temp-order/${dataId}/get-and-lock`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Dreamshop-Api-Key': API_KEY,
+        },
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        return {
+          data: {
+            orderData: result.data.orderData,
+            pointsToRedeem: result.data.pointsToRedeem,
+            pointsDiscount: result.data.pointsDiscount,
+          },
+          alreadyCompleted: false,
+        };
+      }
+
+      // 409 = già completato (ordine già creato)
+      if (response.status === 409) {
+        const error = await response.json();
+        console.log(`[ORDER-STORE] getAndLock: già completato, wcOrderId=${error.data?.wc_order_id}`);
+        return {
+          data: null,
+          alreadyCompleted: true,
+          wcOrderId: error.data?.wc_order_id,
+        };
+      }
+
+      // 423 = già in processing (lockato da altro processo)
+      if (response.status === 423) {
+        console.log('[ORDER-STORE] getAndLock: già lockato da altro processo');
+        return { data: null, alreadyCompleted: false };
+      }
+
+      console.error('[ORDER-STORE] getAndLock errore:', response.status);
+      return { data: null, alreadyCompleted: false };
+    } catch (error) {
+      console.error('[ORDER-STORE] getAndLock errore di connessione:', error);
+      return { data: null, alreadyCompleted: false };
+    }
+  }
+
+  /**
    * Elimina i dati dell'ordine da WordPress/MySQL
    */
   async delete(dataId: string): Promise<boolean> {

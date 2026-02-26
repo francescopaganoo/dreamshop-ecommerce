@@ -34,6 +34,32 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
+    // CHECK PRIORITARIO: Verifica se la session è già stata processata dal webhook
+    if (session.metadata?.webhook_processed === 'true' && session.metadata?.order_id) {
+      console.log('[PAYMENT] Session già processata dal webhook, ordine:', session.metadata.order_id);
+      return NextResponse.json({
+        success: true,
+        orderId: parseInt(session.metadata.order_id),
+        alreadyExists: true,
+        pointsToRedeem: 0
+      });
+    }
+
+    // CHECK: Verifica nel nostro DB se il webhook ha già creato l'ordine
+    const orderDataId = session.metadata?.order_data_id;
+    if (orderDataId) {
+      const storeResult = await orderDataStore.getByPaymentIntent(session.payment_intent as string);
+      if (storeResult && storeResult.status === 'completed' && storeResult.wcOrderId) {
+        console.log('[PAYMENT] Ordine già creato dal webhook (trovato nel DB):', storeResult.wcOrderId);
+        return NextResponse.json({
+          success: true,
+          orderId: storeResult.wcOrderId,
+          alreadyExists: true,
+          pointsToRedeem: 0
+        });
+      }
+    }
+
     // Controllo idempotenza: verifica se esiste già un ordine con questa session
     try {
       // Cerca ordini recenti e verifica i metadata manualmente
@@ -88,16 +114,46 @@ export async function POST(request: NextRequest) {
       paymentMethodTitle = 'Carta di Credito (Stripe)';
     }
 
+    // Recupera i dati dallo store con lock atomico (preferisci store a dati client per sicurezza)
+    const storeDataId = session.metadata?.order_data_id;
+    let finalOrderData = orderData;
+
+    if (storeDataId) {
+      const lockResult = await orderDataStore.getAndLock(storeDataId);
+
+      // Se è già completato, l'ordine esiste già
+      if (lockResult.alreadyCompleted && lockResult.wcOrderId) {
+        console.log('[PAYMENT] Ordine già creato (lock atomico):', lockResult.wcOrderId);
+        return NextResponse.json({
+          success: true,
+          orderId: lockResult.wcOrderId,
+          alreadyExists: true,
+          pointsToRedeem: 0
+        });
+      }
+
+      // Se lockato da altro processo (webhook in corso), non creare
+      if (!lockResult.data) {
+        console.log('[PAYMENT] Ordine in fase di creazione da un altro processo');
+        return NextResponse.json({
+          error: 'Ordine in fase di creazione, riprova tra poco'
+        }, { status: 409 });
+      }
+
+      // Usa i dati dallo store (più sicuri dei dati client)
+      finalOrderData = lockResult.data.orderData as Record<string, unknown>;
+    }
+
     // Prepara i dati dell'ordine WooCommerce con status "processing" e set_paid true
     const orderDataToSend = {
-      ...orderData,
+      ...finalOrderData,
       payment_method: paymentMethod,
       payment_method_title: paymentMethodTitle,
       set_paid: true, // L'ordine è già pagato
       status: 'processing', // Lo stato è processing perché il pagamento è completato
       transaction_id: session.payment_intent as string || session.id,
       meta_data: [
-        ...(orderData.meta_data || []),
+        ...((finalOrderData as Record<string, unknown>).meta_data as unknown[] || []),
         {
           key: '_stripe_session_id',
           value: session.id
@@ -132,10 +188,12 @@ export async function POST(request: NextRequest) {
 
       const wooOrder = order as WooOrder;
 
-      // Cancella i dati temporanei dallo store WordPress/MySQL
-      const orderDataId = session.metadata?.order_data_id;
-      if (orderDataId) {
-        await orderDataStore.delete(orderDataId);
+      // Marca come completato nello store (NON eliminare, serve per idempotenza)
+      if (storeDataId) {
+        await orderDataStore.markCompleted(storeDataId, {
+          wcOrderId: wooOrder.id,
+          paymentIntentId: session.payment_intent as string || session.id
+        });
       }
 
       // Decrementa i punti dell'utente se sono stati usati per lo sconto
