@@ -149,7 +149,7 @@ export default async function Home() {
         <div className="relative w-full">
           {/* Desktop Hero Image */}
           <Image
-            src="/images/hero.webp"
+            src="/images/hero-pokemon.webp"
             alt="DreamShop Hero"
             width={1920}
             height={800}
@@ -158,7 +158,7 @@ export default async function Home() {
           />
           {/* Mobile/Tablet Hero Image */}
           <Image
-            src="/images/hero-mobile-.webp"
+            src="/images/hero-pokemon-.webp"
             alt="DreamShop Hero Mobile/Tablet"
             width={768}
             height={1024}
