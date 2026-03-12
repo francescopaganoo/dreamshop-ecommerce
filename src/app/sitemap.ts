@@ -70,45 +70,39 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
     // Ottieni tutti i prodotti con paginazione sicura (100 per pagina è il massimo WooCommerce)
     let allProducts: Product[] = [];
-    let page = 1;
     const perPage = 100;
-    let hasMore = true;
 
     console.log('🗺️ Starting sitemap generation...');
 
-    // Limita a massimo 1000 prodotti per evitare timeout durante la build
-    while (hasMore && allProducts.length < 1000) {
-      try {
-        console.log(`🔍 Fetching products page ${page} (per_page: ${perPage})...`);
+    // Prima chiamata per sapere quante pagine ci sono in totale
+    const { products: firstPage, total_pages } = await getFilteredProductsPlugin({
+      page: 1,
+      per_page: perPage,
+      orderby: 'date',
+      order: 'desc',
+    });
 
-        // Usa il plugin DreamShop per ottenere tutti i prodotti
-        const { products, total, total_pages } = await getFilteredProductsPlugin({
-          page: page,
-          per_page: perPage,
-          orderby: 'date',
-          order: 'desc',
-        });
+    allProducts = [...firstPage];
+    console.log(`✅ Total pages: ${total_pages}`);
 
-        console.log(`✅ Received ${products.length} products (total available: ${total}, total pages: ${total_pages})`);
+    if (total_pages > 1) {
+      // Fetch tutte le pagine rimanenti in parallelo a blocchi di 5
+      const remainingPages = Array.from({ length: total_pages - 1 }, (_, i) => i + 2);
+      const chunkSize = 5;
 
-        if (products.length === 0) {
-          console.log('⚠️ No more products found, stopping pagination');
-          hasMore = false;
-          break;
+      for (let i = 0; i < remainingPages.length; i += chunkSize) {
+        const chunk = remainingPages.slice(i, i + chunkSize);
+        const results = await Promise.allSettled(
+          chunk.map(p => getFilteredProductsPlugin({ page: p, per_page: perPage, orderby: 'date', order: 'desc' }))
+        );
+
+        for (const result of results) {
+          if (result.status === 'fulfilled') {
+            allProducts = [...allProducts, ...result.value.products];
+          }
         }
 
-        allProducts = [...allProducts, ...products];
-
-        // Se abbiamo ricevuto meno prodotti del limite o abbiamo raggiunto l'ultima pagina
-        if (products.length < perPage || page >= total_pages) {
-          console.log(`✅ Reached last page (page ${page}/${total_pages})`);
-          hasMore = false;
-        }
-
-        page++;
-      } catch (error) {
-        console.error(`❌ Error fetching products page ${page}:`, error);
-        hasMore = false;
+        console.log(`✅ Fetched pages ${chunk[0]}-${chunk[chunk.length - 1]} of ${total_pages}`);
       }
     }
 
