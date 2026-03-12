@@ -8,18 +8,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: 'Invalid secret' }, { status: 401 });
   }
 
+  let body: Record<string, unknown> = {};
   try {
-    const body = await request.json();
-    const slug = body?.slug;
-
-    if (!slug) {
-      return NextResponse.json({ message: 'Missing slug' }, { status: 400 });
-    }
-
-    revalidatePath(`/prodotto/${slug}`);
-
-    return NextResponse.json({ revalidated: true, slug });
+    body = await request.json();
   } catch {
-    return NextResponse.json({ message: 'Error parsing body' }, { status: 500 });
+    // body vuoto o non JSON (es. test WooCommerce) — non è un errore
   }
+
+  const slug = body?.slug as string | undefined;
+
+  if (!slug) {
+    // Nessuno slug = probabilmente test webhook WooCommerce, rispondiamo OK
+    return NextResponse.json({ revalidated: false, message: 'No slug provided' });
+  }
+
+  revalidatePath(`/prodotto/${slug}`);
+
+  return NextResponse.json({ revalidated: true, slug });
 }
