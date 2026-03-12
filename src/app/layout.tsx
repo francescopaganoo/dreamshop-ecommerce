@@ -57,14 +57,6 @@ export const metadata: Metadata = {
     siteName: 'DreamShop',
     title: 'DreamShop | Tutte le action figure in un unico portale',
     description: 'Acquista action figure, statue, trading card e merchandising anime/manga. Ichiban Kuji, S.H. Figuarts, Pokemon, One Piece e molto altro. Spedizione veloce in Italia.',
-    images: [
-      {
-        url: 'https://dreamshop18.com/images/og-image.jpg',
-        width: 1200,
-        height: 630,
-        alt: 'DreamShop - Action Figure e Merchandising Anime',
-      }
-    ],
   },
 
   // Twitter Card meta tags
@@ -72,7 +64,6 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'DreamShop | Tutte le action figure in un unico portale',
     description: 'Acquista action figure, statue, trading card e merchandising anime/manga. Ichiban Kuji, S.H. Figuarts, Pokemon e molto altro.',
-    images: ['https://dreamshop18.com/images/og-image.jpg'],
   },
 
   // Meta robots
