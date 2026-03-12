@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
         product_id: shippingFee.product_id.toString(),
       },
       description: `Spedizione resina per ordine #${shippingFee.order_number}`,
-      payment_method_types: ['card'],
+      automatic_payment_methods: { enabled: true },
     }, {
       idempotencyKey
     });

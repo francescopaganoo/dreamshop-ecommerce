@@ -1,14 +1,177 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
-import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import { Elements, CardElement, useStripe, useElements, PaymentRequestButtonElement } from '@stripe/react-stripe-js';
 import { PayPalButtons, PayPalScriptProvider } from '@paypal/react-paypal-js';
 import { getStripe } from '@/lib/stripe';
 import { paypalOptions } from '@/lib/paypal';
 import { ResinShippingFee, getResinShippingFeeByToken } from '@/lib/resinShipping';
 
 type PageState = 'loading' | 'ready' | 'processing' | 'success' | 'error' | 'already_paid' | 'not_found';
+
+// Apple Pay / Google Pay button for public payment page
+const PublicAppleGooglePayButton = ({
+  shippingFee,
+  token,
+  onSuccess,
+  onError
+}: {
+  shippingFee: ResinShippingFee;
+  token: string;
+  onSuccess: () => void;
+  onError: (message: string) => void;
+}) => {
+  const stripe = useStripe();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [paymentRequest, setPaymentRequest] = useState<any>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const prCreatedRef = useRef(false);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!stripe || prCreatedRef.current) return;
+    prCreatedRef.current = true;
+
+    const amount = Math.round(parseFloat(shippingFee.shipping_amount) * 100);
+    if (amount <= 0) return;
+
+    const pr = stripe.paymentRequest({
+      country: 'IT',
+      currency: 'eur',
+      total: {
+        label: `Spedizione ordine #${shippingFee.order_number}`,
+        amount,
+      },
+      requestPayerName: false,
+      requestPayerEmail: false,
+      requestShipping: false,
+    });
+
+    pr.canMakePayment().then(result => {
+      if (!isMountedRef.current) return;
+      if (result) {
+        setPaymentRequest(pr);
+      }
+    }).catch(err => {
+      console.error('Errore controllo Payment Request:', err);
+    });
+
+    pr.on('paymentmethod', async (ev) => {
+      try {
+        setIsProcessing(true);
+
+        const response = await fetch(`/api/resin-shipping/${token}/stripe-pay`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || `Errore: ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (!data.success || !data.clientSecret) {
+          throw new Error('Client secret non trovato');
+        }
+
+        const { error, paymentIntent } = await stripe.confirmCardPayment(
+          data.clientSecret,
+          { payment_method: ev.paymentMethod.id },
+          { handleActions: false }
+        );
+
+        if (error) {
+          ev.complete('fail');
+          throw new Error(error.message || 'Errore durante il pagamento');
+        }
+
+        if (paymentIntent?.status === 'requires_action') {
+          ev.complete('fail');
+          throw new Error('Questo pagamento richiede autenticazione aggiuntiva. Usa il pagamento con carta di credito.');
+        }
+
+        ev.complete('success');
+
+        let webhookProcessed = false;
+        let attempts = 0;
+
+        while (!webhookProcessed && attempts < 30) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          attempts++;
+
+          try {
+            const checkResponse = await fetch(
+              `/api/stripe/get-resin-shipping-status?payment_intent_id=${paymentIntent?.id}`
+            );
+            if (checkResponse.ok) {
+              const checkData = await checkResponse.json();
+              if (checkData.success && checkData.processed) {
+                webhookProcessed = true;
+              }
+            }
+          } catch {
+            // Continue polling
+          }
+        }
+
+        if (!webhookProcessed) {
+          throw new Error(
+            'Il pagamento è stato addebitato ma si è verificato un errore nella conferma. ' +
+            'Contatta il supporto se la spedizione non viene aggiornata. ' +
+            `Codice: ${paymentIntent?.id}`
+          );
+        }
+
+        onSuccess();
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Errore durante il pagamento';
+        onError(errorMessage);
+      } finally {
+        setIsProcessing(false);
+      }
+    });
+  }, [stripe, shippingFee, token, onSuccess, onError]);
+
+  if (!paymentRequest) return null;
+
+  return (
+    <div className="mb-4">
+      <PaymentRequestButtonElement
+        options={{
+          paymentRequest,
+          style: {
+            paymentRequestButton: {
+              type: 'buy',
+              theme: 'dark',
+              height: '48px',
+            },
+          },
+        }}
+      />
+      {isProcessing && (
+        <div className="flex items-center justify-center py-2">
+          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-600 mr-2"></div>
+          <span className="text-sm text-gray-600">Elaborazione...</span>
+        </div>
+      )}
+      <div className="relative my-4">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-gray-200"></div>
+        </div>
+        <div className="relative flex justify-center text-sm">
+          <span className="bg-white px-4 text-gray-500">oppure</span>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // Stripe checkout form for public payment page
 const PublicStripeForm = ({
@@ -434,6 +597,17 @@ export default function PagaSpedizionePage() {
         {!paymentMethod ? (
           <div className="bg-white rounded-xl shadow-lg p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Scegli il metodo di pagamento</h3>
+
+            {/* Apple Pay / Google Pay - shown only on supported devices */}
+            <Elements stripe={getStripe()}>
+              <PublicAppleGooglePayButton
+                shippingFee={shippingFee}
+                token={token}
+                onSuccess={handleSuccess}
+                onError={handleError}
+              />
+            </Elements>
+
             <div className="grid grid-cols-1 gap-3">
               <button
                 onClick={() => setPaymentMethod('stripe')}
