@@ -78,10 +78,8 @@ export const metadata: Metadata = {
     },
   },
 
-  // Verifica sito (se necessario)
   verification: {
-    // google: 'codice-verifica-google-search-console',
-    // bing: 'codice-verifica-bing',
+    google: 'pxyQRc4ZPQfkwomiYjUvIwfyCnnFNBNL0zWBiv5bSgk',
   },
 
   // Canonical e alternates
