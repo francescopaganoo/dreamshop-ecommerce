@@ -54,12 +54,12 @@ export default function OffertePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
 
-          <div className="relative mb-16 pt-16 text-center">
+          <div className="relative mb-16 pt-16 text-center overflow-hidden">
             {/* Background decorative elements */}
-            <div className="absolute -top-8 -left-8 w-16 h-16 bg-bred-500/10 rounded-full hidden lg:block animate-pulse"></div>
-            <div className="absolute -top-4 -right-12 w-24 h-24 bg-orange-500/10 rounded-full hidden lg:block animate-pulse delay-300"></div>
+            <div className="absolute top-8 left-4 w-16 h-16 bg-bred-500/10 rounded-full hidden lg:block animate-pulse"></div>
+            <div className="absolute top-12 right-4 w-24 h-24 bg-orange-500/10 rounded-full hidden lg:block animate-pulse delay-300"></div>
             
             <div className="relative z-10">
               <span className="inline-flex items-center gap-2 bg-bred-500/10 text-bred-600 px-4 py-2 rounded-full text-sm font-medium mb-4">
