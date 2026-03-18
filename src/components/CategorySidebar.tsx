@@ -269,7 +269,7 @@ export default function CategorySidebar({
       {availabilityOptions.length > 0 && (
         <div className="mb-8">
           <h3 className="text-lg font-bold text-gray-900 mb-4 border-b border-gray-100 pb-2">
-            Disponibilità
+            Stato
           </h3>
           <div className="space-y-2">
             {displayedAvailability.map((availability) => (
@@ -312,7 +312,7 @@ export default function CategorySidebar({
       {/* Exclude Sold Out Section */}
       <div className="mb-8">
         <h3 className="text-lg font-bold text-gray-900 mb-4 border-b border-gray-100 pb-2">
-          Filtra per disponibilità
+          Filtra per stato
         </h3>
         <div className="space-y-2">
           <label className="flex items-center py-2 px-3 rounded-md text-sm cursor-pointer transition-colors hover:bg-gray-50">
