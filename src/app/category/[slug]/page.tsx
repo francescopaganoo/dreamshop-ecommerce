@@ -231,7 +231,6 @@ export default function CategoryPage({ params, searchParams }: CategoryPageProps
   
   return (
     <div className="min-h-screen flex flex-col">
-      
       <main className="flex-grow py-8">
         <div className="container mx-auto px-4">
           {/* Breadcrumb */}

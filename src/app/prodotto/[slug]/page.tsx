@@ -213,12 +213,34 @@ async function ProductDetails({ slug }: { slug: string }) {
   // Rimuovi proprietà undefined dallo structured data
   const cleanStructuredData = JSON.parse(JSON.stringify(structuredData));
 
+  // BreadcrumbList Schema
+  const breadcrumbItems = [
+    { name: 'Home', url: 'https://dreamshop18.com' },
+    ...(primaryCategory ? [{ name: primaryCategory.name.replace(/<[^>]*>/g, ''), url: `https://dreamshop18.com/category/${primaryCategory.slug}` }] : []),
+    { name: product.name, url: productUrl },
+  ];
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": breadcrumbItems.map((item, index) => ({
+      "@type": "ListItem",
+      "position": index + 1,
+      "name": item.name,
+      "item": item.url,
+    })),
+  };
+
   return (
     <>
       {/* Structured Data (JSON-LD) */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(cleanStructuredData) }}
+      />
+      {/* BreadcrumbList Schema */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
       />
       {/* Breadcrumbs */}
       <nav className="mb-6 text-sm">

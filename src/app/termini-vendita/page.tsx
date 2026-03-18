@@ -1,8 +1,11 @@
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Termini di Vendita - Dream Shop',
-  description: 'Termini e condizioni di vendita di Dream Shop',
+  title: 'Termini di Vendita | DreamShop',
+  description: 'Termini e condizioni di vendita di DreamShop. Informazioni su spedizioni, resi, garanzie e politiche di acquisto.',
+  alternates: {
+    canonical: 'https://dreamshop18.com/termini-vendita',
+  },
 };
 
 export default function TerminiVenditaPage() {
