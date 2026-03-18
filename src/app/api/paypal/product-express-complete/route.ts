@@ -24,8 +24,39 @@ export async function POST(request: NextRequest) {
 
     // Usa il transaction ID se disponibile, altrimenti fallback all'order ID
     const transactionId = paypalTransactionId || paypalOrderId;
-    
 
+    // ========================================================================
+    // IDEMPOTENCY CHECK - Previene ordini duplicati dallo stesso pagamento PayPal
+    // Usa endpoint custom WordPress che fa query diretta su _paypal_order_id
+    // ========================================================================
+    try {
+      const wpUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL?.replace(/\/$/, '');
+      const dedupResponse = await fetch(
+        `${wpUrl}/wp-json/dreamshop/v1/orders/find-by-paypal-id/${paypalOrderId}`,
+        {
+          headers: {
+            'X-Dreamshop-Api-Key': process.env.DREAMSHOP_TEMP_ORDER_API_KEY || 'dreamshop_temp_order_secret_key_2024'
+          }
+        }
+      );
+
+      if (dedupResponse.ok) {
+        const dedupResult = await dedupResponse.json();
+        if (dedupResult.found && dedupResult.order_id) {
+          console.log(`[PayPal Express] Ordine duplicato prevenuto. PayPal Order ID: ${paypalOrderId}, WooCommerce Order ID esistente: ${dedupResult.order_id}`);
+          return NextResponse.json({
+            order_id: dedupResult.order_id,
+            success: true,
+            deduplicated: true
+          });
+        }
+      }
+    } catch (dupCheckError) {
+      // Se il check fallisce, procediamo comunque con la creazione
+      // per non bloccare pagamenti legittimi
+      console.warn('[PayPal Express] Errore nel check duplicati, procedo con creazione:', dupCheckError);
+    }
+    // ========================================================================
 
     // Calcola la commissione PayPal del 3.5% + €0.35 e estrae la spedizione
     const getPurchaseUnitAmount = () => {

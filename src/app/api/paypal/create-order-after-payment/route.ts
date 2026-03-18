@@ -111,33 +111,22 @@ export async function POST(request: NextRequest) {
       });
 
       // Controllo idempotenza: verifica se esiste già un ordine con questo paypalOrderId
+      // Usa endpoint custom WordPress che fa query diretta su _paypal_order_id
       try {
-        const recentOrders = await api.get('orders', {
-          per_page: 20,
-          orderby: 'date',
-          order: 'desc'
-        });
-
-        if (recentOrders.data && Array.isArray(recentOrders.data)) {
-          interface WooOrderMeta {
-            id: number;
-            key: string;
-            value: string;
+        const wpUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL?.replace(/\/$/, '');
+        const dedupResponse = await fetch(
+          `${wpUrl}/wp-json/dreamshop/v1/orders/find-by-paypal-id/${paypalOrderId}`,
+          {
+            headers: {
+              'X-Dreamshop-Api-Key': process.env.DREAMSHOP_TEMP_ORDER_API_KEY || 'dreamshop_temp_order_secret_key_2024'
+            }
           }
-          interface WooOrderCheck {
-            id: number;
-            status: string;
-            meta_data: WooOrderMeta[];
-          }
+        );
 
-          const existingOrder = (recentOrders.data as WooOrderCheck[]).find((order: WooOrderCheck) =>
-            order.meta_data?.some((meta: WooOrderMeta) =>
-              meta.key === '_paypal_order_id' && meta.value === paypalOrderId
-            )
-          );
-
-          if (existingOrder) {
-            console.log('[PAYPAL] Ordine già esistente per paypalOrderId:', paypalOrderId, '-> orderId:', existingOrder.id);
+        if (dedupResponse.ok) {
+          const dedupResult = await dedupResponse.json();
+          if (dedupResult.found && dedupResult.order_id) {
+            console.log('[PAYPAL] Ordine già esistente per paypalOrderId:', paypalOrderId, '-> orderId:', dedupResult.order_id);
 
             // Cancella i dati temporanei se presenti
             if (dataId) {
@@ -146,8 +135,7 @@ export async function POST(request: NextRequest) {
 
             return NextResponse.json({
               success: true,
-              orderId: existingOrder.id,
-              status: existingOrder.status,
+              orderId: dedupResult.order_id,
               pointsToRedeem: pointsToRedeem || 0,
               alreadyExists: true
             });
