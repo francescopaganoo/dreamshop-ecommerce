@@ -1201,89 +1201,19 @@ export async function getProductsByBrandSlug(brandSlug: string, page = 1, per_pa
   }
 }
 
-// Funzione per normalizzare caratteri accentati per la ricerca
-export function normalizeSearchTerm(text: string): string {
-  return text
-    .toLowerCase()
-    .normalize('NFD') // Decompone i caratteri accentati
-    .replace(/[\u0300-\u036f]/g, '') // Rimuove i segni diacritici
-    .replace(/[àáâãäå]/g, 'a')
-    .replace(/[èéêë]/g, 'e')
-    .replace(/[ìíîï]/g, 'i')
-    .replace(/[òóôõö]/g, 'o')
-    .replace(/[ùúûü]/g, 'u')
-    .replace(/[ýÿ]/g, 'y')
-    .replace(/[ñ]/g, 'n')
-    .replace(/[ç]/g, 'c')
-    .trim();
-}
-
-// Funzione per verificare se tutte le parole della query sono presenti nel testo
-// Esempio: "levi wawa" matcha "Levi Ackerman Wawa Studio" perché contiene sia "levi" che "wawa"
-export function matchesAllWords(productName: string, searchQuery: string): boolean {
-  const normalizedProductName = normalizeSearchTerm(productName);
-  const searchWords = normalizeSearchTerm(searchQuery)
-    .split(/\s+/)
-    .filter(word => word.length > 0);
-
-  // Tutte le parole della query devono essere presenti nel nome del prodotto
-  return searchWords.every(word => normalizedProductName.includes(word));
-}
-
-// Search products (only in product titles) - usa il plugin per escludere prodotti nascosti
-// Usa la stessa logica multi-parola della pagina /search per risultati coerenti
+// Search products - server-side WooCommerce-style search (title, content, excerpt, SKU)
 export async function searchProducts(searchTerm: string, page = 1, per_page = 10): Promise<{ products: Product[], total: number }> {
   try {
-    const searchWords = searchTerm.trim().split(/\s+/).filter(word => word.length > 0);
-    const isMultiWordSearch = searchWords.length > 1;
-
-    let allProducts: Product[] = [];
-
-    if (isMultiWordSearch) {
-      // Ricerca multi-parola: cerca ogni parola separatamente e combina i risultati
-      // Usa per_page: 100 come la pagina /search per avere abbastanza candidati
-      const searchPromises = searchWords.map(word =>
-        getFilteredProductsPlugin({
-          search: word,
-          per_page: 100,
-          orderby: 'date',
-          order: 'desc'
-        })
-      );
-
-      const results = await Promise.all(searchPromises);
-
-      // Combina tutti i prodotti e rimuovi duplicati
-      const productMap = new Map<number, Product>();
-      results.forEach(result => {
-        result.products.forEach(product => {
-          productMap.set(product.id, product);
-        });
-      });
-      allProducts = Array.from(productMap.values());
-    } else {
-      // Ricerca singola parola - usa per_page: 100 per coerenza con ricerche multi-parola
-      const result = await getFilteredProductsPlugin({
-        search: searchTerm,
-        per_page: 100,
-        orderby: 'date',
-        order: 'desc'
-      });
-      allProducts = result.products;
-    }
-
-    // Filtra i prodotti: tutte le parole della query devono essere presenti nel nome
-    const filteredProducts = allProducts.filter(product =>
-      matchesAllWords(product.name, searchTerm)
-    );
-
-    // Applica paginazione client-side
-    const startIndex = (page - 1) * per_page;
-    const paginatedProducts = filteredProducts.slice(startIndex, startIndex + per_page);
-
+    const result = await getFilteredProductsPlugin({
+      search: searchTerm,
+      page,
+      per_page,
+      orderby: 'date',
+      order: 'desc'
+    });
     return {
-      products: paginatedProducts,
-      total: filteredProducts.length
+      products: result.products,
+      total: result.total
     };
   } catch (error) {
     console.error(`Error searching products with term "${searchTerm}":`, error);
