@@ -1,21 +1,6 @@
 import type { Metadata } from 'next';
-import { cache } from 'react';
-import { getCategoryBySlug } from '@/lib/api';
-
-// De-duplicate getCategoryBySlug calls within the same request
-// (generateMetadata + layout component both need the category)
-const getCategoryCached = cache((slug: string) => getCategoryBySlug(slug));
-
-// Decode HTML entities from WooCommerce (e.g. &amp; &#8217; &#039;)
-function decodeHtmlEntities(text: string): string {
-  return text
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#0?39;|&#x27;|&apos;/g, "'")
-    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)));
-}
+import { getCategoryBySlugCached } from '@/lib/cachedApi';
+import { decodeHtmlEntities } from '@/lib/decodeHtmlEntities';
 
 interface CategoryLayoutProps {
   params: Promise<{ slug: string }>;
@@ -24,7 +9,7 @@ interface CategoryLayoutProps {
 
 export async function generateMetadata({ params }: CategoryLayoutProps): Promise<Metadata> {
   const { slug } = await params;
-  const category = await getCategoryCached(slug);
+  const category = await getCategoryBySlugCached(slug);
 
   if (!category) {
     return {
@@ -84,7 +69,7 @@ export async function generateMetadata({ params }: CategoryLayoutProps): Promise
 
 export default async function CategoryLayout({ params, children }: CategoryLayoutProps) {
   const { slug } = await params;
-  const category = await getCategoryCached(slug);
+  const category = await getCategoryBySlugCached(slug);
 
   const categoryName = category?.name ? decodeHtmlEntities(category.name) : slug;
 

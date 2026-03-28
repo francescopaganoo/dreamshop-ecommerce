@@ -2144,23 +2144,14 @@ export interface ExtendedCategory extends Category {
 
 export async function getMegaMenuCategories(): Promise<ExtendedCategory[]> {
   try {
-    const cacheKey = `mega_menu_categories_${Math.floor(Date.now() / (1000 * 300))}`;
-    
-    if (typeof window !== 'undefined') {
-      const cachedData = sessionStorage.getItem(cacheKey);
-      if (cachedData) {
-        return JSON.parse(cachedData) as ExtendedCategory[];
-      }
-    }
-    
     const allCategories = await getCategories();
-    
+
     // Escludi categorie non necessarie e sottocategorie che saranno mostrate come sottocategorie
     const excludedSlugs = [
       'attack-on-titan',
       'black-week',
       'cina',
-      'cina-rs', 
+      'cina-rs',
       'crazy-month',
       'editoria',
       'gift-card',
@@ -2175,19 +2166,19 @@ export async function getMegaMenuCategories(): Promise<ExtendedCategory[]> {
       'jimei-palace',
       'tsume'
     ];
-    
+
     // Crea un array per organizzare le categorie con le loro sottocategorie
-    const organizedCategories = [];
+    const organizedCategories: ExtendedCategory[] = [];
     const mainCategories = allCategories.filter(category => !excludedSlugs.includes(category.slug));
-    
+
     // Trova le sottocategorie specifiche
-    const cardGameSubcats = allCategories.filter(cat => 
+    const cardGameSubcats = allCategories.filter(cat =>
       ['dragon-ball-cg', 'one-piece-cg', 'yu-gi-oh'].includes(cat.slug)
     );
-    const resineSubcats = allCategories.filter(cat => 
+    const resineSubcats = allCategories.filter(cat =>
       ['jimei-palace', 'tsume'].includes(cat.slug)
     );
-    
+
     // Aggiungi tutte le categorie principali
     for (const category of mainCategories) {
       if (category.slug === 'card-game' || category.slug === 'cards' || category.name.toLowerCase().includes('card')) {
@@ -2209,11 +2200,7 @@ export async function getMegaMenuCategories(): Promise<ExtendedCategory[]> {
         });
       }
     }
-    
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem(cacheKey, JSON.stringify(organizedCategories));
-    }
-    
+
     return organizedCategories;
   } catch (error) {
     console.error('Error fetching mega menu categories:', error);
@@ -3203,7 +3190,7 @@ export async function getFilteredProductsPlugin(filters: {
   per_page?: number;
   orderby?: string;
   order?: string;
-}): Promise<{ products: Product[], total: number, total_pages: number }> {
+}, signal?: AbortSignal): Promise<{ products: Product[], total: number, total_pages: number }> {
   try {
     const baseUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL?.replace(/\/$/, '') || '';
 
@@ -3231,7 +3218,8 @@ export async function getFilteredProductsPlugin(filters: {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
-      next: { revalidate: 60 } // Aggiorna ogni 60 secondi
+      next: { revalidate: 60 }, // Aggiorna ogni 60 secondi
+      signal,
     });
 
     if (!response.ok) {
@@ -3293,6 +3281,10 @@ export async function getFilteredProductsPlugin(filters: {
     };
 
   } catch (error) {
+    // Don't log abort errors — they are expected during cleanup
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw error;
+    }
     console.error('❌ Plugin API error:', error);
     throw error;
   }
