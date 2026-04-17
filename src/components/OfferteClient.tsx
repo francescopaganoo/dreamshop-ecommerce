@@ -19,6 +19,7 @@ interface OfferteClientProps {
   availabilityOptions: AttributeValue[];
   shippingTimeOptions: AttributeValue[];
   priceRange: { min: number; max: number };
+  activeCategorySlug?: string;
 }
 
 export default function OfferteClient({
@@ -31,6 +32,7 @@ export default function OfferteClient({
   availabilityOptions,
   shippingTimeOptions,
   priceRange,
+  activeCategorySlug,
 }: OfferteClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -42,6 +44,7 @@ export default function OfferteClient({
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const page = parseInt(searchParams.get('page') || '1', 10);
+  const categoryParam = searchParams.get('category') || activeCategorySlug || undefined;
   const brandsParam = searchParams.get('brands') || '';
   const availabilityParam = searchParams.get('availability') || '';
   const shippingParam = searchParams.get('shipping') || '';
@@ -89,6 +92,7 @@ export default function OfferteClient({
 
         const response = await getFilteredProductsPlugin({
           on_sale: true,
+          category: categoryParam,
           brands: brandSlugsFromUrl.length > 0 ? brandSlugsFromUrl : undefined,
           availability: availabilitySlugsFromUrl.length > 0 ? availabilitySlugsFromUrl : undefined,
           shipping: shippingSlugsFromUrl.length > 0 ? shippingSlugsFromUrl : undefined,
@@ -118,7 +122,7 @@ export default function OfferteClient({
 
     fetchProducts();
     return () => abortController.abort();
-  }, [currentSearchString, loadedSearchString, brandSlugsFromUrl, availabilitySlugsFromUrl, shippingSlugsFromUrl, minPriceParam, maxPriceParam, excludeSoldOutParam, page, productsPerPage]);
+  }, [currentSearchString, loadedSearchString, categoryParam, brandSlugsFromUrl, availabilitySlugsFromUrl, shippingSlugsFromUrl, minPriceParam, maxPriceParam, excludeSoldOutParam, page, productsPerPage]);
 
   const handleApplyFilters = async (filters: {
     brandSlugs: string[];
@@ -132,6 +136,9 @@ export default function OfferteClient({
     try {
       const newSearchParams = new URLSearchParams();
 
+      if (categoryParam) {
+        newSearchParams.set('category', categoryParam);
+      }
       if (filters.brandSlugs.length > 0) {
         newSearchParams.set('brands', filters.brandSlugs.join(','));
       }
@@ -173,6 +180,7 @@ export default function OfferteClient({
             availabilityOptions={availabilityOptions}
             shippingTimeOptions={shippingTimeOptions}
             brands={brands}
+            currentCategorySlug={categoryParam}
             selectedBrandSlugs={selectedBrandSlugs}
             selectedAvailabilitySlugs={selectedAvailabilitySlugs}
             selectedShippingTimeSlugs={selectedShippingTimeSlugs}
@@ -183,6 +191,8 @@ export default function OfferteClient({
             isApplyingFilters={isApplyingFilters}
             isOpen={isSidebarOpen}
             onClose={() => setIsSidebarOpen(false)}
+            categoryLinkBuilder={(slug) => `/offerte?category=${slug}`}
+            allCategoriesHref="/offerte"
           />
         </div>
 

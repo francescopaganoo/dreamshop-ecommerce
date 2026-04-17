@@ -40,6 +40,8 @@ interface CategorySidebarProps {
   isOpen?: boolean;
   onClose?: () => void;
   showAllCategoriesActive?: boolean;
+  categoryLinkBuilder?: (slug: string) => string;
+  allCategoriesHref?: string;
 }
 
 export default function CategorySidebar({
@@ -58,7 +60,9 @@ export default function CategorySidebar({
   isApplyingFilters = false,
   isOpen = false,
   onClose,
-  showAllCategoriesActive = false
+  showAllCategoriesActive = false,
+  categoryLinkBuilder,
+  allCategoriesHref = '/categories'
 }: CategorySidebarProps) {
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [showAllAvailability, setShowAllAvailability] = useState(false);
@@ -196,10 +200,10 @@ export default function CategorySidebar({
           {/* Reset Filter - Tutte le categorie */}
           <div className="mb-4">
             <Link
-              href="/categories"
+              href={allCategoriesHref}
               className={`flex items-center gap-2 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
                 showAllCategoriesActive || !currentCategorySlug
-                  ? 'bg-bred-500 text-white' 
+                  ? 'bg-bred-500 text-white'
                   : 'text-gray-700 hover:bg-gray-100 hover:text-bred-600 border border-gray-200'
               }`}
             >
@@ -213,7 +217,7 @@ export default function CategorySidebar({
             <li key={category.id}>
               {/* Categoria principale */}
               <Link
-                href={`/category/${category.slug}`}
+                href={categoryLinkBuilder ? categoryLinkBuilder(category.slug) : `/category/${category.slug}`}
                 className={`block py-2 px-3 rounded-md text-sm font-medium transition-colors ${
                   currentCategorySlug === category.slug
                     ? 'bg-bred-500 text-white'
@@ -222,14 +226,14 @@ export default function CategorySidebar({
               >
                 {decodeHtmlEntities(category.name)}
               </Link>
-              
+
               {/* Sottocategorie */}
               {category.subcategories && category.subcategories.length > 0 && (
                 <ul className="ml-4 mt-1 space-y-1">
                   {category.subcategories.map((subcategory) => (
                     <li key={subcategory.id}>
                       <Link
-                        href={`/category/${subcategory.slug}`}
+                        href={categoryLinkBuilder ? categoryLinkBuilder(subcategory.slug) : `/category/${subcategory.slug}`}
                         className={`block py-1 px-3 rounded-md text-xs transition-colors ${
                           currentCategorySlug === subcategory.slug
                             ? 'bg-bred-400 text-white'

@@ -13,6 +13,7 @@ interface OffertePageProps {
     availability?: string;
     shipping?: string;
     excludeSoldOut?: string;
+    category?: string;
   }>;
 }
 
@@ -21,6 +22,7 @@ export default async function OffertePage({ searchParams }: OffertePageProps) {
   const initialSearchString = new URLSearchParams(resolvedSearchParams as Record<string, string>).toString();
 
   const page = parseInt(resolvedSearchParams.page || '1', 10);
+  const categorySlug = resolvedSearchParams.category || undefined;
   const brandSlugs = resolvedSearchParams.brands ? resolvedSearchParams.brands.split(',') : [];
   const availabilitySlugs = resolvedSearchParams.availability ? resolvedSearchParams.availability.split(',') : [];
   const shippingSlugs = resolvedSearchParams.shipping ? resolvedSearchParams.shipping.split(',') : [];
@@ -29,7 +31,7 @@ export default async function OffertePage({ searchParams }: OffertePageProps) {
   const excludeSoldOut = resolvedSearchParams.excludeSoldOut === 'true';
 
   const [filterOptions, categoriesData] = await Promise.all([
-    getSaleFilterOptionsPlugin(),
+    getSaleFilterOptionsPlugin(categorySlug),
     getMegaMenuCategories()
   ]);
 
@@ -39,6 +41,7 @@ export default async function OffertePage({ searchParams }: OffertePageProps) {
   try {
     const response = await getFilteredProductsPlugin({
       on_sale: true,
+      category: categorySlug,
       brands: brandSlugs.length > 0 ? brandSlugs : undefined,
       availability: availabilitySlugs.length > 0 ? availabilitySlugs : undefined,
       shipping: shippingSlugs.length > 0 ? shippingSlugs : undefined,
@@ -56,6 +59,10 @@ export default async function OffertePage({ searchParams }: OffertePageProps) {
     console.error('Errore nel caricamento iniziale delle offerte:', error);
   }
 
+  const activeCategoryName = categorySlug
+    ? categoriesData.find(c => c.slug === categorySlug)?.name
+    : undefined;
+
   return (
     <div className="min-h-screen bg-gray-50 overflow-x-hidden">
 
@@ -69,7 +76,11 @@ export default async function OffertePage({ searchParams }: OffertePageProps) {
             <FaTags /> ESPLORA
           </span>
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bangers text-gray-900 mb-6 leading-tight">
-            Tutte le <span className="text-bred-500">Offerte</span>
+            {activeCategoryName ? (
+              <>Offerte <span className="text-bred-500">{activeCategoryName}</span></>
+            ) : (
+              <>Tutte le <span className="text-bred-500">Offerte</span></>
+            )}
           </h1>
           <p className="text-gray-600 text-lg max-w-3xl mx-auto mb-8 leading-relaxed">
             Approfitta delle nostre promozioni speciali e aggiungi pezzi unici alla tua collezione
@@ -90,6 +101,7 @@ export default async function OffertePage({ searchParams }: OffertePageProps) {
             availabilityOptions={filterOptions.availability}
             shippingTimeOptions={filterOptions.shipping_times}
             priceRange={filterOptions.price_range}
+            activeCategorySlug={categorySlug}
           />
         </div>
       </section>

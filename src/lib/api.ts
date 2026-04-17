@@ -3372,8 +3372,9 @@ export async function getFilterOptionsPlugin(): Promise<{
 
 /**
  * NEW PLUGIN API - Get filter options for products on sale
+ * If categorySlug is provided, restricts options to that category's sale products.
  */
-export async function getSaleFilterOptionsPlugin(): Promise<{
+export async function getSaleFilterOptionsPlugin(categorySlug?: string): Promise<{
   brands: Brand[];
   categories: ExtendedCategory[];
   availability: AttributeValue[];
@@ -3382,7 +3383,9 @@ export async function getSaleFilterOptionsPlugin(): Promise<{
 }> {
   try {
     const baseUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL?.replace(/\/$/, '') || '';
-    const optionsUrl = `${baseUrl}/wp-json/dreamshop/v1/filter-options/sale`;
+    const optionsUrl = categorySlug
+      ? `${baseUrl}/wp-json/dreamshop/v1/filter-options/sale/${encodeURIComponent(categorySlug)}`
+      : `${baseUrl}/wp-json/dreamshop/v1/filter-options/sale`;
 
     const response = await fetch(optionsUrl, {
       method: 'GET',
