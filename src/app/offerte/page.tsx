@@ -1,24 +1,50 @@
-import { getFilteredProductsPlugin, Product } from '@/lib/api';
+import { getFilteredProductsPlugin, getSaleFilterOptionsPlugin, getMegaMenuCategories, Product } from '@/lib/api';
 import OfferteClient from '@/components/OfferteClient';
 import { FaTags } from 'react-icons/fa';
 
 const PRODUCTS_PER_PAGE = 12;
 
 interface OffertePageProps {
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{
+    page?: string;
+    minPrice?: string;
+    maxPrice?: string;
+    brands?: string;
+    availability?: string;
+    shipping?: string;
+    excludeSoldOut?: string;
+  }>;
 }
 
 export default async function OffertePage({ searchParams }: OffertePageProps) {
-  const params = await searchParams;
-  const page = parseInt(params.page || '1', 10);
+  const resolvedSearchParams = await searchParams;
+  const initialSearchString = new URLSearchParams(resolvedSearchParams as Record<string, string>).toString();
 
-  // Fetch lato server — rispetta la pagina dalla URL
+  const page = parseInt(resolvedSearchParams.page || '1', 10);
+  const brandSlugs = resolvedSearchParams.brands ? resolvedSearchParams.brands.split(',') : [];
+  const availabilitySlugs = resolvedSearchParams.availability ? resolvedSearchParams.availability.split(',') : [];
+  const shippingSlugs = resolvedSearchParams.shipping ? resolvedSearchParams.shipping.split(',') : [];
+  const minPrice = resolvedSearchParams.minPrice ? parseInt(resolvedSearchParams.minPrice, 10) : undefined;
+  const maxPrice = resolvedSearchParams.maxPrice ? parseInt(resolvedSearchParams.maxPrice, 10) : undefined;
+  const excludeSoldOut = resolvedSearchParams.excludeSoldOut === 'true';
+
+  const [filterOptions, categoriesData] = await Promise.all([
+    getSaleFilterOptionsPlugin(),
+    getMegaMenuCategories()
+  ]);
+
   let initialProducts: Product[] = [];
   let initialTotal = 0;
 
   try {
     const response = await getFilteredProductsPlugin({
       on_sale: true,
+      brands: brandSlugs.length > 0 ? brandSlugs : undefined,
+      availability: availabilitySlugs.length > 0 ? availabilitySlugs : undefined,
+      shipping: shippingSlugs.length > 0 ? shippingSlugs : undefined,
+      min_price: minPrice,
+      max_price: maxPrice,
+      exclude_sold_out: excludeSoldOut,
       page,
       per_page: PRODUCTS_PER_PAGE,
       orderby: 'date',
@@ -57,8 +83,13 @@ export default async function OffertePage({ searchParams }: OffertePageProps) {
           <OfferteClient
             initialProducts={initialProducts}
             initialTotal={initialTotal}
-            initialPage={page}
+            initialSearchString={initialSearchString}
             productsPerPage={PRODUCTS_PER_PAGE}
+            categories={categoriesData}
+            brands={filterOptions.brands}
+            availabilityOptions={filterOptions.availability}
+            shippingTimeOptions={filterOptions.shipping_times}
+            priceRange={filterOptions.price_range}
           />
         </div>
       </section>

@@ -9,6 +9,12 @@ const nextConfig: NextConfig = {
         hostname: 'be.dreamshop18.com',
         pathname: '/**',
       },
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+        port: '8080',
+        pathname: '/**',
+      },
     ],
     minimumCacheTTL: 60,
     dangerouslyAllowSVG: true,
