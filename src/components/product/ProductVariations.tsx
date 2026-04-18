@@ -16,6 +16,7 @@ import AppleGooglePayButton from '@/components/product/AppleGooglePayButton';
 
 interface ProductVariationsProps {
   productId: number;
+  shippingClassId?: number;
   attributes: ProductAttribute[];
   variations: ProductVariation[];
   defaultAttributes?: Array<{
@@ -36,6 +37,7 @@ interface ProductVariationsProps {
 
 export default function ProductVariations({
   productId,
+  shippingClassId,
   attributes,
   variations,
   defaultAttributes,
@@ -900,7 +902,8 @@ export default function ProductVariations({
               stock_quantity: selectedVariation.stock_quantity,
               manage_stock: selectedVariation.manage_stock,
               images: selectedVariation.image ? [{ id: 0, src: selectedVariation.image.src, alt: '' }] : [],
-              categories: []
+              categories: [],
+              shipping_class_id: shippingClassId
             }}
             quantity={quantity}
             enableDeposit={enableDeposit}
@@ -929,7 +932,8 @@ export default function ProductVariations({
               stock_quantity: selectedVariation.stock_quantity,
               manage_stock: selectedVariation.manage_stock,
               images: selectedVariation.image ? [{ id: 0, src: selectedVariation.image.src, alt: '' }] : [],
-              categories: []
+              categories: [],
+              shipping_class_id: shippingClassId
             }}
             quantity={quantity}
             enableDeposit={enableDeposit}

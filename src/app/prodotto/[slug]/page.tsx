@@ -482,6 +482,7 @@ async function ProductDetails({ slug }: { slug: string }) {
               <Suspense fallback={<div className="h-40 bg-gray-100 animate-pulse rounded-lg"></div>}>
                 <ProductVariationsLoader
                   productId={product.id}
+                  shippingClassId={product.shipping_class_id}
                   dateOnSaleFrom={product.date_on_sale_from}
                   dateOnSaleTo={product.date_on_sale_to}
                   soldIndividually={product.sold_individually === true}
@@ -665,6 +666,7 @@ async function BestSellingProductsSection() {
 // Componente per caricare le variazioni in modo asincrono
 async function ProductVariationsLoader({
   productId,
+  shippingClassId,
   attributes,
   productName,
   productImages,
@@ -673,6 +675,7 @@ async function ProductVariationsLoader({
   soldIndividually
 }: {
   productId: number,
+  shippingClassId?: number,
   attributes: Array<{id: number; name: string; position: number; visible: boolean; variation: boolean; options: string[]}>,
   productName: string,
   productImages?: Array<{id: number; src: string; alt: string}>,
@@ -687,6 +690,7 @@ async function ProductVariationsLoader({
   return (
     <ProductVariations
       productId={productId}
+      shippingClassId={shippingClassId}
       attributes={attributes}
       variations={variations}
       productName={productName}
