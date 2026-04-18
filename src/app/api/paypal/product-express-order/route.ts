@@ -41,8 +41,21 @@ export async function POST(request: NextRequest) {
         console.error('PayPal Express: Prodotto non trovato');
         return NextResponse.json({ error: 'Prodotto non trovato' }, { status: 404 });
       }
-      
-      
+
+      // ====================================================================
+      // VALIDAZIONE "SOLD INDIVIDUALLY" - max 1 pezzo per ordine
+      // ====================================================================
+      const productWithFlag = product as Product & { sold_individually?: boolean };
+      if (productWithFlag.sold_individually === true && quantity > 1) {
+        console.warn(`[paypal-product-express-order] Violazione sold_individually: productId=${productId}, quantity=${quantity}`);
+        return NextResponse.json({
+          error: `"${product.name}" può essere acquistato solo 1 pezzo per ordine.`,
+          errorCode: 'SOLD_INDIVIDUALLY_VIOLATION',
+          violations: [{ product_id: productId, quantity, name: product.name }]
+        }, { status: 409 });
+      }
+      // ====================================================================
+
       // Calcola il prezzo
       const unitPrice = parseFloat(product.sale_price || product.price || '0');
       const totalAmount = (unitPrice * quantity).toFixed(2);

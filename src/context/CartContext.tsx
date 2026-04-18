@@ -428,18 +428,30 @@ export function CartProvider({ children }: { children: ReactNode }) {
         const cartItem = item as CartItem;
         const actualQuantity = cartItem.quantity || quantity;
         const productWithSlug = ensureProductSlug(cartItem.product);
-        
+
+        // Vincolo "sold_individually" (WooCommerce: max 1 pezzo per ordine).
+        // Il flag è a livello di prodotto padre: vale per tutte le variazioni.
+        if (productWithSlug.sold_individually === true) {
+          const alreadyInCart = newCart.some(i => i.product.id === productWithSlug.id);
+          if (alreadyInCart || actualQuantity > 1) {
+            return {
+              success: false,
+              message: 'Questo prodotto può essere acquistato solo 1 pezzo per ordine.'
+            };
+          }
+        }
+
         // Verifica della disponibilità in magazzino
         if (productWithSlug.manage_stock && typeof productWithSlug.stock_quantity === 'number') {
           // Cerca se il prodotto esiste già nel carrello
-          const existingIndex = newCart.findIndex(i => 
-            i.product.id === productWithSlug.id && 
+          const existingIndex = newCart.findIndex(i =>
+            i.product.id === productWithSlug.id &&
             i.variation_id === cartItem.variation_id
           );
-          
+
           const currentQuantity = existingIndex >= 0 ? newCart[existingIndex].quantity : 0;
           const newTotalQuantity = currentQuantity + actualQuantity;
-          
+
           // Controlla se la quantità totale supera quella disponibile
           if (newTotalQuantity > productWithSlug.stock_quantity) {
             return {
@@ -472,7 +484,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
       // Gestisci il caso in cui l'item è un Product
       else {
         const product = ensureProductSlug(item as Product);
-        
+
+        // Vincolo "sold_individually" (WooCommerce: max 1 pezzo per ordine).
+        if (product.sold_individually === true) {
+          const alreadyInCart = newCart.some(i => i.product.id === product.id);
+          if (alreadyInCart || quantity > 1) {
+            return {
+              success: false,
+              message: 'Questo prodotto può essere acquistato solo 1 pezzo per ordine.'
+            };
+          }
+        }
+
         // Verifica della disponibilità in magazzino
         if (product.manage_stock && typeof product.stock_quantity === 'number') {
           // Cerca se il prodotto esiste già nel carrello
@@ -553,6 +576,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
         // Blocca la modifica della quantità per i regali automatici
         if (isAutoGift(item)) {
           return item; // Non permettere la modifica della quantità dei regali
+        }
+
+        // Vincolo "sold_individually": forza 1 pezzo
+        if (item.product.sold_individually === true && quantity > 1) {
+          setStockMessage(`"${item.product.name}" può essere acquistato solo 1 pezzo per ordine.`);
+          setTimeout(() => setStockMessage(null), 5000);
+          return { ...item, quantity: 1 };
         }
 
         // Controlla se il prodotto gestisce lo stock e ha una quantità massima

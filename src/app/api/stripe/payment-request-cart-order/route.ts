@@ -120,6 +120,19 @@ export async function POST(request: NextRequest) {
           throw new Error(`Prodotto "${product.name}" non disponibile`);
         }
 
+        // ================================================================
+        // VALIDAZIONE "SOLD INDIVIDUALLY" - max 1 pezzo per ordine
+        // ================================================================
+        if (product.sold_individually === true && item.quantity > 1) {
+          console.warn(`[payment-request-cart-order] Violazione sold_individually: productId=${item.product_id}, quantity=${item.quantity}`);
+          return NextResponse.json({
+            error: `"${product.name}" può essere acquistato solo 1 pezzo per ordine.`,
+            errorCode: 'SOLD_INDIVIDUALLY_VIOLATION',
+            violations: [{ product_id: item.product_id, variation_id: item.variation_id, quantity: item.quantity, name: product.name }]
+          }, { status: 409 });
+        }
+        // ================================================================
+
         // Usa il prezzo attuale dal database, non quello dal carrello
         const unitPrice = parseFloat(product.sale_price || product.price || '0');
         if (unitPrice <= 0) {

@@ -484,6 +484,7 @@ async function ProductDetails({ slug }: { slug: string }) {
                   productId={product.id}
                   dateOnSaleFrom={product.date_on_sale_from}
                   dateOnSaleTo={product.date_on_sale_to}
+                  soldIndividually={product.sold_individually === true}
                   attributes={(() => {
                     if (!product.attributes) return [];
 
@@ -668,14 +669,16 @@ async function ProductVariationsLoader({
   productName,
   productImages,
   dateOnSaleFrom,
-  dateOnSaleTo
+  dateOnSaleTo,
+  soldIndividually
 }: {
   productId: number,
   attributes: Array<{id: number; name: string; position: number; visible: boolean; variation: boolean; options: string[]}>,
   productName: string,
   productImages?: Array<{id: number; src: string; alt: string}>,
   dateOnSaleFrom?: string,
-  dateOnSaleTo?: string
+  dateOnSaleTo?: string,
+  soldIndividually?: boolean
 }) {
   // Importiamo getProductVariations solo quando necessario
   const { getProductVariations } = await import('../../../lib/api');
@@ -690,6 +693,7 @@ async function ProductVariationsLoader({
       productImages={productImages}
       dateOnSaleFrom={dateOnSaleFrom}
       dateOnSaleTo={dateOnSaleTo}
+      soldIndividually={soldIndividually}
     />
   );
 }

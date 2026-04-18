@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createOrder } from '@/lib/api';
 import { validateDepositEligibility } from '@/lib/deposits';
+import { validateSoldIndividually, buildSoldIndividuallyErrorMessage } from '@/lib/validate-sold-individually';
 
 // Helper function per verificare se un prodotto è un regalo automatico
 function isAutoGiftProduct(product: { meta_data?: Array<{key: string, value: string}> }): boolean {
@@ -70,6 +71,27 @@ export async function POST(request: NextRequest) {
         error: depositValidation.error,
         errorCode: depositValidation.errorCode
       }, { status: 403 });
+    }
+    // ========================================================================
+
+    // ========================================================================
+    // VALIDAZIONE "SOLD INDIVIDUALLY" - max 1 pezzo per ordine
+    // ========================================================================
+    const soldIndividuallyCheck = await validateSoldIndividually(
+      cartItems.map((item: CartItem) => ({
+        product_id: item.product.id,
+        quantity: item.quantity,
+        meta_data: item.product.meta_data
+      })),
+      'create-order-standard'
+    );
+    if (!soldIndividuallyCheck.valid) {
+      console.warn(`[create-order-standard] Violazione sold_individually:`, soldIndividuallyCheck.violations);
+      return NextResponse.json({
+        error: buildSoldIndividuallyErrorMessage(soldIndividuallyCheck.violations),
+        errorCode: 'SOLD_INDIVIDUALLY_VIOLATION',
+        violations: soldIndividuallyCheck.violations
+      }, { status: 409 });
     }
     // ========================================================================
 

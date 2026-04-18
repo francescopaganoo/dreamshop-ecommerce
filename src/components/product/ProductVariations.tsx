@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { ProductVariation, ProductAttribute, Product } from '../../lib/api';
 import { useCart, CartItem } from '../../context/CartContext';
 import ProductNotificationForm from '../ProductNotificationForm';
@@ -30,6 +31,7 @@ interface ProductVariationsProps {
   }>;
   dateOnSaleFrom?: string;
   dateOnSaleTo?: string;
+  soldIndividually?: boolean;
 }
 
 export default function ProductVariations({
@@ -40,7 +42,8 @@ export default function ProductVariations({
   productName,
   productImages,
   dateOnSaleFrom,
-  dateOnSaleTo
+  dateOnSaleTo,
+  soldIndividually
 }: ProductVariationsProps) {
   // Stati essenziali
   const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string>>({});
@@ -55,8 +58,19 @@ export default function ProductVariations({
   const [customAmount, setCustomAmount] = useState<number | undefined>(undefined);
   const [isGiftCardProduct, setIsGiftCardProduct] = useState<boolean>(false);
   const [enableDeposit, setEnableDeposit] = useState<'yes' | 'no'>('no');
-  const { addToCart } = useCart();
-  
+  const { addToCart, cart } = useCart();
+
+  // Vincolo WooCommerce "sold_individually": max 1 pezzo per ordine (a livello prodotto padre).
+  const isSoldIndividually = soldIndividually === true;
+  const alreadyInCart = isSoldIndividually && cart.some(i => i.product.id === productId);
+
+  // Forza quantità a 1 per prodotti sold_individually
+  useEffect(() => {
+    if (isSoldIndividually && quantity !== 1) {
+      setQuantity(1);
+    }
+  }, [isSoldIndividually, quantity]);
+
   // Controlla se il prodotto è in pre-order basandosi sull'attributo Disponibilità
   const getAttribute = (name: string) => {
     const attr = attributes?.find(attr => attr.name === name);
@@ -795,8 +809,13 @@ export default function ProductVariations({
         />
       )}
 
-      {/* Selettore di quantità */}
-      {selectedVariation && selectedVariation.stock_status === 'instock' && hasValidPrice && (
+      {/* Nota limite 1 pezzo per ordine */}
+      {selectedVariation && selectedVariation.stock_status === 'instock' && hasValidPrice && isSoldIndividually && (
+        <p className="mb-4 text-sm text-gray-600">Limite: 1 pezzo per ordine.</p>
+      )}
+
+      {/* Selettore di quantità (nascosto se il prodotto è venduto singolarmente) */}
+      {selectedVariation && selectedVariation.stock_status === 'instock' && hasValidPrice && !isSoldIndividually && (
         <div className="mb-6">
           <h3 className="text-lg font-semibold mb-3 text-gray-900">Quantità</h3>
           <div className="flex items-center">
@@ -860,8 +879,9 @@ export default function ProductVariations({
         />
       )}
 
-      {/* Express Checkout Options - Sopra il pulsante aggiungi al carrello - Non per gift card */}
-      {!isGiftCardProduct && selectedVariation && selectedVariation.stock_status === 'instock' && hasValidPrice && (
+      {/* Express Checkout Options - Sopra il pulsante aggiungi al carrello - Non per gift card
+          Nascosti se il prodotto è già nel carrello con vincolo sold_individually (evita doppia aggiunta) */}
+      {!isGiftCardProduct && !alreadyInCart && selectedVariation && selectedVariation.stock_status === 'instock' && hasValidPrice && (
         <div className="space-y-3 mb-6">
           {/* Apple Pay / Google Pay */}
           <AppleGooglePayButton
@@ -923,8 +943,27 @@ export default function ProductVariations({
         </div>
       )}
 
+      {/* Stato "Già nel carrello" per prodotti sold_individually */}
+      {variationsLoaded && variations.length > 0 && alreadyInCart && (
+        <div className="space-y-2">
+          <button
+            type="button"
+            disabled
+            className="w-full py-3 px-6 rounded-md font-medium text-center flex items-center justify-center bg-gray-300 text-gray-600 cursor-not-allowed"
+          >
+            Già nel carrello
+          </button>
+          <Link
+            href="/cart"
+            className="block w-full py-3 px-6 rounded-md font-medium text-center bg-bred-500 text-white hover:bg-bred-700 transition-colors"
+          >
+            Vai al carrello
+          </Link>
+        </div>
+      )}
+
       {/* Pulsante Aggiungi al carrello */}
-      {variationsLoaded && variations.length > 0 && (
+      {variationsLoaded && variations.length > 0 && !alreadyInCart && (
         <button
           onClick={handleAddToCart}
           disabled={

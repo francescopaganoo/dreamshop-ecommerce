@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import api from '../../../../lib/woocommerce';
 import { validateDepositEligibility, hasDepositInLineItems } from '../../../../lib/deposits';
+import { validateSoldIndividually, buildSoldIndividuallyErrorMessage } from '../../../../lib/validate-sold-individually';
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,6 +31,34 @@ export async function POST(request: NextRequest) {
         error: depositValidation.error,
         errorCode: depositValidation.errorCode
       }, { status: 403 });
+    }
+    // ========================================================================
+
+    // ========================================================================
+    // VALIDAZIONE "SOLD INDIVIDUALLY" - max 1 pezzo per ordine
+    // ========================================================================
+    interface PaypalLineItem {
+      product_id: number;
+      variation_id?: number;
+      quantity: number;
+      meta_data?: Array<{ key: string; value: string }>;
+    }
+    const soldIndividuallyCheck = await validateSoldIndividually(
+      (orderData.line_items || []).map((li: PaypalLineItem) => ({
+        product_id: li.product_id,
+        variation_id: li.variation_id,
+        quantity: li.quantity,
+        meta_data: li.meta_data
+      })),
+      'paypal-create-order'
+    );
+    if (!soldIndividuallyCheck.valid) {
+      console.warn(`[paypal-create-order] Violazione sold_individually:`, soldIndividuallyCheck.violations);
+      return NextResponse.json({
+        error: buildSoldIndividuallyErrorMessage(soldIndividuallyCheck.violations),
+        errorCode: 'SOLD_INDIVIDUALLY_VIOLATION',
+        violations: soldIndividuallyCheck.violations
+      }, { status: 409 });
     }
     // ========================================================================
 

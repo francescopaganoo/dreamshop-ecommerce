@@ -78,6 +78,19 @@ export async function POST(request: NextRequest) {
     }
 
     // ========================================================================
+    // VALIDAZIONE "SOLD INDIVIDUALLY" - max 1 pezzo per ordine
+    // ========================================================================
+    if (product.sold_individually === true && quantity > 1) {
+      console.warn(`[payment-request-order] Violazione sold_individually: productId=${productId}, quantity=${quantity}`);
+      return NextResponse.json({
+        error: `"${product.name}" può essere acquistato solo 1 pezzo per ordine.`,
+        errorCode: 'SOLD_INDIVIDUALLY_VIOLATION',
+        violations: [{ product_id: productId, variation_id: variationId, quantity, name: product.name }]
+      }, { status: 409 });
+    }
+    // ========================================================================
+
+    // ========================================================================
     // VALIDAZIONE DEPOSITI - Gli ordini a rate richiedono autenticazione
     // ========================================================================
     const hasDeposit = enableDeposit === 'yes';

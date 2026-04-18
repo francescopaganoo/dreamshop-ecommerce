@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { validateDepositEligibility, hasDepositInLineItems } from '../../../../lib/deposits';
+import { validateSoldIndividually, buildSoldIndividuallyErrorMessage } from '../../../../lib/validate-sold-individually';
 import { orderDataStore } from '../../../../lib/orderDataStore';
 
 // Interfacce per i tipi degli elementi
@@ -90,6 +91,28 @@ export async function POST(request: NextRequest) {
         error: depositValidation.error,
         errorCode: depositValidation.errorCode
       }, { status: 403 });
+    }
+    // ========================================================================
+
+    // ========================================================================
+    // VALIDAZIONE "SOLD INDIVIDUALLY" - max 1 pezzo per ordine
+    // ========================================================================
+    const soldIndividuallyCheck = await validateSoldIndividually(
+      (line_items as LineItemInput[]).map((li) => ({
+        product_id: (li.product_id ?? li.id) as number,
+        variation_id: li.variation_id,
+        quantity: li.quantity,
+        meta_data: li.meta_data
+      })),
+      'create-order-ios'
+    );
+    if (!soldIndividuallyCheck.valid) {
+      console.warn(`[iOS] Violazione sold_individually:`, soldIndividuallyCheck.violations);
+      return NextResponse.json({
+        error: buildSoldIndividuallyErrorMessage(soldIndividuallyCheck.violations),
+        errorCode: 'SOLD_INDIVIDUALLY_VIOLATION',
+        violations: soldIndividuallyCheck.violations
+      }, { status: 409 });
     }
     // ========================================================================
 

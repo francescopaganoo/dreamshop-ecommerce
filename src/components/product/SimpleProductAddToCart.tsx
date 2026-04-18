@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Product } from '@/lib/api';
 import { useCart } from '@/context/CartContext';
 import ProductDepositOptionsComponent from '@/components/product/ProductDepositOptions';
@@ -24,7 +25,18 @@ export default function SimpleProductAddToCart({ product }: SimpleProductAddToCa
   const [giftCardData, setGiftCardData] = useState<GiftCardData | null>(null);
   const [customAmount, setCustomAmount] = useState<number | undefined>(undefined);
   const [isGiftCardProduct, setIsGiftCardProduct] = useState<boolean>(false);
-  const { addToCart } = useCart();
+  const { addToCart, cart } = useCart();
+
+  // Vincolo WooCommerce "sold_individually": max 1 pezzo per ordine
+  const isSoldIndividually = product.sold_individually === true;
+  const alreadyInCart = isSoldIndividually && cart.some(i => i.product.id === product.id);
+
+  // Forza quantità a 1 per prodotti sold_individually
+  useEffect(() => {
+    if (isSoldIndividually && quantity !== 1) {
+      setQuantity(1);
+    }
+  }, [isSoldIndividually, quantity]);
   
   // Controlla se il prodotto è in pre-order basandosi sull'attributo Disponibilità
   const getAttribute = (name: string) => {
@@ -383,8 +395,13 @@ export default function SimpleProductAddToCart({ product }: SimpleProductAddToCa
         />
       )}
       
-      {/* Selettore di quantità */}
-      {isInStock && hasValidPrice && (
+      {/* Nota limite 1 pezzo per ordine */}
+      {isInStock && hasValidPrice && isSoldIndividually && (
+        <p className="mb-4 text-sm text-gray-600">Limite: 1 pezzo per ordine.</p>
+      )}
+
+      {/* Selettore di quantità (nascosto se il prodotto è venduto singolarmente) */}
+      {isInStock && hasValidPrice && !isSoldIndividually && (
         <div className="mb-6">
           <div className="flex items-center mb-3">
             <h3 className="text-lg font-semibold text-gray-900">Quantità</h3>
@@ -418,8 +435,9 @@ export default function SimpleProductAddToCart({ product }: SimpleProductAddToCa
         </div>
       )}
       
-      {/* Express Checkout Options - Sopra il pulsante aggiungi al carrello - Non per gift card */}
-      {!isGiftCardProduct && (
+      {/* Express Checkout Options - Sopra il pulsante aggiungi al carrello - Non per gift card
+          Nascosti se il prodotto è già nel carrello con vincolo sold_individually (evita doppia aggiunta) */}
+      {!isGiftCardProduct && !alreadyInCart && (
         <div className="space-y-3">
           {/* Apple Pay / Google Pay */}
           {isInStock && hasValidPrice && (
@@ -450,7 +468,7 @@ export default function SimpleProductAddToCart({ product }: SimpleProductAddToCa
       )}
       
       {/* Pulsante Aggiungi al carrello - solo se disponibile */}
-      {isInStock && (
+      {isInStock && !alreadyInCart && (
         <button
           onClick={handleAddToCart}
           disabled={isAddingToCart}
@@ -475,6 +493,25 @@ export default function SimpleProductAddToCart({ product }: SimpleProductAddToCa
             }
           </>
         </button>
+      )}
+
+      {/* Stato "Già nel carrello" per prodotti sold_individually */}
+      {isInStock && alreadyInCart && (
+        <div className="space-y-2">
+          <button
+            type="button"
+            disabled
+            className="w-full py-3 px-6 rounded-md font-medium text-center flex items-center justify-center bg-gray-300 text-gray-600 cursor-not-allowed"
+          >
+            Già nel carrello
+          </button>
+          <Link
+            href="/cart"
+            className="block w-full py-3 px-6 rounded-md font-medium text-center bg-bred-500 text-white hover:bg-bred-700 transition-colors"
+          >
+            Vai al carrello
+          </Link>
+        </div>
       )}
     </div>
   );
