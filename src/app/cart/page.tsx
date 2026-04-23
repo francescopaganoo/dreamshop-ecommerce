@@ -683,7 +683,7 @@ export default function CartPage() {
                                 {/* Messaggio per prodotti categoria ITALIA In Stock */}
                                 {shouldShowShippingSuspendedMessage(item.product) && (
                                   <div className="text-xs font-semibold text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1 mb-2">
-                                    Spedizioni per questo prodotto sospese fino al 11/04 per evento; previa disponibilità.
+                                    Spedizioni per questo prodotto sospese fino al 11/05 per evento; previa disponibilità.
                                   </div>
                                 )}
 
@@ -852,7 +852,7 @@ export default function CartPage() {
                                   {/* Messaggio per prodotti categoria ITALIA In Stock */}
                                   {shouldShowShippingSuspendedMessage(item.product) && (
                                     <div className="text-xs font-semibold text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1 mt-2 inline-block">
-                                      Spedizioni per questo prodotto sospese fino al 11/04 per evento; previa disponibilità.
+                                      Spedizioni per questo prodotto sospese fino al 11/05 per evento; previa disponibilità.
                                     </div>
                                   )}
 
