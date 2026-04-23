@@ -61,7 +61,7 @@ const getProductSlug = (product: CartProduct): string => {
 };
 
 // Funzione helper per ottenere un attributo del prodotto
-/* const getAttribute = (product: CartProduct, name: string): { name: string; slug: string } | undefined => {
+const getAttribute = (product: CartProduct, name: string): { name: string; slug: string } | undefined => {
   if (!product.attributes) return undefined;
 
   const attr = product.attributes.find(attr => {
@@ -91,10 +91,10 @@ const getProductSlug = (product: CartProduct): string => {
   }
 
   return undefined;
-}; */
+};
 
 // Funzione helper per verificare se un prodotto appartiene alla categoria ITALIA o Editoria ed è In Stock (non Pre-Order)
-/* const shouldShowShippingSuspendedMessage = (product: CartProduct): boolean => {
+const shouldShowShippingSuspendedMessage = (product: CartProduct): boolean => {
   // Verifica se appartiene alla categoria ITALIA o Editoria
   if (!product.categories || !Array.isArray(product.categories)) {
     return false;
@@ -119,7 +119,7 @@ const getProductSlug = (product: CartProduct): string => {
 
   // Mostra il messaggio solo se è ITALIA o Editoria e NON è in Pre-Order
   return !isPreOrder;
-}; */
+};
 
 export default function CartPage() {
   const {
@@ -681,11 +681,11 @@ export default function CartPage() {
                                 </Link>
 
                                 {/* Messaggio per prodotti categoria ITALIA In Stock */}
-                                {/* {shouldShowShippingSuspendedMessage(item.product) && (
+                                {shouldShowShippingSuspendedMessage(item.product) && (
                                   <div className="text-xs font-semibold text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1 mb-2">
-                                    Spedizioni per questo prodotto sospese fino al 18/11 per evento; previa disponibilità.
+                                    Spedizioni per questo prodotto sospese fino al 11/04 per evento; previa disponibilità.
                                   </div>
-                                )} */}
+                                )}
 
                                 <div className="text-sm text-gray-600 mb-2">
                                   {isGift ? (
@@ -850,11 +850,11 @@ export default function CartPage() {
                                   )}
 
                                   {/* Messaggio per prodotti categoria ITALIA In Stock */}
-                                  {/* {shouldShowShippingSuspendedMessage(item.product) && (
+                                  {shouldShowShippingSuspendedMessage(item.product) && (
                                     <div className="text-xs font-semibold text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1 mt-2 inline-block">
-                                      Spedizioni per questo prodotto sospese fino al 18/11 per evento; previa disponibilità.
+                                      Spedizioni per questo prodotto sospese fino al 11/04 per evento; previa disponibilità.
                                     </div>
-                                  )} */}
+                                  )}
 
                                 </div>
                               </div>
