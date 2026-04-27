@@ -2770,8 +2770,11 @@ export default function CheckoutPage() {
                 <div className="mb-6">
                   <h3 className="text-lg font-semibold mb-2 text-gray-700">Metodo di Pagamento</h3>
 
-                  {/* Messaggio per ordini gratuiti */}
-                  {isFreeOrder ? (
+                  {/* Messaggio per ordini gratuiti.
+                      Why: dopo un pagamento riuscito chiamiamo clearCart() prima di setOrderSuccess(true);
+                      nel render intermedio cart=[] ma gli sconti sono ancora valorizzati → total<=0 →
+                      flash visivo del box "Ordine Gratuito". Lo nascondiamo se orderSuccess è già true. */}
+                  {isFreeOrder && !orderSuccess ? (
                     <div className="p-6 bg-green-50 border-2 border-green-300 rounded-lg">
                       <div className="flex items-start mb-3">
                         <svg className="w-8 h-8 text-green-600 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -2889,96 +2892,41 @@ export default function CheckoutPage() {
                                     return '';
                                   }
                                 }}
-                                onApprove={async (data, actions) => {
+                                onApprove={async (data) => {
                                   try {
                                     console.log('Pagamento PayPal approvato:', data);
 
-                                    // Utilizziamo l'SDK PayPal per catturare il pagamento lato client
-                                    if (actions.order) {
-                                      try {
-                                        const captureResult = await actions.order.capture();
-                                        console.log('Pagamento catturato con successo:', captureResult);
+                                    // La capture viene eseguita server-side dentro create-order-after-payment.
+                                    // Why: actions.order.capture() lato client dipende da cookie di terze parti
+                                    // su paypal.com che molti browser bloccano ("Buyer access token not present").
+                                    const response = await fetch('/api/paypal/create-order-after-payment', {
+                                      method: 'POST',
+                                      headers: {
+                                        'Content-Type': 'application/json',
+                                      },
+                                      body: JSON.stringify({
+                                        orderData: paypalOrderData,
+                                        paypalOrderId: data.orderID,
+                                        expectedTotal: total,
+                                        dataId: paypalDataId,
+                                        pointsToRedeem,
+                                        pointsDiscount
+                                      }),
+                                    });
 
-                                        // Estrai l'ID della transazione PayPal
-                                        const transactionId = captureResult.purchase_units?.[0]?.payments?.captures?.[0]?.id || data.orderID;
+                                    const createData = await response.json();
 
-                                        // Estrai l'importo effettivamente pagato da PayPal (fonte di verità)
-                                        const actualPaidAmount = parseFloat(
-                                          captureResult.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.value ||
-                                          captureResult.purchase_units?.[0]?.amount?.value ||
-                                          '0'
-                                        );
-
-                                        console.log('[PAYPAL-CHECKOUT] Importo effettivamente pagato:', actualPaidAmount);
-
-                                        // Ora crea l'ordine WooCommerce dopo il successo del pagamento
-                                        const response = await fetch('/api/paypal/create-order-after-payment', {
-                                          method: 'POST',
-                                          headers: {
-                                            'Content-Type': 'application/json',
-                                          },
-                                          body: JSON.stringify({
-                                            orderData: paypalOrderData,
-                                            paypalOrderId: data.orderID,
-                                            paypalTransactionId: transactionId,
-                                            expectedTotal: actualPaidAmount, // Usa l'importo da PayPal (già verificato e addebitato)
-                                            dataId: paypalDataId, // ID per recuperare i dati da MySQL e per cleanup
-                                            pointsToRedeem,
-                                            pointsDiscount
-                                          }),
-                                        });
-
-                                        const createData = await response.json();
-
-                                        if (!createData.success || !createData.orderId) {
-                                          throw new Error(createData.error || 'Errore nella creazione dell\'ordine WooCommerce');
-                                        }
-
-
-                                        // Salva l'ID dell'ordine per riferimento
-                                        setSuccessOrderId(String(createData.orderId));
-
-                                        // Svuota il carrello
-                                        clearCart();
-
-                                        // Pulisci i dati di recovery PayPal dal sessionStorage
-                                        sessionStorage.removeItem('paypal_checkout_data');
-
-                                        // COMMENTATO PER TEST: I punti dovrebbero essere decrementati lato server
-                                        // if (pointsToRedeem > 0 && user) {
-                                        //   try {
-                                        //     const token = localStorage.getItem('woocommerce_token');
-                                        //     if (token) {
-                                        //       await redeemPoints(user.id, pointsToRedeem, createData.orderId, token);
-                                        //       console.log(`Riscattati ${pointsToRedeem} punti per l'utente ${user.id}`);
-
-                                        //       // Rimuovi i punti riscattati dal localStorage
-                                        //       localStorage.removeItem('checkout_points_to_redeem');
-                                        //       localStorage.removeItem('checkout_points_discount');
-                                        //     }
-                                        //   } catch (pointsError) {
-                                        //     console.error('Errore durante il riscatto dei punti:', pointsError);
-                                        //     // Non blocchiamo il checkout se il riscatto punti fallisce
-                                        //   }
-                                        // }
-
-                                        // Salva gli indirizzi dell'utente
-                                        await saveAddressData();
-
-                                        // Mostra il messaggio di successo
-                                        setOrderSuccess(true);
-
-                                        // Reset del form dopo il successo
-                                        resetFormAfterSuccess();
-
-                                        setIsSubmitting(false);
-                                      } catch (captureError) {
-                                        console.error('Errore durante la cattura del pagamento:', captureError);
-                                        throw new Error('Errore durante la cattura del pagamento');
-                                      }
-                                    } else {
-                                      throw new Error('Oggetto actions.order non disponibile');
+                                    if (!createData.success || !createData.orderId) {
+                                      throw new Error(createData.error || 'Errore nella creazione dell\'ordine WooCommerce');
                                     }
+
+                                    setSuccessOrderId(String(createData.orderId));
+                                    clearCart();
+                                    sessionStorage.removeItem('paypal_checkout_data');
+                                    await saveAddressData();
+                                    setOrderSuccess(true);
+                                    resetFormAfterSuccess();
+                                    setIsSubmitting(false);
                                   } catch (error) {
                                     console.error('Errore nella gestione del pagamento PayPal:', error);
                                     setFormError('Si è verificato un errore durante la finalizzazione del pagamento. Contatta il supporto clienti.');

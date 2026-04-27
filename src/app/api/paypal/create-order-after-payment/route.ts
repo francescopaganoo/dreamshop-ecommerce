@@ -27,6 +27,8 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
+    let capturedTransactionId: string | undefined;
+
     // SICUREZZA: Verifica il pagamento su PayPal prima di creare l'ordine
     try {
       console.log('[PAYPAL-VERIFY] Verifica ordine PayPal:', paypalOrderId);
@@ -66,7 +68,7 @@ export async function POST(request: NextRequest) {
         }, { status: 400 });
       }
 
-      const paypalOrder = await orderResponse.json() as {
+      let paypalOrder = await orderResponse.json() as {
         id: string;
         status: string;
         purchase_units: Array<{
@@ -74,10 +76,41 @@ export async function POST(request: NextRequest) {
             currency_code: string;
             value: string;
           };
+          payments?: {
+            captures?: Array<{ id: string; status: string; amount?: { value: string } }>;
+          };
         }>;
       };
 
-      // 3. Verifica che l'ordine sia stato completato (captured)
+      // 3. Se l'ordine è solo APPROVED ma non ancora catturato, esegui la capture server-side.
+      // Why: il flusso client-side actions.order.capture() dipende da cookie di terze parti su
+      // paypal.com che molti browser ora bloccano (errore "Buyer access token not present").
+      if (paypalOrder.status === 'APPROVED') {
+        console.log('[PAYPAL-CAPTURE] Ordine APPROVED, eseguo capture server-side:', paypalOrderId);
+        const captureResponse = await fetch(`${PAYPAL_API_URL}/v2/checkout/orders/${paypalOrderId}/capture`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${tokenData.access_token}`,
+            'PayPal-Request-Id': `capture-${paypalOrderId}`
+          }
+        });
+
+        const captureData = await captureResponse.json() as typeof paypalOrder & { message?: string };
+
+        if (!captureResponse.ok || captureData.status !== 'COMPLETED') {
+          console.error('[PAYPAL-CAPTURE] Errore nella capture PayPal:', captureResponse.status, captureData);
+          return NextResponse.json({
+            error: 'Errore nella cattura del pagamento PayPal',
+            details: captureData.message || `Status: ${captureData.status}`
+          }, { status: 500 });
+        }
+
+        paypalOrder = captureData;
+        console.log('[PAYPAL-CAPTURE] ✅ Capture completata:', paypalOrderId);
+      }
+
+      // 4. Verifica che l'ordine sia stato completato (captured)
       if (paypalOrder.status !== 'COMPLETED') {
         console.error('[PAYPAL-VERIFY] Ordine PayPal non completato. Status:', paypalOrder.status);
         return NextResponse.json({
@@ -86,10 +119,23 @@ export async function POST(request: NextRequest) {
         }, { status: 400 });
       }
 
-      // 4. Verifica che l'importo pagato su PayPal corrisponda al totale dell'ordine
-      const paidAmount = parseFloat(paypalOrder.purchase_units[0].amount.value);
+      // 5. Verifica che l'importo pagato su PayPal corrisponda al totale dell'ordine.
+      // Why: la risposta di /capture espone l'importo in payments.captures[0].amount,
+      // mentre la GET dell'ordine lo mette in purchase_units[0].amount. Leggiamo da entrambi.
+      const captureAmount = paypalOrder.purchase_units[0]?.payments?.captures?.[0]?.amount?.value;
+      const orderAmount = paypalOrder.purchase_units[0]?.amount?.value;
+      const paidAmountStr = captureAmount ?? orderAmount;
 
-      // 5. Confronta importo pagato con totale atteso
+      if (!paidAmountStr) {
+        console.error('[PAYPAL-VERIFY] Importo non trovato nella risposta PayPal:', JSON.stringify(paypalOrder));
+        return NextResponse.json({
+          error: 'Risposta PayPal senza importo'
+        }, { status: 500 });
+      }
+
+      const paidAmount = parseFloat(paidAmountStr);
+
+      // 6. Confronta importo pagato con totale atteso
       // Tolleranza di 0.01€ per arrotondamenti
       const tolerance = 0.01;
       if (Math.abs(paidAmount - expectedTotal) > tolerance) {
@@ -104,10 +150,13 @@ export async function POST(request: NextRequest) {
         }, { status: 400 });
       }
 
+      capturedTransactionId = paypalOrder.purchase_units[0]?.payments?.captures?.[0]?.id;
+
       console.log('[PAYPAL-VERIFY] ✅ Verifica completata con successo:', {
         paypalOrderId,
         status: paypalOrder.status,
-        amount: paidAmount
+        amount: paidAmount,
+        captureId: capturedTransactionId
       });
 
       // Controllo idempotenza: verifica se esiste già un ordine con questo paypalOrderId
@@ -176,7 +225,7 @@ export async function POST(request: NextRequest) {
     // ========================================================================
 
     // Prepara i dati dell'ordine WooCommerce con status "processing" e set_paid true
-    const transactionId = paypalTransactionId || paypalOrderId;
+    const transactionId = capturedTransactionId || paypalTransactionId || paypalOrderId;
     const orderDataToSend = {
       ...orderData,
       customer_id: userId,
