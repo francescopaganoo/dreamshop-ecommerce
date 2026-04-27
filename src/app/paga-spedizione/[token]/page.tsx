@@ -6,9 +6,9 @@ import { Elements, CardElement, useStripe, useElements, PaymentRequestButtonElem
 import { PayPalButtons, PayPalScriptProvider } from '@paypal/react-paypal-js';
 import { getStripe } from '@/lib/stripe';
 import { paypalOptions } from '@/lib/paypal';
-import { ResinShippingFee, getResinShippingFeeByToken } from '@/lib/resinShipping';
+import { ResinShippingFee, getResinShippingFeeByToken, formatDeadline } from '@/lib/resinShipping';
 
-type PageState = 'loading' | 'ready' | 'processing' | 'success' | 'error' | 'already_paid' | 'not_found';
+type PageState = 'loading' | 'ready' | 'processing' | 'success' | 'error' | 'already_paid' | 'not_found' | 'expired';
 
 // Apple Pay / Google Pay button for public payment page
 const PublicAppleGooglePayButton = ({
@@ -426,6 +426,8 @@ export default function PagaSpedizionePage() {
 
         if (data.payment_status === 'paid') {
           setPageState('already_paid');
+        } else if (data.is_expired) {
+          setPageState('expired');
         } else {
           setPageState('ready');
         }
@@ -505,6 +507,35 @@ export default function PagaSpedizionePage() {
               </p>
             )}
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Expired
+  if (pageState === 'expired' && shippingFee) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="max-w-md mx-auto bg-white rounded-xl shadow-lg p-8 text-center">
+          <div className="text-red-500 mb-4">
+            <svg className="h-16 w-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Pagamento scaduto</h1>
+          <p className="text-gray-600 mb-4">
+            Il termine per pagare la spedizione dell&apos;ordine <strong>#{shippingFee.order_number}</strong>
+            {shippingFee.payment_deadline ? (
+              <> era il <strong>{formatDeadline(shippingFee.payment_deadline)}</strong>.</>
+            ) : ' è scaduto.'}
+          </p>
+          <div className="bg-gray-50 rounded-lg p-4 mb-4">
+            <p className="text-sm text-gray-500">{shippingFee.product_name}</p>
+            <p className="text-lg font-bold text-gray-700">&euro;{shippingFee.shipping_amount}</p>
+          </div>
+          <p className="text-sm text-gray-500">
+            Per assistenza contatta il supporto DreamShop.
+          </p>
         </div>
       </div>
     );
@@ -592,6 +623,14 @@ export default function PagaSpedizionePage() {
             </div>
           </div>
         </div>
+
+        {/* Deadline notice */}
+        {shippingFee.payment_deadline && !shippingFee.is_expired && (
+          <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg mb-6 text-sm">
+            <strong>Attenzione:</strong> hai tempo per pagare fino al{' '}
+            <strong>{formatDeadline(shippingFee.payment_deadline)}</strong>.
+          </div>
+        )}
 
         {/* Payment method selection */}
         {!paymentMethod ? (

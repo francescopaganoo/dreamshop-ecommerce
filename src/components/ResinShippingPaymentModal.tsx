@@ -3,7 +3,7 @@ import { Elements, CardElement, useStripe, useElements, PaymentRequestButtonElem
 import { PayPalButtons, PayPalScriptProvider } from '@paypal/react-paypal-js';
 import { getStripe } from '@/lib/stripe';
 import { paypalOptions } from '@/lib/paypal';
-import { ResinShippingFee } from '@/lib/resinShipping';
+import { ResinShippingFee, formatDeadline } from '@/lib/resinShipping';
 
 // Apple Pay / Google Pay button for resin shipping
 const ResinAppleGooglePayButton = ({
@@ -503,6 +503,8 @@ const ResinShippingPaymentModal = ({
 
   if (!isOpen) return null;
 
+  const isExpired = !!shippingFee.is_expired;
+
   return (
     <div className="fixed inset-0 bg-white bg-opacity-20 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
@@ -517,7 +519,30 @@ const ResinShippingPaymentModal = ({
           </button>
         </div>
 
-        {!paymentMethod ? (
+        {isExpired ? (
+          <div className="p-6">
+            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+              <p className="font-semibold mb-1">Pagamento scaduto</p>
+              <p className="text-sm">
+                Il termine per pagare la spedizione di questo prodotto
+                {shippingFee.payment_deadline ? <> era il <strong>{formatDeadline(shippingFee.payment_deadline)}</strong>.</> : ' è scaduto.'}
+                {' '}Per assistenza contatta il supporto.
+              </p>
+            </div>
+            <div className="mb-4 text-sm text-gray-600">
+              <p className="mb-1">{shippingFee.product_name}</p>
+              <div className="flex justify-between">
+                <span>Costo spedizione:</span>
+                <span className="font-bold">&euro;{shippingFee.shipping_amount}</span>
+              </div>
+            </div>
+            <div className="flex justify-end mt-4">
+              <button type="button" onClick={onClose} className="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300">
+                Chiudi
+              </button>
+            </div>
+          </div>
+        ) : !paymentMethod ? (
           <div className="p-6">
             <div className="mb-4">
               <p className="text-sm text-gray-500 mb-2">{shippingFee.product_name}</p>
@@ -525,6 +550,11 @@ const ResinShippingPaymentModal = ({
                 <span className="text-lg text-gray-600 font-medium">Costo spedizione:</span>
                 <span className="text-xl font-bold text-bred-500">&euro;{shippingFee.shipping_amount}</span>
               </div>
+              {shippingFee.payment_deadline && (
+                <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded text-sm text-amber-800">
+                  Hai tempo per pagare fino al <strong>{formatDeadline(shippingFee.payment_deadline)}</strong>.
+                </div>
+              )}
               <p className="mb-4 text-gray-700">Scegli il metodo di pagamento:</p>
             </div>
 

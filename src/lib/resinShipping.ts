@@ -10,7 +10,16 @@ export interface ResinShippingFee {
   payment_token: string;
   paid_at: string | null;
   created_at: string;
+  payment_deadline?: string | null;
+  is_expired?: boolean;
 }
+
+export const formatDeadline = (deadline?: string | null): string => {
+  if (!deadline) return '';
+  const [y, m, d] = deadline.split('-');
+  if (!y || !m || !d) return '';
+  return `${d}/${m}/${y}`;
+};
 
 export const getResinShippingFees = async (): Promise<ResinShippingFee[]> => {
   const token = typeof window !== 'undefined' ? localStorage.getItem('woocommerce_token') : null;

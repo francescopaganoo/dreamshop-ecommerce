@@ -10,7 +10,7 @@ import ResinShippingPaymentModal from '@/components/ResinShippingPaymentModal';
 import { PointsResponse, PointsHistoryItem, getUserPoints } from '@/lib/points';
 import { BillingAddress, ShippingAddress, getUserAddresses } from '@/lib/api';
 import GiftCardBalance from '@/components/GiftCardBalance';
-import { getResinShippingFees, ResinShippingFee } from '@/lib/resinShipping';
+import { getResinShippingFees, ResinShippingFee, formatDeadline } from '@/lib/resinShipping';
 import { getAffiliateStatus, getAffiliateDashboard, AffiliateDashboardData } from '@/lib/affiliate';
 
 // Interfaccia per gli ordini
@@ -1031,20 +1031,36 @@ function AccountContent() {
                       <th className="py-2 px-4 text-left text-gray-600">Ordine</th>
                       <th className="py-2 px-4 text-left text-gray-600">Prodotto</th>
                       <th className="py-2 px-4 text-left text-gray-600">Spedizione</th>
+                      <th className="py-2 px-4 text-left text-gray-600">Scadenza</th>
                       <th className="py-2 px-4 text-left text-gray-600">Stato</th>
                       <th className="py-2 px-4 text-left text-gray-600">Azione</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {resinShippingFees.map((fee) => (
+                    {resinShippingFees.map((fee) => {
+                      const isExpired = fee.is_expired && fee.payment_status !== 'paid';
+                      return (
                       <tr key={fee.id} className="border-t">
                         <td className="py-2 px-4 text-gray-600">#{fee.order_number}</td>
                         <td className="py-2 px-4 text-gray-600">{fee.product_name}</td>
                         <td className="py-2 px-4 font-semibold">&euro;{fee.shipping_amount}</td>
+                        <td className="py-2 px-4 text-gray-600">
+                          {fee.payment_deadline ? (
+                            <span className={isExpired ? 'text-red-600 font-semibold' : ''}>
+                              {formatDeadline(fee.payment_deadline)}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">&mdash;</span>
+                          )}
+                        </td>
                         <td className="py-2 px-4">
                           {fee.payment_status === 'paid' ? (
                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                               Pagato
+                            </span>
+                          ) : isExpired ? (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                              Scaduto
                             </span>
                           ) : (
                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
@@ -1053,7 +1069,7 @@ function AccountContent() {
                           )}
                         </td>
                         <td className="py-2 px-4">
-                          {fee.payment_status === 'pending' && (
+                          {fee.payment_status === 'pending' && !isExpired && (
                             <button
                               onClick={() => {
                                 setResinPaymentFee(fee);
@@ -1064,6 +1080,9 @@ function AccountContent() {
                               Paga ora
                             </button>
                           )}
+                          {fee.payment_status === 'pending' && isExpired && (
+                            <span className="text-xs text-red-500">Termine superato</span>
+                          )}
                           {fee.payment_status === 'paid' && fee.paid_at && (
                             <span className="text-xs text-gray-400">
                               {new Date(fee.paid_at).toLocaleDateString('it-IT')}
@@ -1071,7 +1090,8 @@ function AccountContent() {
                           )}
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
