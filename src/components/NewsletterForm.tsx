@@ -33,7 +33,11 @@ export default function NewsletterForm() {
     setMessage(null);
 
     try {
-      const result = await subscribeNewsletter({ email: email.trim(), hp });
+      const result = await subscribeNewsletter({
+        email: email.trim(),
+        privacy_consent: privacyAccepted,
+        hp,
+      });
 
       if (result.success) {
         setMessage({

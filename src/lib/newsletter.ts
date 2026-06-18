@@ -11,6 +11,8 @@ export interface NewsletterSubscription {
   name?: string;
   /** Optional list id. When 0/omitted the backend uses the default site list. */
   list?: number;
+  /** GDPR privacy consent — required by the backend. */
+  privacy_consent: boolean;
   /** Honeypot — must stay empty; filled only by bots. */
   hp?: string;
 }

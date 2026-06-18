@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { CONSENT_STORAGE_KEY, saveConsent as persistConsent, type CookiePreferences } from '@/lib/consent';
 
 export default function CookieConsent() {
   const [isVisible, setIsVisible] = useState(false);
@@ -15,7 +16,7 @@ export default function CookieConsent() {
 
   useEffect(() => {
     // Controlla se l'utente ha già dato il consenso
-    const consent = localStorage.getItem('cookie-consent');
+    const consent = localStorage.getItem(CONSENT_STORAGE_KEY);
     if (!consent) {
       setIsVisible(true);
       setHasExistingConsent(false);
@@ -25,7 +26,7 @@ export default function CookieConsent() {
 
     // Ascolta l'evento personalizzato per aprire le impostazioni
     const handleOpenSettings = () => {
-      const existingConsent = localStorage.getItem('cookie-consent');
+      const existingConsent = localStorage.getItem(CONSENT_STORAGE_KEY);
       if (existingConsent) {
         try {
           setPreferences(JSON.parse(existingConsent));
@@ -44,20 +45,11 @@ export default function CookieConsent() {
     };
   }, []);
 
-  const saveConsent = (consentData: typeof preferences) => {
-    localStorage.setItem('cookie-consent', JSON.stringify(consentData));
-    localStorage.setItem('cookie-consent-date', new Date().toISOString());
+  const saveConsent = (consentData: CookiePreferences) => {
+    // Persist + broadcast: TrackingScripts reacts and loads/blocks the
+    // trackers (Hotjar/Pixel) and updates Google Consent Mode accordingly.
+    persistConsent(consentData);
     setIsVisible(false);
-
-    // Qui puoi aggiungere la logica per attivare/disattivare i cookie in base alle preferenze
-    if (consentData.analytics) {
-      // Attiva Google Analytics o altri servizi analytics
-      console.log('Analytics cookies enabled');
-    }
-    if (consentData.marketing) {
-      // Attiva cookie di marketing
-      console.log('Marketing cookies enabled');
-    }
   };
 
   const handleAcceptAll = () => {
@@ -195,9 +187,13 @@ export default function CookieConsent() {
 
               {/* Link privacy policy */}
               <div className="mt-4 text-center text-sm text-gray-600">
-                Per maggiori informazioni, leggi la nostra{' '}
-                <Link href="/termini-vendita" className="text-bred-500 hover:text-bred-600 underline font-medium">
+                Per maggiori informazioni, leggi la{' '}
+                <Link href="/privacy-policy" className="text-bred-500 hover:text-bred-600 underline font-medium">
                   Privacy Policy
+                </Link>
+                {' '}e la{' '}
+                <Link href="/cookie-policy" className="text-bred-500 hover:text-bred-600 underline font-medium">
+                  Cookie Policy
                 </Link>
               </div>
             </div>

@@ -11,6 +11,7 @@ import Footer from "../components/Footer";
 import FloatingCartButton from "../components/FloatingCartButton";
 import WhatsAppButton from "../components/WhatsAppButton";
 import CookieConsent from "../components/CookieConsent";
+import TrackingScripts from "../components/TrackingScripts";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -101,7 +102,30 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${bangers.variable} antialiased`}
       >
-        {/* Google Tag Manager */}
+        {/* Google Consent Mode v2 — default DENIED before any tag loads.
+            Trackers stay cookieless until the user opts in via the cookie
+            banner; TrackingScripts then pushes the consent "update". */}
+        <Script
+          id="consent-mode-default"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('consent', 'default', {
+                'ad_storage': 'denied',
+                'ad_user_data': 'denied',
+                'ad_personalization': 'denied',
+                'analytics_storage': 'denied',
+                'functionality_storage': 'granted',
+                'security_storage': 'granted',
+                'wait_for_update': 500
+              });
+            `,
+          }}
+        />
+
+        {/* Google Tag Manager — governed by Consent Mode above. */}
         <Script
           id="gtm-script"
           strategy="afterInteractive"
@@ -117,58 +141,8 @@ export default function RootLayout({
         />
         {/* End Google Tag Manager */}
 
-        {/* Hotjar Tracking Code */}
-        <Script
-          id="hotjar-script"
-          strategy="afterInteractive"
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function(h,o,t,j,a,r){
-                h.hj=h.hj||function(){(h.hj.q=h.hj.q||[]).push(arguments)};
-                h._hjSettings={hjid:6545540,hjsv:6};
-                a=o.getElementsByTagName('head')[0];
-                r=o.createElement('script');r.async=1;
-                r.src=t+h._hjSettings.hjid+j+h._hjSettings.hjsv;
-                a.appendChild(r);
-              })(window,document,'https://static.hotjar.com/c/hotjar-','.js?sv=');
-            `,
-          }}
-        />
-        {/* End Hotjar Tracking Code */}
-
-        {/* Facebook Pixel */}
-        <Script
-          id="facebook-pixel"
-          strategy="afterInteractive"
-          dangerouslySetInnerHTML={{
-            __html: `
-              !function(f,b,e,v,n,t,s)
-              {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-              n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-              if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-              n.queue=[];t=b.createElement(e);t.async=!0;
-              t.src=v;s=b.getElementsByTagName(e)[0];
-              s.parentNode.insertBefore(t,s)}(window, document,'script',
-              'https://connect.facebook.net/en_US/fbevents.js');
-              fbq('init', '881191446642521');
-              fbq('track', 'PageView');
-            `,
-          }}
-        />
-        {/* End Facebook Pixel */}
-
-        {/* Facebook Pixel (noscript) */}
-        <noscript>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            height="1"
-            width="1"
-            style={{ display: 'none' }}
-            src="https://www.facebook.com/tr?id=881191446642521&ev=PageView&noscript=1"
-            alt=""
-          />
-        </noscript>
-        {/* End Facebook Pixel (noscript) */}
+        {/* Consent-gated trackers (Hotjar / Meta Pixel) load only after opt-in. */}
+        <TrackingScripts />
 
         {/* Google Tag Manager (noscript) */}
         <noscript>
