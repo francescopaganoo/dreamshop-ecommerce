@@ -7,6 +7,35 @@ import { orderDataStore } from '../../../../lib/orderDataStore';
 // Inizializza Stripe con la chiave segreta
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
+/**
+ * Estrae e logga il dettaglio reale di un errore di creazione ordine WooCommerce.
+ * WooCommerce mette il motivo (es. coupon non valido, prodotto out-of-stock) in
+ * error.response.data, che l'AxiosError di default NON stampa.
+ */
+function logOrderCreationError(context: string, error: unknown, payload?: Record<string, unknown>) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const e = error as any;
+  const status = e?.response?.status;
+  const data = e?.response?.data;
+  console.error(`[WEBHOOK] ${context} - status=${status ?? 'n/a'}`);
+  if (data !== undefined) {
+    console.error(`[WEBHOOK] ${context} - WooCommerce response:`, JSON.stringify(data));
+  } else {
+    console.error(`[WEBHOOK] ${context} - errore:`, e?.message || e);
+  }
+  if (payload) {
+    console.error(`[WEBHOOK] ${context} - payload inviato:`, JSON.stringify({
+      status: payload.status,
+      set_paid: payload.set_paid,
+      coupon_lines: payload.coupon_lines,
+      fee_lines: payload.fee_lines,
+      shipping_lines: payload.shipping_lines,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      line_items: (payload.line_items as any[])?.map((li) => ({ product_id: li.product_id, variation_id: li.variation_id, quantity: li.quantity, total: li.total })),
+    }));
+  }
+}
+
 // Webhook secret per verificare la firma
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
@@ -399,7 +428,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ received: true, message: `Ordine #${order.id} creato`, order_id: order.id });
 
           } catch (error) {
-            console.error('[WEBHOOK] Errore creazione ordine da order_data_id:', error);
+            logOrderCreationError('Errore creazione ordine da order_data_id (payment_request)', error);
             return NextResponse.json({ received: true, error: 'Errore creazione ordine' });
           }
         }
@@ -619,7 +648,7 @@ export async function POST(request: NextRequest) {
                 });
               }
             } catch (error) {
-              console.error('[WEBHOOK] Errore creazione ordine iOS:', error);
+              logOrderCreationError('Errore creazione ordine iOS', error);
               return NextResponse.json({
                 received: true,
                 error: 'Errore creazione ordine iOS'
@@ -780,7 +809,7 @@ export async function POST(request: NextRequest) {
         }
 
       } catch (error) {
-        console.error('[WEBHOOK] Errore durante la creazione dell\'ordine da payment_intent:', error);
+        logOrderCreationError('Errore creazione ordine da payment_intent', error, orderDataToSend);
         return NextResponse.json({ received: true, error: 'Errore creazione ordine' });
       }
     }
@@ -845,6 +874,8 @@ export async function POST(request: NextRequest) {
           // Continua comunque
         }
 
+        // Dichiarato fuori dal try così è disponibile nel catch per il log del payload
+        let orderDataToSend: Record<string, unknown> | undefined;
         try {
           // Recupera l'ID dei dati dell'ordine dai metadata
           const orderDataId = session.metadata?.order_data_id;
@@ -884,7 +915,7 @@ export async function POST(request: NextRequest) {
           const baseOrderData2 = orderData as Record<string, unknown>;
 
           // Prepara i dati dell'ordine WooCommerce
-          const orderDataToSend: Record<string, unknown> = {
+          orderDataToSend = {
             ...baseOrderData2,
             payment_method: paymentMethod,
             payment_method_title: paymentMethodTitle,
@@ -982,8 +1013,11 @@ export async function POST(request: NextRequest) {
           }
 
         } catch (error) {
-          console.error(`[WEBHOOK] Errore durante la creazione dell'ordine ${paymentMethod}:`, error);
-          // Non restituiamo un errore a Stripe, altrimenti ritenterà
+          logOrderCreationError(`Errore creazione ordine ${paymentMethod}`, error, orderDataToSend);
+          // NOTA: il lock sul temp-order resta in 'processing'. Per un 400 (errore
+          // deterministico) il retry fallirebbe comunque; per errori transitori serve
+          // un endpoint di unlock lato WP (vedi follow-up). Non restituiamo errore a
+          // Stripe, altrimenti ritenterebbe inutilmente.
           return NextResponse.json({ received: true, error: 'Errore creazione ordine' });
         }
       }

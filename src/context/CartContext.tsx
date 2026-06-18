@@ -685,7 +685,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         } : undefined
       }));
 
-      const result = await applyCoupon(couponCode.trim(), apiCartItems, undefined, user?.email);
+      const result = await applyCoupon(couponCode.trim(), apiCartItems, user?.id, user?.email);
 
       couponRef.current = result.coupon;
       setCoupon(result.coupon);
@@ -738,7 +738,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }));
 
       // Riapplica il coupon con il carrello aggiornato
-      const result = await applyCoupon(coupon.code, apiCartItems, undefined, user?.email);
+      const result = await applyCoupon(coupon.code, apiCartItems, user?.id, user?.email);
       
       // Aggiorna lo sconto
       setDiscount(result.discount);

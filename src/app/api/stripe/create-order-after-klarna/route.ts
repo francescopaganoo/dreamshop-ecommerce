@@ -170,10 +170,23 @@ export async function POST(request: NextRequest) {
       });
 
     } catch (wooError) {
-      console.error('[KLARNA] Errore durante la creazione dell\'ordine in WooCommerce:', wooError);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const we = wooError as any;
+      const wcStatus = we?.response?.status;
+      const wcData = we?.response?.data;
+      console.error(`[KLARNA] Errore creazione ordine WooCommerce - status=${wcStatus ?? 'n/a'}, response=${JSON.stringify(wcData ?? we?.message)}`);
+      console.error('[KLARNA] Payload inviato:', JSON.stringify({
+        status: orderDataToSend.status,
+        coupon_lines: orderDataToSend.coupon_lines,
+        fee_lines: orderDataToSend.fee_lines,
+        shipping_lines: orderDataToSend.shipping_lines,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        line_items: (orderDataToSend.line_items as any[])?.map((li) => ({ product_id: li.product_id, variation_id: li.variation_id, quantity: li.quantity, total: li.total })),
+      }));
       return NextResponse.json({
         error: 'Errore durante la creazione dell\'ordine',
-        details: wooError
+        wooStatus: wcStatus,
+        wooResponse: wcData,
       }, { status: 500 });
     }
 
