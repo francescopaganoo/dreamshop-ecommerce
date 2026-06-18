@@ -7,6 +7,7 @@ import { FaTiktok } from 'react-icons/fa6';
 import { useState, useEffect } from 'react';
 import { getMegaMenuCategories, ExtendedCategory } from '../lib/api';
 import { decodeHtmlEntities } from '@/lib/decodeHtmlEntities';
+import NewsletterForm from './NewsletterForm';
 
 export default function Footer() {
   const [categories, setCategories] = useState<ExtendedCategory[]>([]);
@@ -243,26 +244,9 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* Newsletter 
-        <div className="mt-16 p-8 bg-gradient-to-r from-bred-500/10 to-purple-500/10 rounded-2xl border border-gray-700/50">
-          <div className="text-center mb-6">
-            <h3 className="text-2xl font-bold mb-2">Resta Sempre Aggiornato!</h3>
-            <p className="text-gray-300">Ricevi in anteprima le ultime novità e offerte esclusive</p>
-          </div>
-          <div className="max-w-md mx-auto flex gap-2">
-            <input 
-              type="email" 
-              placeholder="La tua email..." 
-              className="flex-grow px-4 py-3 bg-gray-800 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-bred-500 focus:border-transparent transition-all"
-            />
-            <button 
-              className="bg-gradient-to-r from-bred-500 to-bred-500 hover:from-bred-600 hover:to-bred-700 text-white px-6 py-3 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-bred-500/25"
-            >
-              Iscriviti
-            </button>
-          </div>
-        </div>
-*/}
+        {/* Newsletter */}
+        <NewsletterForm />
+
         {/* Copyright */}
         <div className="border-t border-gray-700/50 mt-12 pt-8 text-center">
           <p className="text-gray-400">
