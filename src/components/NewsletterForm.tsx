@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { subscribeNewsletter } from '../lib/newsletter';
 
 /**
@@ -9,6 +10,7 @@ import { subscribeNewsletter } from '../lib/newsletter';
  */
 export default function NewsletterForm() {
   const [email, setEmail] = useState('');
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
   // Honeypot: hidden from humans, often filled by bots.
   const [hp, setHp] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -19,6 +21,11 @@ export default function NewsletterForm() {
 
     if (!email.trim()) {
       setMessage({ type: 'error', text: 'Inserisci la tua email' });
+      return;
+    }
+
+    if (!privacyAccepted) {
+      setMessage({ type: 'error', text: 'Devi accettare l\'informativa sulla privacy per continuare' });
       return;
     }
 
@@ -34,6 +41,7 @@ export default function NewsletterForm() {
           text: result.message || 'Controlla la tua casella di posta per confermare l\'iscrizione.',
         });
         setEmail('');
+        setPrivacyAccepted(false);
       } else {
         setMessage({
           type: 'error',
@@ -83,11 +91,34 @@ export default function NewsletterForm() {
 
           <button
             type="submit"
-            disabled={isSubmitting || !email.trim()}
+            disabled={isSubmitting || !email.trim() || !privacyAccepted}
             className="bg-gradient-to-r from-bred-500 to-bred-500 hover:from-bred-600 hover:to-bred-700 text-white px-6 py-3 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-bred-500/25 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none whitespace-nowrap"
           >
             {isSubmitting ? 'Invio...' : 'Iscriviti'}
           </button>
+        </div>
+
+        <div className="mt-3 flex items-start justify-center gap-2">
+          <input
+            id="newsletter-privacy"
+            type="checkbox"
+            checked={privacyAccepted}
+            onChange={(e) => setPrivacyAccepted(e.target.checked)}
+            disabled={isSubmitting}
+            className="mt-0.5 h-4 w-4 rounded border-gray-600 bg-gray-800 text-bred-500 focus:ring-bred-500"
+          />
+          <label htmlFor="newsletter-privacy" className="text-sm text-gray-300">
+            Accetto l&apos;
+            <Link
+              href="/privacy-policy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-bred-400 hover:text-bred-300 underline"
+            >
+              informativa sulla privacy
+            </Link>
+            {' '}*
+          </label>
         </div>
 
         {message && (
