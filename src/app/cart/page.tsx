@@ -135,6 +135,7 @@ export default function CartPage() {
     setCouponCode,
     applyCouponCode,
     removeCoupon,
+    validateCouponBeforeCheckout,
     discount,
     couponError,
     isApplyingCoupon,
@@ -357,6 +358,23 @@ export default function CartPage() {
         }
       }
       
+      // Rivalida il coupon applicato rispetto al carrello attuale.
+      // Se non è più applicabile (es. è stato rimosso l'unico prodotto idoneo)
+      // viene rimosso e blocchiamo il checkout, così l'utente vede il totale
+      // aggiornato prima di procedere.
+      if (coupon) {
+        const couponStillValid = await validateCouponBeforeCheckout();
+        if (!couponStillValid) {
+          setStockErrors([{
+            message: 'Il coupon applicato non è più valido per i prodotti nel carrello ed è stato rimosso. Controlla il totale e procedi di nuovo.',
+            issue: 'coupon_removed'
+          }]);
+          setShowStockAlert(true);
+          setIsCheckingOut(false);
+          return;
+        }
+      }
+
       // Prepara i dati del carrello per la verifica
       const cartItems = cart.map(item => ({
         product_id: item.product.id,

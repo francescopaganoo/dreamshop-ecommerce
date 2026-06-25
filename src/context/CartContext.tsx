@@ -47,6 +47,7 @@ interface CartContextType {
   setCouponCode: (code: string) => void;
   applyCouponCode: () => Promise<void>;
   removeCoupon: () => void;
+  validateCouponBeforeCheckout: () => Promise<boolean>;
   discount: number;
   couponError: string | null;
   isApplyingCoupon: boolean;
@@ -751,6 +752,58 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Rivalida in modo sincrono il coupon applicato rispetto al carrello attuale.
+  // Da usare come ultimo controllo prima di procedere al checkout: il ricalcolo
+  // automatico è soggetto a debounce, quindi qui forziamo una verifica certa.
+  // Se il coupon non è più applicabile (es. è stato rimosso l'unico prodotto
+  // idoneo) lo rimuove, imposta un messaggio e ritorna false per bloccare il
+  // passaggio al checkout. Ritorna true se si può procedere.
+  const validateCouponBeforeCheckout = async (): Promise<boolean> => {
+    if (!couponRef.current) return true;
+
+    const apiCartItems = cart.map(item => ({
+      id: item.product.id,
+      name: item.product.name,
+      price: item.product.price || item.product.regular_price,
+      regular_price: item.product.regular_price,
+      sale_price: item.product.sale_price,
+      quantity: item.quantity,
+      variation_id: item.variation_id,
+      attributes: item.attributes,
+      categories: item.product.categories || [],
+      image: item.product.images && item.product.images.length > 0 ? {
+        src: item.product.images[0].src,
+        alt: item.product.images[0].alt || ''
+      } : undefined
+    }));
+
+    try {
+      const result = await applyCoupon(couponRef.current.code, apiCartItems, user?.id, user?.email);
+
+      // Il coupon è ancora valido lato WooCommerce. Se però non produce più
+      // sconto e non offre spedizione gratuita, non ha più senso tenerlo
+      // (tipico quando si rimuove l'unico prodotto idoneo): lo rimuoviamo.
+      const stillUseful = (result.discount && result.discount > 0) || result.free_shipping;
+      if (!stillUseful) {
+        removeCoupon();
+        setCouponError('Il coupon non è più applicabile ai prodotti nel carrello ed è stato rimosso.');
+        return false;
+      }
+
+      setDiscount(result.discount);
+      return true;
+    } catch (error) {
+      // WooCommerce ha rifiutato il coupon per il carrello attuale.
+      removeCoupon();
+      setCouponError(
+        error instanceof Error
+          ? `Coupon rimosso: ${error.message}`
+          : 'Il coupon non è più valido per il tuo carrello ed è stato rimosso.'
+      );
+      return false;
+    }
+  };
+
   // Calculate subtotal (base price without discounts)
   const getSubtotal = () => {
     return cart.reduce((total, item) => {
@@ -869,6 +922,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setCouponCode,
       applyCouponCode,
       removeCoupon,
+      validateCouponBeforeCheckout,
       discount,
       couponError,
       isApplyingCoupon,
@@ -915,6 +969,7 @@ const mockCartContext: CartContextType = {
   setCouponCode: () => {},
   applyCouponCode: async () => {},
   removeCoupon: () => {},
+  validateCouponBeforeCheckout: async () => true,
   discount: 0,
   couponError: null,
   isApplyingCoupon: false,

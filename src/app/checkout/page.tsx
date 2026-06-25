@@ -25,6 +25,7 @@ export default function CheckoutPage() {
     setCouponCode,
     applyCouponCode,
     removeCoupon,
+    validateCouponBeforeCheckout,
     couponError,
     isApplyingCoupon,
     userPoints,
@@ -768,6 +769,29 @@ export default function CheckoutPage() {
     if (!isAuthenticated && formData.createAccount && (!formData.password || formData.password.length < 6)) {
       setFormError('Per creare un account è necessario inserire una password di almeno 6 caratteri.');
       return;
+    }
+
+    // === RIVALIDAZIONE COUPON ===
+    // Ultimo controllo prima di creare l'account/ordine o avviare il pagamento.
+    // Copre il caso in cui si arrivi qui con un coupon non più applicabile
+    // (es. carrello modificato, coupon stantio in localStorage, prodotto idoneo
+    // rimosso). Se non è più valido viene rimosso e blocchiamo l'invio: l'utente
+    // vede il totale aggiornato e completa di nuovo l'ordine.
+    // IMPORTANTE: non possiamo proseguire dopo la rimozione perché coupon/discount
+    // in questa closure resterebbero ai valori vecchi (setState è asincrono),
+    // quindi in caso di coupon non valido facciamo sempre return.
+    if (coupon) {
+      // Disabilita il pulsante solo per la durata della verifica (evita doppio
+      // invio nella finestra asincrona), poi ripristina lo stato così il ciclo
+      // di vita di isSubmitting a valle resta identico all'originale.
+      setIsSubmitting(true);
+      const couponStillValid = await validateCouponBeforeCheckout();
+      setIsSubmitting(false);
+      if (!couponStillValid) {
+        setFormError('Il coupon applicato non è più valido per i prodotti nel carrello ed è stato rimosso. Controlla il totale aggiornato e completa di nuovo l\'ordine.');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
     }
 
     // === CREAZIONE ACCOUNT (se richiesto) ===
