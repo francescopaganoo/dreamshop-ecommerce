@@ -29,6 +29,32 @@ export interface NewsletterList {
   subscriber_count: number;
 }
 
+/**
+ * Configuration of the promotional site form (popup / banner / homepage
+ * section), managed from the WordPress plugin settings. Separate from the
+ * always-on footer form. Conditions are enforced client-side via localStorage.
+ */
+export interface SiteFormConfig {
+  enabled: boolean;
+  mode: 'popup' | 'banner' | 'homepage';
+  /** Banner anchoring; only used in banner mode. */
+  position: 'top' | 'bottom';
+  title: string;
+  description: string;
+  /** Popup trigger; only used in popup mode. */
+  trigger: 'delay' | 'scroll' | 'exit';
+  /** Seconds to wait before showing (delay trigger). */
+  delay: number;
+  /** Percent of page scrolled before showing (scroll trigger). */
+  scroll_percent: number;
+  /** After this many closes, stop showing to the user. 0 = never hide. */
+  dismiss_limit: number;
+  /** Days to wait before showing again after a close. 0 = every visit. */
+  frequency_days: number;
+  /** Target list id; 0 means the backend default site list. */
+  list: number;
+}
+
 function apiBase(): string {
   return (WORDPRESS_URL || '').replace(/\/$/, '');
 }
@@ -95,4 +121,27 @@ export async function getNewsletterLists(): Promise<NewsletterList[]> {
   }
 
   return response.json();
+}
+
+/**
+ * Fetch the promotional site-form configuration (popup / banner / homepage).
+ * Returns null on any error so callers can simply skip rendering the form.
+ */
+export async function getSiteFormConfig(): Promise<SiteFormConfig | null> {
+  try {
+    const response = await fetch(`${apiBase()}/wp-json/newsletter-manager/v1/site-form`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    return (await response.json()) as SiteFormConfig;
+  } catch {
+    return null;
+  }
 }

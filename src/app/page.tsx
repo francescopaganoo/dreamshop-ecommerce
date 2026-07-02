@@ -1,6 +1,7 @@
 import { getFilteredProductsPlugin, getCategories, getProductsByBrandSlug, getBestSellingProducts, Product, Category } from "@/lib/api";
 import LazyProductSection from "@/components/LazyProductSection";
 import CategoryCarousel from "@/components/CategoryCarousel";
+import SiteNewsletter from "@/components/SiteNewsletter";
 import Link from "next/link";
 import Image from "next/image";
 import {FaArrowRight } from "react-icons/fa";
@@ -684,7 +685,12 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Newsletter Section - Design Moderno */}
+      {/* Newsletter Section — managed from the newsletter-manager WordPress
+          backend. Renders only when enabled there with mode = "homepage". */}
+      <SiteNewsletter placement="inline" />
+
+      {/* Newsletter Section - Design Moderno (legacy static markup, replaced by
+          the backend-managed SiteNewsletter above) */}
      {/* <section className="py-20 bg-gradient-to-b from-white to-gray-50">
         <div className="container mx-auto px-6">
           <div className="bg-white rounded-2xl shadow-xl p-8 md:p-12">

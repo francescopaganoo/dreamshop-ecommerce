@@ -12,6 +12,7 @@ import FloatingCartButton from "../components/FloatingCartButton";
 import WhatsAppButton from "../components/WhatsAppButton";
 import CookieConsent from "../components/CookieConsent";
 import TrackingScripts from "../components/TrackingScripts";
+import SiteNewsletter from "../components/SiteNewsletter";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -212,6 +213,10 @@ export default function RootLayout({
             <FloatingCartButton />
             <WhatsAppButton />
             <CookieConsent />
+            {/* Promotional newsletter form (popup / banner) — managed from the
+                newsletter-manager WordPress backend; renders nothing unless
+                enabled there. The homepage section mode is mounted in page.tsx. */}
+            <SiteNewsletter placement="overlay" />
           </div>
         </ClientProviders>
       </body>
