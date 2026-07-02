@@ -13,6 +13,19 @@ import { createOrder, getShippingMethods, ShippingMethod, getUserAddresses, save
 import { getAvailableCountries, CountryOption } from '../../lib/countries';
 import { isAutoGift } from '../../lib/autoGifts';
 
+// Helper per il campo indirizzo: separazione SOLO visiva di via e numero civico.
+// Il dato inviato al backend resta il campo unico `address_1` (via + civico).
+const combineStreet = (via: string, civico: string): string =>
+  [via, civico].map((s) => (s || '').trim()).filter(Boolean).join(' ');
+
+// Divide un indirizzo esistente (es. "Via Roma 12") in via + civico per precompilare
+// i campi visivi. La ricombinazione produce esattamente la stringa originale.
+const splitStreet = (full: string): { via: string; civico: string } => {
+  const match = (full || '').trim().match(/^(.*\S)\s+(\d+\S*)$/);
+  if (match) return { via: match[1], civico: match[2] };
+  return { via: full || '', civico: '' };
+};
+
 export default function CheckoutPage() {
   const router = useRouter();
   const {
@@ -85,6 +98,9 @@ export default function CheckoutPage() {
     lastName: string;
     email: string;
     phone: string;
+    // Campi visivi (via + civico) che compongono address1 — non inviati direttamente
+    via: string;
+    civico: string;
     address1: string;
     address2: string;
     city: string;
@@ -100,6 +116,8 @@ export default function CheckoutPage() {
     shippingLastName: string;
     shippingPhone: string;
     userId: number;
+    shippingVia: string;
+    shippingCivico: string;
     shippingAddress1: string;
     shippingAddress2: string;
     shippingCity: string;
@@ -238,6 +256,8 @@ export default function CheckoutPage() {
     lastName: '',
     email: '',
     phone: '',
+    via: '',
+    civico: '',
     address1: '',
     address2: '',
     city: '',
@@ -252,6 +272,8 @@ export default function CheckoutPage() {
     shippingFirstName: '',
     shippingLastName: '',
     userId: 0, // Campo nascosto per memorizzare l'ID utente
+    shippingVia: '',
+    shippingCivico: '',
     shippingAddress1: '',
     shippingAddress2: '',
     shippingCity: '',
@@ -381,6 +403,9 @@ export default function CheckoutPage() {
                   ...baseUserData,
                   phone: addresses.billing.phone || prev.phone,
                   address1: addresses.billing.address_1 || prev.address1,
+                  // Precompila i campi visivi via/civico separando l'indirizzo salvato
+                  via: addresses.billing.address_1 ? splitStreet(addresses.billing.address_1).via : prev.via,
+                  civico: addresses.billing.address_1 ? splitStreet(addresses.billing.address_1).civico : prev.civico,
                   address2: addresses.billing.address_2 || prev.address2,
                   city: addresses.billing.city || prev.city,
                   state: addresses.billing.state || prev.state,
@@ -418,6 +443,8 @@ export default function CheckoutPage() {
                       formUpdate.shippingFirstName = addresses.shipping.first_name || baseUserData.firstName;
                       formUpdate.shippingLastName = addresses.shipping.last_name || baseUserData.lastName;
                       formUpdate.shippingAddress1 = addresses.shipping.address_1 || '';
+                      formUpdate.shippingVia = splitStreet(addresses.shipping.address_1 || '').via;
+                      formUpdate.shippingCivico = splitStreet(addresses.shipping.address_1 || '').civico;
                       formUpdate.shippingAddress2 = addresses.shipping.address_2 || '';
                       formUpdate.shippingCity = addresses.shipping.city || '';
                       formUpdate.shippingState = addresses.shipping.state || '';
@@ -483,7 +510,18 @@ export default function CheckoutPage() {
   // Handle form input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+    setFormData((prev) => {
+      const next = { ...prev, [name]: value };
+      // I campi visivi via/civico ricompongono il campo dato address1 (fatturazione)
+      if (name === 'via' || name === 'civico') {
+        next.address1 = combineStreet(next.via, next.civico);
+      }
+      // ...e shippingAddress1 (spedizione)
+      if (name === 'shippingVia' || name === 'shippingCivico') {
+        next.shippingAddress1 = combineStreet(next.shippingVia, next.shippingCivico);
+      }
+      return next;
+    });
   };
 
   // Gestisce il cambio del valore dei punti da riscattare
@@ -595,6 +633,8 @@ export default function CheckoutPage() {
       lastName: '',
       email: '',
       phone: '',
+      via: '',
+      civico: '',
       address1: '',
       address2: '',
       city: '',
@@ -609,6 +649,8 @@ export default function CheckoutPage() {
       shippingFirstName: '',
       shippingLastName: '',
       userId: 0,
+      shippingVia: '',
+      shippingCivico: '',
       shippingAddress1: '',
       shippingAddress2: '',
       shippingCity: '',
@@ -2460,19 +2502,35 @@ export default function CheckoutPage() {
                   />
                 </div>
                 
-                <div className="mb-6">
-                  <label htmlFor="address1" className="block text-sm font-medium text-gray-700 mb-1">
-                    Indirizzo *
-                  </label>
-                  <input
-                    type="text"
-                    id="address1"
-                    name="address1"
-                    value={formData.address1}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bred-500"
-                    required
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div className="md:col-span-2">
+                    <label htmlFor="via" className="block text-sm font-medium text-gray-700 mb-1">
+                      Indirizzo (via/piazza) *
+                    </label>
+                    <input
+                      type="text"
+                      id="via"
+                      name="via"
+                      value={formData.via}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bred-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="civico" className="block text-sm font-medium text-gray-700 mb-1">
+                      N. civico *
+                    </label>
+                    <input
+                      type="text"
+                      id="civico"
+                      name="civico"
+                      value={formData.civico}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bred-500"
+                      required
+                    />
+                  </div>
                 </div>
                 
                 <div className="mb-6">
@@ -2597,6 +2655,8 @@ export default function CheckoutPage() {
                           ...(isChecked && {
                             shippingFirstName: prev.firstName,
                             shippingLastName: prev.lastName,
+                            shippingVia: prev.via,
+                            shippingCivico: prev.civico,
                             shippingAddress1: prev.address1,
                             shippingAddress2: prev.address2,
                             shippingCity: prev.city,
@@ -2653,19 +2713,35 @@ export default function CheckoutPage() {
                       </div>
                     </div>
                     
-                    <div className="mb-6">
-                      <label htmlFor="shippingAddress1" className="block text-sm font-medium text-gray-700 mb-1">
-                        Indirizzo *
-                      </label>
-                      <input
-                        type="text"
-                        id="shippingAddress1"
-                        name="shippingAddress1"
-                        value={formData.shippingAddress1}
-                        onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bred-500"
-                        required={formData.shipToDifferentAddress}
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                      <div className="md:col-span-2">
+                        <label htmlFor="shippingVia" className="block text-sm font-medium text-gray-700 mb-1">
+                          Indirizzo (via/piazza) *
+                        </label>
+                        <input
+                          type="text"
+                          id="shippingVia"
+                          name="shippingVia"
+                          value={formData.shippingVia}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bred-500"
+                          required={formData.shipToDifferentAddress}
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="shippingCivico" className="block text-sm font-medium text-gray-700 mb-1">
+                          N. civico *
+                        </label>
+                        <input
+                          type="text"
+                          id="shippingCivico"
+                          name="shippingCivico"
+                          value={formData.shippingCivico}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bred-500"
+                          required={formData.shipToDifferentAddress}
+                        />
+                      </div>
                     </div>
                     
                     <div className="mb-6">
