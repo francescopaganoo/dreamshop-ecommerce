@@ -149,6 +149,17 @@ export default function SiteNewsletter({ placement }: SiteNewsletterProps) {
     }
   }, [isOverlayMode, config]);
 
+  // Registra la comparsa dell'overlay: fa partire la pausa (frequency_days)
+  // anche se l'utente non chiude esplicitamente il form (es. cambia pagina),
+  // così non ricompare ad ogni navigazione. Il conteggio delle chiusure
+  // (dismiss_limit) resta gestito solo da handleClose.
+  useEffect(() => {
+    if (isOverlayMode && visible) {
+      const state = readState();
+      writeState({ ...state, lastSeen: Date.now() });
+    }
+  }, [isOverlayMode, visible]);
+
   const handleClose = useCallback(() => {
     setVisible(false);
     const state = readState();
@@ -293,53 +304,61 @@ interface OverlayProps {
 function PopupForm({ config, onClose, onSubscribed }: OverlayProps) {
   return (
     <div
-      className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 p-4"
+      className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-nm-fade-in"
       role="dialog"
       aria-modal="true"
       aria-label={config.title}
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-md rounded-2xl bg-gradient-to-br from-gray-900 to-gray-800 p-8 shadow-2xl border border-gray-700/50"
+        className="relative w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl animate-nm-pop-in"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Accento rosso brand in alto */}
+        <div className="h-2 w-full bg-gradient-to-r from-bred-500 to-bred-700" />
+
         <button
           type="button"
           onClick={onClose}
           aria-label="Chiudi"
-          className="absolute right-4 top-4 text-gray-400 hover:text-white text-2xl leading-none"
+          className="absolute right-3 top-4 flex h-8 w-8 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700 text-2xl leading-none transition-colors"
         >
           &times;
         </button>
-        <div className="text-center mb-6">
-          <h3 className="text-2xl font-bold mb-2 text-white">{config.title}</h3>
-          <p className="text-gray-300">{config.description}</p>
+
+        <div className="p-8">
+          <div className="text-center mb-6">
+            <span className="text-bred-500 font-semibold text-sm tracking-wide uppercase">Newsletter</span>
+            <h3 className="mt-1 text-3xl font-bangers tracking-wide text-gray-900">{config.title}</h3>
+            <p className="mt-2 text-gray-600">{config.description}</p>
+          </div>
+          <NewsletterFields config={config} onSubscribed={onSubscribed} theme="light" />
         </div>
-        <NewsletterFields config={config} onSubscribed={onSubscribed} theme="dark" />
       </div>
     </div>
   );
 }
 
 function BannerForm({ config, onClose, onSubscribed }: OverlayProps) {
-  const anchor = config.position === 'top' ? 'top-0' : 'bottom-0';
+  const anchor = config.position === 'top' ? 'top-0 border-b' : 'bottom-0 border-t';
   return (
-    <div className={`fixed ${anchor} inset-x-0 z-[1000] bg-gray-900/95 backdrop-blur border-t border-gray-700/50 shadow-2xl`}>
+    <div className={`fixed ${anchor} inset-x-0 z-[1000] bg-white/95 backdrop-blur border-gray-200 shadow-2xl animate-nm-fade-in`}>
       <div className="container mx-auto px-4 py-4">
         <div className="flex flex-col md:flex-row md:items-center gap-4">
           <div className="md:flex-shrink-0 md:max-w-sm pr-8">
-            <h3 className="text-lg font-bold text-white">{config.title}</h3>
-            <p className="text-sm text-gray-300">{config.description}</p>
+            <span className="text-bred-500 font-semibold text-xs tracking-wide uppercase">Newsletter</span>
+            <h3 className="text-xl font-bangers tracking-wide text-gray-900">{config.title}</h3>
+            <p className="text-sm text-gray-600">{config.description}</p>
           </div>
           <div className="flex-grow">
-            <NewsletterFields config={config} onSubscribed={onSubscribed} theme="dark" />
+            <NewsletterFields config={config} onSubscribed={onSubscribed} theme="light" />
           </div>
         </div>
         <button
           type="button"
           onClick={onClose}
           aria-label="Chiudi"
-          className="absolute right-4 top-3 text-gray-400 hover:text-white text-2xl leading-none"
+          className="absolute right-4 top-3 flex h-8 w-8 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700 text-2xl leading-none transition-colors"
         >
           &times;
         </button>
@@ -359,8 +378,8 @@ function InlineSection({ config, onSubscribed }: InlineProps) {
       <div className="container mx-auto px-6">
         <div className="bg-white rounded-2xl shadow-xl p-8 md:p-12 max-w-3xl mx-auto">
           <div className="text-center mb-6">
-            <span className="text-bred-500 font-medium">NEWSLETTER</span>
-            <h2 className="text-3xl font-bold mb-2 text-gray-900">{config.title}</h2>
+            <span className="text-bred-500 font-semibold text-sm tracking-wide uppercase">Newsletter</span>
+            <h2 className="text-3xl md:text-4xl font-bangers tracking-wide mb-2 text-gray-900">{config.title}</h2>
             <p className="text-gray-600">{config.description}</p>
           </div>
           <div className="max-w-md mx-auto">

@@ -12,7 +12,11 @@
   --font-mono: var(--font-geist-mono);
   --color-bred-50: #f0eded;
   --color-bred-100: #f3dfde;
+  --color-bred-200: #edc4c1;
+  --color-bred-300: #dd9591;
+  --color-bred-400: #c55951;
   --color-bred-500: #A01710;
+  --color-bred-600: #86130d;
   --color-bred-700: #ae0b02;
   --font-bangers: var(--font-bangers);
 }
@@ -54,6 +58,32 @@ body {
 
 .animate-spin-slow {
   animation: spin-slow 3s linear infinite;
+}
+
+/* Newsletter site-form (popup / banner) entrance animations */
+@keyframes nm-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes nm-pop-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.animate-nm-fade-in {
+  animation: nm-fade-in 0.2s ease-out;
+}
+
+.animate-nm-pop-in {
+  animation: nm-pop-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-nm-fade-in,
+  .animate-nm-pop-in {
+    animation: none;
+  }
 }
 
 /* Range Slider Styles */
