@@ -20,6 +20,30 @@ import { useNewsletterSubscribe } from '../hooks/useNewsletterSubscribe';
 
 const STORAGE_KEY = 'nm_site_form_v1';
 
+// Persistent "already subscribed" marker. Kept in a long-lived cookie IN
+// ADDITION to localStorage so the popup stays suppressed even if the user
+// clears localStorage. Still per-browser/device (a cookie can't identify the
+// user across devices before we know their email).
+const SUBSCRIBED_COOKIE = 'nm_subscribed';
+const SUBSCRIBED_COOKIE_DAYS = 365;
+
+function hasSubscribedCookie(): boolean {
+  if (typeof document === 'undefined') {
+    return false;
+  }
+  return document.cookie
+    .split('; ')
+    .some((c) => c.startsWith(`${SUBSCRIBED_COOKIE}=`));
+}
+
+function setSubscribedCookie() {
+  if (typeof document === 'undefined') {
+    return;
+  }
+  const maxAge = SUBSCRIBED_COOKIE_DAYS * 24 * 60 * 60;
+  document.cookie = `${SUBSCRIBED_COOKIE}=1; path=/; max-age=${maxAge}; SameSite=Lax`;
+}
+
 interface FormState {
   /** Number of times the user closed the form. */
   dismissed: number;
@@ -33,6 +57,9 @@ function readState(): FormState {
   if (typeof window === 'undefined') {
     return { dismissed: 0, lastSeen: 0, subscribed: false };
   }
+  // The cookie is authoritative for "subscribed": if it exists the user is
+  // considered subscribed even when localStorage was cleared.
+  const subscribedCookie = hasSubscribedCookie();
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw) {
@@ -40,13 +67,13 @@ function readState(): FormState {
       return {
         dismissed: Number(parsed.dismissed) || 0,
         lastSeen: Number(parsed.lastSeen) || 0,
-        subscribed: Boolean(parsed.subscribed),
+        subscribed: Boolean(parsed.subscribed) || subscribedCookie,
       };
     }
   } catch {
     /* ignore malformed storage */
   }
-  return { dismissed: 0, lastSeen: 0, subscribed: false };
+  return { dismissed: 0, lastSeen: 0, subscribed: subscribedCookie };
 }
 
 function writeState(state: FormState) {
@@ -177,6 +204,8 @@ export default function SiteNewsletter({ placement }: SiteNewsletterProps) {
   }, []);
 
   const handleSubscribed = useCallback(() => {
+    // Set the long-lived cookie first, then mirror the flag into localStorage.
+    setSubscribedCookie();
     const state = readState();
     writeState({ ...state, subscribed: true, lastSeen: Date.now() });
   }, []);
