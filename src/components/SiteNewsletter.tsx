@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { getSiteFormConfig, type SiteFormConfig } from '../lib/newsletter';
 import { useNewsletterSubscribe } from '../hooks/useNewsletterSubscribe';
@@ -83,6 +84,8 @@ interface SiteNewsletterProps {
 export default function SiteNewsletter({ placement }: SiteNewsletterProps) {
   const [config, setConfig] = useState<SiteFormConfig | null>(null);
   const [visible, setVisible] = useState(false);
+  const pathname = usePathname();
+  const isHomePage = pathname === '/';
 
   // Load the backend configuration once.
   useEffect(() => {
@@ -99,8 +102,15 @@ export default function SiteNewsletter({ placement }: SiteNewsletterProps) {
 
   // For the homepage inline section, render as soon as the config says so.
   const isInlineMode = config?.enabled && config.mode === 'homepage' && placement === 'inline';
+  // Overlay (popup/banner): honour the backend "pages" scope. Default 'home'
+  // means the overlay only appears on the storefront homepage; 'all' allows it
+  // site-wide.
+  const isPageAllowed = config?.pages === 'all' || isHomePage;
   const isOverlayMode =
-    config?.enabled && (config.mode === 'popup' || config.mode === 'banner') && placement === 'overlay';
+    config?.enabled &&
+    (config.mode === 'popup' || config.mode === 'banner') &&
+    placement === 'overlay' &&
+    isPageAllowed;
 
   // Arm the trigger for overlay modes (popup/banner), respecting conditions.
   useEffect(() => {

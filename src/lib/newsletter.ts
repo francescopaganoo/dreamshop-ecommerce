@@ -37,6 +37,8 @@ export interface NewsletterList {
 export interface SiteFormConfig {
   enabled: boolean;
   mode: 'popup' | 'banner' | 'homepage';
+  /** Pages where the overlay (popup/banner) may appear. Default 'home'. */
+  pages: 'home' | 'all';
   /** Banner anchoring; only used in banner mode. */
   position: 'top' | 'bottom';
   title: string;
