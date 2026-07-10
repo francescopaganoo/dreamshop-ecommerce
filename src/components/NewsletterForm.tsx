@@ -23,8 +23,11 @@ export default function NewsletterForm() {
   return (
     <div className="mt-16 p-8 bg-gradient-to-r from-bred-500/10 to-purple-500/10 rounded-2xl border border-gray-700/50">
       <div className="text-center mb-6">
-        <h3 className="text-2xl font-bold mb-2">Resta Sempre Aggiornato!</h3>
-        <p className="text-gray-300">Ricevi in anteprima le ultime novità e offerte esclusive</p>
+        <h3 className="text-2xl font-bold mb-2">Il tuo primo ordine ti aspetta!</h3>
+        <p className="text-gray-300">
+          Iscriviti alla newsletter e ricevi via email un coupon da usare sul tuo primo ordine.
+          Conferma l&apos;iscrizione e il codice è tuo.
+        </p>
       </div>
 
       <form onSubmit={handleSubmit} className="max-w-md mx-auto">
