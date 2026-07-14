@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '../../../../context/AuthContext';
+import WithdrawalButton from '@/components/returns/WithdrawalButton';
 
 
 // Interfaccia per le note cliente
@@ -278,6 +279,9 @@ export default function OrderDetailPage() {
               
               {/* Indirizzi */}
               <div className="md:col-span-1">
+                {/* Recesso: deve restare visibile e accessibile per tutto il periodo utile (art. 54-bis). */}
+                <WithdrawalButton orderId={order.id} />
+
                 <div className="bg-white rounded-lg shadow-md p-6 mb-6">
                   <h2 className="text-xl font-semibold mb-4 text-gray-600">Indirizzi</h2>
                   

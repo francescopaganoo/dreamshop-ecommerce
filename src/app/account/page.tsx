@@ -12,6 +12,7 @@ import { BillingAddress, ShippingAddress, getUserAddresses } from '@/lib/api';
 import GiftCardBalance from '@/components/GiftCardBalance';
 import { getResinShippingFees, ResinShippingFee, formatDeadline } from '@/lib/resinShipping';
 import { getAffiliateStatus, getAffiliateDashboard, AffiliateDashboardData } from '@/lib/affiliate';
+import ReturnsTab from '@/components/returns/ReturnsTab';
 
 // Interfaccia per gli ordini
 interface Order {
@@ -123,7 +124,7 @@ function AccountContent() {
   // Aggiorna la tab attiva quando cambia il parametro nell'URL
   useEffect(() => {
     const currentTab = searchParams.get('tab');
-    if (currentTab && ['dashboard', 'orders', 'scheduled-orders', 'resin-shipping', 'addresses', 'account-details', 'points', 'gift-cards', 'affiliate'].includes(currentTab)) {
+    if (currentTab && ['dashboard', 'orders', 'scheduled-orders', 'resin-shipping', 'addresses', 'account-details', 'points', 'gift-cards', 'affiliate', 'returns'].includes(currentTab)) {
       setTab(currentTab);
     }
   }, [searchParams, setTab]);
@@ -1345,7 +1346,10 @@ function AccountContent() {
             <GiftCardBalance />
           </div>
         );
-        
+
+      case 'returns':
+        return <ReturnsTab />;
+
       case 'account-details':
         return (
           <div>
@@ -1645,6 +1649,14 @@ function AccountContent() {
                         className={`text-gray-600 w-full text-left px-4 py-2 rounded-md ${activeTab === 'gift-cards' ? 'bg-bred-100 text-blue-700' : 'hover:bg-gray-100'}`}
                       >
                         Gift Card
+                      </button>
+                    </li>
+                    <li>
+                      <button
+                        onClick={() => setActiveTab('returns')}
+                        className={`text-gray-600 w-full text-left px-4 py-2 rounded-md ${activeTab === 'returns' ? 'bg-bred-100 text-blue-700' : 'hover:bg-gray-100'}`}
+                      >
+                        Resi e recessi
                       </button>
                     </li>
                     <li>
