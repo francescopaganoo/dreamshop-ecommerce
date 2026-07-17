@@ -569,6 +569,7 @@ export interface Category {
   name: string;
   slug: string;
   count: number;
+  hide_from_frontend?: boolean;
   image?: {
     id: number;
     src: string;
@@ -933,7 +934,8 @@ export async function getCategories(): Promise<Category[]> {
     const { data } = await api.get('products/categories', {
       per_page: 100,
     });
-    return data as Category[];
+    // Escludi le categorie disattivate dal backend WordPress (casella "Nascondi dal frontend")
+    return (data as Category[]).filter((category) => category.hide_from_frontend !== true);
   } catch (error) {
     console.error('Error fetching categories:', error);
     return [];
