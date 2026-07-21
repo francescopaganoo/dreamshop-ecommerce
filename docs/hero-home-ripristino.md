@@ -11,13 +11,24 @@ Nella hero della home (`src/app/page.tsx`, sezione `{/* Testi sovrapposti */}`) 
 - il sottotitolo `Scopri la nostra collezione esclusiva di statue, figure e trading card di anime e manga`
 - i due pulsanti `Scopri il Catalogo` (`/products`) e `Offerte Speciali` (`/offerte`)
 
-Al loro posto è stato inserito un unico pulsante temporaneo:
+Al loro posto è stato inserito un unico pulsante temporaneo **"Dream Hot Deals"** che punta a
+`/category/dream-hot-deals` (https://dreamshop18.com/category/dream-hot-deals).
 
-```tsx
-<Link href="/category/dream-hot-deals" ...>Dream Hot Deals</Link>
-```
+## Il pulsante "che brucia"
 
-che punta a https://dreamshop18.com/category/dream-hot-deals
+Lo stile fuoco vive in `src/app/globals.css`, blocco `Pulsante "che brucia" — CTA hero Dream Hot Deals`
+(classi `.btn-fire`, `.btn-fire__flames`, `.btn-fire__label` + keyframes `fire-*`).
+
+Composizione dell'effetto:
+- gradiente arancio/rosso che scorre in orizzontale (`fire-sweep`)
+- `box-shadow` incandescente che pulsa (`fire-pulse`) e alone sfocato dietro (`fire-glow`)
+- braci calde sulla superficie (`fire-embers`)
+- 5 lingue di fuoco sfocate che salgono dal bordo, con durate e ritardi diversi così non vanno mai a
+  tempo tra loro (`fire-lick`)
+- con `prefers-reduced-motion: reduce` le animazioni si spengono e resta il solo gradiente statico
+
+Per riusarlo altrove serve il markup completo (contenitore fiamme + label), vedi il commento in cima
+al blocco CSS. Se il pulsante fuoco non serve più, si può cancellare l'intero blocco CSS.
 
 ## Come ripristinare
 

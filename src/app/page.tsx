@@ -206,10 +206,19 @@ export default async function Home() {
                 <div className="flex flex-wrap gap-4">
                   <Link
                     href="/category/dream-hot-deals"
-                    className="group bg-bred-500 text-white hover:bg-bred-600 px-8 py-4 rounded-md font-medium inline-flex items-center transition-all duration-300 hover:shadow-lg hover:translate-y-[-2px]"
+                    className="btn-fire group px-8 py-4 font-semibold tracking-wide inline-flex items-center"
                   >
-                    Dream Hot Deals
-                    <FaArrowRight className="ml-2 group-hover:translate-x-1 transition-transform" />
+                    <span className="btn-fire__flames" aria-hidden="true">
+                      <span></span>
+                      <span></span>
+                      <span></span>
+                      <span></span>
+                      <span></span>
+                    </span>
+                    <span className="btn-fire__label">
+                      Dream Hot Deals
+                      <FaArrowRight className="ml-2 group-hover:translate-x-1 transition-transform" />
+                    </span>
                   </Link>
                 </div>
               </div>
