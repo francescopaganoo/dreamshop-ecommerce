@@ -159,7 +159,7 @@ export default async function Home() {
           />
           {/* Mobile/Tablet Hero Image */}
           <Image
-            src="/images/hero-mobile-.webp"
+            src="/images/hero-mobile.webp"
             alt="DreamShop Hero Mobile/Tablet"
             width={768}
             height={1024}
