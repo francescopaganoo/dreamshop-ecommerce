@@ -320,11 +320,16 @@ export default function WithdrawalPage() {
             <div className="border border-gray-200 rounded-lg p-4 mb-6 text-sm text-gray-700 space-y-2">
               <p>
                 Alla conferma riceverai via email una <strong>ricevuta con data e ora</strong> della dichiarazione:
-                da quel momento il recesso è validamente esercitato e non serve alcuna nostra approvazione.
+                da quel momento il <strong>recesso è validamente esercitato</strong> e resta valido a prescindere.
               </p>
               <p>
-                Dovrai restituire i beni <strong>entro 14 giorni</strong> dalla dichiarazione. Ti invieremo le
-                istruzioni per la spedizione. <strong>I costi diretti di restituzione sono a tuo carico.</strong>
+                Verificheremo quindi la tua richiesta e ti comuniceremo l&apos;<strong>autorizzazione al reso</strong> con
+                le istruzioni per la spedizione. Se uno o più articoli non rientrano tra quelli restituibili, te ne
+                indicheremo il motivo.
+              </p>
+              <p>
+                Dovrai restituire i beni <strong>entro 14 giorni</strong> dalla dichiarazione. <strong>I costi diretti
+                di restituzione sono a tuo carico.</strong>
               </p>
               <p>
                 Il rimborso avverrà entro 14 giorni; possiamo sospenderlo finché non riceviamo i beni o la prova
@@ -368,6 +373,8 @@ export default function WithdrawalPage() {
             <p className="text-gray-700 mb-6">
               Il tuo recesso è <strong>validamente esercitato</strong>. Riceverai all&apos;indirizzo email associato
               all&apos;ordine la conferma di ricevimento con il testo della dichiarazione, la data e l&apos;ora.
+              Dopo la nostra <strong>verifica del reso</strong> ti invieremo l&apos;autorizzazione e le istruzioni per la
+              spedizione, oppure il motivo dell&apos;eventuale mancata autorizzazione.
             </p>
 
             <div className="bg-gray-50 rounded-lg p-4 mb-6">
