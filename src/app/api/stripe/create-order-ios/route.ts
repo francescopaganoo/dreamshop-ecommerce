@@ -59,6 +59,8 @@ export async function POST(request: NextRequest) {
       directCustomerId = 0,
       isAuthenticated = false,
       pointsToRedeem = 0,
+      pointsDiscount = 0,
+      giftCardDiscount = 0,
       couponCode = ''
     } = data;
 
@@ -172,6 +174,34 @@ export async function POST(request: NextRequest) {
       }
     });
 
+    // Sconti applicati come fee negative, esattamente come negli altri flussi di checkout.
+    // Senza queste righe WooCommerce ricalcola l'ordine a prezzo pieno e il safety net
+    // dei punti (che cerca lo sconto proprio nelle fee_lines) non decurta nulla.
+    // Fallback su pointsToRedeem/100 per i client che non inviano ancora pointsDiscount.
+    const effectivePointsDiscount = pointsDiscount > 0
+      ? pointsDiscount
+      : (pointsToRedeem > 0 ? pointsToRedeem / 100 : 0);
+
+    const fee_lines: Array<{ name: string; total: string; tax_class: string; tax_status: string }> = [];
+
+    if (effectivePointsDiscount > 0) {
+      fee_lines.push({
+        name: `Sconto punti (${pointsToRedeem} punti)`,
+        total: (-effectivePointsDiscount).toFixed(2),
+        tax_class: '',
+        tax_status: 'none'
+      });
+    }
+
+    if (giftCardDiscount > 0) {
+      fee_lines.push({
+        name: 'Sconto Gift Card',
+        total: (-giftCardDiscount).toFixed(2),
+        tax_class: '',
+        tax_status: 'none'
+      });
+    }
+
     // Prepara i dati dell'ordine (NON lo creiamo ancora - lo fara il webhook)
     const orderData = {
       payment_method: 'stripe',
@@ -189,9 +219,16 @@ export async function POST(request: NextRequest) {
         }
       ],
       coupon_lines: couponCode ? [{ code: couponCode }] : [],
+      fee_lines,
       meta_data: [
         { key: 'is_ios_checkout', value: 'true' },
-        { key: '_dreamshop_points_assigned', value: 'yes' }
+        { key: '_dreamshop_points_assigned', value: 'yes' },
+        ...(pointsToRedeem > 0 ? [
+          { key: '_points_redeemed', value: String(pointsToRedeem) },
+          { key: '_points_discount', value: String(effectivePointsDiscount) },
+          // Fallback usato dal safety net WP quando customer_id e' 0 (ordine guest)
+          { key: '_points_user_id', value: String(userId) }
+        ] : [])
       ]
     };
 
@@ -199,7 +236,11 @@ export async function POST(request: NextRequest) {
       customer_id: userId,
       email: customerInfo.email,
       items_count: processedLineItems.length,
-      has_deposit: hasAnyDeposit
+      has_deposit: hasAnyDeposit,
+      points_to_redeem: pointsToRedeem,
+      points_discount: effectivePointsDiscount,
+      fee_lines_count: fee_lines.length,
+      amount_stripe: (amount / 100).toFixed(2)
     });
 
     // STEP 1: Salva i dati dell'ordine nello store temporaneo
@@ -208,7 +249,7 @@ export async function POST(request: NextRequest) {
     const saved = await orderDataStore.set(dataId, {
       orderData,
       pointsToRedeem: pointsToRedeem > 0 ? pointsToRedeem : 0,
-      pointsDiscount: 0
+      pointsDiscount: effectivePointsDiscount
     });
 
     if (!saved) {

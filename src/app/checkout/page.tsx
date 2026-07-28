@@ -1614,6 +1614,10 @@ export default function CheckoutPage() {
                 isAuthenticated: isAuthenticated || customerIdForOrder > 0,
                 // Aggiungi le informazioni sui punti da riscattare
                 pointsToRedeem: pointsToRedeem > 0 ? pointsToRedeem : 0,
+                // Sconti da riportare nelle fee_lines dell'ordine: senza questi il totale
+                // WooCommerce non corrisponde all'importo addebitato su Stripe
+                pointsDiscount: pointsDiscount > 0 ? pointsDiscount : 0,
+                giftCardDiscount: giftCardDiscount > 0 ? giftCardDiscount : 0,
                 token: localStorage.getItem('woocommerce_token') || '',
                 // Aggiungi il coupon manuale se presente
                 couponCode: coupon ? coupon.code : ''
