@@ -47,7 +47,7 @@ export default function CheckoutPage() {
     isLoadingPoints,
     pointsError
   } = useCart();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, isLoading: isAuthLoading } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [orderSuccess, setOrderSuccess] = useState(false);
@@ -148,22 +148,38 @@ export default function CheckoutPage() {
   const [isIOS, setIsIOS] = useState(false);
   const [isSafari, setIsSafari] = useState(false);
   
-  // Carica i punti riscattati dal localStorage e rileva il browser
+  // Rileva il browser
   useEffect(() => {
     if (typeof window !== 'undefined') {
       // Rileva iOS/Safari
       setIsIOS(/iPhone|iPad|iPod/i.test(navigator.userAgent));
       setIsSafari(/Safari/i.test(navigator.userAgent) && !/Chrome/i.test(navigator.userAgent));
-      
-      const savedPointsToRedeem = localStorage.getItem('checkout_points_to_redeem');
-      const savedPointsDiscount = localStorage.getItem('checkout_points_discount');
-      
-      if (savedPointsToRedeem && savedPointsDiscount) {
-        setPointsToRedeem(parseInt(savedPointsToRedeem, 10));
-        setPointsDiscount(parseFloat(savedPointsDiscount));
-      }
     }
   }, []);
+
+  // Ripristina i punti riscattati dal localStorage SOLO per utenti autenticati.
+  // Attende la risoluzione dell'autenticazione (isAuthLoading) per non azzerare i
+  // punti di un utente loggato mentre la sessione e' ancora in caricamento.
+  useEffect(() => {
+    if (typeof window === 'undefined' || isAuthLoading) return;
+
+    const savedPointsToRedeem = localStorage.getItem('checkout_points_to_redeem');
+    const savedPointsDiscount = localStorage.getItem('checkout_points_discount');
+
+    if (!savedPointsToRedeem || !savedPointsDiscount) return;
+
+    if (isAuthenticated) {
+      setPointsToRedeem(parseInt(savedPointsToRedeem, 10));
+      setPointsDiscount(parseFloat(savedPointsDiscount));
+    } else {
+      // Sessione scaduta o logout: l'ordine partirebbe con customer_id=0 e lo sconto
+      // non sarebbe scalabile da nessun saldo. Azzera e ripulisci i residui.
+      setPointsToRedeem(0);
+      setPointsDiscount(0);
+      localStorage.removeItem('checkout_points_to_redeem');
+      localStorage.removeItem('checkout_points_discount');
+    }
+  }, [isAuthLoading, isAuthenticated]);
 
   // Carica i paesi disponibili dalle zone WooCommerce
   useEffect(() => {
