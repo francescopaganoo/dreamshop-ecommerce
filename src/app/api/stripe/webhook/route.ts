@@ -418,6 +418,8 @@ export async function POST(request: NextRequest) {
                     } else {
                       console.error('[WEBHOOK] Apple/Google Pay - Errore decremento punti:', deductResult);
                     }
+                  } else {
+                    console.error(`[WEBHOOK] Apple/Google Pay - POINTS_API_KEY non configurata: ${pointsToRedeemApplePay} punti NON decurtati per ordine #${order.id} (utente ${customerId})`);
                   }
                 } catch (pointsError) {
                   console.error('[WEBHOOK] Apple/Google Pay - Errore decremento punti:', pointsError);
@@ -634,6 +636,8 @@ export async function POST(request: NextRequest) {
                         } else {
                           console.error('[WEBHOOK] iOS - Errore decremento punti:', deductResult);
                         }
+                      } else {
+                        console.error(`[WEBHOOK] iOS - POINTS_API_KEY non configurata: ${pointsToRedeem} punti NON decurtati per ordine #${iosOrderId} (utente ${customerId})`);
                       }
                     } catch (pointsError) {
                       console.error('[WEBHOOK] iOS - Errore decremento punti:', pointsError);
@@ -801,6 +805,8 @@ export async function POST(request: NextRequest) {
                 } else {
                   console.error('[WEBHOOK] Errore nel decremento punti:', deductResult);
                 }
+              } else {
+                console.error(`[WEBHOOK] POINTS_API_KEY non configurata: ${pointsToRedeem} punti NON decurtati per ordine #${wooOrder.id} (utente ${customerId})`);
               }
             } catch (pointsError) {
               console.error('[WEBHOOK] Errore nel decremento punti:', pointsError);
@@ -1006,6 +1012,8 @@ export async function POST(request: NextRequest) {
                 } else {
                   console.error('[WEBHOOK] Errore nel decremento punti (checkout.session):', deductResult);
                 }
+              } else {
+                console.error(`[WEBHOOK] POINTS_API_KEY non configurata (checkout.session): ${pointsToRedeem} punti NON decurtati per ordine #${wooOrder.id} (utente ${customerId})`);
               }
             } catch (pointsError) {
               console.error('[WEBHOOK] Errore nel decremento punti (checkout.session):', pointsError);

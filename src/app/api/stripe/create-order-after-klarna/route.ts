@@ -156,6 +156,8 @@ export async function POST(request: NextRequest) {
             } else {
               console.error('[KLARNA] Errore nel decremento punti:', deductResult);
             }
+          } else {
+            console.error(`[KLARNA] POINTS_API_KEY non configurata: ${pointsToRedeem} punti NON decurtati (utente ${userId})`);
           }
         } catch (pointsError) {
           console.error('[KLARNA] Errore nel decremento punti:', pointsError);

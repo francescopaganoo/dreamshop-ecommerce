@@ -232,6 +232,8 @@ export async function POST(request: NextRequest) {
             } else {
               console.error('[PAYMENT] Errore nel decremento punti:', deductResult);
             }
+          } else {
+            console.error(`[PAYMENT] POINTS_API_KEY non configurata: ${pointsToRedeem} punti NON decurtati per ordine #${wooOrder.id}`);
           }
         } catch (pointsError) {
           console.error('[PAYMENT] Errore nel decremento punti:', pointsError);
