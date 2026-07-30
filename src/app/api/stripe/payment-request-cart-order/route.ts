@@ -133,8 +133,12 @@ export async function POST(request: NextRequest) {
         }
         // ================================================================
 
-        // Usa il prezzo attuale dal database, non quello dal carrello
-        const unitPrice = parseFloat(product.sale_price || product.price || '0');
+        // Usa il prezzo attuale dal database, non quello dal carrello.
+        // NON usare sale_price: e' il prezzo di saldo *configurato*, che puo' essere
+        // programmato nel futuro o gia' scaduto. `price` e' il prezzo effettivo che
+        // WooCommerce applichera' alla riga d'ordine: usarne un altro fa divergere
+        // l'importo addebitato su Stripe dal totale dell'ordine.
+        const unitPrice = parseFloat(product.price || '0');
         if (unitPrice <= 0) {
           throw new Error(`Prezzo non valido per "${product.name}"`);
         }

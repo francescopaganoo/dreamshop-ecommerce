@@ -56,8 +56,11 @@ export async function POST(request: NextRequest) {
       }
       // ====================================================================
 
-      // Calcola il prezzo
-      const unitPrice = parseFloat(product.sale_price || product.price || '0');
+      // Calcola il prezzo.
+      // NON usare sale_price: e' il prezzo di saldo *configurato*, che puo' essere
+      // programmato nel futuro o gia' scaduto. `price` e' il prezzo effettivo che
+      // WooCommerce applichera' alla riga d'ordine.
+      const unitPrice = parseFloat(product.price || '0');
       const totalAmount = (unitPrice * quantity).toFixed(2);
       
       
