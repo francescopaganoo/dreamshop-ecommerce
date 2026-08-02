@@ -2,9 +2,25 @@ import { Metadata } from 'next';
 import Link from 'next/link';
 
 // BOZZA TECNICA — non ancora validata da un legale.
-// Contiene placeholder [DA COMPLETARE] con i dati societari obbligatori ex art. 49 Cod. Consumo.
-// La sezione [3] Resine si fonda sull'esclusione ex art. 59 lett. c): va confermata da un legale,
-// perché regge solo se i beni sono realmente personalizzati su specifica del singolo cliente.
+//
+// DATI SOCIETARI: completi (ragione sociale, sede, P.IVA/CF, RI Catania REA 435724,
+// capitale sociale, PEC, telefono). Società pluripersonale, non in liquidazione.
+//
+// PUNTI ANCORA APERTI (da confermare prima della pubblicazione):
+//  - [5] Giacenza: il testo rinvia al termine indicato dal corriere perché SDA/BRT/GLS
+//    usano termini diversi (in genere 5-10 gg lavorativi). Se si vuole un numero fisso,
+//    va verificato sui contratti con i corrieri.
+//  - [2.3] Stima del costo di restituzione: da inserire (art. 49 c.1 lett. i Cod. Consumo),
+//    soprattutto per le resine spedite dall'estero.
+//  - [6.1] Acconto: manca la disciplina del caso in cui il saldo non venga mai pagato
+//    (termine, sorte dell'acconto). Attenzione: una clausola di trattenuta automatica
+//    sarebbe potenzialmente vessatoria ex art. 33 c.2 lett. e).
+//  - [9] ADR: nessun organismo specifico indicato, clausola volutamente generica.
+//  - [3] L'esclusione del recesso ex art. 59 lett. c) regge SOLO se le resine sono
+//    realmente realizzate su specifica del singolo cliente, non se sono pezzi a
+//    catalogo prodotti su ordinazione. Da validare con un legale.
+//  - Capitale sociale: indicato come € 5.000,00. Se non è interamente versato va
+//    specificata la somma effettivamente versata (art. 2250 c.c.).
 export const metadata: Metadata = {
   title: 'Termini di Vendita | DreamShop',
   description: 'Termini e condizioni di vendita di DreamShop. Diritto di recesso, garanzia legale, spedizioni, resi e politiche di acquisto.',
@@ -19,17 +35,23 @@ export default function TerminiVenditaPage() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-white rounded-lg shadow-sm p-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Termini e condizioni di vendita</h1>
-          <p className="text-sm text-gray-500 mb-8">Ultimo aggiornamento: 14 luglio 2026</p>
+          <p className="text-sm text-gray-500 mb-8">Ultimo aggiornamento: 2 agosto 2026</p>
 
           <div className="prose prose-lg max-w-none">
             <h2 className="text-xl font-semibold text-gray-900 mt-8 mb-4">[1] Identità del venditore</h2>
             <p className="text-gray-700 mb-4">
-              I prodotti presenti su questo sito sono venduti da <strong>[DA COMPLETARE: ragione sociale]</strong>,
-              con sede legale in <strong>[DA COMPLETARE: indirizzo completo]</strong>,
-              P.IVA <strong>[DA COMPLETARE]</strong>, iscritta al Registro delle Imprese di <strong>[DA COMPLETARE]</strong> al n. REA <strong>[DA COMPLETARE]</strong>.
+              I prodotti presenti su questo sito sono venduti da <strong>DREAM SHOP S.R.L.</strong>,
+              con sede legale in <strong>Via Vincenzo Florio 13/L, 95045 Misterbianco (CT), Italia</strong>,
+              P.IVA e Codice Fiscale <strong>05812850872</strong>, iscritta al Registro delle Imprese di
+              Catania al n. REA <strong>435724</strong>, capitale sociale <strong>€ 5.000,00</strong>.
             </p>
             <p className="text-gray-700 mb-4">
-              Email: dreamshopfigure@gmail.com — PEC: <strong>[DA COMPLETARE]</strong> — Telefono: <strong>[DA COMPLETARE]</strong>.
+              Email per l&apos;assistenza:{' '}
+              <a href="mailto:dreamshopfigure@gmail.com" className="text-blue-600 hover:underline">dreamshopfigure@gmail.com</a>{' '}
+              — PEC per le comunicazioni e i reclami formali:{' '}
+              <a href="mailto:dreamshop18@pec.it" className="text-blue-600 hover:underline">dreamshop18@pec.it</a>{' '}
+              — Telefono: <a href="tel:+393515029645" className="text-blue-600 hover:underline">+39 351 502 9645</a>{' '}
+              (raggiungibile anche via WhatsApp).
             </p>
             <p className="text-gray-700 mb-4">
               Le presenti condizioni si applicano ai contratti a distanza conclusi tramite questo sito con i consumatori,
@@ -59,8 +81,8 @@ export default function TerminiVenditaPage() {
             </p>
             <p className="text-gray-700 mb-4">
               In alternativa, puoi comunicare la tua decisione con qualsiasi dichiarazione esplicita inviata ai recapiti
-              indicati al punto [1], anche utilizzando il <strong>modulo di recesso tipo</strong> di cui all&apos;Allegato I,
-              parte B, del Codice del Consumo. L&apos;uso di questi canali alternativi non è obbligatorio.
+              indicati al punto [1], anche utilizzando il <strong>modulo di recesso tipo</strong> riportato al punto [13].
+              L&apos;uso di questi canali alternativi non è obbligatorio.
             </p>
 
             <h3 className="text-lg font-semibold text-gray-900 mt-6 mb-3">[2.2] Effetti del recesso</h3>
@@ -82,13 +104,14 @@ export default function TerminiVenditaPage() {
 
             <h3 className="text-lg font-semibold text-gray-900 mt-6 mb-3">[2.3] Restituzione dei beni</h3>
             <p className="text-gray-700 mb-4">
-              Sei tenuto a restituire i beni <strong>entro 14 giorni</strong> dal giorno in cui ci hai comunicato il recesso.
-              Il termine è rispettato se rispedisci i beni prima della scadenza dei 14 giorni. Le istruzioni per la
-              restituzione, comprensive dell&apos;indirizzo di reso, ti verranno inviate via email dopo la ricezione della
-              tua dichiarazione.
+              Sei tenuto a restituire i beni <strong>entro 14 giorni</strong> dal giorno in cui ci hai comunicato il recesso,
+              all&apos;indirizzo <strong>DREAM SHOP S.R.L., Via Vincenzo Florio 13/L, 95045 Misterbianco (CT), Italia</strong>.
+              Il termine è rispettato se rispedisci i beni prima della scadenza dei 14 giorni. Le istruzioni operative
+              per la restituzione ti verranno inviate via email dopo la ricezione della tua dichiarazione.
             </p>
             <p className="text-gray-700 mb-4">
-              <strong>I costi diretti di restituzione dei beni sono a tuo carico.</strong>
+              <strong>I costi diretti di restituzione dei beni sono a tuo carico</strong> e variano in funzione del corriere
+              e del servizio che sceglierai.
             </p>
             <p className="text-gray-700 mb-4">
               Sei responsabile unicamente della diminuzione del valore dei beni risultante da una manipolazione diversa
@@ -113,13 +136,17 @@ export default function TerminiVenditaPage() {
               prima della conclusione dell&apos;ordine.
             </p>
             <p className="text-gray-700 mb-4">
-              In caso di rinuncia all&apos;acquisto dopo l&apos;avvio della lavorazione, potremo trattenere le somme corrispondenti
-              ai costi già sostenuti e documentati per l&apos;esecuzione dell&apos;ordine; l&apos;eventuale eccedenza ti sarà rimborsata.
-              Restano impregiudicati la garanzia legale di conformità e i tuoi diritti in caso di nostro inadempimento.
+              Poiché il recesso è escluso, l&apos;ordine può essere annullato dopo l&apos;avvio della lavorazione solo con il
+              nostro consenso. In tal caso, di comune accordo, potremo trattenere le sole somme corrispondenti ai costi
+              già sostenuti e documentati per l&apos;esecuzione dell&apos;ordine, rimborsandoti l&apos;eccedenza; sei sempre libero di
+              non accettare tale soluzione e mantenere l&apos;ordine in essere. Restano in ogni caso impregiudicati la
+              garanzia legale di conformità e i tuoi diritti in caso di nostro inadempimento.
             </p>
             <p className="text-gray-700 mb-4">
-              Ogni resina viene spedita con oneri doganali inclusi; le tempistiche indicative sono di circa 60 giorni
-              lavorativi e il codice di tracciamento si aggiorna all&apos;arrivo del prodotto in Europa.
+              Ogni resina viene spedita con oneri doganali inclusi nel prezzo; le tempistiche di produzione e consegna
+              sono indicative e pari a circa <strong>60 giorni lavorativi</strong>, e il codice di tracciamento si aggiorna
+              all&apos;arrivo del prodotto in Europa. Questo termine, indicato nella pagina prodotto e da te accettato al
+              momento dell&apos;ordine, costituisce il &laquo;diverso accordo&raquo; di cui al punto [5].
             </p>
 
             <h2 className="text-xl font-semibold text-gray-900 mt-8 mb-4">[4] Garanzia legale di conformità</h2>
@@ -136,15 +163,24 @@ export default function TerminiVenditaPage() {
               della segnalazione <strong>non è tuttavia condizione di validità della garanzia legale</strong>.
             </p>
             <p className="text-gray-700 mb-4">
-              Tutti gli articoli presenti sul sito sono originali e provvisti dei relativi certificati e bollini di
-              autenticità.
+              I prodotti a catalogo di marchi ufficiali sono originali e corredati, ove previsti dal produttore, dei
+              relativi certificati o bollini di autenticità. Le resine di cui al punto [3] sono invece realizzate
+              artigianalmente su specifica del cliente e non sono accompagnate da bollini di autenticità: le loro
+              caratteristiche sono descritte nella relativa pagina prodotto.
             </p>
 
             <h2 className="text-xl font-semibold text-gray-900 mt-8 mb-4">[5] Spedizione e consegna</h2>
             <p className="text-gray-700 mb-4">
-              I pacchi sono spediti con metodi diversi in base alla provenienza della merce; l&apos;informazione è sempre
-              indicata nella pagina prodotto. Tutti i metodi forniscono un codice di tracciamento. Salvo diverso accordo,
-              la consegna avviene entro 30 giorni dalla conclusione del contratto.
+              Le spedizioni sono affidate ai corrieri <strong>SDA, BRT e GLS</strong>, con metodi che variano in base alla
+              provenienza della merce; l&apos;informazione è sempre indicata nella pagina prodotto. Tutti i metodi forniscono
+              un codice di tracciamento.
+            </p>
+            <p className="text-gray-700 mb-4">
+              Salvo diverso accordo, la consegna avviene <strong>entro 30 giorni</strong> dalla conclusione del contratto.
+              Costituiscono diverso accordo, espressamente indicato nella pagina prodotto e da te accettato al momento
+              dell&apos;ordine, i termini più lunghi previsti per le <strong>resine</strong> (punto [3]) e per gli articoli in{' '}
+              <strong>preordine</strong> (punto [7]), la cui consegna è legata rispettivamente ai tempi di lavorazione e
+              alla data di uscita comunicata dalla casa produttrice.
             </p>
             <p className="text-gray-700 mb-4">
               <strong>Il rischio di perdita o danneggiamento dei beni passa a te solo nel momento in cui tu, o un terzo da te
@@ -154,8 +190,10 @@ export default function TerminiVenditaPage() {
             </p>
             <p className="text-gray-700 mb-4">
               In caso di mancata consegna con rilascio di avviso di giacenza, il pacco può essere ritirato presso il
-              punto designato entro 30 giorni, decorsi i quali verrà rispedito al mittente. In questi casi potrai
-              richiedere una nuova spedizione con costi aggiuntivi, oppure il rimborso del prodotto.
+              punto designato <strong>entro il termine indicato dal corriere nell&apos;avviso stesso</strong>, decorso il quale
+              verrà rispedito al mittente. In questi casi potrai richiedere una nuova spedizione, con i relativi costi
+              aggiuntivi a tuo carico, oppure il rimborso del prodotto; in quest&apos;ultima ipotesi le spese di spedizione
+              già sostenute non sono rimborsabili, salvo che la mancata consegna dipenda da causa a noi imputabile.
             </p>
 
             <h2 className="text-xl font-semibold text-gray-900 mt-8 mb-4">[6] Prezzi e pagamenti</h2>
@@ -165,8 +203,39 @@ export default function TerminiVenditaPage() {
               nella schermata finale di pagamento.
             </p>
             <p className="text-gray-700 mb-4">
-              Sono accettati i pagamenti tramite carta di credito, PayPal e gli ulteriori metodi indicati in fase di
-              checkout. Il contratto si intende concluso nel momento in cui ricevi la nostra email di conferma d&apos;ordine.
+              Sono accettati i pagamenti tramite <strong>carta di credito e di debito</strong> (circuito Stripe),{' '}
+              <strong>PayPal</strong>, <strong>Apple Pay</strong>, <strong>Google Pay</strong>, <strong>Satispay</strong> e{' '}
+              <strong>Klarna</strong>. I metodi effettivamente disponibili per il tuo ordine ti vengono mostrati in fase di
+              checkout. L&apos;eventuale pagamento dilazionato tramite Klarna è regolato dalle condizioni contrattuali del
+              relativo fornitore, che accetti direttamente nei suoi confronti.
+            </p>
+            <p className="text-gray-700 mb-4">
+              Il contratto si intende concluso nel momento in cui ricevi la nostra email di conferma d&apos;ordine.
+            </p>
+
+            <h3 className="text-lg font-semibold text-gray-900 mt-6 mb-3">[6.1] Acquisto con acconto</h3>
+            <p className="text-gray-700 mb-4">
+              Per alcuni prodotti è possibile concludere l&apos;ordine versando un <strong>acconto</strong> anziché l&apos;intero
+              prezzo. La disponibilità di questa modalità, l&apos;importo dell&apos;acconto e l&apos;importo del saldo residuo ti sono
+              indicati <strong>nella pagina del prodotto</strong>, prima della conclusione dell&apos;ordine, e sono riepilogati
+              nella conferma d&apos;ordine.
+            </p>
+            <p className="text-gray-700 mb-4">
+              <strong>Il prodotto viene spedito soltanto dopo il pagamento integrale del prezzo</strong>: fino al versamento
+              del saldo l&apos;ordine resta sospeso e la merce non viene consegnata al corriere. Le istruzioni per il
+              pagamento del saldo ti vengono comunicate ai recapiti indicati nell&apos;ordine.
+            </p>
+            <p className="text-gray-700 mb-4">
+              Il termine di 14 giorni per il recesso, quando applicabile, decorre in ogni caso dalla consegna del bene e
+              non dal versamento dell&apos;acconto.
+            </p>
+
+            <h3 className="text-lg font-semibold text-gray-900 mt-6 mb-3">[6.2] Spedizioni all&apos;estero e oneri doganali</h3>
+            <p className="text-gray-700 mb-4">
+              Per le spedizioni dirette verso Paesi extra-UE, eventuali <strong>dazi doganali, imposte e oneri di importazione
+              sono a carico dell&apos;acquirente</strong> e vengono richiesti dalle autorità del Paese di destinazione al momento
+              dello sdoganamento. Fa eccezione quanto previsto al punto [3] per le resine, il cui prezzo è già
+              comprensivo degli oneri doganali.
             </p>
 
             <h2 className="text-xl font-semibold text-gray-900 mt-8 mb-4">[7] Articoli in preordine</h2>
@@ -183,10 +252,30 @@ export default function TerminiVenditaPage() {
               del bene.
             </p>
 
-            <h2 className="text-xl font-semibold text-gray-900 mt-8 mb-4">[8] Assistenza e reclami</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mt-8 mb-4">[8] Programma punti</h2>
             <p className="text-gray-700 mb-4">
-              Per qualsiasi esigenza puoi contattarci ai recapiti indicati al punto [1]. Risponderemo ai reclami senza
-              indebito ritardo.
+              Gli acquisti effettuati con un account registrato maturano punti fedeltà, convertibili in uno sconto da
+              utilizzare in fase di checkout. Le modalità di accumulo e il valore di conversione sono descritti nella
+              pagina <Link href="/programma-punti" className="text-blue-600 hover:underline">Programma punti</Link>.
+            </p>
+            <p className="text-gray-700 mb-4">
+              I punti <strong>non hanno scadenza</strong> finché il tuo account resta attivo. In caso di reso o di recesso, i
+              punti eventualmente utilizzati per l&apos;ordine <strong>ti vengono riaccreditati</strong>, mentre i punti maturati con
+              quell&apos;ordine vengono corrispondentemente stornati.
+            </p>
+            <p className="text-gray-700 mb-4">
+              I punti non sono convertibili in denaro, non sono cedibili a terzi e non danno diritto ad alcun rimborso
+              in denaro.
+            </p>
+
+            <h2 className="text-xl font-semibold text-gray-900 mt-8 mb-4">[9] Assistenza e reclami</h2>
+            <p className="text-gray-700 mb-4">
+              Per qualsiasi esigenza puoi scriverci a{' '}
+              <a href="mailto:dreamshopfigure@gmail.com" className="text-blue-600 hover:underline">dreamshopfigure@gmail.com</a>{' '}
+              o contattarci agli altri recapiti indicati al punto [1]. Per i <strong>reclami formali</strong> ti invitiamo a
+              utilizzare la PEC{' '}
+              <a href="mailto:dreamshop18@pec.it" className="text-blue-600 hover:underline">dreamshop18@pec.it</a>.
+              Risponderemo senza indebito ritardo.
             </p>
             <p className="text-gray-700 mb-4">
               In caso di controversia, hai la facoltà di rivolgerti a un organismo di risoluzione alternativa delle
@@ -194,7 +283,7 @@ export default function TerminiVenditaPage() {
               l&apos;autorità giudiziaria.
             </p>
 
-            <h2 className="text-xl font-semibold text-gray-900 mt-8 mb-4">[9] Legge applicabile e foro competente</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mt-8 mb-4">[10] Legge applicabile e foro competente</h2>
             <p className="text-gray-700 mb-4">
               Il contratto è regolato dalla legge italiana. Restano in ogni caso applicabili le disposizioni
               inderogabili più favorevoli previste dalla legge dello Stato membro in cui risiedi abitualmente.
@@ -204,12 +293,46 @@ export default function TerminiVenditaPage() {
               di residenza o domicilio elettivo del consumatore (art. 66-bis Cod. Consumo).
             </p>
 
-            <h2 className="text-xl font-semibold text-gray-900 mt-8 mb-4">[10] Modifiche ai termini e condizioni</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mt-8 mb-4">[11] Modifiche ai termini e condizioni</h2>
             <p className="text-gray-700 mb-4">
               Ci riserviamo il diritto di modificare i presenti Termini e Condizioni. Le modifiche non hanno effetto
               retroattivo: <strong>a ciascun ordine si applicano i termini vigenti e da te accettati al momento della
               conclusione del contratto</strong>.
             </p>
+
+            <h2 className="text-xl font-semibold text-gray-900 mt-8 mb-4">[12] Trattamento dei dati personali</h2>
+            <p className="text-gray-700 mb-4">
+              Il trattamento dei dati personali raccolti nell&apos;ambito del rapporto contrattuale è descritto nella{' '}
+              <Link href="/privacy-policy" className="text-blue-600 hover:underline">Privacy Policy</Link> e nella{' '}
+              <Link href="/cookie-policy" className="text-blue-600 hover:underline">Cookie Policy</Link>.
+            </p>
+
+            <h2 className="text-xl font-semibold text-gray-900 mt-8 mb-4">[13] Modulo di recesso tipo</h2>
+            <p className="text-gray-700 mb-4">
+              Ai sensi dell&apos;Allegato I, parte B, del Codice del Consumo. Compila e restituisci il presente modulo solo
+              se desideri recedere dal contratto: il suo utilizzo <strong>non è obbligatorio</strong> e puoi recedere più
+              semplicemente dalla tua area riservata, come indicato al punto [2.1].
+            </p>
+            <div className="border border-gray-300 rounded-md p-6 bg-gray-50 text-gray-700 mb-4">
+              <p className="mb-3">
+                Destinatario: <strong>DREAM SHOP S.R.L.</strong>, Via Vincenzo Florio 13/L, 95045 Misterbianco (CT), Italia
+                — email: dreamshopfigure@gmail.com — PEC: dreamshop18@pec.it
+              </p>
+              <p className="mb-3">
+                Con la presente io/noi (*) notifico/notifichiamo (*) il recesso dal mio/nostro (*) contratto di vendita
+                dei seguenti beni/servizi (*):
+              </p>
+              <p className="mb-3">_______________________________________________</p>
+              <p className="mb-3">Ordinato il (*) / ricevuto il (*): ____________________</p>
+              <p className="mb-3">Nome del/dei consumatore/i: ____________________</p>
+              <p className="mb-3">Indirizzo del/dei consumatore/i: ____________________</p>
+              <p className="mb-3">
+                Firma del/dei consumatore/i (solo se il presente modulo è notificato in versione cartacea):
+                ____________________
+              </p>
+              <p className="mb-3">Data: ____________________</p>
+              <p className="text-sm text-gray-500">(*) Cancellare la dicitura inutile.</p>
+            </div>
           </div>
         </div>
       </div>

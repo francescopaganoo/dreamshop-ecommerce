@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { FaEnvelope, FaMapMarkerAlt, FaFacebook, FaInstagram, FaTelegram, FaWhatsapp, FaChevronDown, FaChevronUp } from 'react-icons/fa';
+import { FaEnvelope, FaMapMarkerAlt, FaFacebook, FaInstagram, FaTelegram, FaWhatsapp, FaChevronDown, FaChevronUp, FaPhone, FaShieldAlt } from 'react-icons/fa';
 import { FaTiktok } from 'react-icons/fa6';
 import { useState, useEffect } from 'react';
 import { getMegaMenuCategories, ExtendedCategory } from '../lib/api';
@@ -235,6 +235,23 @@ export default function Footer() {
               </li>
               <li className="flex items-center">
                 <div className="flex items-center justify-center mr-3">
+                  <FaShieldAlt className="w-4 h-4 text-bred-400" />
+                </div>
+                <span className="text-sm">PEC: dreamshop18@pec.it</span>
+              </li>
+              <li className="flex items-center">
+                <div className="flex items-center justify-center mr-3">
+                  <FaPhone className="w-4 h-4 text-bred-400" />
+                </div>
+                <a
+                  href="tel:+393515029645"
+                  className="text-sm text-gray-300 hover:text-bred-400 transition-colors duration-300"
+                >
+                  +39 351 502 9645
+                </a>
+              </li>
+              <li className="flex items-center">
+                <div className="flex items-center justify-center mr-3">
                   <FaWhatsapp className="w-4 h-4 text-green-400" />
                 </div>
                 <a 
@@ -259,10 +276,19 @@ export default function Footer() {
         {/* Newsletter */}
         <NewsletterForm />
 
+        {/* Dati societari (art. 2250 c.c.) */}
+        <div className="border-t border-gray-700/50 mt-12 pt-8">
+          <p className="text-xs text-gray-500 text-center leading-relaxed max-w-3xl mx-auto">
+            <span className="text-gray-400 font-semibold">DREAM SHOP S.R.L.</span> — Sede legale: Via Vincenzo Florio 13/L,
+            95045 Misterbianco (CT), Italia — P.IVA e Codice Fiscale 05812850872 — Registro delle Imprese di Catania
+            n. 05812850872, REA 435724 — Capitale sociale € 5.000,00 — PEC: dreamshop18@pec.it
+          </p>
+        </div>
+
         {/* Copyright */}
-        <div className="border-t border-gray-700/50 mt-12 pt-8 text-center">
+        <div className="mt-6 text-center">
           <p className="text-gray-400">
-            &copy; {new Date().getFullYear()} <span className="text-bred-400 font-semibold">DREAM SHOP S.R.L. | P.IVA 05812850872</span>. 
+            &copy; {new Date().getFullYear()} <span className="text-bred-400 font-semibold">DREAM SHOP S.R.L.</span>.
             Tutti i diritti riservati. Fatto con ❤️ per gli appassionati di anime. <br></br><Link
             href="https://planstudios.it/" target="blank"
             className=""
