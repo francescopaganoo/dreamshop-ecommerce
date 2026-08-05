@@ -178,11 +178,6 @@ export default async function Home() {
             <div className="container mx-auto px-6 h-full flex flex-col justify-end pb-16 md:justify-center md:pb-0 z-10">
               <div className="max-w-2xl transform transition-all duration-700 translate-y-0 hover:translate-y-[-10px]">
                 {/*<span className="bg-bred-600 text-white px-4 py-1 rounded-full text-sm font-medium inline-block mb-6 animate-pulse">Collezione 2025</span>*/}
-
-                {/* ============================================================
-                    HERO TESTUALE ORIGINALE - TEMPORANEAMENTE DISATTIVATO
-                    Vedi docs/hero-home-ripristino.md per il ripristino.
-                    ============================================================
                 <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">Benvenuti su <span className="text-bred-500">DreamShop</span></h1>
                 <p className="text-xl md:text-2xl mb-8 max-w-xl md:max-w-xl text-gray-200 leading-tight md:leading-relaxed pr-14 md:pr-0">Scopri la nostra collezione esclusiva di statue, figure e trading card di anime e manga</p>
                 <div className="flex flex-wrap gap-4">
@@ -198,27 +193,6 @@ export default async function Home() {
                     className="group bg-transparent border-2 border-white text-white hover:bg-white/10 px-8 py-4 rounded-md font-medium inline-flex items-center transition-all duration-300"
                   >
                     Offerte Speciali
-                  </Link>
-                </div>
-                    ============================================================ */}
-
-                {/* CTA temporanea: Dream Hot Deals */}
-                <div className="flex flex-wrap gap-4">
-                  <Link
-                    href="/category/dream-hot-deals"
-                    className="btn-fire group px-8 py-4 font-semibold tracking-wide inline-flex items-center"
-                  >
-                    <span className="btn-fire__flames" aria-hidden="true">
-                      <span></span>
-                      <span></span>
-                      <span></span>
-                      <span></span>
-                      <span></span>
-                    </span>
-                    <span className="btn-fire__label">
-                      Dream Hot Deals
-                      <FaArrowRight className="ml-2 group-hover:translate-x-1 transition-transform" />
-                    </span>
                   </Link>
                 </div>
               </div>
