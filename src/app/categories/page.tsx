@@ -2,6 +2,11 @@ import { getMegaMenuCategories, getFilterOptionsPlugin } from '@/lib/api';
 import CategoriesClient from '@/components/CategoriesClient';
 import { FaTags, FaStar, FaEye } from 'react-icons/fa';
 
+// Rigenera la pagina ogni 5 minuti: senza questo Next la prerendera una sola
+// volta in build (cache-control: s-maxage=1y) e le categorie nascoste dal
+// backend restano visibili finché non si fa un nuovo deploy.
+export const revalidate = 300;
+
 const DEFAULT_FILTER_OPTIONS = {
   brands: [],
   availability: [],
