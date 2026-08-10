@@ -102,7 +102,10 @@ export default function PayPalExpressButton({
           country: 'IT'
         };
 
-        const unitPrice = parseFloat(product.sale_price || product.price || '0');
+        // NON usare sale_price: e' il prezzo di saldo *configurato*, che puo' essere
+    // programmato nel futuro o gia' scaduto. `price` e' il prezzo effettivo
+    // (per le varianti e' gia' quello della variante selezionata).
+    const unitPrice = parseFloat(product.price || '0');
         const cartTotal = unitPrice * quantity;
 
         // Prepara gli item del carrello per il calcolo spedizione
@@ -141,7 +144,10 @@ export default function PayPalExpressButton({
 
   // Calcola il totale con commissione PayPal del 3.5% + €0.35 e spedizione
   const calculatePayPalTotal = () => {
-    const unitPrice = parseFloat(product.sale_price || product.price || '0');
+    // NON usare sale_price: e' il prezzo di saldo *configurato*, che puo' essere
+    // programmato nel futuro o gia' scaduto. `price` e' il prezzo effettivo
+    // (per le varianti e' gia' quello della variante selezionata).
+    const unitPrice = parseFloat(product.price || '0');
     let subtotal = unitPrice * quantity;
 
     // Se l'acconto è abilitato, calcola l'importo dell'acconto
@@ -255,7 +261,10 @@ export default function PayPalExpressButton({
         country: shipping?.address?.country_code || 'IT'
       };
 
-      const unitPrice = parseFloat(product.sale_price || product.price || '0');
+      // NON usare sale_price: e' il prezzo di saldo *configurato*, che puo' essere
+    // programmato nel futuro o gia' scaduto. `price` e' il prezzo effettivo
+    // (per le varianti e' gia' quello della variante selezionata).
+    const unitPrice = parseFloat(product.price || '0');
       const cartTotal = unitPrice * quantity;
       const cartItems = [{
         product_id: product.id,
@@ -345,7 +354,10 @@ export default function PayPalExpressButton({
       };
 
       // Calcola i metodi di spedizione per il nuovo indirizzo
-      const unitPrice = parseFloat(product.sale_price || product.price || '0');
+      // NON usare sale_price: e' il prezzo di saldo *configurato*, che puo' essere
+    // programmato nel futuro o gia' scaduto. `price` e' il prezzo effettivo
+    // (per le varianti e' gia' quello della variante selezionata).
+    const unitPrice = parseFloat(product.price || '0');
       const cartTotal = unitPrice * quantity;
       const cartItems = [{
         product_id: product.id,
