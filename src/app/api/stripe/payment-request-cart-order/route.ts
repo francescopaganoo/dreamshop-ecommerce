@@ -138,7 +138,17 @@ export async function POST(request: NextRequest) {
         // programmato nel futuro o gia' scaduto. `price` e' il prezzo effettivo che
         // WooCommerce applichera' alla riga d'ordine: usarne un altro fa divergere
         // l'importo addebitato su Stripe dal totale dell'ordine.
-        const unitPrice = parseFloat(product.price || '0');
+        //
+        // Per i prodotti variabili il `price` del padre e' il MINIMO fra le varianti:
+        // se la riga ha una variazione il prezzo va letto da quella, altrimenti si
+        // addebita la variante piu' economica invece di quella scelta.
+        let priceSource: { price?: string } = product;
+        if (item.variation_id) {
+          const variationResponse = await WooCommerce.get(`products/${item.product_id}/variations/${item.variation_id}`);
+          priceSource = variationResponse.data as { price?: string };
+        }
+
+        const unitPrice = parseFloat(priceSource.price || '0');
         if (unitPrice <= 0) {
           throw new Error(`Prezzo non valido per "${product.name}"`);
         }

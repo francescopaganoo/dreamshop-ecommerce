@@ -113,7 +113,23 @@ export async function POST(request: NextRequest) {
     // NON usare sale_price: e' il prezzo di saldo *configurato*, che puo' essere
     // programmato nel futuro o gia' scaduto. `price` e' il prezzo effettivo che
     // WooCommerce applichera' alla riga d'ordine.
-    const unitPrice = parseFloat(product.price || '0');
+    //
+    // Per i prodotti variabili il `price` del padre e' il MINIMO fra le varianti:
+    // usarlo farebbe pagare la variante piu' economica invece di quella scelta.
+    // Se la riga ha una variazione il prezzo va letto da quella. In caso di errore
+    // interrompiamo: meglio un pagamento fallito che un addebito inferiore al dovuto.
+    let priceSource: { price?: string } = product;
+    if (variationId && variationId > 0) {
+      try {
+        const variationResponse = await WooCommerce.get(`products/${productId}/variations/${variationId}`);
+        priceSource = variationResponse.data as { price?: string };
+      } catch (variationError) {
+        console.error(`[payment-request-order] Impossibile leggere la variante ${variationId} del prodotto ${productId}:`, variationError);
+        return NextResponse.json({ error: 'Prezzo prodotto non disponibile' }, { status: 400 });
+      }
+    }
+
+    const unitPrice = parseFloat(priceSource.price || '0');
 
     if (unitPrice <= 0) {
       return NextResponse.json({ error: 'Prezzo prodotto non valido' }, { status: 400 });
