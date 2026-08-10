@@ -12,6 +12,37 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
  * WooCommerce mette il motivo (es. coupon non valido, prodotto out-of-stock) in
  * error.response.data, che l'AxiosError di default NON stampa.
  */
+/**
+ * Confronta l'importo realmente incassato con il totale dell'ordine WooCommerce
+ * appena creato.
+ *
+ * I due valori nascono da calcoli indipendenti: l'addebito lo calcola il frontend
+ * o la route di pagamento, il totale lo ricalcola WooCommerce dalle line_items.
+ * Quando divergono nessuno se ne accorge, perche' entrambi i flussi vanno a buon
+ * fine: e' cosi' che sconti punti, coupon su articoli in saldo, prezzi di saldo
+ * non attivi e prezzi di variante sbagliati sono passati inosservati per mesi.
+ * Questo controllo rende lo scarto visibile al primo ordine.
+ */
+function verifyChargedAmount(context: string, orderId: number | string, orderTotal: unknown, chargedCents: number) {
+  const total = parseFloat(String(orderTotal ?? '0'));
+  const charged = chargedCents / 100;
+
+  if (!Number.isFinite(total)) {
+    console.error(`[WEBHOOK] ${context} - impossibile verificare l'importo dell'ordine #${orderId}: totale non valido (${String(orderTotal)})`);
+    return;
+  }
+
+  const delta = Math.round((total - charged) * 100) / 100;
+  if (Math.abs(delta) < 0.01) return;
+
+  console.error(
+    `[WEBHOOK] ${context} - DISALLINEAMENTO IMPORTI ordine #${orderId}: ` +
+    `WooCommerce ${total.toFixed(2)} EUR vs incassato ${charged.toFixed(2)} EUR ` +
+    `(delta ${delta > 0 ? '+' : ''}${delta.toFixed(2)} EUR). ` +
+    `Il cliente ha pagato ${delta > 0 ? 'MENO' : 'PIU\''} del totale registrato: verificare l'ordine.`
+  );
+}
+
 function logOrderCreationError(context: string, error: unknown, payload?: Record<string, unknown>) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const e = error as any;
@@ -368,6 +399,8 @@ export async function POST(request: NextRequest) {
             const order = (orderResponse.data as any);
             console.log(`[WEBHOOK] Ordine #${order.id} creato con successo (status: ${hasDeposit ? 'partial-payment' : 'processing'})`);
 
+            verifyChargedAmount('Apple/Google Pay', order.id, order.total, paymentIntent.amount);
+
             // Marca l'ordine come completato nello store (NON eliminare, serve al frontend per il polling)
             await orderDataStore.markCompleted(orderDataId, {
               wcOrderId: order.id,
@@ -564,6 +597,8 @@ export async function POST(request: NextRequest) {
                 const iosOrderId = (order as { id: number }).id;
                 console.log(`[WEBHOOK] iOS - Ordine #${iosOrderId} creato con successo (status: ${hasDeposit ? 'partial-payment' : 'processing'})`);
 
+                verifyChargedAmount('iOS', iosOrderId, (order as { total?: string }).total, paymentIntent.amount);
+
                 // Marca come completato nello store (per il polling dalla success page)
                 await orderDataStore.markCompleted(orderDataId, {
                   wcOrderId: iosOrderId,
@@ -753,6 +788,8 @@ export async function POST(request: NextRequest) {
         const wooOrder = order as WooOrder;
 
         console.log(`[WEBHOOK] Ordine WooCommerce ${wooOrder.id} creato con successo da payment_intent ${paymentIntent.id}`);
+
+        verifyChargedAmount('Stripe', wooOrder.id, wooOrder.total, paymentIntent.amount);
 
         // Marca come completato nello store (NON eliminare)
         await orderDataStore.markCompleted(orderDataId, {
@@ -963,6 +1000,9 @@ export async function POST(request: NextRequest) {
           }
 
           const wooOrder = order as WooOrder;
+
+          // session.amount_total e' l'importo effettivamente incassato (Klarna/Satispay/Stripe)
+          verifyChargedAmount(`checkout.session (${paymentMethod})`, wooOrder.id, wooOrder.total, session.amount_total ?? 0);
 
           // Marca come completato nello store
           await orderDataStore.markCompleted(orderDataId, {
