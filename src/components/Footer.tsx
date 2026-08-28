@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { FaEnvelope, FaMapMarkerAlt, FaFacebook, FaInstagram, FaTelegram, FaWhatsapp, FaChevronDown, FaChevronUp, FaPhone, FaShieldAlt } from 'react-icons/fa';
+import { FaEnvelope, FaMapMarkerAlt, FaFacebook, FaInstagram, FaTelegram, FaWhatsapp, FaChevronDown, FaChevronUp, FaShieldAlt } from 'react-icons/fa';
 import { FaTiktok } from 'react-icons/fa6';
 import { useState, useEffect } from 'react';
 import { getMegaMenuCategories, ExtendedCategory } from '../lib/api';
@@ -238,17 +238,6 @@ export default function Footer() {
                   <FaShieldAlt className="w-4 h-4 text-bred-400" />
                 </div>
                 <span className="text-sm">PEC: dreamshop18@pec.it</span>
-              </li>
-              <li className="flex items-center">
-                <div className="flex items-center justify-center mr-3">
-                  <FaPhone className="w-4 h-4 text-bred-400" />
-                </div>
-                <a
-                  href="tel:+393515029645"
-                  className="text-sm text-gray-300 hover:text-bred-400 transition-colors duration-300"
-                >
-                  +39 351 502 9645
-                </a>
               </li>
               <li className="flex items-center">
                 <div className="flex items-center justify-center mr-3">
