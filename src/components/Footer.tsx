@@ -55,7 +55,7 @@ export default function Footer() {
           <div className="lg:col-span-4">
             <div className="mb-6">
             <Link href="/" className="text-2xl font-bold text-gray-800">
-              <Image src="/images/logo.webp" alt="WooStore Logo" width={200} height={50} style={{ width: 'auto', height: 'auto' }} priority />
+              <Image src="/images/logo.webp" alt="WooStore Logo" width={200} height={56} className="w-[200px] h-auto" priority />
             </Link>
             </div>
             <p className="text-gray-300 text-lg leading-relaxed mb-6">

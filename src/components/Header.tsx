@@ -239,10 +239,9 @@ export default function Header() {
               src="/images/logo.webp"
               alt="Logo DreamShop"
               width={160}
-              height={40}
-              style={{ width: 'auto', height: 'auto' }}
+              height={45}
               priority
-              className="w-auto h-auto transition duration-500 ease-out group-hover:scale-110 group-hover:rotate-2 drop-shadow-md group-hover:brightness-110 group-hover:contrast-110 group-hover:saturate-125"
+              className="w-[160px] h-auto transition duration-500 ease-out group-hover:scale-110 group-hover:rotate-2 drop-shadow-md group-hover:brightness-110 group-hover:contrast-110 group-hover:saturate-125"
             />
           </Link>
 
