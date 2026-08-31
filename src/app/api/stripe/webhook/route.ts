@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { updateOrder } from '../../../../lib/api';
 import api from '../../../../lib/woocommerce';
 import { orderDataStore } from '../../../../lib/orderDataStore';
+import { commitReservation, extractReservationToken } from '@/lib/stock-guard';
 
 // Inizializza Stripe con la chiave segreta
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
@@ -399,6 +400,9 @@ export async function POST(request: NextRequest) {
             const order = (orderResponse.data as any);
             console.log(`[WEBHOOK] Ordine #${order.id} creato con successo (status: ${hasDeposit ? 'partial-payment' : 'processing'})`);
 
+            // Consuma la prenotazione: da qui in poi e' WooCommerce a tenere il conto.
+            await commitReservation(extractReservationToken(savedOrderData), order.id, 'stripe-webhook-payment-request');
+
             verifyChargedAmount('Apple/Google Pay', order.id, order.total, paymentIntent.amount);
 
             // Marca l'ordine come completato nello store (NON eliminare, serve al frontend per il polling)
@@ -597,6 +601,9 @@ export async function POST(request: NextRequest) {
                 const iosOrderId = (order as { id: number }).id;
                 console.log(`[WEBHOOK] iOS - Ordine #${iosOrderId} creato con successo (status: ${hasDeposit ? 'partial-payment' : 'processing'})`);
 
+                // Consuma la prenotazione: da qui in poi e' WooCommerce a tenere il conto.
+                await commitReservation(extractReservationToken(baseOrderData), iosOrderId, 'stripe-webhook-ios');
+
                 verifyChargedAmount('iOS', iosOrderId, (order as { total?: string }).total, paymentIntent.amount);
 
                 // Marca come completato nello store (per il polling dalla success page)
@@ -788,6 +795,9 @@ export async function POST(request: NextRequest) {
         const wooOrder = order as WooOrder;
 
         console.log(`[WEBHOOK] Ordine WooCommerce ${wooOrder.id} creato con successo da payment_intent ${paymentIntent.id}`);
+
+        // Consuma la prenotazione: da qui in poi e' WooCommerce a tenere il conto.
+        await commitReservation(extractReservationToken(orderDataToSend), wooOrder.id, 'stripe-webhook-card');
 
         verifyChargedAmount('Stripe', wooOrder.id, wooOrder.total, paymentIntent.amount);
 
@@ -1000,6 +1010,10 @@ export async function POST(request: NextRequest) {
           }
 
           const wooOrder = order as WooOrder;
+
+          // Consuma la prenotazione: da qui in poi e' WooCommerce a tenere il conto.
+          // E' il percorso che ha prodotto l'ordine 189992, la seconda vendita in eccesso.
+          await commitReservation(extractReservationToken(orderDataToSend), wooOrder.id, 'stripe-webhook-checkout-session');
 
           // session.amount_total e' l'importo effettivamente incassato (Klarna/Satispay/Stripe)
           verifyChargedAmount(`checkout.session (${paymentMethod})`, wooOrder.id, wooOrder.total, session.amount_total ?? 0);

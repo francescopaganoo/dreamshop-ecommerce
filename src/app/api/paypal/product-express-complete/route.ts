@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import api from '../../../../lib/woocommerce';
 import { validateDepositEligibility } from '../../../../lib/deposits';
+import { commitReservation } from '@/lib/stock-guard';
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,7 +20,8 @@ export async function POST(request: NextRequest) {
       paypalOrderDetails,
       shippingMethod,
       variationId,
-      variationAttributes
+      variationAttributes,
+      stockReservationToken
     } = data;
 
     // Usa il transaction ID se disponibile, altrimenti fallback all'order ID
@@ -219,8 +221,13 @@ export async function POST(request: NextRequest) {
     if (!order || typeof order !== 'object' || !('id' in order)) {
       throw new Error('Risposta non valida dalla creazione dell\'ordine');
     }
-    
-    
+
+    // Consuma la prenotazione creata in product-express-order: da qui in poi è
+    // WooCommerce a tenere il conto. Non blocca mai, il pagamento è già avvenuto;
+    // se il magazzino reale nel frattempo si è svuotato il plugin lo registra
+    // come oversell_detected nel Monitor.
+    await commitReservation(stockReservationToken, order.id as number, 'paypal-product-express-complete');
+
     return NextResponse.json({
       order_id: order.id,
       success: true

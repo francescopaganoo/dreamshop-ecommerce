@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import api from '../../../../lib/woocommerce';
 import Stripe from 'stripe';
 import { orderDataStore } from '../../../../lib/orderDataStore';
+import { commitReservation, extractReservationToken } from '@/lib/stock-guard';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -113,6 +114,16 @@ export async function POST(request: NextRequest) {
       if (!order || typeof order !== 'object' || !('id' in order)) {
         throw new Error('Risposta non valida dalla creazione dell\'ordine');
       }
+
+      // Consuma la prenotazione creata al "Procedi all'acquisto": da qui in poi
+      // e' WooCommerce a tenere il conto del magazzino. Non blocca mai, il
+      // pagamento e' gia' avvenuto; se il magazzino reale nel frattempo si e'
+      // svuotato il plugin lo registra come oversell_detected nel Monitor.
+      await commitReservation(
+        extractReservationToken(orderDataToSend),
+        (order as { id: number }).id,
+        'stripe-create-order-after-klarna'
+      );
 
       interface WooOrder {
         id: number;

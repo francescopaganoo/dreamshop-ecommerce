@@ -11,6 +11,7 @@ import GiftCardCartWidget from '@/components/GiftCardCartWidget';
 import { PLACEHOLDER_IMAGE_SMALL } from '@/lib/placeholderImage';
 import { getProduct } from '@/lib/api';
 import { getGiftPriceDisplay } from '@/lib/autoGifts';
+import { getStockSessionId, setStockReservationToken } from '@/lib/stock-session';
 
 // Interfaccia per gli errori di stock
 interface StockIssue {
@@ -334,6 +335,41 @@ export default function CartPage() {
     await applyCouponCode();
   };
   
+  // Impegna i pezzi del carrello. Un errore di rete non blocca il checkout:
+  // la protezione non deve mai impedire una vendita legittima.
+  const reserveCartStock = async (
+    items: Array<{ product_id: number; variation_id?: number; quantity: number; meta_data?: Array<{ key: string; value: string }> }>
+  ): Promise<{ ok: boolean; message?: string }> => {
+    const sessionId = getStockSessionId();
+
+    // Senza uno spazio dove conservare il token non si prenota: il cliente
+    // finirebbe bloccato dalla propria stessa prenotazione al pagamento.
+    if (!sessionId) {
+      console.warn('[cart] Storage non disponibile: prenotazione saltata.');
+      return { ok: true };
+    }
+
+    try {
+      const response = await fetch('/api/stock/reserve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, cartItems: items, context: 'cart-checkout' }),
+      });
+
+      const data = await response.json();
+
+      if (response.status === 409) {
+        return { ok: false, message: data.message };
+      }
+
+      setStockReservationToken(data.token || null);
+      return { ok: true };
+    } catch (error) {
+      console.warn('[cart] Prenotazione non riuscita, si prosegue:', error);
+      return { ok: true };
+    }
+  };
+
   const handleCheckout = async () => {
     setIsCheckingOut(true);
     setStockErrors([]);
@@ -412,6 +448,25 @@ export default function CartPage() {
           localStorage.removeItem('checkout_points_discount');
         }
         
+        // I prodotti risultano disponibili: prima di lasciare il carrello li impegniamo.
+        // Senza questo passaggio la disponibilità appena verificata può essere consumata
+        // da un altro cliente mentre questo compila il checkout o paga.
+        const reservation = await reserveCartStock(cartItems);
+
+        if (!reservation.ok) {
+          setStockErrors([{
+            message: reservation.message || 'Alcuni prodotti non sono più disponibili nella quantità richiesta.',
+            issue: 'reservation_failed'
+          }]);
+          setShowStockAlert(true);
+          setIsCheckingOut(false);
+
+          setTimeout(() => {
+            document.getElementById('stock-alert')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 100);
+          return;
+        }
+
         // Tutti i prodotti sono disponibili, procedi al checkout
         window.location.href = '/checkout';
       } else {

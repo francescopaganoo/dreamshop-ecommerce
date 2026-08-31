@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { orderDataStore } from '../../../../lib/orderDataStore';
+import { assertStockAvailable, renewReservation, extractItemsFromOrderData, extractReservationToken } from '@/lib/stock-guard';
 
 // Inizializza Stripe con la chiave segreta
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
@@ -26,6 +27,39 @@ export async function POST(request: NextRequest) {
       console.error('Dati mancanti:', { amount });
       return NextResponse.json({ error: 'Amount mancante' }, { status: 400 });
     }
+
+    // ========================================================================
+    // CONTROLLO DISPONIBILITÀ - ultimo blocco prima di incassare
+    // L'ordine WooCommerce nasce dal webhook a pagamento avvenuto: se il
+    // magazzino si è svuotato mentre il cliente compilava il checkout, questo è
+    // l'ultimo punto in cui fermarsi non costa un rimborso.
+    // ========================================================================
+    if (orderData) {
+      const stockItems = extractItemsFromOrderData(orderData);
+      const reservationToken = extractReservationToken(orderData);
+
+      if (stockItems.length > 0) {
+        if (reservationToken) {
+          await renewReservation(reservationToken, 'stripe-payment-intent');
+        }
+
+        const stockCheck = await assertStockAvailable({
+          items: stockItems,
+          context: 'stripe-payment-intent',
+          excludeToken: reservationToken,
+        });
+
+        if (!stockCheck.ok) {
+          console.warn('[PAYMENT-INTENT] Disponibilità insufficiente: pagamento non aperto');
+          return NextResponse.json({
+            error: stockCheck.message,
+            errorCode: 'INSUFFICIENT_STOCK',
+            unavailable: stockCheck.unavailable,
+          }, { status: 409 });
+        }
+      }
+    }
+    // ========================================================================
 
     // Prepara i metadati
     const metadata: Record<string, string> = {

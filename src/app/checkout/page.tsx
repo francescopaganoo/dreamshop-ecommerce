@@ -10,6 +10,7 @@ import Link from 'next/link';
 import AppleGooglePayCheckout from '@/components/checkout/AppleGooglePayCheckout';
 import GiftCardCartWidget from '@/components/GiftCardCartWidget';
 import { createOrder, getShippingMethods, ShippingMethod, getUserAddresses, saveUserAddresses, getProductShippingClassId } from '../../lib/api';
+import { getStockReservationToken, setStockReservationToken } from '@/lib/stock-session';
 import { getAvailableCountries, CountryOption } from '../../lib/countries';
 import { isAutoGift } from '../../lib/autoGifts';
 
@@ -48,6 +49,59 @@ export default function CheckoutPage() {
     pointsError
   } = useCart();
   const { isAuthenticated, user, isLoading: isAuthLoading } = useAuth();
+
+  // Consuma la prenotazione: da qui in poi è WooCommerce a tenere il conto.
+  const commitStockReservation = async (orderId: number, context: string) => {
+    const token = getStockReservationToken();
+    if (!token || !orderId) return;
+
+    try {
+      await fetch('/api/stock/commit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, orderId, context }),
+      });
+      setStockReservationToken(null);
+    } catch (error) {
+      console.warn('[checkout] Commit prenotazione non riuscito:', error);
+    }
+  };
+
+  // Ricontrolla la disponibilità prima di aprire un pagamento.
+  // Un errore di rete non blocca: si prosegue come prima.
+  const checkStockBeforePayment = async (): Promise<{ ok: boolean; message?: string }> => {
+    try {
+      const response = await fetch('/api/stock/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cartItems: cart.map(item => ({
+            product_id: item.product.id,
+            variation_id: item.variation_id || 0,
+            quantity: item.quantity,
+            // I meta servono a escludere regali automatici e gift card con
+            // importo personalizzato, che non hanno un magazzino da impegnare.
+            meta_data: [
+              ...(item.meta_data || []),
+              ...(item.product.meta_data || []).map(m => ({ key: m.key, value: String(m.value) })),
+            ],
+          })),
+          reservationToken: getStockReservationToken(),
+          context: 'checkout-paypal',
+        }),
+      });
+
+      if (response.status === 409) {
+        const data = await response.json();
+        return { ok: false, message: data.message };
+      }
+      return { ok: true };
+    } catch (error) {
+      console.warn('[checkout] Controllo disponibilità non riuscito, si prosegue:', error);
+      return { ok: true };
+    }
+  };
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [orderSuccess, setOrderSuccess] = useState(false);
@@ -1094,7 +1148,19 @@ export default function CheckoutPage() {
           });
         }
 
+        // Anche un ordine gratuito consuma magazzino: va controllato come gli altri.
+        const freeOrderStockCheck = await checkStockBeforePayment();
+        if (!freeOrderStockCheck.ok) {
+          setFormError(freeOrderStockCheck.message || 'Alcuni prodotti non sono più disponibili.');
+          setIsSubmitting(false);
+          return;
+        }
+
         const order = await createOrder(orderData);
+
+        if (order && typeof order === 'object' && 'id' in order) {
+          await commitStockReservation(order.id as number, 'checkout-free-order');
+        }
 
         // Decrementa i punti lato server (senza generare coupon, lo sconto è già nelle fee_lines)
         if (pointsToRedeem > 0 && isAuthenticated && user) {
@@ -1298,7 +1364,10 @@ export default function CheckoutPage() {
         });
 
         if (!storeResponse.ok) {
-          throw new Error('Errore nel salvataggio dei dati dell\'ordine');
+          // 409 = disponibilità insufficiente: il messaggio spiega quale prodotto
+          // manca, molto più utile dell'errore generico di salvataggio.
+          const storeError = await storeResponse.json().catch(() => ({}));
+          throw new Error(storeError.error || 'Errore nel salvataggio dei dati dell\'ordine');
         }
 
         const storeResult = await storeResponse.json();
@@ -1775,6 +1844,7 @@ export default function CheckoutPage() {
           fee_lines: stripeFeeLines,
           // Aggiungi metadati
           meta_data: [
+            { key: '_dsg_reservation_token', value: getStockReservationToken() },
             {
               key: '_points_to_earn_frontend',
               value: pointsToEarn.toString()
@@ -2009,6 +2079,7 @@ export default function CheckoutPage() {
           // Aggiungi fee_lines per lo sconto punti
           fee_lines: klarnaFeeLines,
           meta_data: [
+            { key: '_dsg_reservation_token', value: getStockReservationToken() },
             { key: '_checkout_points_earned', value: String(pointsToEarn) },
             { key: '_checkout_payment_method', value: 'klarna' },
             { key: '_points_to_earn_frontend', value: String(pointsToEarn) },
@@ -2239,7 +2310,9 @@ export default function CheckoutPage() {
           });
 
           if (!storeResponse.ok) {
-            throw new Error('Errore nel salvataggio dei dati dell\'ordine');
+            // 409 = disponibilità insufficiente: mostra quale prodotto manca.
+            const storeError = await storeResponse.json().catch(() => ({}));
+            throw new Error(storeError.error || 'Errore nel salvataggio dei dati dell\'ordine');
           }
 
           const { dataId } = await storeResponse.json();
@@ -2342,6 +2415,7 @@ export default function CheckoutPage() {
         ],
         // Aggiungi metadati
         meta_data: [
+          { key: '_dsg_reservation_token', value: getStockReservationToken() },
           {
             key: '_points_to_earn_frontend',
             value: pointsToEarn.toString()
@@ -2360,8 +2434,21 @@ export default function CheckoutPage() {
         email: orderData.billing?.email
       });
 
+      // Contrassegno e bonifico non passano da un gateway: questo è l'unico
+      // punto in cui si può fermare un ordine senza disponibilità.
+      const standardStockCheck = await checkStockBeforePayment();
+      if (!standardStockCheck.ok) {
+        setFormError(standardStockCheck.message || 'Alcuni prodotti non sono più disponibili.');
+        setIsSubmitting(false);
+        return;
+      }
+
       // Send the order to WooCommerce
       const order = await createOrder(orderData);
+
+      if (order && typeof order === 'object' && 'id' in order) {
+        await commitStockReservation(order.id as number, 'checkout-standard-order');
+      }
       
       // Log della risposta (con type safety)
       console.log('CHECKOUT DEBUG - Risposta da WooCommerce:', {
@@ -2993,6 +3080,13 @@ export default function CheckoutPage() {
 
                                     const orderDescription = `DreamShop - ${itemsDescription}`;
 
+                                    // Ultimo controllo prima di aprire PayPal: da qui in poi
+                                    // i soldi sono in gioco e fermarsi costerebbe un rimborso.
+                                    const stockCheck = await checkStockBeforePayment();
+                                    if (!stockCheck.ok) {
+                                      setFormError(stockCheck.message || 'Alcuni prodotti non sono più disponibili.');
+                                      throw new Error(stockCheck.message || 'Disponibilità insufficiente');
+                                    }
 
                                     return actions.order.create({
                                       intent: 'CAPTURE',

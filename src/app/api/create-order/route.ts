@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createOrder } from '@/lib/api';
 import { validateDepositEligibility } from '@/lib/deposits';
 import { validateSoldIndividually, buildSoldIndividuallyErrorMessage } from '@/lib/validate-sold-individually';
+import { assertStockAvailable } from '@/lib/stock-guard';
 
 // Helper function per verificare se un prodotto è un regalo automatico
 function isAutoGiftProduct(product: { meta_data?: Array<{key: string, value: string}> }): boolean {
@@ -91,6 +92,30 @@ export async function POST(request: NextRequest) {
         error: buildSoldIndividuallyErrorMessage(soldIndividuallyCheck.violations),
         errorCode: 'SOLD_INDIVIDUALLY_VIOLATION',
         violations: soldIndividuallyCheck.violations
+      }, { status: 409 });
+    }
+    // ========================================================================
+
+    // ========================================================================
+    // CONTROLLO DISPONIBILITÀ
+    // L'endpoint resta raggiungibile via HTTP anche se il checkout non lo usa
+    // piu': senza questo controllo sarebbe una porta aperta sul magazzino.
+    // ========================================================================
+    const stockCheck = await assertStockAvailable({
+      items: cartItems.map((item: CartItem) => ({
+        product_id: item.product.id,
+        quantity: item.quantity,
+        meta_data: item.product.meta_data,
+      })),
+      context: 'create-order-standard',
+    });
+
+    if (!stockCheck.ok) {
+      console.warn('[create-order-standard] Disponibilità insufficiente: ordine non creato');
+      return NextResponse.json({
+        error: stockCheck.message,
+        errorCode: 'INSUFFICIENT_STOCK',
+        unavailable: stockCheck.unavailable,
       }, { status: 409 });
     }
     // ========================================================================

@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import WooCommerceRestApi from '@woocommerce/woocommerce-rest-api';
 import { orderDataStore } from '../../../../lib/orderDataStore';
 import { validateDepositEligibility, hasDepositInCartItems } from '../../../../lib/deposits';
+import { assertStockAvailable } from '@/lib/stock-guard';
 
 // Inizializza Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
@@ -98,6 +99,31 @@ export async function POST(request: NextRequest) {
         error: depositValidation.error,
         errorCode: depositValidation.errorCode
       }, { status: 403 });
+    }
+    // ========================================================================
+
+    // ========================================================================
+    // CONTROLLO DISPONIBILITÀ NUMERICA
+    // Il controllo su stock_status piu' sotto non intercetta ne' la quantita'
+    // richiesta superiore al disponibile ne' i pezzi gia' impegnati da un altro
+    // checkout in corso: qui si valuta l'intero carrello in un colpo solo.
+    // ========================================================================
+    const cartStockCheck = await assertStockAvailable({
+      items: cartItems.map(item => ({
+        product_id: item.product_id,
+        variation_id: item.variation_id || 0,
+        quantity: item.quantity,
+      })),
+      context: 'stripe-payment-request-cart-order',
+    });
+
+    if (!cartStockCheck.ok) {
+      console.warn('[payment-request-cart-order] Disponibilità insufficiente nel carrello');
+      return NextResponse.json({
+        error: cartStockCheck.message,
+        errorCode: 'INSUFFICIENT_STOCK',
+        unavailable: cartStockCheck.unavailable,
+      }, { status: 409 });
     }
     // ========================================================================
 

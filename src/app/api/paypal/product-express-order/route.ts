@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import api from '../../../../lib/woocommerce';
 import { Product } from '@/lib/api';
 import { validateDepositEligibility } from '../../../../lib/deposits';
+import { reserveStock } from '@/lib/stock-guard';
 
 export async function POST(request: NextRequest) {
   try {
@@ -52,6 +53,29 @@ export async function POST(request: NextRequest) {
           error: `"${product.name}" può essere acquistato solo 1 pezzo per ordine.`,
           errorCode: 'SOLD_INDIVIDUALLY_VIOLATION',
           violations: [{ product_id: productId, quantity, name: product.name }]
+        }, { status: 409 });
+      }
+      // ====================================================================
+
+      // ====================================================================
+      // PRENOTAZIONE DISPONIBILITÀ
+      // Questo flusso parte dalla scheda prodotto e non passa mai dal carrello,
+      // quindi è l'unico punto in cui si può impegnare il pezzo prima di aprire
+      // PayPal. Il token viene restituito al client e consumato in
+      // product-express-complete alla creazione dell'ordine.
+      // ====================================================================
+      const reservation = await reserveStock({
+        sessionId: `express_${productId}_${userId || 'guest'}_${Date.now()}`,
+        items: [{ product_id: productId, quantity }],
+        context: 'paypal-product-express-order',
+      });
+
+      if (!reservation.ok) {
+        console.warn(`[paypal-product-express-order] Disponibilità insufficiente: productId=${productId}, quantity=${quantity}`);
+        return NextResponse.json({
+          error: reservation.message || `"${product.name}" non è più disponibile nella quantità richiesta.`,
+          errorCode: 'INSUFFICIENT_STOCK',
+          unavailable: reservation.unavailable,
         }, { status: 409 });
       }
       // ====================================================================
@@ -131,7 +155,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         orderId: order.id,
         total: totalAmount,
-        success: true
+        success: true,
+        // Il token accompagna il cliente fino a product-express-complete, che lo consuma
+        // quando l'ordine pagato viene creato e WooCommerce scala il magazzino.
+        stockReservationToken: reservation.token
       });
       
     } catch (productError) {

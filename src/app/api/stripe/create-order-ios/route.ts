@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { validateDepositEligibility, hasDepositInLineItems } from '../../../../lib/deposits';
 import { validateSoldIndividually, buildSoldIndividuallyErrorMessage } from '../../../../lib/validate-sold-individually';
 import { orderDataStore } from '../../../../lib/orderDataStore';
+import { assertStockAvailable } from '@/lib/stock-guard';
 
 // Interfacce per i tipi degli elementi
 interface MetaData {
@@ -114,6 +115,29 @@ export async function POST(request: NextRequest) {
         error: buildSoldIndividuallyErrorMessage(soldIndividuallyCheck.violations),
         errorCode: 'SOLD_INDIVIDUALLY_VIOLATION',
         violations: soldIndividuallyCheck.violations
+      }, { status: 409 });
+    }
+    // ========================================================================
+
+    // ========================================================================
+    // CONTROLLO DISPONIBILITÀ - prima dell'addebito
+    // ========================================================================
+    const stockCheck = await assertStockAvailable({
+      items: (line_items as LineItemInput[]).map((li) => ({
+        product_id: (li.product_id ?? li.id) as number,
+        variation_id: li.variation_id || 0,
+        quantity: li.quantity,
+        meta_data: li.meta_data,
+      })),
+      context: 'stripe-create-order-ios',
+    });
+
+    if (!stockCheck.ok) {
+      console.warn('[iOS] Disponibilità insufficiente: ordine non creato');
+      return NextResponse.json({
+        error: stockCheck.message,
+        errorCode: 'INSUFFICIENT_STOCK',
+        unavailable: stockCheck.unavailable,
       }, { status: 409 });
     }
     // ========================================================================

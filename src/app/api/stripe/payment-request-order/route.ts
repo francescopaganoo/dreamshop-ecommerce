@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import WooCommerceRestApi from '@woocommerce/woocommerce-rest-api';
 import { orderDataStore } from '../../../../lib/orderDataStore';
 import { validateDepositEligibility } from '../../../../lib/deposits';
+import { assertStockAvailable } from '@/lib/stock-guard';
 
 // Inizializza Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
@@ -76,6 +77,27 @@ export async function POST(request: NextRequest) {
     if (product.stock_status !== 'instock') {
       return NextResponse.json({ error: 'Prodotto non disponibile' }, { status: 400 });
     }
+
+    // ========================================================================
+    // CONTROLLO DISPONIBILITÀ NUMERICA
+    // stock_status da solo non basta: resta 'instock' finché il magazzino non
+    // arriva a zero, quindi non intercetta né la quantità richiesta superiore
+    // al disponibile né i pezzi già impegnati da un altro checkout in corso.
+    // ========================================================================
+    const stockCheck = await assertStockAvailable({
+      items: [{ product_id: productId, variation_id: variationId || 0, quantity }],
+      context: 'stripe-payment-request-order',
+    });
+
+    if (!stockCheck.ok) {
+      console.warn(`[payment-request-order] Disponibilità insufficiente: productId=${productId}, quantity=${quantity}`);
+      return NextResponse.json({
+        error: stockCheck.message,
+        errorCode: 'INSUFFICIENT_STOCK',
+        unavailable: stockCheck.unavailable,
+      }, { status: 409 });
+    }
+    // ========================================================================
 
     // ========================================================================
     // VALIDAZIONE "SOLD INDIVIDUALLY" - max 1 pezzo per ordine

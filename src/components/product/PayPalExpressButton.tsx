@@ -5,6 +5,7 @@ import { PayPalButtons, PayPalMessages } from '@paypal/react-paypal-js';
 import { Product, getShippingMethods, ShippingAddress, ShippingMethod } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
+import { getStockSessionId } from '@/lib/stock-session';
 
 interface PayPalExpressButtonProps {
   product: Product;
@@ -28,6 +29,9 @@ export default function PayPalExpressButton({
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedShippingMethod, setSelectedShippingMethod] = useState<ShippingMethod | null>(null);
+  // Token della prenotazione: impegna il pezzo prima di aprire PayPal e viene
+  // consumato alla creazione dell'ordine.
+  const [stockReservationToken, setReservationToken] = useState<string | null>(null);
   const { user } = useAuth();
   const router = useRouter();
 
@@ -178,6 +182,44 @@ export default function PayPalExpressButton({
 
   const { total } = calculatePayPalTotal();
 
+  // Chiede al server di impegnare il pezzo. Un errore di rete non blocca
+  // l'acquisto: la protezione non deve mai fermare una vendita legittima.
+  const reserveStockForExpress = async (): Promise<{ ok: boolean; message?: string }> => {
+    const sessionId = getStockSessionId();
+
+    // L'identificativo deve essere unico per browser: derivarlo da prodotto e
+    // utente farebbe condividere la stessa sessione a tutti gli ospiti, e ogni
+    // nuovo acquirente cancellerebbe la prenotazione del precedente.
+    if (!sessionId) {
+      console.warn('[PayPal Express] Storage non disponibile: prenotazione saltata.');
+      return { ok: true };
+    }
+
+    try {
+      const response = await fetch('/api/stock/reserve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          cartItems: [{ product_id: product.id, variation_id: variationId || 0, quantity }],
+          context: 'paypal-express-product'
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.status === 409) {
+        return { ok: false, message: data.message };
+      }
+
+      setReservationToken(data.token || null);
+      return { ok: true };
+    } catch (err) {
+      console.warn('[PayPal Express] Prenotazione non riuscita, si prosegue:', err);
+      return { ok: true };
+    }
+  };
+
   // Crea l'ordine PayPal diretto
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const createPayPalOrder = async (_data: any, actions: any) => {
@@ -196,6 +238,15 @@ export default function PayPalExpressButton({
 
       const depositInfo = enableDeposit === 'yes' ? ' - Acconto' : '';
       const orderDescription = `DreamShop - ${productDescription}${depositInfo}`;
+
+      // Impegna il pezzo PRIMA di aprire PayPal. Questo acquisto rapido non passa
+      // dal carrello, quindi senza questo passaggio non incontrerebbe alcun
+      // controllo di disponibilità in tutto il flusso.
+      const reserved = await reserveStockForExpress();
+      if (!reserved.ok) {
+        setError(reserved.message || 'Il prodotto non è più disponibile nella quantità richiesta.');
+        throw new Error(reserved.message || 'Disponibilità insufficiente');
+      }
 
       return actions.order.create({
         intent: 'CAPTURE',
@@ -286,6 +337,7 @@ export default function PayPalExpressButton({
           paypalOrderId: data.orderID,
           paypalTransactionId: transactionId,
           paypalOrderDetails: orderDetails,
+          stockReservationToken,
           productId: product.id,
           quantity: quantity,
           userId: user?.id || 0,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { assertStockAvailable, renewReservation, extractItemsFromOrderData, extractReservationToken } from '@/lib/stock-guard';
 
 // Inizializza Stripe con la chiave segreta
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
@@ -19,6 +20,38 @@ export async function POST(request: NextRequest) {
 
     const data = await request.json();
     const { amount, orderData, pointsToRedeem, pointsDiscount } = data;
+
+    // ========================================================================
+    // CONTROLLO DISPONIBILITÀ - ultimo blocco prima di incassare
+    // Klarna crea l'ordine dal webhook a pagamento avvenuto: dopo di qui
+    // fermarsi significherebbe rimborsare.
+    // ========================================================================
+    if (orderData) {
+      const stockItems = extractItemsFromOrderData(orderData);
+      const reservationToken = extractReservationToken(orderData);
+
+      if (stockItems.length > 0) {
+        if (reservationToken) {
+          await renewReservation(reservationToken, 'stripe-checkout-klarna');
+        }
+
+        const stockCheck = await assertStockAvailable({
+          items: stockItems,
+          context: 'stripe-checkout-klarna',
+          excludeToken: reservationToken,
+        });
+
+        if (!stockCheck.ok) {
+          console.warn('[KLARNA] Disponibilità insufficiente: sessione di pagamento non aperta');
+          return NextResponse.json({
+            error: stockCheck.message,
+            errorCode: 'INSUFFICIENT_STOCK',
+            unavailable: stockCheck.unavailable,
+          }, { status: 409 });
+        }
+      }
+    }
+    // ========================================================================
 
     if (!amount) {
       console.error('Parametri mancanti:', { amount });
