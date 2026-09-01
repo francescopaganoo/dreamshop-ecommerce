@@ -1,25 +1,37 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
 
-// BOZZA TECNICA — non ancora validata da un legale.
+// Testo aggiornato il 1 settembre 2026 su versione fornita dal cliente
+// (file "TERMINI E CONDIZIONI.doc", radice del progetto). Riportato alla lettera,
+// senza correzioni redazionali, su richiesta esplicita del cliente.
 //
 // DATI SOCIETARI: completi (ragione sociale, sede, P.IVA/CF, RI Catania REA 435724,
-// capitale sociale, PEC, telefono). Società pluripersonale, non in liquidazione.
+// capitale sociale, PEC, WhatsApp). Societa' pluripersonale, non in liquidazione.
 //
-// PUNTI ANCORA APERTI (da confermare prima della pubblicazione):
-//  - [5] Giacenza: il testo rinvia al termine indicato dal corriere perché SDA/BRT/GLS
-//    usano termini diversi (in genere 5-10 gg lavorativi). Se si vuole un numero fisso,
-//    va verificato sui contratti con i corrieri.
-//  - [2.3] Stima del costo di restituzione: da inserire (art. 49 c.1 lett. i Cod. Consumo),
-//    soprattutto per le resine spedite dall'estero.
-//  - [6.1] Acconto: manca la disciplina del caso in cui il saldo non venga mai pagato
+// SCOSTAMENTI NOTI rispetto alla versione precedente (voluti dal cliente, NON correggere
+// senza sua conferma):
+//  - [2.1] rinvia ancora al "modulo di recesso tipo riportato al punto [13]", ma la
+//    sezione [13] e' stata rimossa perche' assente nel documento fornito. Rinvio pendente.
+//  - [3] chiude dicendo che il termine costituisce il "diverso accordo di cui al punto [5]",
+//    ma da [5] e' stata rimossa la frase sulla consegna entro 30 giorni. Rinvio pendente.
+//  - Due sezioni portano entrambe il numero [6] ("Prezzi e pagamenti" e "Acquisto con
+//    acconto"): nel documento fornito la seconda non e' piu' numerata [6.1].
+//  - [4] non menziona piu' riduzione del prezzo e risoluzione del contratto (restano
+//    comunque dovute per legge, art. 135-bis Cod. Consumo).
+//  - [6.2] "Spedizioni all'estero e oneri doganali" rimossa: per gli articoli diversi
+//    dalle resine non c'e' piu' alcuna clausola sui dazi extra-UE.
+//
+// PUNTI ANCORA APERTI:
+//  - [5] Giacenza: il testo rinvia al termine indicato dal corriere perche' SDA/BRT/GLS
+//    usano termini diversi (in genere 5-10 gg lavorativi).
+//  - [6] Acconto: manca la disciplina del caso in cui il saldo non venga mai pagato
 //    (termine, sorte dell'acconto). Attenzione: una clausola di trattenuta automatica
 //    sarebbe potenzialmente vessatoria ex art. 33 c.2 lett. e).
 //  - [9] ADR: nessun organismo specifico indicato, clausola volutamente generica.
 //  - [3] L'esclusione del recesso ex art. 59 lett. c) regge SOLO se le resine sono
 //    realmente realizzate su specifica del singolo cliente, non se sono pezzi a
-//    catalogo prodotti su ordinazione. Da validare con un legale.
-//  - Capitale sociale: indicato come € 5.000,00. Se non è interamente versato va
+//    catalogo prodotti su ordinazione.
+//  - Capitale sociale: indicato come EUR 5.000,00. Se non e' interamente versato va
 //    specificata la somma effettivamente versata (art. 2250 c.c.).
 export const metadata: Metadata = {
   title: 'Termini di Vendita | DreamShop',
@@ -35,7 +47,7 @@ export default function TerminiVenditaPage() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-white rounded-lg shadow-sm p-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Termini e condizioni di vendita</h1>
-          <p className="text-sm text-gray-500 mb-8">Ultimo aggiornamento: 2 agosto 2026</p>
+          <p className="text-sm text-gray-500 mb-8">Ultimo aggiornamento: 1 settembre 2026</p>
 
           <div className="prose prose-lg max-w-none">
             <h2 className="text-xl font-semibold text-gray-900 mt-8 mb-4">[1] Identità del venditore</h2>
@@ -50,8 +62,7 @@ export default function TerminiVenditaPage() {
               <a href="mailto:dreamshopfigure@gmail.com" className="text-blue-600 hover:underline">dreamshopfigure@gmail.com</a>{' '}
               — PEC per le comunicazioni e i reclami formali:{' '}
               <a href="mailto:dreamshop18@pec.it" className="text-blue-600 hover:underline">dreamshop18@pec.it</a>{' '}
-              — Telefono: <a href="tel:+393515029645" className="text-blue-600 hover:underline">+39 351 502 9645</a>{' '}
-              (raggiungibile anche via WhatsApp).
+              — WhatsApp: <a href="tel:+393515029645" className="text-blue-600 hover:underline">+39 351 502 9645</a>.
             </p>
             <p className="text-gray-700 mb-4">
               Le presenti condizioni si applicano ai contratti a distanza conclusi tramite questo sito con i consumatori,
@@ -130,10 +141,9 @@ export default function TerminiVenditaPage() {
 
             <h2 className="text-xl font-semibold text-gray-900 mt-8 mb-4">[3] Resine e prodotti personalizzati</h2>
             <p className="text-gray-700 mb-4">
-              <strong>[DA VALIDARE CON IL LEGALE]</strong> Le resine realizzate su specifica del cliente rientrano tra i beni
-              confezionati su misura o chiaramente personalizzati e, come tali, sono escluse dal diritto di recesso ai
-              sensi dell&apos;art. 59, lett. c), del Codice del Consumo. Tale esclusione è indicata nella pagina prodotto
-              prima della conclusione dell&apos;ordine.
+              Le resine in quanto prodotti realizzati su specifica del cliente rientrano tra i beni confezionati su
+              misura o chiaramente personalizzati e, come tali, sono escluse dal diritto di recesso ai sensi
+              dell&apos;art. 59, lett. c), del Codice del Consumo.
             </p>
             <p className="text-gray-700 mb-4">
               Poiché il recesso è escluso, l&apos;ordine può essere annullato dopo l&apos;avvio della lavorazione solo con il
@@ -143,9 +153,10 @@ export default function TerminiVenditaPage() {
               garanzia legale di conformità e i tuoi diritti in caso di nostro inadempimento.
             </p>
             <p className="text-gray-700 mb-4">
-              Ogni resina viene spedita con oneri doganali inclusi nel prezzo; le tempistiche di produzione e consegna
-              sono indicative e pari a circa <strong>60 giorni lavorativi</strong>, e il codice di tracciamento si aggiorna
-              all&apos;arrivo del prodotto in Europa. Questo termine, indicato nella pagina prodotto e da te accettato al
+              Il saldo dei costi di spedizione che verrà richiesto all&apos;uscita della resina includerà gli oneri
+              doganali nel prezzo; le tempistiche di produzione sono sempre indicative ed indicate nella pagina
+              prodotto la consegna una volta rilasciato il prodotto è circa <strong>60 giorni lavorativi</strong>, e il
+              codice di tracciamento si aggiorna all&apos;arrivo del prodotto in Europa. Questo termine, indicato nella pagina prodotto e da te accettato al
               momento dell&apos;ordine, costituisce il &laquo;diverso accordo&raquo; di cui al punto [5].
             </p>
 
@@ -153,8 +164,7 @@ export default function TerminiVenditaPage() {
             <p className="text-gray-700 mb-4">
               Tutti i prodotti venduti sono coperti dalla <strong>garanzia legale di conformità di 2 anni</strong> dalla consegna,
               prevista dagli artt. 128 e seguenti del Codice del Consumo. In caso di difetto di conformità hai diritto,
-              senza spese, al ripristino della conformità del bene mediante <strong>riparazione o sostituzione</strong> e, ove
-              ricorrano i presupposti di legge, alla <strong>riduzione del prezzo o alla risoluzione del contratto</strong>.
+              senza spese, al ripristino della conformità del bene mediante <strong>riparazione o sostituzione</strong>.
             </p>
             <p className="text-gray-700 mb-4">
               Per attivare la garanzia è sufficiente contattarci ai recapiti indicati al punto [1], descrivendo il
@@ -176,13 +186,6 @@ export default function TerminiVenditaPage() {
               un codice di tracciamento.
             </p>
             <p className="text-gray-700 mb-4">
-              Salvo diverso accordo, la consegna avviene <strong>entro 30 giorni</strong> dalla conclusione del contratto.
-              Costituiscono diverso accordo, espressamente indicato nella pagina prodotto e da te accettato al momento
-              dell&apos;ordine, i termini più lunghi previsti per le <strong>resine</strong> (punto [3]) e per gli articoli in{' '}
-              <strong>preordine</strong> (punto [7]), la cui consegna è legata rispettivamente ai tempi di lavorazione e
-              alla data di uscita comunicata dalla casa produttrice.
-            </p>
-            <p className="text-gray-700 mb-4">
               <strong>Il rischio di perdita o danneggiamento dei beni passa a te solo nel momento in cui tu, o un terzo da te
               designato diverso dal vettore, acquisisci il possesso fisico dei beni</strong> (art. 63 Cod. Consumo). Eventuali
               danni o smarrimenti occorsi durante il trasporto sono pertanto a nostro carico: in tali casi potrai
@@ -200,7 +203,7 @@ export default function TerminiVenditaPage() {
             <p className="text-gray-700 mb-4">
               Tutti i prezzi indicati sul sito sono comprensivi di IVA. Le eventuali spese di spedizione e gli altri
               costi aggiuntivi ti sono indicati in modo chiaro prima della conclusione dell&apos;ordine e sono riepilogati
-              nella schermata finale di pagamento.
+              nella schermata finale di pagamento (RESINE ESCLUSE VEDI PUNTO N.3).
             </p>
             <p className="text-gray-700 mb-4">
               Sono accettati i pagamenti tramite <strong>carta di credito e di debito</strong> (circuito Stripe),{' '}
@@ -213,7 +216,7 @@ export default function TerminiVenditaPage() {
               Il contratto si intende concluso nel momento in cui ricevi la nostra email di conferma d&apos;ordine.
             </p>
 
-            <h3 className="text-lg font-semibold text-gray-900 mt-6 mb-3">[6.1] Acquisto con acconto</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mt-6 mb-3">[6] Acquisto con acconto</h3>
             <p className="text-gray-700 mb-4">
               Per alcuni prodotti è possibile concludere l&apos;ordine versando un <strong>acconto</strong> anziché l&apos;intero
               prezzo. La disponibilità di questa modalità, l&apos;importo dell&apos;acconto e l&apos;importo del saldo residuo ti sono
@@ -228,14 +231,6 @@ export default function TerminiVenditaPage() {
             <p className="text-gray-700 mb-4">
               Il termine di 14 giorni per il recesso, quando applicabile, decorre in ogni caso dalla consegna del bene e
               non dal versamento dell&apos;acconto.
-            </p>
-
-            <h3 className="text-lg font-semibold text-gray-900 mt-6 mb-3">[6.2] Spedizioni all&apos;estero e oneri doganali</h3>
-            <p className="text-gray-700 mb-4">
-              Per le spedizioni dirette verso Paesi extra-UE, eventuali <strong>dazi doganali, imposte e oneri di importazione
-              sono a carico dell&apos;acquirente</strong> e vengono richiesti dalle autorità del Paese di destinazione al momento
-              dello sdoganamento. Fa eccezione quanto previsto al punto [3] per le resine, il cui prezzo è già
-              comprensivo degli oneri doganali.
             </p>
 
             <h2 className="text-xl font-semibold text-gray-900 mt-8 mb-4">[7] Articoli in preordine</h2>
@@ -307,32 +302,6 @@ export default function TerminiVenditaPage() {
               <Link href="/cookie-policy" className="text-blue-600 hover:underline">Cookie Policy</Link>.
             </p>
 
-            <h2 className="text-xl font-semibold text-gray-900 mt-8 mb-4">[13] Modulo di recesso tipo</h2>
-            <p className="text-gray-700 mb-4">
-              Ai sensi dell&apos;Allegato I, parte B, del Codice del Consumo. Compila e restituisci il presente modulo solo
-              se desideri recedere dal contratto: il suo utilizzo <strong>non è obbligatorio</strong> e puoi recedere più
-              semplicemente dalla tua area riservata, come indicato al punto [2.1].
-            </p>
-            <div className="border border-gray-300 rounded-md p-6 bg-gray-50 text-gray-700 mb-4">
-              <p className="mb-3">
-                Destinatario: <strong>DREAM SHOP S.R.L.</strong>, Via Vincenzo Florio 13/L, 95045 Misterbianco (CT), Italia
-                — email: dreamshopfigure@gmail.com — PEC: dreamshop18@pec.it
-              </p>
-              <p className="mb-3">
-                Con la presente io/noi (*) notifico/notifichiamo (*) il recesso dal mio/nostro (*) contratto di vendita
-                dei seguenti beni/servizi (*):
-              </p>
-              <p className="mb-3">_______________________________________________</p>
-              <p className="mb-3">Ordinato il (*) / ricevuto il (*): ____________________</p>
-              <p className="mb-3">Nome del/dei consumatore/i: ____________________</p>
-              <p className="mb-3">Indirizzo del/dei consumatore/i: ____________________</p>
-              <p className="mb-3">
-                Firma del/dei consumatore/i (solo se il presente modulo è notificato in versione cartacea):
-                ____________________
-              </p>
-              <p className="mb-3">Data: ____________________</p>
-              <p className="text-sm text-gray-500">(*) Cancellare la dicitura inutile.</p>
-            </div>
           </div>
         </div>
       </div>
