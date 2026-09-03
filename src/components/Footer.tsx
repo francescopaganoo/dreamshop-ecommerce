@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { FaEnvelope, FaMapMarkerAlt, FaFacebook, FaInstagram, FaTelegram, FaWhatsapp, FaChevronDown, FaChevronUp, FaShieldAlt } from 'react-icons/fa';
+import { FaEnvelope, FaMapMarkerAlt, FaFacebook, FaInstagram, FaTelegram, FaWhatsapp, FaChevronDown, FaChevronUp } from 'react-icons/fa';
 import { FaTiktok } from 'react-icons/fa6';
 import { useState, useEffect } from 'react';
 import { getMegaMenuCategories, ExtendedCategory } from '../lib/api';
@@ -235,12 +235,6 @@ export default function Footer() {
               </li>
               <li className="flex items-center">
                 <div className="flex items-center justify-center mr-3">
-                  <FaShieldAlt className="w-4 h-4 text-bred-400" />
-                </div>
-                <span className="text-sm">PEC: dreamshop18@pec.it</span>
-              </li>
-              <li className="flex items-center">
-                <div className="flex items-center justify-center mr-3">
                   <FaWhatsapp className="w-4 h-4 text-green-400" />
                 </div>
                 <a 
@@ -270,7 +264,7 @@ export default function Footer() {
           <p className="text-xs text-gray-500 text-center leading-relaxed max-w-3xl mx-auto">
             <span className="text-gray-400 font-semibold">DREAM SHOP S.R.L.</span> — Sede legale: Via Vincenzo Florio 13/L,
             95045 Misterbianco (CT), Italia — P.IVA e Codice Fiscale 05812850872 — Registro delle Imprese di Catania
-            n. 05812850872, REA 435724 — Capitale sociale € 5.000,00 — PEC: dreamshop18@pec.it
+            n. 05812850872, REA 435724 — Capitale sociale € 5.000,00
           </p>
         </div>
 
