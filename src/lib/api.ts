@@ -41,6 +41,7 @@ interface DreamShopProduct {
   }>;
   sales_count?: number;
   has_deposit_option?: boolean;
+  shipping_class_id?: number;
 }
 
 // Cache for preventing duplicate requests
@@ -1967,7 +1968,8 @@ export async function getBestSellingProducts(limit: number = 4): Promise<Product
         categories: product.categories || [],
         attributes: product.attributes || [],
         sales_count: product.sales_count || 0,
-        has_deposit_option: product.has_deposit_option
+        has_deposit_option: product.has_deposit_option,
+        shipping_class_id: product.shipping_class_id ?? 0
       }));
     }
 
@@ -2045,7 +2047,8 @@ export async function getRelatedProductsBySlug(productSlug: string, limit: numbe
           images: product.images || [],
           categories: product.categories || [],
           attributes: product.attributes || [],
-          has_deposit_option: product.has_deposit_option
+          has_deposit_option: product.has_deposit_option,
+          shipping_class_id: product.shipping_class_id ?? 0
         }));
     }
 
@@ -3252,6 +3255,7 @@ export async function getFilteredProductsPlugin(filters: {
       short_description: string;
       attributes: PluginProductAttribute[];
       has_deposit_option?: boolean;
+      shipping_class_id?: number;
     }) => ({
       id: parseInt(product.id),
       name: product.name,
@@ -3267,6 +3271,10 @@ export async function getFilteredProductsPlugin(filters: {
       permalink: product.permalink,
       short_description: product.short_description,
       has_deposit_option: product.has_deposit_option,
+      // Il plugin lo restituisce, ma finora non veniva riportato qui: senza,
+      // il calcolo spedizione ripiega sulla tariffa base e il wallet non
+      // addebita la spedizione.
+      shipping_class_id: product.shipping_class_id ?? 0,
       // Add any missing fields with defaults
       description: '',
       categories: [],

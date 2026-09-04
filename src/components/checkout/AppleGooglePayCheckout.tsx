@@ -5,7 +5,7 @@ import { PaymentRequestButtonElement, useStripe } from '@stripe/react-stripe-js'
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { getShippingMethods, ShippingAddress, ShippingMethod } from '@/lib/api';
+import { getShippingMethods, getProductShippingClassId, ShippingAddress, ShippingMethod } from '@/lib/api';
 import { getDepositInfo, ProductWithDeposit } from '@/lib/deposits';
 
 // Dichiarazione tipo per ApplePaySession
@@ -138,11 +138,20 @@ export default function AppleGooglePayCheckout({
         };
 
         // Prepara gli item del carrello per il calcolo spedizione
-        const cartItems = cart.map(item => ({
-          product_id: item.product.id,
-          quantity: item.quantity,
-          variation_id: item.variation_id || 0,
-          shipping_class_id: item.product.shipping_class_id || 0
+        // I prodotti aggiunti dai listing serviti dal plugin arrivano senza
+        // shipping_class_id. Senza questo recupero la tariffa a classe ripiega
+        // sul costo base (0) e il wallet non addebita la spedizione.
+        const cartItems = await Promise.all(cart.map(async (item) => {
+          let shippingClassId = item.product.shipping_class_id || 0;
+          if (!shippingClassId) {
+            shippingClassId = await getProductShippingClassId(item.product.id);
+          }
+          return {
+            product_id: item.product.id,
+            quantity: item.quantity,
+            variation_id: item.variation_id || 0,
+            shipping_class_id: shippingClassId
+          };
         }));
 
         const availableMethods = await getShippingMethods(defaultAddress, cartTotal, cartItems);
@@ -294,11 +303,20 @@ export default function AppleGooglePayCheckout({
           country: ev.shippingAddress?.country || 'IT'
         };
 
-        const cartItemsForShipping = cart.map(item => ({
-          product_id: item.product.id,
-          quantity: item.quantity,
-          variation_id: item.variation_id || 0,
-          shipping_class_id: item.product.shipping_class_id || 0
+        // I prodotti aggiunti dai listing serviti dal plugin arrivano senza
+        // shipping_class_id. Senza questo recupero la tariffa a classe ripiega
+        // sul costo base (0) e il wallet non addebita la spedizione.
+        const cartItemsForShipping = await Promise.all(cart.map(async (item) => {
+          let shippingClassId = item.product.shipping_class_id || 0;
+          if (!shippingClassId) {
+            shippingClassId = await getProductShippingClassId(item.product.id);
+          }
+          return {
+            product_id: item.product.id,
+            quantity: item.quantity,
+            variation_id: item.variation_id || 0,
+            shipping_class_id: shippingClassId
+          };
         }));
 
         const availableMethods = await getShippingMethods(shippingAddress, cartTotal, cartItemsForShipping);
