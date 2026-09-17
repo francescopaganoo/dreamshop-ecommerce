@@ -159,6 +159,9 @@ export default function TerminiVenditaPage() {
               codice di tracciamento si aggiorna all&apos;arrivo del prodotto in Europa. Questo termine, indicato nella pagina prodotto e da te accettato al
               momento dell&apos;ordine, costituisce il &laquo;diverso accordo&raquo; di cui al punto [5].
             </p>
+            <p className="text-gray-700 mb-4">
+              Eventuali danni devono essere comunicati <strong>entro 3 giorni</strong> dal ricevimento del prodotto.
+            </p>
 
             <h2 className="text-xl font-semibold text-gray-900 mt-8 mb-4">[4] Garanzia legale di conformità</h2>
             <p className="text-gray-700 mb-4">
@@ -214,6 +217,10 @@ export default function TerminiVenditaPage() {
             </p>
             <p className="text-gray-700 mb-4">
               Il contratto si intende concluso nel momento in cui ricevi la nostra email di conferma d&apos;ordine.
+            </p>
+            <p className="text-gray-700 mb-4">
+              L&apos;ordine non è rimborsabile trascorsi <strong>30 giorni</strong> dalla sua conclusione oppure se è già
+              stato inoltrato al fornitore.
             </p>
 
             <h3 className="text-lg font-semibold text-gray-900 mt-6 mb-3">[6] Acquisto con acconto</h3>
