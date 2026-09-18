@@ -219,8 +219,8 @@ export default function TerminiVenditaPage() {
               Il contratto si intende concluso nel momento in cui ricevi la nostra email di conferma d&apos;ordine.
             </p>
             <p className="text-gray-700 mb-4">
-              L&apos;ordine non è rimborsabile trascorsi <strong>30 giorni</strong> dalla sua conclusione oppure se è già
-              stato inoltrato al fornitore.
+              L&apos;ordine non è rimborsabile trascorsi <strong>30 giorni</strong> dalla sua conclusione oppure quando il suo
+              stato non è più <strong>&laquo;In elaborazione&raquo;</strong>, ad esempio perché è già stato inoltrato al fornitore.
             </p>
 
             <h3 className="text-lg font-semibold text-gray-900 mt-6 mb-3">[6] Acquisto con acconto</h3>
