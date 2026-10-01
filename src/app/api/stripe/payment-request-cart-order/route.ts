@@ -4,6 +4,7 @@ import WooCommerceRestApi from '@woocommerce/woocommerce-rest-api';
 import { orderDataStore } from '../../../../lib/orderDataStore';
 import { validateDepositEligibility, hasDepositInCartItems } from '../../../../lib/deposits';
 import { assertStockAvailable } from '@/lib/stock-guard';
+import { quoteWalletShipping, ShippingUnavailableError } from '@/lib/shipping-rates';
 
 // Inizializza Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
@@ -62,7 +63,8 @@ export async function POST(request: NextRequest) {
       pointsToRedeem = 0,
       pointsDiscount = 0,
       billingData,
-      shippingData
+      shippingData,
+      displayedTotal
     }: {
       cartItems: CartItem[];
       userId: number;
@@ -74,6 +76,7 @@ export async function POST(request: NextRequest) {
       pointsDiscount?: number;
       billingData: AddressData;
       shippingData: AddressData;
+      displayedTotal?: number;
     } = await request.json();
 
 
@@ -222,12 +225,66 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Calcola i costi di spedizione
-    const shippingCost = shippingOption ? shippingOption.amount / 100 : 0; // Converti da centesimi
+    // ========================================================================
+    // VERIFICA SPEDIZIONE LATO SERVER
+    // L'importo dell'opzione del wallet arriva dal browser: se il calcolo lato
+    // client falliva o restava sull'opzione iniziale a 0€, l'ordine partiva
+    // senza spedizione (es. ordine #191352). La spedizione si ricalcola qui con
+    // le classi lette da WooCommerce; se non coincide con quella mostrata nel
+    // wallet il pagamento viene rifiutato PRIMA di addebitare, perche' il
+    // cliente ha autorizzato il totale che ha visto.
+    // ========================================================================
+    let shippingQuote;
+    try {
+      shippingQuote = await quoteWalletShipping({
+        country: shippingData?.country || '',
+        cartTotal: Math.max(0, subtotal - discount - pointsDiscount),
+        items: verifiedItems.map(item => ({
+          product_id: item.product_id,
+          variation_id: item.variation_id,
+          quantity: item.quantity
+        })),
+        couponCode
+      });
+    } catch (shippingError) {
+      console.error('[payment-request-cart-order] Spedizione non calcolabile, pagamento bloccato:', shippingError);
+      if (shippingError instanceof ShippingUnavailableError) {
+        return NextResponse.json({
+          error: shippingError.message,
+          errorCode: 'SHIPPING_UNAVAILABLE'
+        }, { status: 422 });
+      }
+      return NextResponse.json({
+        error: 'Impossibile calcolare la spedizione. Riprova tra qualche istante.',
+        errorCode: 'SHIPPING_CALCULATION_FAILED'
+      }, { status: 503 });
+    }
+
+    const walletShippingCents = shippingOption ? Math.round(Number(shippingOption.amount)) : 0;
+    if (walletShippingCents !== shippingQuote.amountCents) {
+      console.error('[payment-request-cart-order] Spedizione del wallet diversa da quella dovuta, pagamento bloccato', {
+        walletShippingCents,
+        expectedShippingCents: shippingQuote.amountCents,
+        walletOptionId: shippingOption?.id,
+        country: shippingData?.country,
+        userId
+      });
+      return NextResponse.json({
+        error: 'Il costo di spedizione non era aggiornato. Nessun addebito effettuato: riprova il pagamento.',
+        errorCode: 'SHIPPING_MISMATCH'
+      }, { status: 409 });
+    }
+    // ========================================================================
+
+    // Calcola i costi di spedizione (verificati lato server)
+    const shippingCost = shippingQuote.cost;
 
     // Calcola il totale finale (sottraendo sia coupon che sconto punti)
     const orderTotal = subtotal - discount - pointsDiscount + shippingCost;
-    const stripeAmount = Math.round(orderTotal * 100); // Converti in centesimi
+    // In centesimi, con la stessa formula del totale mostrato nel wallet
+    // (prodotti arrotondati + spedizione): evita scarti di 1 centesimo dovuti
+    // alla virgola mobile nel confronto con displayedTotal
+    const stripeAmount = Math.round((subtotal - discount - pointsDiscount) * 100) + shippingQuote.amountCents;
 
     console.log('[PAYMENT-REQUEST-CART] Step 1: Calculated totals', {
       subtotal: subtotal.toFixed(2),
@@ -241,6 +298,26 @@ export async function POST(request: NextRequest) {
 
     if (stripeAmount <= 0) {
       return NextResponse.json({ error: 'Totale ordine non valido' }, { status: 400 });
+    }
+
+    // Il cliente ha autorizzato nel wallet il totale che ha visto: se non
+    // coincide con quello che stiamo per addebitare (sconto contato due volte,
+    // prezzo cambiato dopo l'aggiunta al carrello, ecc.) non si addebita.
+    // displayedTotal manca solo da una pagina caricata prima di questo rilascio.
+    // Tolleranza di 1 centesimo: browser e server moltiplicano prezzo, quantita'
+    // e percentuale d'acconto in ordine diverso e la virgola mobile puo' spostare
+    // l'arrotondamento. Lo sconto contato due volte o un prezzo vecchio danno
+    // scarti ben maggiori. La spedizione e' gia' stata verificata al centesimo.
+    if (displayedTotal !== undefined && Math.abs(Math.round(Number(displayedTotal)) - stripeAmount) > 1) {
+      console.error('[payment-request-cart-order] Totale del wallet diverso dall\'importo da addebitare, pagamento bloccato', {
+        displayedTotal,
+        stripeAmount,
+        userId
+      });
+      return NextResponse.json({
+        error: 'Il totale non era aggiornato. Nessun addebito effettuato: ricarica la pagina e riprova.',
+        errorCode: 'TOTAL_MISMATCH'
+      }, { status: 409 });
     }
 
     // Prepara i line items per WooCommerce con supporto per acconti
@@ -286,10 +363,10 @@ export async function POST(request: NextRequest) {
 
     // Prepara le linee di spedizione
     const shippingLines = [];
-    if (shippingOption && shippingCost > 0) {
+    if (shippingCost > 0) {
       shippingLines.push({
-        method_id: shippingOption.id,
-        method_title: shippingOption.label,
+        method_id: shippingQuote.id,
+        method_title: shippingQuote.title,
         total: shippingCost.toFixed(2)
       });
     }

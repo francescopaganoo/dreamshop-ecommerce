@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { orderDataStore } from '@/lib/orderDataStore';
+import { renewReservation, extractReservationToken } from '@/lib/stock-guard';
+import { CHECKOUT_RESERVATION_TTL_MINUTES, checkoutSessionExpiresAt } from '@/lib/checkout-session-window';
 
 // Inizializza Stripe con la chiave segreta
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
@@ -39,6 +42,16 @@ export async function GET(request: NextRequest) {
     }
 
 
+    // Il pezzo resta riservato per tutta la finestra in cui la sessione e' pagabile.
+    // store-order-data ha appena rinnovato la prenotazione con la durata
+    // predefinita (15 min), piu' corta della sessione. Non blocca il pagamento:
+    // se il rinnovo fallisce la disponibilita' e' gia' stata verificata.
+    const storedOrder = await orderDataStore.get(dataId);
+    const reservationToken = storedOrder ? extractReservationToken(storedOrder.orderData) : '';
+    if (reservationToken) {
+      await renewReservation(reservationToken, 'stripe-checkout-satispay', CHECKOUT_RESERVATION_TTL_MINUTES);
+    }
+
     // Crea la sessione di checkout Stripe con solo Satispay
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['satispay'],
@@ -63,6 +76,8 @@ export async function GET(request: NextRequest) {
         order_data_id: dataId,
         order_description: orderDescription
       },
+      // Scade prima dei dati dell'ordine: vedi checkout-session-window.ts
+      expires_at: checkoutSessionExpiresAt(),
       locale: 'it'
     });
 

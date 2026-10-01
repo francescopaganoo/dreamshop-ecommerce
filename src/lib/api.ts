@@ -1658,6 +1658,45 @@ export async function getShippingMethods(shippingAddress: ShippingAddress, cartT
 }
 
 /**
+ * Spedizione da mostrare nel foglio Apple Pay / Google Pay. La calcola il server
+ * con le classi di spedizione lette da WooCommerce, come fara' al momento
+ * dell'addebito.
+ *
+ * Diversamente da getShippingMethods non ripiega mai su un costo predefinito:
+ * restituisce null se l'indirizzo non e' spedibile e lancia un errore se il
+ * calcolo fallisce, cosi' il wallet mostra un errore invece di una spedizione
+ * sbagliata.
+ */
+export async function getWalletShippingQuote(
+  country: string,
+  cartTotal: number,
+  items: Array<{ product_id: number; variation_id?: number | null; quantity: number }>,
+  couponCode = ''
+): Promise<ShippingMethod | null> {
+  const response = await fetch('/api/shipping/wallet-quote', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-cache',
+      'Pragma': 'no-cache'
+    },
+    body: JSON.stringify({ country, cart_total: cartTotal, items, coupon_code: couponCode })
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (response.status === 422 && data?.errorCode === 'SHIPPING_UNAVAILABLE') {
+    return null;
+  }
+
+  if (!response.ok || !data?.method || typeof data.method.cost !== 'number') {
+    throw new Error(data?.error || 'Errore nel calcolo della spedizione');
+  }
+
+  return data.method as ShippingMethod;
+}
+
+/**
  * Calcola le spese di spedizione in base all'indirizzo e agli articoli nel carrello
  * @param {ShippingAddress} shippingAddress - Indirizzo di spedizione
  * @returns {Promise<number>} - Costo di spedizione

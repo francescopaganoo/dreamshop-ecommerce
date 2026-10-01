@@ -78,8 +78,11 @@ class OrderDataStore {
    * Recupera i dati dell'ordine con lock atomico (status: pending -> processing).
    * Se un altro processo ha già il lock, ritorna null.
    * Ritorna { data, alreadyCompleted, wcOrderId } per gestire i vari casi.
+   * Senza dati, `reason` dice perche': 'not_found'/'expired' = i dati non ci sono
+   * piu' (cancellati dopo 2 ore), 'locked' = un altro processo li sta usando,
+   * 'error' = WordPress non ha risposto correttamente.
    */
-  async getAndLock(dataId: string): Promise<{ data: StoredOrderData | null; alreadyCompleted: boolean; wcOrderId?: number }> {
+  async getAndLock(dataId: string): Promise<{ data: StoredOrderData | null; alreadyCompleted: boolean; wcOrderId?: number; reason?: 'not_found' | 'expired' | 'locked' | 'error' }> {
     try {
       const response = await fetch(`${WORDPRESS_URL}/wp-json/dreamshop/v1/temp-order/${dataId}/get-and-lock`, {
         method: 'POST',
@@ -115,14 +118,20 @@ class OrderDataStore {
       // 423 = già in processing (lockato da altro processo)
       if (response.status === 423) {
         console.log('[ORDER-STORE] getAndLock: già lockato da altro processo');
-        return { data: null, alreadyCompleted: false };
+        return { data: null, alreadyCompleted: false, reason: 'locked' };
+      }
+
+      // 404 = mai salvati o gia' cancellati dal cron, 410 = scaduti (2 ore)
+      if (response.status === 404 || response.status === 410) {
+        console.error(`[ORDER-STORE] getAndLock: dati ${response.status === 410 ? 'scaduti' : 'non trovati'}: ${dataId}`);
+        return { data: null, alreadyCompleted: false, reason: response.status === 410 ? 'expired' : 'not_found' };
       }
 
       console.error('[ORDER-STORE] getAndLock errore:', response.status);
-      return { data: null, alreadyCompleted: false };
+      return { data: null, alreadyCompleted: false, reason: 'error' };
     } catch (error) {
       console.error('[ORDER-STORE] getAndLock errore di connessione:', error);
-      return { data: null, alreadyCompleted: false };
+      return { data: null, alreadyCompleted: false, reason: 'error' };
     }
   }
 

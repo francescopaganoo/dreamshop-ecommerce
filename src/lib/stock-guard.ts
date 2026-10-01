@@ -213,10 +213,15 @@ export async function reserveStock(params: {
  * Prolunga una prenotazione riverificando la disponibilità.
  * Da chiamare all'apertura del pagamento, così un checkout lento non scade.
  */
-export async function renewReservation(token: string, context: string): Promise<StockGuardResult> {
+export async function renewReservation(token: string, context: string, ttlMinutes?: number): Promise<StockGuardResult> {
   if (!token) return degraded('Nessun token di prenotazione');
 
-  const response = await callPlugin(`/reserve/${encodeURIComponent(token)}/renew`, {}, context);
+  // Senza ttl_minutes il plugin usa la durata predefinita (Stock Guard > Impostazioni).
+  const response = await callPlugin(
+    `/reserve/${encodeURIComponent(token)}/renew`,
+    ttlMinutes ? { ttl_minutes: ttlMinutes } : {},
+    context
+  );
   if (!response) return degraded('Plugin non raggiungibile');
 
   // Una prenotazione scaduta o sconosciuta non è un motivo per bloccare:

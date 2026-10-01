@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { assertStockAvailable, renewReservation, extractItemsFromOrderData, extractReservationToken } from '@/lib/stock-guard';
+import { CHECKOUT_RESERVATION_TTL_MINUTES, checkoutSessionExpiresAt } from '@/lib/checkout-session-window';
 
 // Inizializza Stripe con la chiave segreta
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
@@ -32,7 +33,8 @@ export async function POST(request: NextRequest) {
 
       if (stockItems.length > 0) {
         if (reservationToken) {
-          await renewReservation(reservationToken, 'stripe-checkout-klarna');
+          // Il pezzo resta riservato per tutta la finestra in cui la sessione e' pagabile
+          await renewReservation(reservationToken, 'stripe-checkout-klarna', CHECKOUT_RESERVATION_TTL_MINUTES);
         }
 
         const stockCheck = await assertStockAvailable({
@@ -111,6 +113,8 @@ export async function POST(request: NextRequest) {
       success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}&payment_method=klarna`,
       cancel_url: `${origin}/checkout?canceled=true`,
       metadata,
+      // Scade prima dei dati dell'ordine: vedi checkout-session-window.ts
+      expires_at: checkoutSessionExpiresAt(),
       locale: 'it'
     });
 

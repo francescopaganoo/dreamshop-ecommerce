@@ -68,6 +68,111 @@ function logOrderCreationError(context: string, error: unknown, payload?: Record
   }
 }
 
+/**
+ * Rete di sicurezza: pagamento riuscito su una pagina Stripe Checkout, ma i dati
+ * dell'ordine non esistono piu' (scaduti dopo 2 ore e cancellati). Prima finiva
+ * con un 200 e una riga di log: il cliente pagava e l'ordine non esisteva
+ * (sessione cs_live_a1peNq..., 30/09/2026).
+ *
+ * Crea un ordine "in sospeso" con i dati che Stripe ha raccolto al pagamento e
+ * una riga con l'importo incassato: arriva la normale email "nuovo ordine"
+ * all'admin, il cliente riceve quella di ordine in sospeso, e l'ordine va
+ * completato a mano con il prodotto giusto (o annullato e rimborsato).
+ * I prodotti non sono noti, quindi il magazzino non viene toccato.
+ */
+async function createOrderForPaymentWithoutData(
+  session: Stripe.Checkout.Session,
+  paymentMethod: string,
+  paymentMethodTitle: string,
+  missingReason: string
+) {
+  // L'evento puo' essere un reinvio con metadata vecchi: la sessione aggiornata
+  // dice se un ordine e' gia' stato creato per questo pagamento.
+  const freshSession = await stripe.checkout.sessions.retrieve(session.id);
+  if (freshSession.metadata?.order_id) {
+    console.log(`[WEBHOOK] ${paymentMethod} - session ${session.id} ha gia' l'ordine #${freshSession.metadata.order_id}, nessun ordine di emergenza`);
+    return NextResponse.json({ received: true, message: `Ordine #${freshSession.metadata.order_id} già esistente` });
+  }
+
+  const paymentIntentId = (session.payment_intent as string) || session.id;
+  const amount = ((session.amount_total ?? 0) / 100).toFixed(2);
+  const details = session.customer_details;
+  const email = details?.email || '';
+  const nameParts = (details?.name || '').trim().split(/\s+/);
+  const address = {
+    first_name: nameParts[0] || '',
+    last_name: nameParts.slice(1).join(' '),
+    address_1: details?.address?.line1 || '',
+    address_2: details?.address?.line2 || '',
+    city: details?.address?.city || '',
+    state: details?.address?.state || '',
+    postcode: details?.address?.postal_code || '',
+    country: details?.address?.country || ''
+  };
+
+  // Collega l'ordine all'account del cliente, se esiste
+  let customerId = 0;
+  if (email) {
+    try {
+      const customers = await api.get('customers', { email });
+      if (Array.isArray(customers.data) && customers.data[0]?.id) {
+        customerId = customers.data[0].id;
+      }
+    } catch (customerError) {
+      console.error('[WEBHOOK] Ricerca cliente per ordine di emergenza non riuscita:', customerError);
+    }
+  }
+
+  const response = await api.post('orders', {
+    status: 'on-hold',
+    customer_id: customerId,
+    payment_method: paymentMethod,
+    payment_method_title: paymentMethodTitle,
+    transaction_id: paymentIntentId,
+    billing: { ...address, email, phone: details?.phone || '' },
+    shipping: address,
+    fee_lines: [{
+      name: 'Prodotto da verificare (dati ordine scaduti)',
+      total: amount,
+      tax_status: 'none'
+    }],
+    meta_data: [
+      { key: '_stripe_session_id', value: session.id },
+      { key: '_stripe_payment_intent_id', value: paymentIntentId },
+      { key: '_webhook_created', value: 'true' },
+      { key: '_order_data_missing', value: missingReason }
+    ]
+  });
+  const order = response.data as { id: number };
+
+  const note =
+    `ATTENZIONE: pagamento ${paymentMethodTitle} di ${amount} EUR riuscito (${paymentIntentId}), ` +
+    `ma i dati dell'ordine non erano più disponibili (${missingReason}): prodotti, spedizione e ` +
+    `sconti non sono noti. Verificare con il cliente o nel registro Stock Guard cosa ha acquistato, ` +
+    `poi completare l'ordine con il prodotto corretto oppure annullarlo e rimborsare su Stripe.`;
+  try {
+    await api.post(`orders/${order.id}/notes`, { note, customer_note: false });
+  } catch (noteError) {
+    console.error(`[WEBHOOK] Nota per l'ordine di emergenza #${order.id} non salvata:`, noteError);
+  }
+
+  await stripe.checkout.sessions.update(session.id, {
+    metadata: {
+      ...session.metadata,
+      order_id: String(order.id),
+      webhook_processed: 'true',
+      order_data_missing: 'true'
+    }
+  });
+
+  console.error(
+    `[WEBHOOK] ${paymentMethod} - PAGAMENTO SENZA DATI ORDINE (${missingReason}): ` +
+    `creato ordine in sospeso #${order.id} da completare a mano. ${amount} EUR, ${email}, ${paymentIntentId}`
+  );
+
+  return NextResponse.json({ received: true, message: `Ordine in sospeso #${order.id} creato senza dati`, order_id: order.id });
+}
+
 // Webhook secret per verificare la firma
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
@@ -947,13 +1052,6 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ received: true, message: `Ordine #${lockResult.wcOrderId} già esistente`, order_id: lockResult.wcOrderId });
           }
 
-          if (!lockResult.data) {
-            console.error(`[WEBHOOK] ${paymentMethod} - Dati ordine non trovati, scaduti o già in elaborazione`);
-            return NextResponse.json({ received: true, error: 'Dati ordine non trovati o già in elaborazione' });
-          }
-
-          const { orderData, pointsToRedeem } = lockResult.data;
-
           // Determina il titolo del metodo di pagamento
           let paymentMethodTitle = 'Pagamento Online';
           if (paymentMethod === 'klarna') {
@@ -963,6 +1061,26 @@ export async function POST(request: NextRequest) {
           } else if (paymentMethod === 'satispay') {
             paymentMethodTitle = 'Satispay';
           }
+
+          if (!lockResult.data) {
+            // I dati non esistono piu': il cliente ha pagato, l'ordine va registrato comunque
+            if (lockResult.reason === 'not_found' || lockResult.reason === 'expired') {
+              return await createOrderForPaymentWithoutData(session, paymentMethod, paymentMethodTitle, lockResult.reason);
+            }
+
+            // WordPress non ha risposto: un 503 fa ritentare Stripe (con backoff),
+            // invece di perdere l'ordine. Il lock rende il nuovo tentativo sicuro.
+            if (lockResult.reason === 'error') {
+              console.error(`[WEBHOOK] ${paymentMethod} - Dati ordine non leggibili (WordPress non raggiungibile), Stripe ritentera'`);
+              return NextResponse.json({ error: 'Dati ordine temporaneamente non disponibili' }, { status: 503 });
+            }
+
+            // 'locked': un altro processo sta gia' creando l'ordine
+            console.error(`[WEBHOOK] ${paymentMethod} - Dati ordine già in elaborazione`);
+            return NextResponse.json({ received: true, error: 'Dati ordine già in elaborazione' });
+          }
+
+          const { orderData, pointsToRedeem } = lockResult.data;
 
           // Type-safe spread
           const baseOrderData2 = orderData as Record<string, unknown>;

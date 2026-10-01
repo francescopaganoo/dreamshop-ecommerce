@@ -5,7 +5,7 @@ import { PaymentRequestButtonElement, useStripe } from '@stripe/react-stripe-js'
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { getShippingMethods, getProductShippingClassId, ShippingAddress, ShippingMethod } from '@/lib/api';
+import { getShippingMethods, getProductShippingClassId, getWalletShippingQuote, ShippingAddress, ShippingMethod } from '@/lib/api';
 import { getDepositInfo, ProductWithDeposit } from '@/lib/deposits';
 
 // Dichiarazione tipo per ApplePaySession
@@ -67,7 +67,7 @@ export default function AppleGooglePayCheckout({
   const [error, setError] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<string>('');
 
-  const { cart, getCartTotal, discount, clearCart } = useCart();
+  const { cart, getSubtotal, discount, clearCart } = useCart();
   const { user } = useAuth();
   const router = useRouter();
   const stripe = useStripe();
@@ -84,14 +84,20 @@ export default function AppleGooglePayCheckout({
   discountRef.current = discount;
   // Ref per calcolare la spedizione solo una volta
   const hasCalculatedShippingRef = useRef(false);
+  // Ultimo totale (centesimi) mostrato nel foglio del wallet: il server lo
+  // confronta con l'importo che addebita e rifiuta se non coincidono
+  const displayedTotalRef = useRef<number | null>(null);
 
   // Stato per il metodo di spedizione
   const [selectedShippingMethod, setSelectedShippingMethod] = useState<ShippingMethod | null>(null);
 
   // Verifica se il carrello è valido
   const hasItems = cart.length > 0;
-  const cartTotal = getCartTotal();
-  const finalTotal = cartTotal - discount - pointsDiscount;
+  // Subtotale SENZA sconti: getCartTotal() sottrae gia' coupon e punti del
+  // contesto, e sottrarli di nuovo qui mostrava nel wallet un totale piu' basso
+  // di quello addebitato dal server (subtotale - coupon - punti + spedizione)
+  const cartSubtotal = getSubtotal();
+  const finalTotal = cartSubtotal - discount - pointsDiscount;
 
   // Usa customerId se passato come prop, altrimenti fallback a useAuth()
   // Questo risolve il problema di timing quando useAuth() non ha ancora caricato l'utente
@@ -154,7 +160,7 @@ export default function AppleGooglePayCheckout({
           };
         }));
 
-        const availableMethods = await getShippingMethods(defaultAddress, cartTotal, cartItems);
+        const availableMethods = await getShippingMethods(defaultAddress, finalTotal, cartItems);
 
         // Seleziona automaticamente il primo metodo disponibile
         if (isMountedRef.current) {
@@ -179,7 +185,7 @@ export default function AppleGooglePayCheckout({
     if (hasItems && cart.length > 0) {
       calculateDefaultShipping();
     }
-  }, [cart, cartTotal, hasItems]);
+  }, [cart, finalTotal, hasItems]);
 
   // Memoizza il costo di spedizione come valore primitivo
   const shippingCost = selectedShippingMethod?.cost ?? 0;
@@ -215,7 +221,7 @@ export default function AppleGooglePayCheckout({
   // canMakePayment() di Stripe può essere chiamato SOLO UNA VOLTA per sessione pagina.
   // Tutti i valori dinamici (punti, coupon discount) vengono letti dalle ref negli event handler.
   useEffect(() => {
-    if (!stripe || !hasItems || cartTotal <= 0) {
+    if (!stripe || !hasItems || cartSubtotal <= 0) {
       return;
     }
 
@@ -229,7 +235,7 @@ export default function AppleGooglePayCheckout({
     const currentPointsDiscount = pointsDiscountRef.current;
     const currentPointsToRedeem = pointsToRedeemRef.current;
     const currentDiscount = discountRef.current;
-    const currentFinalTotal = cartTotal - currentDiscount - currentPointsDiscount;
+    const currentFinalTotal = cartSubtotal - currentDiscount - currentPointsDiscount;
 
     if (currentFinalTotal <= 0) {
       prCreatedRef.current = false; // Permetti di riprovare
@@ -239,6 +245,7 @@ export default function AppleGooglePayCheckout({
     const displayItems = buildDisplayItems(currentPointsDiscount, currentPointsToRedeem);
     const shippingAmount = Math.round(shippingCost * 100);
     const totalWithShipping = Math.round(currentFinalTotal * 100) + shippingAmount;
+    displayedTotalRef.current = totalWithShipping;
 
     // Crea il payment request
     const pr = stripe.paymentRequest({
@@ -293,36 +300,21 @@ export default function AppleGooglePayCheckout({
     // Gestisce il cambio di indirizzo di spedizione
     pr.on('shippingaddresschange', async (ev) => {
       try {
-        const shippingAddress: ShippingAddress = {
-          first_name: '',
-          last_name: '',
-          address_1: ev.shippingAddress?.addressLine?.[0] || '',
-          city: ev.shippingAddress?.city || '',
-          state: ev.shippingAddress?.region || '',
-          postcode: ev.shippingAddress?.postalCode || '',
-          country: ev.shippingAddress?.country || 'IT'
-        };
-
-        // I prodotti aggiunti dai listing serviti dal plugin arrivano senza
-        // shipping_class_id. Senza questo recupero la tariffa a classe ripiega
-        // sul costo base (0) e il wallet non addebita la spedizione.
-        const cartItemsForShipping = await Promise.all(cart.map(async (item) => {
-          let shippingClassId = item.product.shipping_class_id || 0;
-          if (!shippingClassId) {
-            shippingClassId = await getProductShippingClassId(item.product.id);
-          }
-          return {
+        // La spedizione la calcola il server con le classi lette da WooCommerce,
+        // come fara' payment-request-cart-order prima di addebitare. Un errore
+        // porta a 'fail' e non a una spedizione a 0€.
+        const shippingMethod = await getWalletShippingQuote(
+          ev.shippingAddress?.country || 'IT',
+          cartSubtotal - discountRef.current - pointsDiscountRef.current,
+          cart.map(item => ({
             product_id: item.product.id,
-            quantity: item.quantity,
             variation_id: item.variation_id || 0,
-            shipping_class_id: shippingClassId
-          };
-        }));
+            quantity: item.quantity
+          })),
+          couponCodeRef.current
+        );
 
-        const availableMethods = await getShippingMethods(shippingAddress, cartTotal, cartItemsForShipping);
-
-        if (availableMethods.length > 0) {
-          const shippingMethod = availableMethods[0];
+        if (shippingMethod) {
           const newShippingAmount = Math.round(shippingMethod.cost * 100);
 
           if (isMountedRef.current) {
@@ -330,9 +322,10 @@ export default function AppleGooglePayCheckout({
           }
 
           // Usa ref per avere i valori aggiornati
-          const latestFinalTotal = cartTotal - discountRef.current - pointsDiscountRef.current;
+          const latestFinalTotal = cartSubtotal - discountRef.current - pointsDiscountRef.current;
           const newTotal = Math.round(latestFinalTotal * 100) + newShippingAmount;
           const latestDisplayItems = buildDisplayItems(pointsDiscountRef.current, pointsToRedeemRef.current);
+          displayedTotalRef.current = newTotal;
 
           ev.updateWith({
             status: 'success',
@@ -370,8 +363,9 @@ export default function AppleGooglePayCheckout({
         const optionShippingCost = shippingOption.amount;
 
         // Usa ref per avere i valori aggiornati
-        const latestFinalTotal = cartTotal - discountRef.current - pointsDiscountRef.current;
+        const latestFinalTotal = cartSubtotal - discountRef.current - pointsDiscountRef.current;
         const newTotal = Math.round(latestFinalTotal * 100) + optionShippingCost;
+        displayedTotalRef.current = newTotal;
 
         const updatedDisplayItems = buildDisplayItems(pointsDiscountRef.current, pointsToRedeemRef.current);
         if (optionShippingCost > 0) {
@@ -429,6 +423,7 @@ export default function AppleGooglePayCheckout({
           userId: currentUserId,
           paymentMethodId: ev.paymentMethod.id,
           shippingOption: ev.shippingOption,
+          displayedTotal: displayedTotalRef.current ?? undefined,
           discount: discountRef.current,
           couponCode: currentCouponCode,
           pointsToRedeem: currentPointsToRedeemVal,
@@ -509,7 +504,7 @@ export default function AppleGooglePayCheckout({
 
     // Cleanup: non resettiamo paymentRequest a null per evitare flickering
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stripe, hasItems, cartTotal]);
+  }, [stripe, hasItems, cartSubtotal]);
 
   // I punti vengono letti dalle ref negli event handler (paymentmethod, shippingaddresschange, ecc.)
   // Non serve un secondo useEffect con paymentRequest.update() che può causare errori Google Pay (OR_BIBED_08)

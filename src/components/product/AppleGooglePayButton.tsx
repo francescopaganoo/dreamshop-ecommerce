@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { PaymentRequestButtonElement, useStripe } from '@stripe/react-stripe-js';
-import { Product, getShippingMethods, ShippingAddress, ShippingMethod } from '@/lib/api';
+import { Product, getShippingMethods, getWalletShippingQuote, ShippingAddress, ShippingMethod } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 
@@ -165,7 +165,7 @@ export default function AppleGooglePayButton({
           country: 'IT'
         };
 
-        const unitPrice = parseFloat(productSalePrice || productPrice || '0');
+        const unitPrice = parseFloat(productPrice || '0');
         const cartTotal = unitPrice * quantity;
 
         // Prepara gli item del carrello per il calcolo spedizione
@@ -250,8 +250,12 @@ export default function AppleGooglePayButton({
 
     lastConfigRef.current = configKey;
 
-    // Calcola il prezzo totale
-    const unitPrice = parseFloat(productSalePrice || productPrice || '0');
+    // Calcola il prezzo totale.
+    // NON usare sale_price: e' il saldo *configurato* e resta valorizzato anche
+    // a saldo scaduto o programmato. `price` e' il prezzo effettivo, lo stesso
+    // che payment-request-order addebita: con sale_price il wallet mostrava un
+    // totale diverso da quello addebitato.
+    const unitPrice = parseFloat(productPrice || '0');
     let totalAmount = unitPrice * quantity;
 
     // Se l'acconto è abilitato, calcola l'importo dell'acconto
@@ -269,6 +273,11 @@ export default function AppleGooglePayButton({
 
     // Totale finale = prodotto + spedizione
     const finalAmount = Math.round(totalAmount * 100) + shippingAmount;
+
+    // Ultimo totale (centesimi) mostrato nel foglio di QUESTO payment request:
+    // il server lo confronta con l'importo che addebita. E' locale al PR perche'
+    // il PR viene ricreato anche mentre il foglio di un PR precedente e' aperto.
+    let prDisplayedTotal = finalAmount;
 
     // Crea il payment request con configurazione semplificata
     const pr = stripe.paymentRequest({
@@ -314,32 +323,19 @@ export default function AppleGooglePayButton({
     // Gestisce il cambio di indirizzo di spedizione
     pr.on('shippingaddresschange', async (ev) => {
       try {
-        // Converti l'indirizzo di spedizione nel formato richiesto
-        const shippingAddress: ShippingAddress = {
-          first_name: '',
-          last_name: '',
-          address_1: ev.shippingAddress?.addressLine?.[0] || '',
-          city: ev.shippingAddress?.city || '',
-          state: ev.shippingAddress?.region || '',
-          postcode: ev.shippingAddress?.postalCode || '',
-          country: ev.shippingAddress?.country || 'IT'
-        };
-
-        const unitPriceCalc = parseFloat(productSalePrice || productPrice || '0');
+        const unitPriceCalc = parseFloat(productPrice || '0');
         const cartTotal = unitPriceCalc * quantity;
 
-        const cartItems = [{
-          product_id: productId,
-          quantity: quantity,
-          variation_id: variationId || 0,
-          shipping_class_id: productShippingClassId || 0
-        }];
+        // La spedizione la calcola il server con la classe letta da WooCommerce,
+        // come fara' payment-request-order prima di addebitare. Un errore porta
+        // a 'fail' e non a una spedizione a 0€.
+        const shippingMethod = await getWalletShippingQuote(
+          ev.shippingAddress?.country || 'IT',
+          cartTotal,
+          [{ product_id: productId, variation_id: variationId || 0, quantity }]
+        );
 
-        // Ricalcola i metodi di spedizione con il nuovo indirizzo
-        const availableMethods = await getShippingMethods(shippingAddress, cartTotal, cartItems);
-
-        if (availableMethods.length > 0) {
-          const shippingMethod = availableMethods[0];
+        if (shippingMethod) {
           const newShippingAmount = Math.round(shippingMethod.cost * 100);
 
           // Aggiorna il metodo di spedizione selezionato
@@ -359,6 +355,7 @@ export default function AppleGooglePayButton({
           }
 
           const newTotal = Math.round(productAmount * 100) + newShippingAmount;
+          prDisplayedTotal = newTotal;
 
           ev.updateWith({
             status: 'success',
@@ -398,7 +395,7 @@ export default function AppleGooglePayButton({
         // In questo caso abbiamo un solo metodo, ma aggiorniamo comunque il totale
         const optionShippingAmount = selectedOption.amount;
 
-        const unitPriceCalc = parseFloat(productSalePrice || productPrice || '0');
+        const unitPriceCalc = parseFloat(productPrice || '0');
         let productAmount = unitPriceCalc * quantity;
 
         if (enableDeposit === 'yes' && depositAmount) {
@@ -411,6 +408,7 @@ export default function AppleGooglePayButton({
         }
 
         const newTotal = Math.round(productAmount * 100) + optionShippingAmount;
+        prDisplayedTotal = newTotal;
 
         ev.updateWith({
           status: 'success',
@@ -453,6 +451,8 @@ export default function AppleGooglePayButton({
             paymentPlanId: paymentPlanId || undefined,
             paymentMethodId: ev.paymentMethod.id,
             shippingMethod: currentShippingMethod,
+            shippingOption: ev.shippingOption,
+            displayedTotal: prDisplayedTotal,
             variationId: variationId,
             variationAttributes: variationAttributes,
             billingData: {
