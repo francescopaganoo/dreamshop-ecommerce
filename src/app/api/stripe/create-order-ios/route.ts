@@ -130,6 +130,8 @@ export async function POST(request: NextRequest) {
         meta_data: li.meta_data,
       })),
       context: 'stripe-create-order-ios',
+      excludeToken: data.stockReservationToken || '',
+      excludeSession: data.stockSessionId || '',
     });
 
     if (!stockCheck.ok) {

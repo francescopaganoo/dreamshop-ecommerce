@@ -64,7 +64,9 @@ export async function POST(request: NextRequest) {
       pointsDiscount = 0,
       billingData,
       shippingData,
-      displayedTotal
+      displayedTotal,
+      stockSessionId = '',
+      stockReservationToken = ''
     }: {
       cartItems: CartItem[];
       userId: number;
@@ -77,6 +79,8 @@ export async function POST(request: NextRequest) {
       billingData: AddressData;
       shippingData: AddressData;
       displayedTotal?: number;
+      stockSessionId?: string;
+      stockReservationToken?: string;
     } = await request.json();
 
 
@@ -118,6 +122,10 @@ export async function POST(request: NextRequest) {
         quantity: item.quantity,
       })),
       context: 'stripe-payment-request-cart-order',
+      // Senza queste due esclusioni il cliente verrebbe respinto dalla prenotazione
+      // che si e' creato da solo cliccando "Procedi all'acquisto".
+      excludeToken: stockReservationToken,
+      excludeSession: stockSessionId,
     });
 
     if (!cartStockCheck.ok) {

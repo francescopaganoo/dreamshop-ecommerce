@@ -108,6 +108,8 @@ export async function POST(request: NextRequest) {
         meta_data: item.product.meta_data,
       })),
       context: 'create-order-standard',
+      excludeToken: data.stockReservationToken || '',
+      excludeSession: data.stockSessionId || '',
     });
 
     if (!stockCheck.ok) {

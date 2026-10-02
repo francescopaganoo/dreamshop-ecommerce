@@ -12,6 +12,7 @@ import { PLACEHOLDER_IMAGE_SMALL } from '@/lib/placeholderImage';
 import { getProduct } from '@/lib/api';
 import { getGiftPriceDisplay } from '@/lib/autoGifts';
 import { getStockSessionId, setStockReservationToken } from '@/lib/stock-session';
+import ProductNotificationForm from '@/components/ProductNotificationForm';
 
 // Interfaccia per gli errori di stock
 interface StockIssue {
@@ -25,6 +26,9 @@ interface StockIssue {
   old_price?: number;
   new_price?: number;
   fixed?: boolean;
+  /** Prodotto temporaneamente impegnato da un altro checkout in corso. */
+  heldProductId?: number;
+  heldProductName?: string;
 }
 
 // Definizione dell'interfaccia per i prodotti nel carrello
@@ -339,7 +343,7 @@ export default function CartPage() {
   // la protezione non deve mai impedire una vendita legittima.
   const reserveCartStock = async (
     items: Array<{ product_id: number; variation_id?: number; quantity: number; meta_data?: Array<{ key: string; value: string }> }>
-  ): Promise<{ ok: boolean; message?: string }> => {
+  ): Promise<{ ok: boolean; message?: string; heldProductId?: number; heldProductName?: string }> => {
     const sessionId = getStockSessionId();
 
     // Senza uno spazio dove conservare il token non si prenota: il cliente
@@ -359,7 +363,18 @@ export default function CartPage() {
       const data = await response.json();
 
       if (response.status === 409) {
-        return { ok: false, message: data.message };
+        // Un pezzo impegnato da un altro cliente non è un esaurito: si torna
+        // indietro con i dati del prodotto, così si può offrire l'avviso.
+        const held = (data.unavailable || []).find(
+          (u: { reason?: string }) => u.reason === 'reserved_by_others'
+        );
+
+        return {
+          ok: false,
+          message: data.message,
+          heldProductId: held?.product_id,
+          heldProductName: held?.name,
+        };
       }
 
       setStockReservationToken(data.token || null);
@@ -456,7 +471,9 @@ export default function CartPage() {
         if (!reservation.ok) {
           setStockErrors([{
             message: reservation.message || 'Alcuni prodotti non sono più disponibili nella quantità richiesta.',
-            issue: 'reservation_failed'
+            issue: reservation.heldProductId ? 'reserved_by_others' : 'reservation_failed',
+            heldProductId: reservation.heldProductId,
+            heldProductName: reservation.heldProductName,
           }]);
           setShowStockAlert(true);
           setIsCheckingOut(false);
@@ -572,6 +589,12 @@ export default function CartPage() {
     }
   };
   
+  // Prodotto trattenuto da un altro checkout: fa comparire il modulo di avviso.
+  const heldError = stockErrors.find(e => e.issue === 'reserved_by_others' && e.heldProductId);
+  const heldProduct = heldError
+    ? { id: heldError.heldProductId as number, name: heldError.heldProductName || 'questo prodotto' }
+    : null;
+
   const cartTotal = getCartTotal(); // Già include lo sconto punti
   const orderTotal = cartTotal - giftCardDiscount; // Sottraiamo solo gift card, i punti sono già inclusi in cartTotal
   
@@ -624,7 +647,18 @@ export default function CartPage() {
                       <li key={index} className={error.fixed ? 'font-medium' : ''}>{error.message}</li>
                     ))}
                   </ul>
-                  {!quantityUpdated && !stockErrors.some(e => e.issue === 'login_required') && (
+                  {/* Pezzo impegnato da un altro checkout: non è perso, si può
+                      chiedere di essere avvisati se torna libero. */}
+                  {heldProduct && (
+                    <div className="mt-4 rounded-md border border-amber-200 bg-white p-4">
+                      <ProductNotificationForm
+                        productId={heldProduct.id}
+                        productName={heldProduct.name}
+                      />
+                    </div>
+                  )}
+
+                  {!quantityUpdated && !stockErrors.some(e => e.issue === 'login_required') && !heldProduct && (
                     <p className="text-red-700 text-sm mt-2">
                       Aggiorna le quantità o rimuovi i prodotti non disponibili prima di procedere al checkout.
                     </p>

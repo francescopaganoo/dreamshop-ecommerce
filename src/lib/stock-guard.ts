@@ -59,6 +59,9 @@ export interface StockGuardUnavailable {
   reserved: number;
   available: number | null;
   reason: string;
+  /** Valorizzati solo quando reason === 'reserved_by_others'. */
+  reserved_until?: string | null;
+  minutes_remaining?: number | null;
 }
 
 export interface StockGuardResult {
@@ -92,6 +95,8 @@ interface PluginResponse {
     reserved: number;
     available: number | null;
     reason: string;
+    reserved_until?: string | null;
+    minutes_remaining?: number | null;
   }>;
   order_id?: number;
 }
@@ -302,19 +307,46 @@ export function buildStockErrorMessage(unavailable: StockGuardUnavailable[]): st
   }
 
   if (unavailable.length === 1) {
-    const item = unavailable[0];
-    const name = item.name || 'Un prodotto nel carrello';
-
-    if (item.available !== null && item.available > 0) {
-      return `Di "${name}" ${item.available === 1 ? 'è rimasto solo 1 pezzo' : `sono rimasti solo ${item.available} pezzi`}.`;
-    }
-    return `"${name}" non è più disponibile.`;
+    return describeUnavailableItem(unavailable[0]);
   }
 
   const names = unavailable.map(item => `"${item.name || `prodotto #${item.product_id}`}"`).join(', ');
   return `Questi prodotti non sono più disponibili nella quantità richiesta: ${names}.`;
 }
 
+/**
+ * Tre situazioni diverse che prima finivano tutte in "non più disponibile":
+ *
+ *  - il pezzo c'è ma un altro cliente lo sta pagando  → attesa con una scadenza
+ *  - ne restano meno di quanti ne servono             → quantità
+ *  - non ce n'è più                                   → esaurito
+ *
+ * Distinguerle conta: nel primo caso il cliente non è perso, deve solo sapere
+ * quanto aspettare, e può chiedere di essere avvisato.
+ */
+export function describeUnavailableItem(item: StockGuardUnavailable): string {
+  const name = item.name || 'Un prodotto nel carrello';
+
+  if (item.reason === 'reserved_by_others') {
+    const minutes = item.minutes_remaining;
+    const quando = typeof minutes === 'number' && minutes > 0
+      ? ` Se l'ordine non viene completato torna acquistabile entro circa ${minutes} ${minutes === 1 ? 'minuto' : 'minuti'}.`
+      : ' Se l\'ordine non viene completato torna acquistabile a breve.';
+
+    return `"${name}" è in questo momento in fase di acquisto da un altro cliente.${quando}`;
+  }
+
+  if (item.available !== null && item.available > 0) {
+    return `Di "${name}" ${item.available === 1 ? 'è rimasto solo 1 pezzo' : `sono rimasti solo ${item.available} pezzi`}.`;
+  }
+
+  return `"${name}" non è più disponibile.`;
+}
+
+/** true se il blocco è dovuto a un checkout altrui in corso, non a un esaurimento. */
+export function isHeldByAnotherCustomer(unavailable: StockGuardUnavailable[]): boolean {
+  return (unavailable || []).some(item => item.reason === 'reserved_by_others');
+}
 // ============================================================================
 // UTILITÀ PER I DATI ORDINE
 // ============================================================================

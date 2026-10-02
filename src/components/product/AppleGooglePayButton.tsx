@@ -5,6 +5,7 @@ import { PaymentRequestButtonElement, useStripe } from '@stripe/react-stripe-js'
 import { Product, getShippingMethods, getWalletShippingQuote, ShippingAddress, ShippingMethod } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
+import { getStockSessionId, getStockReservationToken } from '@/lib/stock-session';
 
 // Dichiarazione tipo per ApplePaySession
 declare global {
@@ -442,6 +443,9 @@ export default function AppleGooglePayButton({
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
+            // Esclude la prenotazione di questo stesso cliente dal conteggio.
+            stockSessionId: getStockSessionId(),
+            stockReservationToken: getStockReservationToken(),
             productId: productId,
             quantity: quantity,
             userId: currentUserId,

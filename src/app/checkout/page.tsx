@@ -10,7 +10,7 @@ import Link from 'next/link';
 import AppleGooglePayCheckout from '@/components/checkout/AppleGooglePayCheckout';
 import GiftCardCartWidget from '@/components/GiftCardCartWidget';
 import { createOrder, getShippingMethods, ShippingMethod, getUserAddresses, saveUserAddresses, getProductShippingClassId } from '../../lib/api';
-import { getStockReservationToken, setStockReservationToken } from '@/lib/stock-session';
+import { getStockReservationToken, setStockReservationToken, getStockSessionId } from '@/lib/stock-session';
 import { getAvailableCountries, CountryOption } from '../../lib/countries';
 import { isAutoGift } from '../../lib/autoGifts';
 
@@ -1129,7 +1129,11 @@ export default function CheckoutPage() {
           ],
           coupon_lines: coupon ? [{ code: coupon.code }] : [],
           fee_lines: fee_lines,
-          meta_data: [] as Array<{ key: string; value: string }>
+          meta_data: [
+            // Il token segue l'ordine fino alla creazione: senza, il cliente
+            // verrebbe bloccato dalla prenotazione che si è creato da solo.
+            { key: '_dsg_reservation_token', value: getStockReservationToken() },
+          ] as Array<{ key: string; value: string }>
         };
 
         // Aggiungi metadati per punti riscattati
@@ -1342,6 +1346,9 @@ export default function CheckoutPage() {
             }] : [])
           ],
           meta_data: [
+            // Il token segue l'ordine fino alla creazione: senza, il cliente
+            // verrebbe bloccato dalla prenotazione che si è creato da solo.
+            { key: '_dsg_reservation_token', value: getStockReservationToken() },
             ...(pointsToRedeem > 0 ? [
               { key: '_points_redeemed', value: pointsToRedeem.toString() },
               { key: '_points_discount', value: pointsDiscount.toString() },
@@ -1676,6 +1683,8 @@ export default function CheckoutPage() {
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
+                stockSessionId: getStockSessionId(),
+                stockReservationToken: getStockReservationToken(),
                 paymentMethodId: paymentMethod.id,
                 amount: Math.round(total * 100),
                 customerInfo: {  // Usa direttamente le informazioni dal formData
@@ -2259,6 +2268,9 @@ export default function CheckoutPage() {
           // Aggiungi fee_lines per lo sconto punti
           fee_lines: satispayFeeLines,
           meta_data: [
+            // Il token segue l'ordine fino alla creazione: senza, il cliente
+            // verrebbe bloccato dalla prenotazione che si è creato da solo.
+            { key: '_dsg_reservation_token', value: getStockReservationToken() },
             ...(customerIdForOrder ? [{ key: '_customer_user', value: customerIdForOrder.toString() }] : []),
             { key: '_checkout_payment_method', value: 'satispay' },
             { key: '_points_discount', value: pointsDiscount.toString() },

@@ -50,6 +50,8 @@ export async function POST(request: NextRequest) {
       shippingData,
       variationId,
       variationAttributes,
+      stockSessionId = '',
+      stockReservationToken = '',
       displayedTotal
     }: {
       productId: number;
@@ -67,6 +69,8 @@ export async function POST(request: NextRequest) {
       variationId?: number;
       variationAttributes?: Array<{ name: string; option: string }>;
       displayedTotal?: number;
+      stockSessionId?: string;
+      stockReservationToken?: string;
     } = await request.json();
 
     // Ottieni i dettagli del prodotto
@@ -92,6 +96,8 @@ export async function POST(request: NextRequest) {
     const stockCheck = await assertStockAvailable({
       items: [{ product_id: productId, variation_id: variationId || 0, quantity }],
       context: 'stripe-payment-request-order',
+      excludeToken: stockReservationToken,
+      excludeSession: stockSessionId,
     });
 
     if (!stockCheck.ok) {

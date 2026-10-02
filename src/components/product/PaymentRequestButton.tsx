@@ -5,6 +5,7 @@ import { useStripe } from '@stripe/react-stripe-js';
 import { Product } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
+import { getStockSessionId, getStockReservationToken } from '@/lib/stock-session';
 
 type PaymentRequest = ReturnType<NonNullable<ReturnType<typeof useStripe>>['paymentRequest']>;
 
@@ -127,6 +128,9 @@ export default function PaymentRequestButton({
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
+            // Esclude la prenotazione di questo stesso cliente dal conteggio.
+            stockSessionId: getStockSessionId(),
+            stockReservationToken: getStockReservationToken(),
             productId: productId,
             quantity: quantity,
             userId: userId,

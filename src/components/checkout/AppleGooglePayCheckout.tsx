@@ -7,6 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { getShippingMethods, getProductShippingClassId, getWalletShippingQuote, ShippingAddress, ShippingMethod } from '@/lib/api';
 import { getDepositInfo, ProductWithDeposit } from '@/lib/deposits';
+import { getStockSessionId, getStockReservationToken } from '@/lib/stock-session';
 
 // Dichiarazione tipo per ApplePaySession
 declare global {
@@ -466,7 +467,13 @@ export default function AppleGooglePayCheckout({
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(orderData),
+          // Sessione e token servono al controllo disponibilità per non respingere
+          // il cliente a causa della prenotazione che si è creato lui stesso.
+          body: JSON.stringify({
+            ...orderData,
+            stockSessionId: getStockSessionId(),
+            stockReservationToken: getStockReservationToken(),
+          }),
         });
 
         const result = await response.json();
