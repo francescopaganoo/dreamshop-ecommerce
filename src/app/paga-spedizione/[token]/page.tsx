@@ -6,7 +6,7 @@ import { Elements, CardElement, useStripe, useElements, PaymentRequestButtonElem
 import { PayPalButtons, PayPalScriptProvider } from '@paypal/react-paypal-js';
 import { getStripe } from '@/lib/stripe';
 import { paypalOptions } from '@/lib/paypal';
-import { ResinShippingFee, getResinShippingFeeByToken, formatDeadline } from '@/lib/resinShipping';
+import { ResinShippingFee, getResinShippingFeeByToken, formatDeadline, resinShippingCustomId } from '@/lib/resinShipping';
 
 type PageState = 'loading' | 'ready' | 'processing' | 'success' | 'error' | 'already_paid' | 'not_found' | 'expired';
 
@@ -339,7 +339,8 @@ const PublicPayPalWrapper = ({
     return actions.order.create({
       purchase_units: [{
         amount: { currency_code: 'EUR', value: parseFloat(shippingFee.shipping_amount).toFixed(2) },
-        description: `Spedizione resina per ordine #${shippingFee.order_number}`
+        description: `Spedizione resina per ordine #${shippingFee.order_number}`,
+        custom_id: resinShippingCustomId(shippingFee.id)
       }]
     });
   };
@@ -355,13 +356,21 @@ const PublicPayPalWrapper = ({
       const paypalData = data as { orderID: string };
       const captureResult = await actions.order.capture();
 
-      const transactionId = captureResult.purchase_units?.[0]?.payments?.captures?.[0]?.id || paypalData.orderID;
-      const amountValue = captureResult.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.value;
-      const actualAmount = amountValue ? parseFloat(amountValue) : 0;
-
-      if (!actualAmount || actualAmount <= 0) {
-        throw new Error('Impossibile verificare l\'importo pagato');
+      // Card declined by the issuer: let PayPal ask for another funding source
+      if (captureResult?.details?.[0]?.issue === 'INSTRUMENT_DECLINED') {
+        return actions.restart();
       }
+
+      const capture = captureResult?.purchase_units?.[0]?.payments?.captures?.[0];
+      if (captureResult?.status !== 'COMPLETED' || capture?.status !== 'COMPLETED') {
+        throw new Error(
+          `Il pagamento PayPal non risulta completato (stato: ${capture?.status || captureResult?.status || 'sconosciuto'}). ` +
+          'La spedizione non è stata segnata come pagata: se l\'importo ti è stato addebitato contatta il supporto, altrimenti riprova.'
+        );
+      }
+
+      const transactionId = capture.id;
+      const actualAmount = parseFloat(capture.amount?.value || '0');
 
       const response = await fetch(`/api/resin-shipping/${token}/complete-payment`, {
         method: 'POST',

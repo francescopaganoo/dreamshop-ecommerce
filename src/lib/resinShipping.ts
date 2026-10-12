@@ -14,6 +14,9 @@ export interface ResinShippingFee {
   is_expired?: boolean;
 }
 
+// PayPal custom_id that binds a PayPal order to a single shipping fee (checked server-side in complete-payment)
+export const resinShippingCustomId = (shippingFeeId: number | string) => `resin_shipping_${shippingFeeId}`;
+
 export const formatDeadline = (deadline?: string | null): string => {
   if (!deadline) return '';
   const [y, m, d] = deadline.split('-');

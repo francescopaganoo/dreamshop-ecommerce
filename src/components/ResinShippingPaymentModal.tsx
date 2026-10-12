@@ -3,7 +3,7 @@ import { Elements, CardElement, useStripe, useElements, PaymentRequestButtonElem
 import { PayPalButtons, PayPalScriptProvider } from '@paypal/react-paypal-js';
 import { getStripe } from '@/lib/stripe';
 import { paypalOptions } from '@/lib/paypal';
-import { ResinShippingFee, formatDeadline } from '@/lib/resinShipping';
+import { ResinShippingFee, formatDeadline, resinShippingCustomId } from '@/lib/resinShipping';
 
 // Apple Pay / Google Pay button for resin shipping
 const ResinAppleGooglePayButton = ({
@@ -395,7 +395,8 @@ const ResinPayPalButtonsWrapper = ({
             currency_code: 'EUR',
             value: amount
           },
-          description: `Spedizione resina per ordine #${shippingFee.order_number}`
+          description: `Spedizione resina per ordine #${shippingFee.order_number}`,
+          custom_id: resinShippingCustomId(shippingFee.id)
         }]
       });
     } catch (error) {
@@ -421,14 +422,21 @@ const ResinPayPalButtonsWrapper = ({
 
       const captureResult = await actions.order.capture();
 
-      const transactionId = captureResult.purchase_units?.[0]?.payments?.captures?.[0]?.id || paypalData.orderID;
-      const amountValue = captureResult.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.value ||
-        captureResult.purchase_units?.[0]?.amount?.value;
-      const actualPaidAmount = amountValue ? parseFloat(amountValue) : 0;
-
-      if (!actualPaidAmount || actualPaidAmount <= 0) {
-        throw new Error('Impossibile estrarre l\'importo pagato da PayPal');
+      // Card declined by the issuer: let PayPal ask for another funding source
+      if (captureResult?.details?.[0]?.issue === 'INSTRUMENT_DECLINED') {
+        return actions.restart();
       }
+
+      const capture = captureResult?.purchase_units?.[0]?.payments?.captures?.[0];
+      if (captureResult?.status !== 'COMPLETED' || capture?.status !== 'COMPLETED') {
+        throw new Error(
+          `Il pagamento PayPal non risulta completato (stato: ${capture?.status || captureResult?.status || 'sconosciuto'}). ` +
+          'La spedizione non è stata segnata come pagata: se l\'importo ti è stato addebitato contatta il supporto, altrimenti riprova.'
+        );
+      }
+
+      const transactionId = capture.id;
+      const actualPaidAmount = parseFloat(capture.amount?.value || '0');
 
       // Complete payment via token-based endpoint (no JWT needed)
       const response = await fetch(`/api/resin-shipping/${shippingFee.payment_token}/complete-payment`, {
