@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { getOrderBillingContact } from '@/lib/orderBillingContact';
 
 const WP_URL = (process.env.NEXT_PUBLIC_WORDPRESS_URL || 'http://localhost:8080').replace(/\/$/, '');
 const WC_KEY = process.env.NEXT_PUBLIC_WC_CONSUMER_KEY || '';
@@ -52,6 +53,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Importo non valido' }, { status: 400 });
     }
 
+    const billing = await getOrderBillingContact(shippingFee.order_id);
+
     const idempotencyKey = `resin_shipping_${token}_${Date.now()}`;
 
     const paymentIntent = await stripe.paymentIntents.create({
@@ -63,6 +66,8 @@ export async function POST(request: NextRequest) {
         shipping_fee_id: shippingFee.id.toString(),
         order_id: shippingFee.order_id.toString(),
         product_id: shippingFee.product_id.toString(),
+        customer_name: billing.name,
+        customer_email: billing.email,
       },
       description: `Spedizione resina per ordine #${shippingFee.order_number}`,
       automatic_payment_methods: { enabled: true },
@@ -72,7 +77,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      clientSecret: paymentIntent.client_secret
+      clientSecret: paymentIntent.client_secret,
+      billingName: billing.name,
+      billingEmail: billing.email
     });
   } catch (error: unknown) {
     const apiError = error instanceof Error ? error : new Error('Errore sconosciuto');

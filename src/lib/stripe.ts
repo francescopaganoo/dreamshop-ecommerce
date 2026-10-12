@@ -8,3 +8,10 @@ export const getStripe = () => {
   }
   return stripePromise;
 };
+
+// Billing details for confirmCardPayment, from the billingName/billingEmail returned by the
+// *-stripe-pay routes: shows the real customer on Stripe instead of a generic placeholder
+export const cardBillingDetails = (data?: { billingName?: string; billingEmail?: string } | null) => ({
+  name: data?.billingName || 'Cliente Dreamshop',
+  ...(data?.billingEmail ? { email: data.billingEmail } : {}),
+});

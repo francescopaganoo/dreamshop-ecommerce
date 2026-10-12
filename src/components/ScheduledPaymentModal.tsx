@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { PayPalButtons, PayPalScriptProvider } from '@paypal/react-paypal-js';
-import { getStripe } from '@/lib/stripe';
+import { getStripe, cardBillingDetails } from '@/lib/stripe';
 import { paypalOptions } from '@/lib/paypal';
 import { useAuth } from '@/context/AuthContext';
 
@@ -26,6 +26,7 @@ const CheckoutForm = ({
   const [isCardElementReady, setIsCardElementReady] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [billingData, setBillingData] = useState<{ billingName?: string; billingEmail?: string } | null>(null);
   const [paymentCompleted, setPaymentCompleted] = useState(false);
   
   // NON recuperiamo il client secret all'avvio del componente
@@ -58,6 +59,7 @@ const CheckoutForm = ({
 
       // Otteniamo il client secret solo al momento del pagamento
       let secret: string | null = clientSecret;
+      let billing = billingData;
       
       if (!secret) {
         // Crea un nuovo PaymentIntent solo ora
@@ -79,6 +81,8 @@ const CheckoutForm = ({
         if (data.success && data.clientSecret) {
           secret = data.clientSecret;
           setClientSecret(secret);
+          billing = data;
+          setBillingData(data);
         } else {
           console.error('Client secret non trovato nella risposta API');
           throw new Error('Client secret non trovato');
@@ -94,9 +98,7 @@ const CheckoutForm = ({
       const result = await stripe.confirmCardPayment(secret, {
         payment_method: {
           card: cardElement,
-          billing_details: {
-            name: 'Cliente Dreamshop',
-          },
+          billing_details: cardBillingDetails(billing),
         }
       });
 

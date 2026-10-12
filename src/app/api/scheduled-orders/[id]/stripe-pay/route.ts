@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import Stripe from 'stripe';
 import { cookies } from 'next/headers';
+import { getOrderBillingContact } from '@/lib/orderBillingContact';
 
 // Interfaccia per il payload JWT decodificato
 interface JwtPayload {
@@ -132,6 +133,8 @@ export async function POST(request: NextRequest) {
       // Converti l'importo in centesimi per Stripe
       const amount = Math.round(parseFloat(scheduledOrder.total) * 100);
       
+      const billing = await getOrderBillingContact(id);
+
       // Crea un nuovo PaymentIntent per questo pagamento
       const idempotencyKey = `scheduled_order_${id}_user_${decoded.id}_${Date.now()}`;
       
@@ -142,7 +145,9 @@ export async function POST(request: NextRequest) {
         metadata: {
           order_id: id,
           user_id: decoded.id.toString(),
-          type: 'scheduled_payment'
+          type: 'scheduled_payment',
+          customer_name: billing.name,
+          customer_email: billing.email
         },
         description: `Pagamento rata pianificata #${id} per ordine #${scheduledOrder.parent_order_number}`,
         payment_method_types: ['card'],
@@ -154,7 +159,9 @@ export async function POST(request: NextRequest) {
       
       return NextResponse.json({
         success: true,
-        clientSecret: paymentIntent.client_secret
+        clientSecret: paymentIntent.client_secret,
+        billingName: billing.name,
+        billingEmail: billing.email
       });
       
     } catch (error: unknown) {

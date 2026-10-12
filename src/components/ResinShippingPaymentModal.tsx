@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Elements, CardElement, useStripe, useElements, PaymentRequestButtonElement } from '@stripe/react-stripe-js';
 import { PayPalButtons, PayPalScriptProvider } from '@paypal/react-paypal-js';
-import { getStripe } from '@/lib/stripe';
+import { getStripe, cardBillingDetails } from '@/lib/stripe';
 import { paypalOptions } from '@/lib/paypal';
 import { ResinShippingFee, formatDeadline, resinShippingCustomId } from '@/lib/resinShipping';
 
@@ -187,6 +187,7 @@ const ResinStripeCheckoutForm = ({
   const [isCardElementReady, setIsCardElementReady] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [billingData, setBillingData] = useState<{ billingName?: string; billingEmail?: string } | null>(null);
   const [paymentCompleted, setPaymentCompleted] = useState(false);
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -212,6 +213,8 @@ const ResinStripeCheckoutForm = ({
 
       let secret: string | null = clientSecret;
 
+      let billing = billingData;
+
       if (!secret) {
         const response = await fetch(`/api/resin-shipping/${shippingFee.payment_token}/stripe-pay`, {
           method: 'POST',
@@ -228,6 +231,8 @@ const ResinStripeCheckoutForm = ({
         if (data.success && data.clientSecret) {
           secret = data.clientSecret;
           setClientSecret(secret);
+          billing = data;
+          setBillingData(data);
         } else {
           throw new Error('Client secret non trovato');
         }
@@ -240,9 +245,7 @@ const ResinStripeCheckoutForm = ({
       const result = await stripe.confirmCardPayment(secret, {
         payment_method: {
           card: cardElement,
-          billing_details: {
-            name: 'Cliente Dreamshop',
-          },
+          billing_details: cardBillingDetails(billing),
         }
       });
 
